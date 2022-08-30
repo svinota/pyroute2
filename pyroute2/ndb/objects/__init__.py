@@ -24,25 +24,35 @@ the `IPRoute` methods is valid here as well.
 
 See also: :ref:`iproute`
 
-.. code-block:: python
+
+.. testsetup::
+
+    from pyroute2 import IPMock as IPRoute
+    from pyroute2 import NDB
+    from pyroute2 import config
+
+    config.mock_iproute = True
+
+.. testcode::
 
     # create a vlan interface with IPRoute
+    eth0 = 2
     with IPRoute() as ipr:
         ipr.link("add",
                  ifname="vlan1108",
                  kind="vlan",
-                 link=ipr.link_lookup(ifname="eth0"),
+                 link=eth0,
                  vlan_id=1108)
 
     # same with NDB:
     with NDB(log="stderr") as ndb:
-        (ndb
-         .interfaces
-         .create(ifname="vlan1108",
-                 kind="vlan",
-                 link="eth0",
-                 vlan_id=1108)
-         .commit())
+        vlan = ndb.interfaces.create(
+            ifname="vlan1108",
+            kind="vlan",
+            link="eth0",
+            vlan_id=1108,
+        )
+        vlan.commit()
 
 Slightly simplifying, if a network object doesn't exist, NDB will run
 an RTNL method with "add" argument, if exists -- "set", and to remove
