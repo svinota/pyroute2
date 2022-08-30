@@ -1,6 +1,7 @@
 import copy
 import errno
 import queue
+from itertools import count
 
 from pyroute2.lab import LAB_API
 from pyroute2.netlink.exceptions import NetlinkError
@@ -12,9 +13,9 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
 from pyroute2.requests.link import LinkFieldFilter
 from pyroute2.requests.main import RequestProcessor
-from itertools import count
 
 interface_counter = count(2)
+
 
 class MockLink:
     def __init__(
@@ -231,7 +232,7 @@ class MockAddress:
         label=None,
         family=2,
         local=None,
-        **kwarg
+        **kwarg,
     ):
         self.address = address
         self.local = local
