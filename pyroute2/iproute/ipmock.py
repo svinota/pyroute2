@@ -12,14 +12,16 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
 from pyroute2.requests.link import LinkFieldFilter
 from pyroute2.requests.main import RequestProcessor
+from itertools import count
 
+interface_counter = count(2)
 
 class MockLink:
     def __init__(
         self,
         index,
-        ifname,
-        address,
+        ifname='',
+        address='00:00:00:00:00:00',
         broadcast='ff:ff:ff:ff:ff:ff',
         perm_address=None,
         flags=1,
@@ -29,6 +31,9 @@ class MockLink:
         tx_packets=0,
         mtu=0,
         qdisc='noqueue',
+        kind=None,
+        link=None,
+        vlan_id=None,
     ):
         self.index = index
         self.ifname = ifname
@@ -42,9 +47,12 @@ class MockLink:
         self.tx_packets = tx_packets
         self.mtu = mtu
         self.qdisc = qdisc
+        self.kind = kind
+        self.link = link
+        self.vlan_id = vlan_id
 
     def export(self):
-        return {
+        ret = {
             'attrs': [
                 ['IFLA_IFNAME', self.ifname],
                 ['IFLA_TXQLEN', 1000],
@@ -196,6 +204,21 @@ class MockLink:
             'index': self.index,
             'state': 'up' if self.flags & 1 else 'down',
         }
+        linkinfo = None
+        infodata = {'attrs': []}
+        if self.kind not in (None, 'dummy'):
+            linkinfo = {
+                'attrs': [
+                    ('IFLA_INFO_KIND', self.kind),
+                    ('IFLA_INFO_DATA', infodata),
+                ]
+            }
+        if self.kind == 'vlan':
+            infodata['attrs'].append(('IFLA_VLAN_ID', self.vlan_id))
+            ret['attrs'].append(('IFLA_LINK', self.link))
+        if linkinfo is not None:
+            ret['attrs'].append(('IFLA_LINKINFO', linkinfo))
+        return ret
 
 
 class MockAddress:
@@ -476,11 +499,16 @@ class IPRoute(LAB_API, NetlinkSocketBase):
     def _match(self, mode, obj, spec):
         keys = {
             'address': ['address', 'prefixlen', 'index', 'family'],
-            'link': ['index'],
+            'link': ['index', 'ifname'],
         }
+        check = False
         for key in keys[mode]:
-            if spec[key] != getattr(obj, key):
-                return False
+            if key in spec:
+                check = True
+                if spec[key] != getattr(obj, key):
+                    return False
+        if not check:
+            return False
         return True
 
     def addr(self, command, **spec):
@@ -524,6 +552,15 @@ class IPRoute(LAB_API, NetlinkSocketBase):
                     raise NetlinkError(errno.EEXIST, 'interface exists')
                 break
         else:
+            index = next(interface_counter)
+            if 'address' not in request:
+                request['address'] = f'00:11:22:33:44:{index:02}'
+            if 'index' not in request:
+                request['index'] = index
+            if 'tflags' in request:
+                del request['tflags']
+            if 'target' in request:
+                del request['target']
             interface = MockLink(**request)
 
         if command == 'add':
