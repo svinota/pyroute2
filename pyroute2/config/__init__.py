@@ -29,6 +29,8 @@ cache_expire = 60
 
 signal_stop_remote = signal.SIGUSR1
 
+mock_iproute = False
+
 # save uname() on startup time: it is not so
 # highly possible that the kernel will be
 # changed in runtime, while calling uname()

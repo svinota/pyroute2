@@ -262,7 +262,7 @@ Add an IP address on an interface:
 
     with ndb.interfaces['eth0'] as eth0:
         eth0.add_ip('10.0.0.1/24')
-    # ---> <---  NDB waits until the address actually
+    # ---> <---  NDB waits until the address setup
 
 Change an interface property:
 
@@ -527,11 +527,20 @@ class NDB(object):
         #
         # fix sources prime
         if sources is None:
-            sources = [
-                {'target': self.localhost, 'kind': 'local', 'nlm_generator': 1}
-            ]
-            if sys.platform.startswith('linux'):
-                sources.append({'target': self.nsmanager, 'kind': 'nsmanager'})
+            if config.mock_iproute:
+                sources = [{'target': 'localhost', 'kind': 'IPMock'}]
+            else:
+                sources = [
+                    {
+                        'target': self.localhost,
+                        'kind': 'local',
+                        'nlm_generator': 1,
+                    }
+                ]
+                if sys.platform.startswith('linux'):
+                    sources.append(
+                        {'target': self.nsmanager, 'kind': 'nsmanager'}
+                    )
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
