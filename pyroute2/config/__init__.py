@@ -30,6 +30,7 @@ cache_expire = 60
 signal_stop_remote = signal.SIGUSR1
 
 mock_iproute = False
+nlsocket_thread_safe = True
 
 # save uname() on startup time: it is not so
 # highly possible that the kernel will be

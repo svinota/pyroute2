@@ -213,7 +213,7 @@ class Marshal:
             partial(self.parse_one_message, key, flags, sequence_number),
         )
 
-    def parse(self, data, seq=None, callback=None):
+    def parse(self, data, seq=None, callback=None, skip_alien_seq=False):
         '''
         Parse string data.
 
@@ -230,6 +230,8 @@ class Marshal:
             (length, key, flags, sequence_number) = struct.unpack_from(
                 'IHHI', data, offset
             )
+            if skip_alien_seq and sequence_number != seq:
+                continue
             if not 0 < length <= len(data):
                 break
             # support custom parser keys
@@ -329,9 +331,397 @@ class LockFactory:
         del self.locks[key]
 
 
-class NetlinkSocketBase:
+class NetlinkSocketBaseSafe:
     '''
-    Generic netlink socket
+    Thread-safe base class for netlink sockets. It buffers all
+    incoming messages regardless sequence numbers, and returns
+    only messages with requested numbers. This is done using
+    synchronization primitives in a quite complicated manner.
+    '''
+
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        '''
+        Construct a message from a dictionary and send it to
+        the socket. Parameters:
+
+            - msg -- the message in the dictionary format
+            - msg_type -- the message type
+            - msg_flags -- the message flags to use in the request
+            - addr -- `sendto()` addr, default `(0, 0)`
+            - msg_seq -- sequence number to use
+            - msg_pid -- pid to use, if `None` -- use os.getpid()
+
+        Example::
+
+            s = IPRSocket()
+            s.bind()
+            s.put({'index': 1}, RTM_GETLINK)
+            s.get()
+            s.close()
+
+        Please notice, that the return value of `s.get()` can be
+        not the result of `s.put()`, but any broadcast message.
+        To fix that, use `msg_seq` -- the response must contain the
+        same `msg['header']['sequence_number']` value.
+        '''
+        if msg_seq != 0:
+            self.lock[msg_seq].acquire()
+        try:
+            if msg_seq not in self.backlog:
+                self.backlog[msg_seq] = []
+            if not isinstance(msg, nlmsg):
+                msg_class = self.marshal.msg_map[msg_type]
+                msg = msg_class(msg)
+            if msg_pid is None:
+                msg_pid = self.epid or os.getpid()
+            msg['header']['type'] = msg_type
+            msg['header']['flags'] = msg_flags
+            msg['header']['sequence_number'] = msg_seq
+            msg['header']['pid'] = msg_pid
+            self.sendto_gate(msg, addr)
+        except:
+            raise
+        finally:
+            if msg_seq != 0:
+                self.lock[msg_seq].release()
+
+    def get(
+        self,
+        bufsize=DEFAULT_RCVBUF,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
+    ):
+        '''
+        Get parsed messages list. If `msg_seq` is given, return
+        only messages with that `msg['header']['sequence_number']`,
+        saving all other messages into `self.backlog`.
+
+        The routine is thread-safe.
+
+        The `bufsize` parameter can be:
+
+            - -1: bufsize will be calculated from the first 4 bytes of
+                the network data
+            - 0: bufsize will be calculated from SO_RCVBUF sockopt
+            - int >= 0: just a bufsize
+
+        If `noraise` is true, error messages will be treated as any
+        other message.
+        '''
+        ctime = time.time()
+
+        with self.lock[msg_seq]:
+            if bufsize == -1:
+                # get bufsize from the network data
+                bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
+            elif bufsize == 0:
+                # get bufsize from SO_RCVBUF
+                bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
+
+            tmsg = None
+            enough = False
+            backlog_acquired = False
+            try:
+                while not enough:
+                    # 8<-----------------------------------------------------------
+                    #
+                    # This stage changes the backlog, so use mutex to
+                    # prevent side changes
+                    self.backlog_lock.acquire()
+                    backlog_acquired = True
+                    ##
+                    # Stage 1. BEGIN
+                    #
+                    # 8<-----------------------------------------------------------
+                    #
+                    # Check backlog and return already collected
+                    # messages.
+                    #
+                    if msg_seq == 0 and self.backlog[0]:
+                        # Zero queue.
+                        #
+                        # Load the backlog, if there is valid
+                        # content in it
+                        for msg in self.backlog[0]:
+                            yield msg
+                        self.backlog[0] = []
+                        # And just exit
+                        break
+                    elif msg_seq != 0 and len(self.backlog.get(msg_seq, [])):
+                        # Any other msg_seq.
+                        #
+                        # Collect messages up to the terminator.
+                        # Terminator conditions:
+                        #  * NLMSG_ERROR != 0
+                        #  * NLMSG_DONE
+                        #  * terminate() function (if defined)
+                        #  * not NLM_F_MULTI
+                        #
+                        # Please note, that if terminator not occured,
+                        # more `recv()` rounds CAN be required.
+                        for msg in tuple(self.backlog[msg_seq]):
+
+                            # Drop the message from the backlog, if any
+                            self.backlog[msg_seq].remove(msg)
+
+                            # If there is an error, raise exception
+                            if (
+                                msg['header']['error'] is not None
+                                and not noraise
+                            ):
+                                # reschedule all the remaining messages,
+                                # including errors and acks, into a
+                                # separate deque
+                                self.error_deque.extend(self.backlog[msg_seq])
+                                # flush the backlog for this msg_seq
+                                del self.backlog[msg_seq]
+                                # The loop is done
+                                raise msg['header']['error']
+
+                            # If it is the terminator message, say "enough"
+                            # and requeue all the rest into Zero queue
+                            if terminate is not None:
+                                tmsg = terminate(msg)
+                                if isinstance(tmsg, nlmsg):
+                                    yield msg
+                            if (msg['header']['type'] == NLMSG_DONE) or tmsg:
+                                # The loop is done
+                                enough = True
+
+                            # If it is just a normal message, append it to
+                            # the response
+                            if not enough:
+                                # finish the loop on single messages
+                                if not msg['header']['flags'] & NLM_F_MULTI:
+                                    enough = True
+                                yield msg
+
+                            # Enough is enough, requeue the rest and delete
+                            # our backlog
+                            if enough:
+                                self.backlog[0].extend(self.backlog[msg_seq])
+                                del self.backlog[msg_seq]
+                                break
+
+                        # Next iteration
+                        self.backlog_lock.release()
+                        backlog_acquired = False
+                    else:
+                        # Stage 1. END
+                        #
+                        # 8<-------------------------------------------------------
+                        #
+                        # Stage 2. BEGIN
+                        #
+                        # 8<-------------------------------------------------------
+                        #
+                        # Receive the data from the socket and put the messages
+                        # into the backlog
+                        #
+                        self.backlog_lock.release()
+                        backlog_acquired = False
+                        ##
+                        #
+                        # Control the timeout. We should not be within the
+                        # function more than TIMEOUT seconds. All the locks
+                        # MUST be released here.
+                        #
+                        if (msg_seq != 0) and (
+                            time.time() - ctime > self.get_timeout
+                        ):
+                            # requeue already received for that msg_seq
+                            self.backlog[0].extend(self.backlog[msg_seq])
+                            del self.backlog[msg_seq]
+                            # throw an exception
+                            if self.get_timeout_exception:
+                                raise self.get_timeout_exception()
+                            else:
+                                return
+                        #
+                        if self.read_lock.acquire(False):
+                            try:
+                                self.change_master.clear()
+                                # If the socket is free to read from, occupy
+                                # it and wait for the data
+                                #
+                                # This is a time consuming process, so all the
+                                # locks, except the read lock must be released
+                                data = self.recv(bufsize)
+                                # Parse data
+                                msgs = tuple(
+                                    self.marshal.parse(data, msg_seq, callback)
+                                )
+                                # Reset ctime -- timeout should be measured
+                                # for every turn separately
+                                ctime = time.time()
+                                #
+                                current = self.buffer_queue.qsize()
+                                delta = current - self.qsize
+                                delay = 0
+                                if delta > 10:
+                                    delay = min(
+                                        3, max(0.01, float(current) / 60000)
+                                    )
+                                    message = (
+                                        "Packet burst: "
+                                        "delta=%s qsize=%s delay=%s"
+                                        % (delta, current, delay)
+                                    )
+                                    if delay < 1:
+                                        log.debug(message)
+                                    else:
+                                        log.warning(message)
+                                    time.sleep(delay)
+                                self.qsize = current
+
+                                # We've got the data, lock the backlog again
+                                with self.backlog_lock:
+                                    for msg in msgs:
+                                        msg['header']['target'] = self.target
+                                        msg['header']['stats'] = Stats(
+                                            current, delta, delay
+                                        )
+                                        seq = msg['header']['sequence_number']
+                                        if seq not in self.backlog:
+                                            if (
+                                                msg['header']['type']
+                                                == NLMSG_ERROR
+                                            ):
+                                                # Drop orphaned NLMSG_ERROR
+                                                # messages
+                                                continue
+                                            seq = 0
+                                        # 8<-----------------------------------
+                                        # Callbacks section
+                                        for cr in self.callbacks:
+                                            try:
+                                                if cr[0](msg):
+                                                    cr[1](msg, *cr[2])
+                                            except:
+                                                # FIXME
+                                                #
+                                                # Usually such code formatting
+                                                # means that the method should
+                                                # be refactored to avoid such
+                                                # indentation.
+                                                #
+                                                # Plz do something with it.
+                                                #
+                                                lw = log.warning
+                                                lw("Callback fail: %s" % (cr))
+                                                lw(traceback.format_exc())
+                                        # 8<-----------------------------------
+                                        self.backlog[seq].append(msg)
+
+                                # Now wake up other threads
+                                self.change_master.set()
+                            finally:
+                                # Finally, release the read lock: all data
+                                # processed
+                                self.read_lock.release()
+                        else:
+                            # If the socket is occupied and there is still no
+                            # data for us, wait for the next master change or
+                            # for a timeout
+                            self.change_master.wait(1)
+                        # 8<-------------------------------------------------------
+                        #
+                        # Stage 2. END
+                        #
+                        # 8<-------------------------------------------------------
+            finally:
+                if backlog_acquired:
+                    self.backlog_lock.release()
+
+
+class NetlinkSocketBaseUnsafe:
+    '''
+    Thread unsafe nlsocket base class. Does not implement any locks
+    on message processing. Discards any message if the sequence number
+    does not match.
+    '''
+
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        if not isinstance(msg, nlmsg):
+            msg_class = self.marshal.msg_map[msg_type]
+            msg = msg_class(msg)
+        if msg_pid is None:
+            msg_pid = self.epid or os.getpid()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg['header']['sequence_number'] = msg_seq
+        msg['header']['pid'] = msg_pid
+        self.sendto_gate(msg, addr)
+
+    def get(
+        self,
+        bufsize=DEFAULT_RCVBUF,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
+    ):
+        if bufsize == -1:
+            # get bufsize from the network data
+            bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
+        elif bufsize == 0:
+            # get bufsize from SO_RCVBUF
+            bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
+        enough = False
+        while not enough:
+            data = self.recv(bufsize)
+            for msg in self.marshal.parse(data, msg_seq, callback):
+                msg['header']['target'] = self.target
+                msg['header']['stats'] = Stats(0, 0, 0)
+                if (
+                    (msg_seq == 0)
+                    or (msg['header']['type'] == NLMSG_DONE)
+                    or (not msg['header']['flags'] & NLM_F_MULTI)
+                    or (
+                        callable(terminate)
+                        and not isinstance(terminate(msg), nlmsg)
+                    )
+                ):
+                    enough = True
+                    if msg['header']['type'] == NLMSG_DONE:
+                        continue
+                yield msg
+
+
+class NetlinkSocketMeta(type):
+    def __new__(cls, name, bases, dct):
+        if (
+            config.nlsocket_thread_safe
+            and os.environ.get('PYROUTE2_NLSOCKET_THREAD_SAFE', 'true').lower()
+            == 'true'
+        ):
+            base = NetlinkSocketBaseSafe
+        else:
+            base = NetlinkSocketBaseUnsafe
+        return super().__new__(cls, name, bases + (base,), dct)
+
+
+class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
+    '''
+    Generic netlink socket.
     '''
 
     input_from_buffer_queue = False
@@ -665,316 +1055,12 @@ class NetlinkSocketBase:
             return self.compiled.append(data)
         self._sock.sendto(data, addr)
 
-    def put(
-        self,
-        msg,
-        msg_type,
-        msg_flags=NLM_F_REQUEST,
-        addr=(0, 0),
-        msg_seq=0,
-        msg_pid=None,
-    ):
-        '''
-        Construct a message from a dictionary and send it to
-        the socket. Parameters:
-
-            - msg -- the message in the dictionary format
-            - msg_type -- the message type
-            - msg_flags -- the message flags to use in the request
-            - addr -- `sendto()` addr, default `(0, 0)`
-            - msg_seq -- sequence number to use
-            - msg_pid -- pid to use, if `None` -- use os.getpid()
-
-        Example::
-
-            s = IPRSocket()
-            s.bind()
-            s.put({'index': 1}, RTM_GETLINK)
-            s.get()
-            s.close()
-
-        Please notice, that the return value of `s.get()` can be
-        not the result of `s.put()`, but any broadcast message.
-        To fix that, use `msg_seq` -- the response must contain the
-        same `msg['header']['sequence_number']` value.
-        '''
-        if msg_seq != 0:
-            self.lock[msg_seq].acquire()
-        try:
-            if msg_seq not in self.backlog:
-                self.backlog[msg_seq] = []
-            if not isinstance(msg, nlmsg):
-                msg_class = self.marshal.msg_map[msg_type]
-                msg = msg_class(msg)
-            if msg_pid is None:
-                msg_pid = self.epid or os.getpid()
-            msg['header']['type'] = msg_type
-            msg['header']['flags'] = msg_flags
-            msg['header']['sequence_number'] = msg_seq
-            msg['header']['pid'] = msg_pid
-            self.sendto_gate(msg, addr)
-        except:
-            raise
-        finally:
-            if msg_seq != 0:
-                self.lock[msg_seq].release()
-
     def sendto_gate(self, msg, addr):
         msg.reset()
         msg.encode()
         if self.compiled is not None:
             return self.compiled.append(msg.data)
         return self._sock.sendto(msg.data, addr)
-
-    def get(
-        self,
-        bufsize=DEFAULT_RCVBUF,
-        msg_seq=0,
-        terminate=None,
-        callback=None,
-        noraise=False,
-    ):
-        '''
-        Get parsed messages list. If `msg_seq` is given, return
-        only messages with that `msg['header']['sequence_number']`,
-        saving all other messages into `self.backlog`.
-
-        The routine is thread-safe.
-
-        The `bufsize` parameter can be:
-
-            - -1: bufsize will be calculated from the first 4 bytes of
-                the network data
-            - 0: bufsize will be calculated from SO_RCVBUF sockopt
-            - int >= 0: just a bufsize
-
-        If `noraise` is true, error messages will be treated as any
-        other message.
-        '''
-        ctime = time.time()
-
-        with self.lock[msg_seq]:
-            if bufsize == -1:
-                # get bufsize from the network data
-                bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
-            elif bufsize == 0:
-                # get bufsize from SO_RCVBUF
-                bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
-
-            tmsg = None
-            enough = False
-            backlog_acquired = False
-            try:
-                while not enough:
-                    # 8<-----------------------------------------------------------
-                    #
-                    # This stage changes the backlog, so use mutex to
-                    # prevent side changes
-                    self.backlog_lock.acquire()
-                    backlog_acquired = True
-                    ##
-                    # Stage 1. BEGIN
-                    #
-                    # 8<-----------------------------------------------------------
-                    #
-                    # Check backlog and return already collected
-                    # messages.
-                    #
-                    if msg_seq == 0 and self.backlog[0]:
-                        # Zero queue.
-                        #
-                        # Load the backlog, if there is valid
-                        # content in it
-                        for msg in self.backlog[0]:
-                            yield msg
-                        self.backlog[0] = []
-                        # And just exit
-                        break
-                    elif msg_seq != 0 and len(self.backlog.get(msg_seq, [])):
-                        # Any other msg_seq.
-                        #
-                        # Collect messages up to the terminator.
-                        # Terminator conditions:
-                        #  * NLMSG_ERROR != 0
-                        #  * NLMSG_DONE
-                        #  * terminate() function (if defined)
-                        #  * not NLM_F_MULTI
-                        #
-                        # Please note, that if terminator not occured,
-                        # more `recv()` rounds CAN be required.
-                        for msg in tuple(self.backlog[msg_seq]):
-
-                            # Drop the message from the backlog, if any
-                            self.backlog[msg_seq].remove(msg)
-
-                            # If there is an error, raise exception
-                            if (
-                                msg['header']['error'] is not None
-                                and not noraise
-                            ):
-                                # reschedule all the remaining messages,
-                                # including errors and acks, into a
-                                # separate deque
-                                self.error_deque.extend(self.backlog[msg_seq])
-                                # flush the backlog for this msg_seq
-                                del self.backlog[msg_seq]
-                                # The loop is done
-                                raise msg['header']['error']
-
-                            # If it is the terminator message, say "enough"
-                            # and requeue all the rest into Zero queue
-                            if terminate is not None:
-                                tmsg = terminate(msg)
-                                if isinstance(tmsg, nlmsg):
-                                    yield msg
-                            if (msg['header']['type'] == NLMSG_DONE) or tmsg:
-                                # The loop is done
-                                enough = True
-
-                            # If it is just a normal message, append it to
-                            # the response
-                            if not enough:
-                                # finish the loop on single messages
-                                if not msg['header']['flags'] & NLM_F_MULTI:
-                                    enough = True
-                                yield msg
-
-                            # Enough is enough, requeue the rest and delete
-                            # our backlog
-                            if enough:
-                                self.backlog[0].extend(self.backlog[msg_seq])
-                                del self.backlog[msg_seq]
-                                break
-
-                        # Next iteration
-                        self.backlog_lock.release()
-                        backlog_acquired = False
-                    else:
-                        # Stage 1. END
-                        #
-                        # 8<-------------------------------------------------------
-                        #
-                        # Stage 2. BEGIN
-                        #
-                        # 8<-------------------------------------------------------
-                        #
-                        # Receive the data from the socket and put the messages
-                        # into the backlog
-                        #
-                        self.backlog_lock.release()
-                        backlog_acquired = False
-                        ##
-                        #
-                        # Control the timeout. We should not be within the
-                        # function more than TIMEOUT seconds. All the locks
-                        # MUST be released here.
-                        #
-                        if (msg_seq != 0) and (
-                            time.time() - ctime > self.get_timeout
-                        ):
-                            # requeue already received for that msg_seq
-                            self.backlog[0].extend(self.backlog[msg_seq])
-                            del self.backlog[msg_seq]
-                            # throw an exception
-                            if self.get_timeout_exception:
-                                raise self.get_timeout_exception()
-                            else:
-                                return
-                        #
-                        if self.read_lock.acquire(False):
-                            try:
-                                self.change_master.clear()
-                                # If the socket is free to read from, occupy
-                                # it and wait for the data
-                                #
-                                # This is a time consuming process, so all the
-                                # locks, except the read lock must be released
-                                data = self.recv(bufsize)
-                                # Parse data
-                                msgs = tuple(
-                                    self.marshal.parse(data, msg_seq, callback)
-                                )
-                                # Reset ctime -- timeout should be measured
-                                # for every turn separately
-                                ctime = time.time()
-                                #
-                                current = self.buffer_queue.qsize()
-                                delta = current - self.qsize
-                                delay = 0
-                                if delta > 10:
-                                    delay = min(
-                                        3, max(0.01, float(current) / 60000)
-                                    )
-                                    message = (
-                                        "Packet burst: "
-                                        "delta=%s qsize=%s delay=%s"
-                                        % (delta, current, delay)
-                                    )
-                                    if delay < 1:
-                                        log.debug(message)
-                                    else:
-                                        log.warning(message)
-                                    time.sleep(delay)
-                                self.qsize = current
-
-                                # We've got the data, lock the backlog again
-                                with self.backlog_lock:
-                                    for msg in msgs:
-                                        msg['header']['target'] = self.target
-                                        msg['header']['stats'] = Stats(
-                                            current, delta, delay
-                                        )
-                                        seq = msg['header']['sequence_number']
-                                        if seq not in self.backlog:
-                                            if (
-                                                msg['header']['type']
-                                                == NLMSG_ERROR
-                                            ):
-                                                # Drop orphaned NLMSG_ERROR
-                                                # messages
-                                                continue
-                                            seq = 0
-                                        # 8<-----------------------------------
-                                        # Callbacks section
-                                        for cr in self.callbacks:
-                                            try:
-                                                if cr[0](msg):
-                                                    cr[1](msg, *cr[2])
-                                            except:
-                                                # FIXME
-                                                #
-                                                # Usually such code formatting
-                                                # means that the method should
-                                                # be refactored to avoid such
-                                                # indentation.
-                                                #
-                                                # Plz do something with it.
-                                                #
-                                                lw = log.warning
-                                                lw("Callback fail: %s" % (cr))
-                                                lw(traceback.format_exc())
-                                        # 8<-----------------------------------
-                                        self.backlog[seq].append(msg)
-
-                                # Now wake up other threads
-                                self.change_master.set()
-                            finally:
-                                # Finally, release the read lock: all data
-                                # processed
-                                self.read_lock.release()
-                        else:
-                            # If the socket is occupied and there is still no
-                            # data for us, wait for the next master change or
-                            # for a timeout
-                            self.change_master.wait(1)
-                        # 8<-------------------------------------------------------
-                        #
-                        # Stage 2. END
-                        #
-                        # 8<-------------------------------------------------------
-            finally:
-                if backlog_acquired:
-                    self.backlog_lock.release()
 
     def nlm_request_batch(self, msgs, noraise=False):
         """
