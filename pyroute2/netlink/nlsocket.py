@@ -688,22 +688,24 @@ class NetlinkSocketBaseUnsafe:
         enough = False
         while not enough:
             data = self.recv(bufsize)
-            for msg in self.marshal.parse(data, msg_seq, callback):
+            *messages, last = tuple(
+                self.marshal.parse(data, msg_seq, callback)
+            )
+            for msg in messages:
                 msg['header']['target'] = self.target
                 msg['header']['stats'] = Stats(0, 0, 0)
-                if (
-                    (msg_seq == 0)
-                    or (msg['header']['type'] == NLMSG_DONE)
-                    or (not msg['header']['flags'] & NLM_F_MULTI)
-                    or (
-                        callable(terminate)
-                        and not isinstance(terminate(msg), nlmsg)
-                    )
-                ):
-                    enough = True
-                    if msg['header']['type'] == NLMSG_DONE:
-                        continue
                 yield msg
+
+            if last['header']['type'] == NLMSG_DONE:
+                break
+
+            if (
+                (msg_seq == 0)
+                or (not last['header']['flags'] & NLM_F_MULTI)
+                or (callable(terminate) and terminate(last))
+            ):
+                enough = True
+            yield last
 
 
 class NetlinkSocketMeta(type):
