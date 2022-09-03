@@ -92,7 +92,9 @@ def test_readonly(context):
     with pytest.raises(PermissionError):
         readonly.interfaces.create(ifname='test', kind='dummy')
 
-    selection = list(readonly.interfaces.summary().filter(ifname='lo'))
+    with readonly.interfaces.summary() as summary:
+        summary.select_records(ifname='lo')
+        selection = list(summary)
     assert len(selection) == 1
     assert selection[0].ifname == 'lo'
     assert selection[0].address == '00:00:00:00:00:00'
@@ -138,11 +140,10 @@ def test_nested_count(context, view, sub, func, method):
         dst=net.network, dst_len=net.netmask, gateway=gateway
     ).commit()
 
-    records_a = (
-        getattr(context.ndb, view)
-        .dump()
-        .filter(partial(func, context.ndb.interfaces[br0]['index']))
-    )
+    with getattr(context.ndb, view).dump() as records_a:
+        records_a.select_records(
+            partial(func, context.ndb.interfaces[br0]['index'])
+        )
     records_b = getattr(getattr(context.ndb.interfaces[br0], sub), method)()
     count = getattr(context.ndb.interfaces[br0], sub).count()
     assert records_b.count() == records_a.count() == count

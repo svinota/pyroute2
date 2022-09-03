@@ -21,19 +21,25 @@ def ipdb_interfaces_view(ndb):
         interface['ipaddr'] = tuple(
             (
                 (x.address, x.prefixlen)
-                for x in (ndb.addresses.dump().filter(index=record.index))
+                for x in (
+                    ndb.addresses.dump().select_records(index=record.index)
+                )
             )
         )
         interface['ports'] = tuple(
             (
                 x.index
-                for x in (ndb.interfaces.dump().filter(master=record.index))
+                for x in (
+                    ndb.interfaces.dump().select_records(master=record.index)
+                )
             )
         )
         interface['neighbours'] = tuple(
             (
                 x.dst
-                for x in (ndb.neighbours.dump().filter(ifindex=record.index))
+                for x in (
+                    ndb.neighbours.dump().select_records(ifindex=record.index)
+                )
             )
         )
         ret[record.ifname] = interface

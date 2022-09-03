@@ -188,10 +188,16 @@ class BaseRecordSet(object):
     def __next__(self):
         return next(self.generator)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
     def __repr__(self):
         counter = 0
         ret = []
-        for record in self.generator:
+        for record in self:
             if isinstance(record, str):
                 ret.append(record)
             else:

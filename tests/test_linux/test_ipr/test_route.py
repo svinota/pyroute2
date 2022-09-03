@@ -440,13 +440,19 @@ def test_flush_routes(context):
             dst=net.network, dst_len=net.netmask, table=10101, timeout=5
         )
 
-    assert context.ndb.routes.summary().filter(table=10101).count() == 10
+    with context.ndb.routes.summary() as summary:
+        summary.select_records(table=10101)
+        assert len(tuple(summary)) == 10
     context.ipr.flush_routes(table=10101, family=socket.AF_INET6)
-    assert context.ndb.routes.summary().filter(table=10101).count() == 10
+    with context.ndb.routes.summary() as summary:
+        summary.select_records(table=10101)
+        assert len(tuple(summary)) == 10
     context.ipr.flush_routes(table=10101, family=socket.AF_INET)
     for _ in range(5):
-        if context.ndb.routes.summary().filter(table=10101).count() == 0:
-            break
+        with context.ndb.routes.summary() as summary:
+            summary.select_records(table=10101)
+            if len(tuple(summary)) == 0:
+                break
         time.sleep(0.1)
     else:
         raise Exception('route table not flushed')

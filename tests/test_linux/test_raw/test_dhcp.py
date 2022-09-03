@@ -18,12 +18,15 @@ def ctx():
     index = 0
     ifname = ''
     # get a DHCP default route, if exists
-    for route in ndb.routes.dump().filter(proto=16, dst=''):
-        index = route.oif
-        ifname = ndb.interfaces[index]['ifname']
-    yield collections.namedtuple('Context', ['ndb', 'index', 'ifname'])(
-        ndb, index, ifname
-    )
+    with ndb.routes.dump() as dump:
+        dump.select_records(proto=16, dst='')
+        for route in dump:
+            index = route.oif
+            ifname = ndb.interfaces[index]['ifname']
+            break
+        yield collections.namedtuple('Context', ['ndb', 'index', 'ifname'])(
+            ndb, index, ifname
+        )
     ndb.close()
 
 
