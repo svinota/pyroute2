@@ -16,7 +16,6 @@ def test_file_backup(context):
     cursor = backup.cursor()
     cursor.execute('SELECT f_IFLA_IFNAME FROM interfaces WHERE f_index > 0')
     interfaces_from_backup = {x[0] for x in cursor.fetchall()}
-    interfaces_from_ndb = {
-        x.ifname for x in context.ndb.interfaces.summary().select('ifname')
-    }
+    with context.ndb.interfaces.summary() as summary:
+        interfaces_from_ndb = {x.ifname for x in summary}
     assert interfaces_from_ndb == interfaces_from_backup

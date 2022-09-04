@@ -124,13 +124,17 @@ def test_source_netns_restart(context):
     ndb.sources.add(netns=nsname)
     #
     # check the interfaces from the netns are loaded into the DB
-    assert len(list(ndb.interfaces.dump().filter(target=nsname)))
+    with ndb.interfaces.dump() as dump:
+        dump.select_records(target=nsname)
+        assert len(list(dump))
     #
     # restart the DB
     ndb.sources[nsname].restart(reason='test')
     #
     # check the netns interfaces again
-    assert len(list(ndb.interfaces.dump().filter(target=nsname)))
+    with ndb.interfaces.dump() as dump:
+        dump.select_records(target=nsname)
+        assert len(list(dump))
     #
     # create an interface in the netns
     (
@@ -182,12 +186,12 @@ def test_disconnect_localhost(context):
     # lock the DB
     with context.ndb.schema.readonly:
         total_ifnum = context.ndb.interfaces.dump().count()
-        localhost_ifnum = (
-            context.ndb.interfaces.dump().filter(target='localhost').count()
-        )
-        nsname_ifnum = (
-            context.ndb.interfaces.dump().filter(target=nsname).count()
-        )
+        with context.ndb.interfaces.dump() as dump:
+            dump.select_records(target='localhost')
+            localhost_ifnum = len(tuple(dump))
+        with context.ndb.interfaces.dump() as dump:
+            dump.select_records(target=nsname)
+            nsname_ifnum = len(tuple(dump))
 
         assert localhost_ifnum == count_interfaces(context.ndb, 'localhost')
         assert nsname_ifnum == count_interfaces(context.ndb, nsname)
@@ -199,11 +203,14 @@ def test_disconnect_localhost(context):
     with context.ndb.schema.readonly:
         #
         # the number of 'localhost' interfaces must be 0 here
-        s = len(list(context.ndb.interfaces.dump().filter(target='localhost')))
-        assert s == 0
-        assert count_interfaces(context.ndb, 'localhost') == 0
+        with context.ndb.interfaces.dump() as dump:
+            dump.select_records(target='localhost')
+            assert len(list(dump)) == 0
+            assert count_interfaces(context.ndb, 'localhost') == 0
         #
         # the number of `nsname` interfaces must remain the same as before
-        s = len(list(context.ndb.interfaces.dump().filter(target=nsname)))
-        assert s > 0
-        assert count_interfaces(context.ndb, nsname) == s
+        with context.ndb.interfaces.dump() as dump:
+            dump.select_records(target=nsname)
+            s = len(list(dump))
+            assert s > 0
+            assert count_interfaces(context.ndb, nsname) == s

@@ -71,7 +71,7 @@ in the selectors or report filters::
      .commit())
 
 A match function that may be passed to the `del_ip()` is the same as for
-`addresses.dump().filter()`, and it gets a named tuple as the argument.
+`addresses.dump().select_records()`, and it gets a named tuple as the argument.
 The fields are named in the same way as address objects fields. So if you
 want to filter addresses by a pattern or the `prefixlen` field with a
 match function, you may use::

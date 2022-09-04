@@ -51,36 +51,6 @@ def test_iter_keys(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_join(context):
-
-    ifname = context.new_ifname
-    ipaddr1 = context.new_ipaddr
-    ipaddr2 = context.new_ipaddr
-
-    (
-        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
-        .add_ip(address=ipaddr1, prefixlen=24)
-        .add_ip(address=ipaddr2, prefixlen=24)
-        .commit()
-    )
-
-    addr = (
-        context.ndb.addresses.dump()
-        .filter(lambda x: x.family == AF_INET)
-        .join(
-            (context.ndb.interfaces.dump().filter(lambda x: x.state == 'up')),
-            condition=lambda l, r: l.index == r.index and r.ifname == ifname,
-            prefix='if_',
-        )
-        .select('address')
-    )
-
-    s1 = set((ipaddr1, ipaddr2))
-    s2 = set([x.address for x in addr])
-    assert s1 == s2
-
-
-@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_slices(context):
     a = list(context.ndb.rules.dump())
     ln = len(a) - 1
@@ -130,13 +100,13 @@ def test_report_chains(context):
         ).commit()
     )
 
-    encap = tuple(
-        context.ndb.routes.dump()
-        .filter(oif=context.ndb.interfaces[ifname]['index'])
-        .filter(lambda x: x.encap is not None)
-        .select('encap')
-        .transform(encap=lambda x: json.loads(x))
-    )[0].encap
+    with context.ndb.routes.dump() as dump:
+        dump.select_records(oif=context.ndb.interfaces[ifname]['index'])
+        dump.select_records(lambda x: x.encap is not None)
+        dump.select_fields('encap')
+        for record in dump:
+            encap = json.loads(record.encap)
+            break
 
     assert isinstance(encap, list)
     assert encap[0]['label'] == 20
@@ -182,21 +152,15 @@ def test_nested_ipaddr(context):
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
 
-    (
-        context.ndb.interfaces.create(ifname=ifname, kind='dummy', state='up')
-        .add_ip(address=ipaddr1, prefixlen=24)
-        .add_ip(address=ipaddr2, prefixlen=24)
-        .commit()
-    )
+    with context.ndb.interfaces.create(
+        ifname=ifname, kind='dummy', state='up'
+    ) as interface:
+        interface.add_ip(address=ipaddr1, prefixlen=24)
+        interface.add_ip(address=ipaddr2, prefixlen=24)
 
-    records = repr(
-        context.ndb.interfaces[ifname]
-        .ipaddr.dump()
-        .filter(lambda x: x.family == AF_INET)
-    )
-    rlen = len(records.split('\n'))
-    # 2 ipaddr
-    assert rlen == 2
+    with context.ndb.interfaces[ifname].ipaddr.dump() as dump:
+        dump.select_records(lambda x: x.family == AF_INET)
+        assert len(repr(dump).split('\n')) == 2
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)

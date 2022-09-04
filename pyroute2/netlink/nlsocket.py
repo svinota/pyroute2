@@ -817,12 +817,6 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
         self.marshal = Marshal()
         # 8<-----------------------------------------
         if not nlm_generator:
-            warnings.warn(
-                '\n\nplease note: some netlink socket methods will soon '
-                'return iterators instead of lists.\nsee more: '
-                'https://github.com/svinota/pyroute2/discussions/972\n',
-                UserWarning,
-            )
 
             def nlm_request(*argv, **kwarg):
                 return tuple(self._genlm_request(*argv, **kwarg))

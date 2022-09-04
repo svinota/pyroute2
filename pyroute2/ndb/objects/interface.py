@@ -632,9 +632,11 @@ class Interface(RTNL_Object):
             if isinstance(spec, basestring):
                 specs = [spec]
             elif callable(spec):
-                specs = self.ipaddr.dump().filter(spec)
+                specs = self.ipaddr.dump()
+                specs.select_records(spec)
             else:
-                specs = self.ipaddr.dump().filter(**spec)
+                specs = self.ipaddr.dump()
+                specs.select_records(**spec)
             for sp in specs:
                 try:
                     method = getattr(self.neighbours.locate(sp).remove(), mode)
@@ -675,9 +677,11 @@ class Interface(RTNL_Object):
             if isinstance(spec, basestring):
                 specs = [spec]
             elif callable(spec):
-                specs = self.ipaddr.dump().filter(spec)
+                specs = self.ipaddr.dump()
+                specs.select_records(spec)
             else:
-                specs = self.ipaddr.dump().filter(**spec)
+                specs = self.ipaddr.dump()
+                specs.select_records(**spec)
             for sp in specs:
                 try:
                     method = getattr(self.ipaddr.locate(sp).remove(), mode)
