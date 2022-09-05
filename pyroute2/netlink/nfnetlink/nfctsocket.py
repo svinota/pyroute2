@@ -732,7 +732,7 @@ class NFCTSocket(NetlinkSocket):
     def request(self, msg, msg_type, **kwargs):
         msg['nfgen_family'] = self._nfgen_family
         msg_type |= NFNL_SUBSYS_CTNETLINK << 8
-        return self.nlm_request(msg, msg_type, **kwargs)
+        return tuple(self.nlm_request(msg, msg_type, **kwargs))
 
     def dump(
         self,

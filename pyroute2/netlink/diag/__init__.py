@@ -365,6 +365,10 @@ class DiagSocket(NetlinkSocket):
             raise NotImplementedError()
         req['sdiag_family'] = family
 
-        return self.nlm_request(
-            req, SOCK_DIAG_BY_FAMILY, NLM_F_REQUEST | NLM_F_ROOT | NLM_F_MATCH
+        return tuple(
+            self.nlm_request(
+                req,
+                SOCK_DIAG_BY_FAMILY,
+                NLM_F_REQUEST | NLM_F_ROOT | NLM_F_MATCH,
+            )
         )

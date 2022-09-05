@@ -367,7 +367,7 @@ class RTNL_API:
         msg['family'] = AF_UNSPEC
         ret = self.nlm_request(msg, RTM_GETQDISC)
         if index is None:
-            return ret
+            return tuple(ret)
         else:
             return [x for x in ret if x['index'] == index]
 
@@ -475,7 +475,7 @@ class RTNL_API:
         '''
         msg = ndtmsg()
         msg['family'] = family
-        return self.nlm_request(msg, RTM_GETNEIGHTBL)
+        return tuple(self.nlm_request(msg, RTM_GETNEIGHTBL))
 
     def get_addr(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
@@ -880,7 +880,7 @@ class RTNL_API:
         if match is not None:
             ret = self.filter_messages(match, ret)
 
-        if not (command == RTM_GETLINK and self.nlm_generator):
+        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret

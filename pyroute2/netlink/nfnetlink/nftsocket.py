@@ -1082,11 +1082,13 @@ class NFTSocket(NetlinkSocket):
         the request and get an answer.
         '''
         msg['nfgen_family'] = self._nfgen_family
-        return self.nlm_request(
-            msg,
-            msg_type | (NFNL_SUBSYS_NFTABLES << 8),
-            msg_flags,
-            terminate=terminate,
+        return tuple(
+            self.nlm_request(
+                msg,
+                msg_type | (NFNL_SUBSYS_NFTABLES << 8),
+                msg_flags,
+                terminate=terminate,
+            )
         )
 
     def request_put(self, msg, msg_type, msg_flags=NLM_F_REQUEST):
