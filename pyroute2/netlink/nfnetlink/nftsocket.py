@@ -16,6 +16,7 @@ from pyroute2.netlink import (
     NLM_F_REPLACE,
     NLM_F_REQUEST,
     nla,
+    nlmsg_atoms,
 )
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES, nfgen_msg
 from pyroute2.netlink.nlsocket import NetlinkSocket
@@ -45,6 +46,55 @@ NFT_MSG_GETOBJ_RESET = 21
 NFT_MSG_NEWFLOWTABLE = 22
 NFT_MSG_GETFLOWTABLE = 23
 NFT_MSG_DELFLOWTABLE = 24
+
+# from nftables/include/datatype.h
+DATA_TYPE_INVALID = 0
+DATA_TYPE_VERDICT = 1
+DATA_TYPE_NFPROTO = 2
+DATA_TYPE_BITMASK = 3
+DATA_TYPE_INTEGER = 4
+DATA_TYPE_STRING = 5
+DATA_TYPE_LLADDR = 6
+DATA_TYPE_IPADDR = 7
+DATA_TYPE_IP6ADDR = 8
+DATA_TYPE_ETHERADDR = 9
+DATA_TYPE_ETHERTYPE = 10
+DATA_TYPE_ARPOP = 11
+DATA_TYPE_INET_PROTOCOL = 12
+DATA_TYPE_INET_SERVICE = 13
+DATA_TYPE_ICMP_TYPE = 14
+DATA_TYPE_TCP_FLAG = 15
+DATA_TYPE_DCCP_PKTTYPE = 16
+DATA_TYPE_MH_TYPE = 17
+DATA_TYPE_TIME = 18
+DATA_TYPE_MARK = 19
+DATA_TYPE_IFINDEX = 20
+DATA_TYPE_ARPHRD = 21
+DATA_TYPE_REALM = 22
+DATA_TYPE_CLASSID = 23
+DATA_TYPE_UID = 24
+DATA_TYPE_GID = 25
+DATA_TYPE_CT_STATE = 26
+DATA_TYPE_CT_DIR = 27
+DATA_TYPE_CT_STATUS = 28
+DATA_TYPE_ICMP6_TYPE = 29
+DATA_TYPE_CT_LABEL = 30
+DATA_TYPE_PKTTYPE = 31
+DATA_TYPE_ICMP_CODE = 32
+DATA_TYPE_ICMPV6_CODE = 33
+DATA_TYPE_ICMPX_CODE = 34
+DATA_TYPE_DEVGROUP = 35
+DATA_TYPE_DSCP = 36
+DATA_TYPE_ECN = 37
+DATA_TYPE_FIB_ADDR = 38
+DATA_TYPE_BOOLEAN = 39
+DATA_TYPE_CT_EVENTBIT = 40
+DATA_TYPE_IFNAME = 41
+DATA_TYPE_IGMP_TYPE = 42
+DATA_TYPE_TIME_DATE = 43
+DATA_TYPE_TIME_HOUR = 44
+DATA_TYPE_TIME_DAY = 45
+DATA_TYPE_CGROUPV2 = 46
 
 
 class nft_map_uint8(nla):
@@ -1153,3 +1203,22 @@ class NFTSocket(NetlinkSocket):
             # do not return anything.
         else:
             return self.request_get(msg, msg['header']['type'], flags)[0]
+
+
+# call nft describe "data_type" for more informations
+DATA_TYPE_NAME_TO_INFO = {
+    "verdict": (DATA_TYPE_VERDICT, 4, nft_data.nfta_data.verdict.verdict_code),
+    "nf_proto": (DATA_TYPE_NFPROTO, 1, nlmsg_atoms.uint8),
+    "bitmask": (DATA_TYPE_BITMASK, 4, nlmsg_atoms.uint32),
+    "integer": (DATA_TYPE_INTEGER, 4, nlmsg_atoms.int32),
+    "string": (DATA_TYPE_STRING, 0, nlmsg_atoms.asciiz),
+    "lladdr": (DATA_TYPE_LLADDR, 0, nlmsg_atoms.lladdr),
+    "ipv4_addr": (DATA_TYPE_IPADDR, 4, nlmsg_atoms.ip4addr),
+    "ipv6_addr": (DATA_TYPE_IP6ADDR, 16, nlmsg_atoms.ip6addr),
+    "ether_addr": (DATA_TYPE_ETHERADDR, 6, nlmsg_atoms.l2addr),
+    "ether_type": (DATA_TYPE_ETHERADDR, 2, nlmsg_atoms.uint16),
+    "inet_proto": (DATA_TYPE_INET_PROTOCOL, 1, nlmsg_atoms.uint8),
+}
+DATA_TYPE_ID_TO_NAME = {
+    value[0]: key for key, value in DATA_TYPE_NAME_TO_INFO.items()
+}
