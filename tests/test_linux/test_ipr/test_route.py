@@ -20,7 +20,7 @@ def test_route_get_target_strict_check(context):
     require_kernel(4, 20)
     with IPRoute(strict_check=True) as ip:
         rts = ip.get_routes(family=socket.AF_INET, dst='8.8.8.8', table=254)
-        assert len(rts) > 0
+        assert len(tuple(rts)) > 0
 
 
 def test_extended_error_on_route(context):
@@ -92,17 +92,17 @@ def test_route_get_target(context):
     rts = context.ipr.get_routes(
         family=socket.AF_INET, dst='8.8.8.8', table=254
     )
-    assert len(rts) > 0
+    assert len(tuple(rts)) > 0
 
 
 def test_route_get_target_default_ipv4(context):
     rts = context.ipr.get_routes(dst='127.0.0.1')
-    assert len(rts) > 0
+    assert len(tuple(rts)) > 0
 
 
 def test_route_get_target_default_ipv6(context):
     rts = context.ipr.get_routes(dst='::1')
-    assert len(rts) > 0
+    assert len(tuple(rts)) > 0
 
 
 @skip_if_not_supported
@@ -126,7 +126,7 @@ def test_route_mpls_via(context, family):
         },
     )
 
-    rt = context.ipr.get_routes(oif=index, family=AF_MPLS)[0]
+    rt = tuple(context.ipr.get_routes(oif=index, family=AF_MPLS))[0]
     assert rt.get_attr('RTA_VIA')['addr'] == address
     assert rt.get_attr('RTA_VIA')['family'] == family
     assert rt.get_attr('RTA_NEWDST')[0]['label'] == label
@@ -141,7 +141,7 @@ def test_route_mpls_via(context, family):
             'newdst': {'label': label, 'bos': 1},
         },
     )
-    assert len(context.ipr.get_routes(oif=index, family=AF_MPLS)) == 0
+    assert len(tuple(context.ipr.get_routes(oif=index, family=AF_MPLS))) == 0
 
 
 @skip_if_not_supported
@@ -158,13 +158,13 @@ def test_route_mpls_swap_newdst(context, newdst):
     }
     context.ipr.route('add', **req)
 
-    rt = context.ipr.get_routes(oif=index, family=AF_MPLS)[0]
+    rt = tuple(context.ipr.get_routes(oif=index, family=AF_MPLS))[0]
     assert rt.get_attr('RTA_DST')[0]['label'] == 0x20
     assert len(rt.get_attr('RTA_DST')) == 1
     assert rt.get_attr('RTA_NEWDST')[0]['label'] == 0x21
     assert len(rt.get_attr('RTA_NEWDST')) == 1
     context.ipr.route('del', **req)
-    assert len(context.ipr.get_routes(oif=index, family=AF_MPLS)) == 0
+    assert len(tuple(context.ipr.get_routes(oif=index, family=AF_MPLS))) == 0
 
 
 @pytest.mark.parametrize('mode', ('normal', 'raw'))
@@ -268,8 +268,8 @@ def _test_lwtunnel_multipath_mpls(context):
         ],
     )
 
-    routes = context.ipr.route(
-        'dump', dst=ip4net.network, dst_len=ip4net.netmask
+    routes = tuple(
+        context.ipr.route('dump', dst=ip4net.network, dst_len=ip4net.netmask)
     )
     assert len(routes) == 1
     mp = routes[0].get_attr('RTA_MULTIPATH')
@@ -316,8 +316,8 @@ def test_lwtunnel_mpls_labels(context, lid, lnum, labels):
         encap={'type': 'mpls', 'labels': labels},
         gateway=gateway,
     )
-    routes = context.ipr.route(
-        'dump', dst=ip4net.network, dst_len=ip4net.netmask
+    routes = tuple(
+        context.ipr.route('dump', dst=ip4net.network, dst_len=ip4net.netmask)
     )
     assert len(routes) == 1
     route = routes[0]

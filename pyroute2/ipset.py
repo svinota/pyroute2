@@ -155,11 +155,13 @@ class IPSet(NetlinkSocket):
     ):
         msg['nfgen_family'] = self._nfgen_family
         try:
-            return self.nlm_request(
-                msg,
-                msg_type | (NFNL_SUBSYS_IPSET << 8),
-                msg_flags,
-                terminate=terminate,
+            return tuple(
+                self.nlm_request(
+                    msg,
+                    msg_type | (NFNL_SUBSYS_IPSET << 8),
+                    msg_flags,
+                    terminate=terminate,
+                )
             )
         except NetlinkError as err:
             raise _IPSetError(err.code, cmd=msg_type)

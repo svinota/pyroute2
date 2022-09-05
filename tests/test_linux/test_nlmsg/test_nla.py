@@ -14,7 +14,7 @@ def test_nla_operators(context):
         .commit()
     )
 
-    r = context.ipr.addr('dump', index=interface['index'])
+    r = tuple(context.ipr.addr('dump', index=interface['index']))
     complement = r[0] - r[1]
     intersection = r[0] & r[1]
 
@@ -30,8 +30,8 @@ def test_nla_operators(context):
 
 
 def test_nla_compare(context):
-    lvalue = context.ipr.get_links()
-    rvalue = context.ipr.get_links()
+    lvalue = tuple(context.ipr.get_links())
+    rvalue = tuple(context.ipr.get_links())
     assert lvalue is not rvalue
     if lvalue == rvalue:
         pass

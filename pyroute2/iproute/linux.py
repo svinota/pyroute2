@@ -380,7 +380,7 @@ class RTNL_API:
         msg['index'] = index
         msg['handle'] = transform_handle(handle)
         msg['parent'] = transform_handle(parent)
-        return self.nlm_request(msg, RTM_GETTFILTER)
+        return tuple(self.nlm_request(msg, RTM_GETTFILTER))
 
     def get_classes(self, index=0):
         '''
@@ -389,7 +389,7 @@ class RTNL_API:
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
         msg['index'] = index
-        return self.nlm_request(msg, RTM_GETTCLASS)
+        return tuple(self.nlm_request(msg, RTM_GETTCLASS))
 
     def get_vlans(self, **kwarg):
         '''
@@ -1235,7 +1235,7 @@ class RTNL_API:
         if command == 'dump' and dump_filter:
             ret = self.filter_messages(dump_filter, ret)
 
-        if not (msg_type == RTM_GETNEIGH and self.nlm_generator):
+        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret
@@ -1628,7 +1628,7 @@ class RTNL_API:
                 )
             ret = self.filter_messages(dump_filter, ret)
 
-        if not (msg_type == RTM_GETLINK and self.nlm_generator):
+        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret
@@ -1745,7 +1745,7 @@ class RTNL_API:
         if command == 'dump' and dump_filter is not None:
             ret = self.filter_messages(dump_filter, ret)
 
-        if not (command == RTM_GETADDR and self.nlm_generator):
+        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret
@@ -2272,7 +2272,7 @@ class RTNL_API:
                 )
             ret = self.filter_messages(match, ret)
 
-        if not (command == RTM_GETROUTE and self.nlm_generator):
+        if self.nlm_generator and not flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret
@@ -2403,7 +2403,7 @@ class RTNL_API:
                 )
             ret = self.filter_messages(match, ret)
 
-        if not (command == RTM_GETRULE and self.nlm_generator):
+        if self.nlm_generator and not flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret
@@ -2431,7 +2431,7 @@ class RTNL_API:
         if match is not None:
             ret = self.filter_messages(match, ret)
 
-        if not (command == RTM_GETSTATS and self.nlm_generator):
+        if self.nlm_generator and not flags & NLM_F_DUMP == NLM_F_DUMP:
             ret = tuple(ret)
 
         return ret

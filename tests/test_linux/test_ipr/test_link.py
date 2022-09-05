@@ -45,14 +45,14 @@ def test_link_altname(context):
     context.ipr.link("property_add", index=index, altname=weird_name)
     assert len(context.ipr.link("get", altname=weird_name)) == 1
     context.ipr.link("property_del", index=index, altname=weird_name)
-    assert len(context.ipr.link("dump", altname=weird_name)) == 0
+    assert len(tuple(context.ipr.link("dump", altname=weird_name))) == 0
     with pytest.raises(NetlinkError):
         context.ipr.link("get", altname=weird_name)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_link_filter(context):
-    links = context.ipr.link('dump', ifname='lo')
+    links = tuple(context.ipr.link('dump', ifname='lo'))
     assert len(links) == 1
     assert links[0].get_attr('IFLA_IFNAME') == 'lo'
 
@@ -150,8 +150,8 @@ def test_brport_basic(context):
         proxyarp=1,
     )
 
-    port = context.ipr.brport(
-        'dump', index=context.ndb.interfaces[port]['index']
+    port = tuple(
+        context.ipr.brport('dump', index=context.ndb.interfaces[port]['index'])
     )[0]
     protinfo = port.get_attr('IFLA_PROTINFO')
     assert protinfo.get_attr('IFLA_BRPORT_COST') == 200

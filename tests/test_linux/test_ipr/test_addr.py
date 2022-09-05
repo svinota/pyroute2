@@ -104,10 +104,12 @@ def test_addr_filter(context):
     )
     ndb.addresses.wait(index=index, address=ipaddr1, timeout=wait_timeout)
     ndb.addresses.wait(index=index, address=ipaddr2, timeout=wait_timeout)
-    assert len(ipr.get_addr(index=index)) >= 2  # remember link-local IPv6
-    assert len(ipr.get_addr(address=ipaddr1)) == 1
-    assert len(ipr.get_addr(broadcast=ipaddrB)) == 2
-    assert len(ipr.get_addr(match=lambda x: x['index'] == index)) >= 2
+    assert (
+        len(tuple(ipr.get_addr(index=index))) >= 2
+    )  # remember link-local IPv6
+    assert len(tuple(ipr.get_addr(address=ipaddr1))) == 1
+    assert len(tuple(ipr.get_addr(broadcast=ipaddrB))) == 2
+    assert len(tuple(ipr.get_addr(match=lambda x: x['index'] == index))) >= 2
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)

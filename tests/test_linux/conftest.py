@@ -5,9 +5,11 @@ import pytest
 from pr2test.context_manager import NDBContextManager, SpecContextManager
 from utils import require_user
 
+from pyroute2 import config
 from pyroute2.ipset import IPSet, IPSetError
 from pyroute2.wiset import COUNT
 
+config.nlm_generator = True
 pytest_plugins = "pytester"
 
 
