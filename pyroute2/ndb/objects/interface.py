@@ -915,6 +915,16 @@ class Interface(RTNL_Object):
             spec = self.load_sql()
             if spec:
                 self.state.set('system')
+        if ('net_ns_fd' in self.get('peer', {})) and (
+            self['peer']['net_ns_fd'] in self.view.ndb.sources
+        ):
+            # wait for the peer in net_ns_fd, only if the netns
+            # is connected to the NDB instance
+            self.view.wait(
+                target=self['peer']['net_ns_fd'],
+                ifname=self['peer']['ifname'],
+                timeout=5,
+            )
         return self
 
     def hook_apply(self, method, **spec):
