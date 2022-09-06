@@ -118,3 +118,9 @@ class GenericNetlinkSocket(NetlinkSocket):
             msg_type=GENL_ID_CTRL,
             msg_flags=NLM_F_REQUEST | NLM_F_DUMP | NLM_F_ACK,
         )
+
+    def get(self, *argv, **kwarg):
+        return tuple(super().get(*argv, **kwarg))
+
+    def nlm_request(self, *argv, **kwarg):
+        return tuple(super().nlm_request(*argv, **kwarg))

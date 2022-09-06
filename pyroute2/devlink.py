@@ -54,8 +54,10 @@ class DL(DevlinkSocket):
     def get_dump(self):
         msg = devlinkcmd()
         msg['cmd'] = DEVLINK_NAMES['DEVLINK_CMD_GET']
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        return tuple(
+            self.nlm_request(
+                msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+            )
         )
 
     def port_list(self):
@@ -64,6 +66,8 @@ class DL(DevlinkSocket):
     def get_port_dump(self):
         msg = devlinkcmd()
         msg['cmd'] = DEVLINK_NAMES['DEVLINK_CMD_PORT_GET']
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        return tuple(
+            self.nlm_request(
+                msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+            )
         )

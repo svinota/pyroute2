@@ -14,14 +14,16 @@ def test_vlan_filter_dump(context):
     context.ndb.interfaces.create(
         ifname=ifname2, kind='bridge', state='up'
     ).commit()
-    assert len(context.ipr.get_vlans()) >= 2
+    assert len(tuple(context.ipr.get_vlans())) >= 2
     for name in (ifname1, ifname2):
-        assert len(context.ipr.get_vlans(ifname=name)) == 1
+        assert len(tuple(context.ipr.get_vlans(ifname=name))) == 1
         assert (
-            context.ipr.get_vlans(ifname=name)[0].get_attr('IFLA_IFNAME')
+            tuple(context.ipr.get_vlans(ifname=name))[0].get_attr(
+                'IFLA_IFNAME'
+            )
         ) == name
         assert (
-            context.ipr.get_vlans(ifname=name)[0].get_nested(
+            tuple(context.ipr.get_vlans(ifname=name))[0].get_nested(
                 'IFLA_AF_SPEC', 'IFLA_BRIDGE_VLAN_INFO'
             )
         )['vid'] == 1

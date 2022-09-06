@@ -29,7 +29,7 @@ def test_mass_ipv6(context):
     addrs = []
     for _ in range(3):
         try:
-            addrs = context.ipr.get_addr(family=socket.AF_INET6)
+            addrs = tuple(context.ipr.get_addr(family=socket.AF_INET6))
             break
         except NetlinkDumpInterrupted:
             pass
