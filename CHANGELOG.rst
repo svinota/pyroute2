@@ -1,6 +1,15 @@
 Changelog
 =========
 
+* 0.7.3
+    * nlsocket: CompileContext support
+    * nlsocket: support for per request parsers (see `IPRoute.get_default_routes()`)
+    * generic: added support for dumping policies <https://github.com/svinota/pyroute2/pull/981>
+    * ndb: changed API for reports
+    * conntrack: fix TCP states <https://github.com/svinota/pyroute2/pull/991>
+    * ipmock: new component (IPMock) for mock tests
+    * thermal: update
+    * ci: `nlm_generator = True` -- force using generators in the CI
 * 0.7.2
     * iproute: fix neighbours dump <https://github.com/svinota/pyroute2/issues/962>
     * iproute: fix rule add <https://github.com/svinota/pyroute2/issues/964>

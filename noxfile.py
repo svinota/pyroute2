@@ -191,11 +191,11 @@ def docs(session):
     cwd = os.path.abspath(os.getcwd())
     # man pages
     session.chdir(f'{tmpdir}/docs/')
-    session.run('make', 'man', external=True)
+    session.run('make', 'man', 'SPHINXOPTS="-W"', external=True)
     session.run('cp', '-a', 'man', f'{cwd}/docs/', external=True)
     # html
     session.chdir(f'{tmpdir}/docs/')
-    session.run('make', 'html', external=True)
+    session.run('make', 'html', 'SPHINXOPTS="-W"', external=True)
     session.run('cp', '-a', 'html', f'{cwd}/docs/', external=True)
     session.run('make', 'doctest', external=True)
     session.chdir(cwd)
