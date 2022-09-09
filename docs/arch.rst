@@ -36,7 +36,7 @@ by the library:
     pyroute2.netlink.event.EventSocket
     pyroute2.netlink.event.acpi_event.AcpiEventSocket
     pyroute2.netlink.event.dquot.DQuotSocket
-    pyroute2.netlink.event.thermal_event.ThermalEventSocket
+    pyroute2.netlink.event.thermal.ThermalEventSocket
     pyroute2.netlink.devlink.DevlinkSocket
     pyroute2.netlink.diag.DiagSocket
     pyroute2.remote.RemoteIPRoute
@@ -165,7 +165,7 @@ The messages hierarchy:
     pyroute2.netlink.diag.unix_diag_msg
     pyroute2.netlink.event.acpi_event.acpimsg
     pyroute2.netlink.event.dquot.dquotmsg
-    pyroute2.netlink.event.thermal_event.thermal_msg
+    pyroute2.netlink.event.thermal.thermal_msg
     pyroute2.netlink.taskstats.taskstatsmsg
     pyroute2.netlink.taskstats.tcmd
     pyroute2.netlink.generic.ethtool.ethtool_strset_msg
