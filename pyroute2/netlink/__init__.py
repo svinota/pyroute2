@@ -980,6 +980,12 @@ class nlmsg_base(dict):
     def __ops(self, rvalue, op0, op1):
         lvalue = self.getvalue()
         res = self.__class__()
+        for key, _ in res.fields:
+            del res[key]
+        if 'header' in res:
+            del res['header']
+        if 'value' in res:
+            del res['value']
         for key in lvalue:
             if key not in ('header', 'attrs'):
                 if op0 == '__sub__':
@@ -1006,16 +1012,14 @@ class nlmsg_base(dict):
                         # operator &, intersection
                         if rvalue.get_attr(attr[0]) == attr[1]:
                             res['attrs'].append(attr)
+        if 'attrs' in res and not res['attrs']:
+            del res['attrs']
         if not res:
             return None
-        else:
-            if 'header' in res:
-                del res['header']
-            if 'value' in res:
-                del res['value']
-            if 'attrs' in res and not res['attrs']:
-                del res['attrs']
-            return res
+        return res
+
+    def __bool__(self):
+        return len(self.keys()) > 0
 
     def __sub__(self, rvalue):
         '''

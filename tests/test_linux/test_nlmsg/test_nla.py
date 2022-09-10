@@ -20,8 +20,8 @@ def test_nla_operators(context):
 
     assert complement.get_attr('IFA_ADDRESS') == ipaddr1
     assert complement.get_attr('IFA_LABEL') is None
-    assert complement['prefixlen'] == 0
-    assert complement['index'] == 0
+    assert 'prefixlen' not in complement
+    assert 'index' not in complement
 
     assert intersection.get_attr('IFA_ADDRESS') is None
     assert intersection.get_attr('IFA_LABEL') == ifname
