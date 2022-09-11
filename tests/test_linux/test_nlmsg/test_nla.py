@@ -29,12 +29,20 @@ def test_nla_operators(context):
     assert intersection['index'] == context.ndb.interfaces[ifname]['index']
 
 
-def test_nla_compare(context):
-    lvalue = tuple(context.ipr.get_links())
-    rvalue = tuple(context.ipr.get_links())
+def test_nla_compare_equal(context):
+    lvalue = tuple(context.ipr.get_links())[0]
+    rvalue = tuple(context.ipr.get_links())[0]
     assert lvalue is not rvalue
-    if lvalue == rvalue:
-        pass
-    if lvalue != rvalue:
-        pass
-    assert lvalue != 42
+    assert lvalue == rvalue
+
+def test_nla_compare_not_equal(context):
+    lvalue = tuple(context.ipr.get_links())[0]
+    rvalue = tuple(context.ipr.get_links())[1]
+    assert lvalue is not rvalue
+    assert lvalue != rvalue
+
+def test_nla_compare_int(context):
+    lvalue = tuple(context.ipr.get_links())[0]
+    rvalue = 42
+    assert lvalue is not rvalue
+    assert lvalue != rvalue

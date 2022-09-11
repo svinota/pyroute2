@@ -1045,38 +1045,12 @@ class nlmsg_base(dict):
         '''
         lvalue = self.getvalue()
         if lvalue is self:
-            for key in self:
-                try:
-                    if key == 'attrs':
-                        for nla_tuple in self[key]:
-                            lv = self.get_attr(nla_tuple[0])
-                            if isinstance(lv, dict):
-                                lv = nlmsg().setvalue(lv)
-                            rv = rvalue.get_attr(nla_tuple[0])
-                            if isinstance(rv, dict):
-                                rv = nlmsg().setvalue(rv)
-                            # this strange condition means a simple thing:
-                            # None, 0, empty container and NotInitialized in
-                            # that context should be treated as equal.
-                            if (lv != rv) and not (
-                                (not lv or lv is NotInitialized)
-                                and (not rv or rv is NotInitialized)
-                            ):
-                                return False
-                    else:
-                        lv = self.get(key)
-                        rv = rvalue.get(key)
-                        if (lv != rv) and not (
-                            (not lv or lv is NotInitialized)
-                            and (not rv or rv is NotInitialized)
-                        ):
-                            return False
-                except Exception:
-                    # on any error -- is not equal
-                    return False
-            return True
-        else:
-            return lvalue == rvalue
+            if isinstance(rvalue, type(self)):
+                return (self - rvalue) is None
+            if isinstance(rvalue, dict):
+                return dict(self) == rvalue
+            return False
+        return lvalue == rvalue
 
     @classmethod
     def get_size(self):
