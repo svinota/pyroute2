@@ -43,12 +43,13 @@ Usage::
     wg.info(IFNAME)
 
     # Get specific value from the interface
-    wg.info(IFNAME)[0].WGDEVICE_A_PRIVATE_KEY.value
+    wg.info(IFNAME)[0].get('WGDEVICE_A_PRIVATE_KEY')
 
 
 NOTES:
 
-* Using `set` method only requires an interface name.
+* The `get()` method always returns iterable
+* Using `set()` method only requires an interface name
 * The `peer` structure is described as follow::
 
     struct peer_s {
