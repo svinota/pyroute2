@@ -890,7 +890,6 @@ class nlmsg_base(dict):
         self._nla_array = False
         self._nla_flags = self.nla_flags
         self['attrs'] = []
-        self['value'] = NotInitialized
         self.value = NotInitialized
         # work only on non-empty mappings
         if self.nla_map and not self.__class__.__compiled_nla:
@@ -978,6 +977,8 @@ class nlmsg_base(dict):
         return self
 
     def __ops(self, rvalue, op0, op1):
+        if rvalue is None:
+            return None
         lvalue = self.getvalue()
         res = self.__class__()
         for key, _ in res.fields:
@@ -987,7 +988,7 @@ class nlmsg_base(dict):
         if 'value' in res:
             del res['value']
         for key in lvalue:
-            if key not in ('header', 'attrs'):
+            if key not in ('header', 'attrs', '__align'):
                 if op0 == '__sub__':
                     # operator -, complement
                     if (key not in rvalue) or (lvalue[key] != rvalue[key]):
@@ -999,11 +1000,13 @@ class nlmsg_base(dict):
         if 'attrs' in lvalue:
             res['attrs'] = []
             for attr in lvalue['attrs']:
-                if isinstance(attr[1], nla):
+                if isinstance(attr[1], nlmsg_base):
+                    print("recursion")
                     diff = getattr(attr[1], op0)(rvalue.get_attr(attr[0]))
                     if diff is not None:
                         res['attrs'].append([attr[0], diff])
                 else:
+                    print("fail", type(attr[1]))
                     if op0 == '__sub__':
                         # operator -, complement
                         if rvalue.get_attr(attr[0]) != attr[1]:
@@ -1016,6 +1019,7 @@ class nlmsg_base(dict):
             del res['attrs']
         if not res:
             return None
+        print(res)
         return res
 
     def __bool__(self):
@@ -1342,7 +1346,14 @@ class nlmsg_base(dict):
     def __getitem__(self, key):
         if isinstance(key, int):
             return self.chain[key]
+        if key == 'value' and key not in self:
+            return NotInitialized
         return dict.__getitem__(self, key)
+
+    def __delitem__(self, key):
+        if key == 'value' and key not in self:
+            return
+        return dict.__delitem__(self, key)
 
     def __setstate__(self, state):
         return self.load(state)
