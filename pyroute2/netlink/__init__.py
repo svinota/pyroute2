@@ -890,7 +890,6 @@ class nlmsg_base(dict):
         self._nla_array = False
         self._nla_flags = self.nla_flags
         self['attrs'] = []
-        self['value'] = NotInitialized
         self.value = NotInitialized
         # work only on non-empty mappings
         if self.nla_map and not self.__class__.__compiled_nla:
@@ -978,10 +977,18 @@ class nlmsg_base(dict):
         return self
 
     def __ops(self, rvalue, op0, op1):
+        if rvalue is None:
+            return None
         lvalue = self.getvalue()
         res = self.__class__()
+        for key, _ in res.fields:
+            del res[key]
+        if 'header' in res:
+            del res['header']
+        if 'value' in res:
+            del res['value']
         for key in lvalue:
-            if key not in ('header', 'attrs'):
+            if key not in ('header', 'attrs', '__align'):
                 if op0 == '__sub__':
                     # operator -, complement
                     if (key not in rvalue) or (lvalue[key] != rvalue[key]):
@@ -993,11 +1000,13 @@ class nlmsg_base(dict):
         if 'attrs' in lvalue:
             res['attrs'] = []
             for attr in lvalue['attrs']:
-                if isinstance(attr[1], nla):
+                if isinstance(attr[1], nlmsg_base):
+                    print("recursion")
                     diff = getattr(attr[1], op0)(rvalue.get_attr(attr[0]))
                     if diff is not None:
                         res['attrs'].append([attr[0], diff])
                 else:
+                    print("fail", type(attr[1]))
                     if op0 == '__sub__':
                         # operator -, complement
                         if rvalue.get_attr(attr[0]) != attr[1]:
@@ -1006,16 +1015,15 @@ class nlmsg_base(dict):
                         # operator &, intersection
                         if rvalue.get_attr(attr[0]) == attr[1]:
                             res['attrs'].append(attr)
+        if 'attrs' in res and not res['attrs']:
+            del res['attrs']
         if not res:
             return None
-        else:
-            if 'header' in res:
-                del res['header']
-            if 'value' in res:
-                del res['value']
-            if 'attrs' in res and not res['attrs']:
-                del res['attrs']
-            return res
+        print(res)
+        return res
+
+    def __bool__(self):
+        return len(self.keys()) > 0
 
     def __sub__(self, rvalue):
         '''
@@ -1041,38 +1049,12 @@ class nlmsg_base(dict):
         '''
         lvalue = self.getvalue()
         if lvalue is self:
-            for key in self:
-                try:
-                    if key == 'attrs':
-                        for nla_tuple in self[key]:
-                            lv = self.get_attr(nla_tuple[0])
-                            if isinstance(lv, dict):
-                                lv = nlmsg().setvalue(lv)
-                            rv = rvalue.get_attr(nla_tuple[0])
-                            if isinstance(rv, dict):
-                                rv = nlmsg().setvalue(rv)
-                            # this strange condition means a simple thing:
-                            # None, 0, empty container and NotInitialized in
-                            # that context should be treated as equal.
-                            if (lv != rv) and not (
-                                (not lv or lv is NotInitialized)
-                                and (not rv or rv is NotInitialized)
-                            ):
-                                return False
-                    else:
-                        lv = self.get(key)
-                        rv = rvalue.get(key)
-                        if (lv != rv) and not (
-                            (not lv or lv is NotInitialized)
-                            and (not rv or rv is NotInitialized)
-                        ):
-                            return False
-                except Exception:
-                    # on any error -- is not equal
-                    return False
-            return True
-        else:
-            return lvalue == rvalue
+            if isinstance(rvalue, type(self)):
+                return (self - rvalue) is None
+            if isinstance(rvalue, dict):
+                return dict(self) == rvalue
+            return False
+        return lvalue == rvalue
 
     @classmethod
     def get_size(self):
@@ -1364,7 +1346,14 @@ class nlmsg_base(dict):
     def __getitem__(self, key):
         if isinstance(key, int):
             return self.chain[key]
+        if key == 'value' and key not in self:
+            return NotInitialized
         return dict.__getitem__(self, key)
+
+    def __delitem__(self, key):
+        if key == 'value' and key not in self:
+            return
+        return dict.__delitem__(self, key)
 
     def __setstate__(self, state):
         return self.load(state)

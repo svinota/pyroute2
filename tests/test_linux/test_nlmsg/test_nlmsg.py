@@ -3,7 +3,7 @@ from pr2test.marks import require_root
 pytestmark = [require_root()]
 
 
-def test_nla_operators(context):
+def test_nlmsg_operators(context):
     ifname = context.new_ifname
     ipaddr1 = context.new_ipaddr
     ipaddr2 = context.new_ipaddr
@@ -20,8 +20,8 @@ def test_nla_operators(context):
 
     assert complement.get_attr('IFA_ADDRESS') == ipaddr1
     assert complement.get_attr('IFA_LABEL') is None
-    assert complement['prefixlen'] == 0
-    assert complement['index'] == 0
+    assert 'prefixlen' not in complement
+    assert 'index' not in complement
 
     assert intersection.get_attr('IFA_ADDRESS') is None
     assert intersection.get_attr('IFA_LABEL') == ifname
@@ -29,12 +29,22 @@ def test_nla_operators(context):
     assert intersection['index'] == context.ndb.interfaces[ifname]['index']
 
 
-def test_nla_compare(context):
-    lvalue = tuple(context.ipr.get_links())
-    rvalue = tuple(context.ipr.get_links())
+def test_nlmsg_compare_equal(context):
+    lvalue = tuple(context.ipr.get_links())[0]
+    rvalue = tuple(context.ipr.get_links())[0]
     assert lvalue is not rvalue
-    if lvalue == rvalue:
-        pass
-    if lvalue != rvalue:
-        pass
-    assert lvalue != 42
+    assert lvalue == rvalue
+
+
+def test_nlmsg_compare_not_equal(context):
+    lvalue = tuple(context.ipr.get_links())[0]
+    rvalue = tuple(context.ipr.get_links())[1]
+    assert lvalue is not rvalue
+    assert lvalue != rvalue
+
+
+def test_nlmsg_compare_int(context):
+    lvalue = tuple(context.ipr.get_links())[0]
+    rvalue = 42
+    assert lvalue is not rvalue
+    assert lvalue != rvalue
