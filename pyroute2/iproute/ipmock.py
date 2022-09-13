@@ -513,6 +513,8 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         return True
 
     def addr(self, command, **spec):
+        if command == 'dump':
+            return self.get_addr()
         request = RequestProcessor(context=spec, prime=spec)
         request.apply_filter(AddressFieldFilter())
         request.apply_filter(AddressIPRouteFilter(command))
@@ -541,6 +543,8 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         return self._get_dump([address], ifaddrmsg)
 
     def link(self, command, **spec):
+        if command == 'dump':
+            return self.get_links()
         if 'state' in spec:
             spec['flags'] = 1 if spec.pop('state') == 'up' else 0
         request = RequestProcessor(context=spec, prime=spec)
