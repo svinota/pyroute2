@@ -14,7 +14,7 @@ from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
 from pyroute2.requests.link import LinkFieldFilter
 from pyroute2.requests.main import RequestProcessor
 
-interface_counter = count(2)
+interface_counter = count(3)
 
 
 class MockLink:
