@@ -23,9 +23,25 @@
         ]
     )
 
-.. testcleanup:: preset_1
+.. testsetup:: preset_br0_1
 
-    ndb.close()
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+    ndb.interfaces.create(ifname='eth1', kind='dummy').commit()
+    ndb.interfaces.create(ifname='br0', kind='bridge').commit()
+    ndb.interfaces.create(ifname='bond0', kind='bond').commit()
+
+.. testsetup:: preset_br0_2
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+    ndb.interfaces.create(ifname='br0', kind='bridge').commit()
+    ndb.interfaces['br0'].add_port('eth0').commit()
+
 
 List interfaces
 ===============
@@ -140,54 +156,39 @@ Bridge and bond ports
 
 Add bridge and bond ports one can use specific API:
 
-.. code-block:: python
+.. testcode:: preset_br0_1
 
-    (
-        ndb.interfaces['br0']
-        .add_port('eth0')
-        .add_port('eth1')
-        .set('br_max_age', 1024)
-        .set('br_forward_delay', 1500)
-        .commit()
-    )
+    with ndb.interfaces['br0'] as br0:
+        br0.add_port('eth0')
+        br0.add_port('eth1')
+        br0.set('br_max_age', 1024)
+        br0.set('br_forward_delay', 1500)
 
-    (
-        ndb.interfaces['bond0']
-        .add_port('eth0')
-        .add_port('eth1')
-        .commit()
-    )
+    with ndb.interfaces['bond0'] as bond0:
+        bond0.add_port('eth0')
+        bond0.add_port('eth1')
 
 To remove a port:
 
-.. code-block:: python
+.. testcode:: preset_br0_2
 
-    (
-        ndb.interfaces['br0']
-        .del_port('eth0')
-        .commit()
-    )
+    with ndb.interfaces['br0'] as br0:
+        br0.del_port('eth0')
 
 Or by setting the master property on a port, in the same
 way as with `IPRoute`:
 
-.. code-block:: python
+.. testcode:: preset_br0_1
 
     index = ndb.interfaces['br0']['index']
 
     # add a port to a bridge
-    (
-        ndb.interfaces['eth0']
-        .set('master', index)
-        .commit()
-    )
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.set('master', index)
 
     # remove a port from a bridge
-    (
-        ndb.interfaces['eth0']
-        .set('master', 0)
-        .commit()
-    )
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.set('master', 0)
 '''
 
 import errno
