@@ -1,14 +1,61 @@
 '''
+
+.. testsetup::
+
+    from pyroute2 import IPMock as IPRoute
+    from pyroute2 import NDB
+    from pyroute2 import config
+
+    config.mock_iproute = True
+
+
+.. testsetup:: preset_1
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+
+    config.mock_iproute = True
+    ndb = NDB(
+        sources=[
+            {'target': 'localhost', 'kind': 'IPMock'},
+            {'target': 'worker1.sample.com', 'kind': 'IPMock'},
+            {'target': 'worker2.sample.com', 'kind': 'IPMock'},
+        ]
+    )
+
+.. testcleanup:: preset_1
+
+    ndb.close()
+
 List interfaces
 ===============
 
-List interface keys::
+List interface keys:
+
+.. testcode::
 
     with NDB(log='on') as ndb:
         for key in ndb.interfaces:
             print(key)
 
-NDB views support some dict methods: `items()`, `values()`, `keys()`::
+
+.. testoutput::
+    :hide:
+
+    ('localhost', 0, 0, 772, 1, 1, 0, '00:00:00:00:00:00', \
+'00:00:00:00:00:00', 'lo', 65536, None, 'noqueue', None, 1000, 'UNKNOWN', 0, \
+None, None, None, 0, None, 0, 1, 1, 1, 0, None, None, 0, 65535, 65536, None, \
+None, None, 0, 0, None, None, None, None, None, None, 65536, None, None, \
+'up', None, None, None, None, None, None, None, None)
+    ('localhost', 0, 0, 772, 2, 1, 0, '52:54:00:72:58:b2', \
+'ff:ff:ff:ff:ff:ff', 'eth0', 1500, None, 'fq_codel', None, 1000, 'UNKNOWN', \
+0, None, None, None, 0, None, 0, 1, 1, 1, 0, None, None, 0, 65535, 65536, \
+None, None, None, 0, 0, None, None, None, None, None, None, 65536, None, \
+None, 'up', None, None, None, None, None, None, None, None)
+
+NDB views support some dict methods: `items()`, `values()`, `keys()`:
+
+.. testcode::
 
     with NDB(log='on') as ndb:
         for key, nic in ndb.interfaces.items():
@@ -18,28 +65,44 @@ NDB views support some dict methods: `items()`, `values()`, `keys()`::
 Get interface objects
 =====================
 
-The keys may be used as selectors to get interface objects::
+The keys may be used as selectors to get interface objects:
 
-    for key in ndb.interfaces:
-        print(ndb.interfaces[key])
+.. testcode::
+
+    with NDB() as ndb:
+        for key in ndb.interfaces:
+            print(ndb.interfaces[key])
+
+.. testoutput::
+    :hide:
+    :options: +ELLIPSIS
+
+    ...
 
 Also possible selector formats are `dict()` and simple string. The latter
-means the interface name::
+means the interface name:
+
+.. testcode:: preset_1
 
     eth0 = ndb.interfaces['eth0']
 
-Dict selectors are necessary to get interfaces by other properties::
+Dict selectors are necessary to get interfaces by other properties:
+
+
+.. testcode:: preset_1
 
     wrk1_eth0 = ndb.interfaces[{'target': 'worker1.sample.com',
                                 'ifname': 'eth0'}]
 
     wrk2_eth0 = ndb.interfaces[{'target': 'worker2.sample.com',
-                                'address': '52:54:00:22:a1:b7'}]
+                                'address': '52:54:00:72:58:b2'}]
 
 Change nic properties
 =====================
 
-Changing MTU and MAC address::
+Changing MTU and MAC address:
+
+.. testcode:: preset_1
 
     with ndb.interfaces['eth0'] as eth0:
         eth0['mtu'] = 1248
@@ -47,32 +110,15 @@ Changing MTU and MAC address::
     # --> <-- eth0.commit() is called by the context manager
 
 One can change a property either using the assignment statement, or
-using the `.set()` routine::
+using the `.set()` routine:
+
+.. testcode:: preset_1
 
     # same code
     with ndb.interfaces['eth0'] as eth0:
         eth0.set('mtu', 1248)
         eth0.set('address', '00:11:22:33:44:55')
 
-The `.set()` routine returns the object itself, that makes possible
-chain calls::
-
-    # same as above
-    with ndb.interfaces['eth0'] as eth0:
-        eth0.set('mtu', 1248).set('address', '00:11:22:33:44:55')
-
-    # or
-    with ndb.interfaces['eth0'] as eth0:
-        (eth0
-         .set('mtu', 1248)
-         .set('address', '00:11:22:33:44:55'))
-
-    # or without the context manager, call commit() explicitly
-    (ndb
-     .interfaces['eth0']
-     .set('mtu', 1248)
-     .set('address', '00:11:22:33:44:55')
-     .commit())
 
 Create virtual interfaces
 =========================
