@@ -35,6 +35,9 @@ class MockLink:
         kind=None,
         link=None,
         vlan_id=None,
+        master=0,
+        br_max_age=0,
+        br_forward_delay=0,
     ):
         self.index = index
         self.ifname = ifname
@@ -51,6 +54,9 @@ class MockLink:
         self.kind = kind
         self.link = link
         self.vlan_id = vlan_id
+        self.master = master
+        self.br_max_age = br_max_age
+        self.br_forward_delay = br_forward_delay
 
     def export(self):
         ret = {
@@ -207,18 +213,24 @@ class MockLink:
         }
         linkinfo = None
         infodata = {'attrs': []}
+        if self.kind is not None:
+            linkinfo = {'attrs': [('IFLA_INFO_KIND', self.kind)]}
         if self.kind not in (None, 'dummy'):
-            linkinfo = {
-                'attrs': [
-                    ('IFLA_INFO_KIND', self.kind),
-                    ('IFLA_INFO_DATA', infodata),
-                ]
-            }
+            linkinfo['attrs'].append(('IFLA_INFO_DATA', infodata))
         if self.kind == 'vlan':
             infodata['attrs'].append(('IFLA_VLAN_ID', self.vlan_id))
             ret['attrs'].append(('IFLA_LINK', self.link))
+        if self.kind == 'bridge':
+            infodata['attrs'].extend(
+                (
+                    ('IFLA_BR_MAX_AGE', self.br_max_age),
+                    ('IFLA_BR_FORWARD_DELAY', self.br_forward_delay),
+                )
+            )
         if linkinfo is not None:
             ret['attrs'].append(('IFLA_LINKINFO', linkinfo))
+        if self.master != 0:
+            ret['attrs'].append(('IFLA_MASTER', self.master))
         return ret
 
 
