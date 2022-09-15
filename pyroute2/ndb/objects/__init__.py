@@ -550,7 +550,11 @@ class RTNL_Object(dict):
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
-            (self.ndb.register_handler(event, partial(wr_handler, wr, fname)))
+            (
+                self.ndb.task_manager.register_handler(
+                    event, partial(wr_handler, wr, fname)
+                )
+            )
 
     @check_auth('obj:modify')
     def snapshot(self, ctxid=None):

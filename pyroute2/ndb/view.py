@@ -79,13 +79,13 @@ class TmpHandler:
         self.handler = handler
 
     def __enter__(self):
-        self.ndb.register_handler(
+        self.ndb.task_manager.register_handler(
             self.ndb.schema.classes[self.event], self.handler
         )
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.ndb.unregister_handler(
+        self.ndb.task_manager.unregister_handler(
             self.ndb.schema.classes[self.event], self.handler
         )
 
