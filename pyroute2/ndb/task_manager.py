@@ -1,4 +1,7 @@
+import inspect
 import logging
+import queue
+import threading
 import time
 import traceback
 from functools import partial
@@ -12,7 +15,7 @@ from .events import (
     RescheduleException,
     ShutdownException,
 )
-from .messages import cmsg_event, cmsg_failed, cmsg_sstart
+from .messages import cmsg, cmsg_event, cmsg_failed, cmsg_sstart
 
 log = logging.getLogger(__name__)
 
@@ -39,8 +42,7 @@ class TaskManager:
     def unregister_handler(self, event, handler):
         self._event_map[event].remove(handler)
 
-    @staticmethod
-    def default_handler(target, event):
+    def default_handler(self, target, event):
         if isinstance(getattr(event, 'payload', None), Exception):
             raise event.payload
         log.debug('unsupported event ignored: %s' % type(event))
@@ -49,6 +51,81 @@ class TaskManager:
         _locals['countdown'] -= 1
         if _locals['countdown'] == 0:
             self.ndb._dbm_ready.set()
+
+    def wrap_method(self, method):
+        #
+        # this wrapper will be published in the DBM thread
+        #
+        def _do_local_generator(target, request):
+            try:
+                for item in method(*request.argv, **request.kwarg):
+                    request.response.put(item)
+                request.response.put(StopIteration())
+            except Exception as e:
+                request.response.put(e)
+
+        def _do_local_single(target, request):
+            try:
+                (request.response.put(method(*request.argv, **request.kwarg)))
+            except Exception as e:
+                (request.response.put(e))
+
+        #
+        # this class will be used to map the requests
+        #
+        class cmsg_req(cmsg):
+            def __init__(self, response, *argv, **kwarg):
+                self['header'] = {'target': None}
+                self.response = response
+                self.argv = argv
+                self.kwarg = kwarg
+
+        #
+        # this method will proxy the original one
+        #
+        def _do_dispatch_generator(self, *argv, **kwarg):
+            if self.thread == id(threading.current_thread()):
+                # same thread, run method locally
+                for item in method(*argv, **kwarg):
+                    yield item
+            else:
+                # another thread, run via message bus
+                response = queue.Queue()
+                request = cmsg_req(response, *argv, **kwarg)
+                self.event_queue.put((request,))
+                while True:
+                    item = response.get()
+                    if isinstance(item, StopIteration):
+                        return
+                    elif isinstance(item, Exception):
+                        raise item
+                    else:
+                        yield item
+
+        def _do_dispatch_single(self, *argv, **kwarg):
+            if self.thread == id(threading.current_thread()):
+                # same thread, run method locally
+                return method(*argv, **kwarg)
+            else:
+                # another thread, run via message bus
+                response = queue.Queue(maxsize=1)
+                request = cmsg_req(response, *argv, **kwarg)
+                self.event_queue.put((request,))
+                ret = response.get()
+                if isinstance(ret, Exception):
+                    raise ret
+                else:
+                    return ret
+
+        #
+        # return the method spec to be announced
+        #
+        handler = _do_local_single
+        proxy = _do_dispatch_single
+        if inspect.isgeneratorfunction(method):
+            handler = _do_local_generator
+            proxy = _do_dispatch_generator
+        return (cmsg_req, handler, proxy)
 
     def run(self):
         _locals = {'countdown': len(self.ndb._nl)}
@@ -75,6 +152,13 @@ class TaskManager:
                 self.ndb._db_rtnl_log,
                 self.log.channel('schema'),
             )
+            for name in dir(self.ndb.schema):
+                obj = getattr(self.ndb.schema, name, None)
+                if hasattr(obj, 'publish'):
+                    name = f'db_{name}'
+                    event, handler, proxy = self.wrap_method(obj)
+                    setattr(self, name, partial(proxy, self.ndb.schema))
+                    event_map[event] = [handler]
 
         except Exception as e:
             self.ndb._dbm_error = e

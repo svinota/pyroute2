@@ -31,6 +31,10 @@ class RequestProcessor(dict):
             and key not in self.field_filter._allowed
         ):
             return {}
+        if hasattr(
+            self.field_filter, 'policy'
+        ) and not self.field_filter.policy(key):
+            return {}
         return getattr(
             self.field_filter, f'set_{key}', lambda *argv: {key: value}
         )(self.combined, value)

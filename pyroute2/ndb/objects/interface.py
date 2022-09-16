@@ -410,13 +410,13 @@ class Vlan(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.schema.fetchone(
+            return view.ndb.task_manager.db_fetchone(
                 'SELECT count(*) FROM %s WHERE f_index = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.schema.fetchone(
+            return view.ndb.task_manager.db_fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -454,7 +454,7 @@ class Vlan(RTNL_Object):
               '''
         yield ('target', 'tflags', 'vid', 'ifname')
         where, values = cls._dump_where(view)
-        for record in view.ndb.schema.fetch(req + where, values):
+        for record in view.ndb.task_manager.db_fetch(req + where, values):
             yield record
 
     @staticmethod
@@ -500,13 +500,13 @@ class Interface(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.schema.fetchone(
+            return view.ndb.task_manager.db_fetchone(
                 'SELECT count(*) FROM %s WHERE f_IFLA_MASTER = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.schema.fetchone(
+            return view.ndb.task_manager.db_fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -548,7 +548,7 @@ class Interface(RTNL_Object):
             'kind',
         )
         where, values = cls._dump_where(view)
-        for record in view.ndb.schema.fetch(req + where, values):
+        for record in view.ndb.task_manager.db_fetch(req + where, values):
             yield record
 
     def mark_tflags(self, mark):
@@ -1018,7 +1018,7 @@ class Interface(RTNL_Object):
             tname = 'ifinfo_%s' % self['kind']
             if tname in self.schema.compiled:
                 names = self.schema.compiled[tname]['norm_names']
-                spec = self.ndb.schema.fetchone(
+                spec = self.ndb.task_manager.db_fetchone(
                     'SELECT * from %s WHERE f_index = %s'
                     % (tname, self.schema.plch),
                     (self['index'],),

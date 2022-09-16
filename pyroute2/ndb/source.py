@@ -177,7 +177,7 @@ class Source(dict):
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log, wait_list=['running'])
         self.state.set('init')
-        self.ndb.schema.add_nl_source(self.target, self.kind, spec)
+        self.ndb.task_manager.db_add_nl_source(self.target, self.kind, spec)
         self.load_sql()
 
     @property
@@ -339,14 +339,13 @@ class Source(dict):
                     #
                     # Initial load -- enqueue the data
                     #
-                    self.ndb.schema.allow_read(False)
                     try:
-                        self.ndb.schema.flush(self.target)
+                        self.ndb.task_manager.db_flush(self.target)
                         if self.kind in ('local', 'netns', 'remote'):
                             self.fake_zero_if()
                         self.evq.put(self.nl.dump(), source=self.target)
                     finally:
-                        self.ndb.schema.allow_read(True)
+                        pass
                     self.errors_counter = 0
                 except Exception as e:
                     self.errors_counter += 1
@@ -401,7 +400,6 @@ class Source(dict):
                     self.state.set('stop')
                     break
 
-                self.ndb.schema._allow_write.wait()
                 try:
                     self.evq.put(msg, source=self.target)
                 except ShutdownException:
@@ -414,7 +412,7 @@ class Source(dict):
         try:
             self.sync()
             self.log.debug('flush DB for the target')
-            self.ndb.schema.flush(self.target)
+            self.ndb.task_manager.db_flush(self.target)
         except ShutdownException:
             self.log.debug('shutdown handled by the main thread')
             pass
@@ -466,7 +464,6 @@ class Source(dict):
             with self.shutdown_lock:
                 self.log.debug('restarting the source, reason <%s>' % (reason))
                 self.started.clear()
-                self.ndb.schema.allow_read(False)
                 try:
                     self.close()
                     if self.th:
@@ -474,7 +471,7 @@ class Source(dict):
                     self.shutdown.clear()
                     self.start()
                 finally:
-                    self.ndb.schema.allow_read(True)
+                    pass
         self.started.wait()
 
     def __enter__(self):
@@ -485,7 +482,7 @@ class Source(dict):
 
     def load_sql(self):
         #
-        spec = self.ndb.schema.fetchone(
+        spec = self.ndb.task_manager.db_fetchone(
             '''
                                         SELECT * FROM sources
                                         WHERE f_target = %s
@@ -494,7 +491,7 @@ class Source(dict):
             (self.target,),
         )
         self['target'], self['kind'] = spec
-        for spec in self.ndb.schema.fetch(
+        for spec in self.ndb.task_manager.db_fetch(
             '''
                                           SELECT * FROM sources_options
                                           WHERE f_target = %s

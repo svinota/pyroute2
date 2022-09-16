@@ -57,7 +57,7 @@ class Rule(RTNL_Object):
                 rules
               '''
         yield ('target', 'tflags', 'family', 'priority', 'action', 'table')
-        for record in view.ndb.schema.fetch(req):
+        for record in view.ndb.task_manager.db_fetch(req):
             yield record
 
     def __init__(self, *argv, **kwarg):

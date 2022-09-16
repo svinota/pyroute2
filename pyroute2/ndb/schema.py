@@ -117,7 +117,6 @@ all the tables from the DB, and NDB will create them from scratch
 on startup.
 '''
 import enum
-import inspect
 import json
 import random
 import sqlite3
@@ -132,13 +131,7 @@ from pyroute2 import config
 from pyroute2.common import basestring, uuid32
 
 #
-from .messages import cmsg
 from .objects import address, interface, neighbour, netns, route, rule
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
 
 try:
     import psycopg2
@@ -164,96 +157,8 @@ class DBConfig:
 
 
 def publish(method):
-    #
-    # this wrapper will be published in the DBM thread
-    #
-    def _do_local_generator(self, target, request):
-        try:
-            for item in method(self, *request.argv, **request.kwarg):
-                request.response.put(item)
-            request.response.put(StopIteration())
-        except Exception as e:
-            request.response.put(e)
-
-    def _do_local_single(self, target, request):
-        try:
-            (
-                request.response.put(
-                    method(self, *request.argv, **request.kwarg)
-                )
-            )
-        except Exception as e:
-            (request.response.put(e))
-
-    #
-    # this class will be used to map the requests
-    #
-    class cmsg_req(cmsg):
-        def __init__(self, response, *argv, **kwarg):
-            self['header'] = {'target': None}
-            self.response = response
-            self.argv = argv
-            self.kwarg = kwarg
-
-    #
-    # this method will replace the source one
-    #
-    def _do_dispatch_generator(self, *argv, **kwarg):
-        if self.thread == id(threading.current_thread()):
-            # same thread, run method locally
-            for item in method(self, *argv, **kwarg):
-                yield item
-        else:
-            # another thread, run via message bus
-            self._allow_read.wait()
-            response = queue.Queue()
-            request = cmsg_req(response, *argv, **kwarg)
-            self.event_queue.put((request,))
-            while True:
-                item = response.get()
-                if isinstance(item, StopIteration):
-                    return
-                elif isinstance(item, Exception):
-                    raise item
-                else:
-                    yield item
-
-    def _do_dispatch_single(self, *argv, **kwarg):
-        if self.thread == id(threading.current_thread()):
-            # same thread, run method locally
-            return method(self, *argv, **kwarg)
-        else:
-            # another thread, run via message bus
-            response = queue.Queue(maxsize=1)
-            request = cmsg_req(response, *argv, **kwarg)
-            self.event_queue.put((request,))
-            ret = response.get()
-            if isinstance(ret, Exception):
-                raise ret
-            else:
-                return ret
-
-    #
-    # announce the function so it will be published
-    #
-    if inspect.isgeneratorfunction(method):
-        _do_dispatch_generator.publish = (cmsg_req, _do_local_generator)
-        return _do_dispatch_generator
-
-    _do_dispatch_single.publish = (cmsg_req, _do_local_single)
-    return _do_dispatch_single
-
-
-class ReadOnly(object):
-    def __init__(self, schema):
-        self._schema = schema
-
-    def __enter__(self):
-        self._schema.allow_write(False)
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._schema.allow_write(True)
+    method.publish = True
+    return method
 
 
 class DBSchema:
@@ -277,20 +182,12 @@ class DBSchema:
     def __init__(
         self, config, ndb, event_queue, event_map, rtnl_log, log_channel
     ):
-        # collect all the dispatched methods and publish them
-        for name in dir(self):
-            obj = getattr(self, name, None)
-            if hasattr(obj, 'publish'):
-                event, fbody = obj.publish
-                event_map[event] = [partial(fbody, self)]
-
         global plugins
         self.ndb = ndb
         self.config = config
         self.event_queue = event_queue
         self.stats = {}
         self.thread = id(threading.current_thread())
-        self.readonly = ReadOnly(self)
         self.connection = None
         self.cursor = None
         self.rtnl_log = rtnl_log
@@ -298,10 +195,6 @@ class DBSchema:
         self.snapshots = {}
         self.key_defaults = {}
         self.event_map = {}
-        self._allow_read = threading.Event()
-        self._allow_read.set()
-        self._allow_write = threading.Event()
-        self._allow_write.set()
         for plugin in plugins:
             #
             # 1. spec
@@ -563,45 +456,11 @@ class DBSchema:
             self.connection.commit()  # no performance optimisation yet
         return self.cursor
 
+    @publish
     def fetchone(self, *argv, **kwarg):
         for row in self.fetch(*argv, **kwarg):
             return row
         return None
-
-    @publish
-    def wait_read(self, timeout=None):
-        return self._allow_read.wait(timeout)
-
-    @publish
-    def wait_write(self, timeout=None):
-        return self._allow_write.wait(timeout)
-
-    def allow_read(self, flag=True):
-        if not flag:
-            # block immediately...
-            self._allow_read.clear()
-        # ...then forward the request through the message bus
-        # in the case of different threads, or simply run stage2
-        self._r_allow_read(flag)
-
-    @publish
-    def _r_allow_read(self, flag):
-        if flag:
-            self._allow_read.set()
-        else:
-            self._allow_read.clear()
-
-    def allow_write(self, flag=True):
-        if not flag:
-            self._allow_write.clear()
-        self._r_allow_write(flag)
-
-    @publish
-    def _r_allow_write(self, flag):
-        if flag:
-            self._allow_write.set()
-        else:
-            self._allow_write.clear()
 
     @publish
     def fetch(self, *argv, **kwarg):
