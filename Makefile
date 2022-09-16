@@ -25,6 +25,13 @@ all:
 	@echo \* uninstall -- uninstall lib
 	@echo
 
+.PHONY: git-clean
+git-clean:
+	git clean -d -f -x
+	git remote prune origin
+	git branch --merged >/tmp/merged-branches && \
+		vi /tmp/merged-branches && xargs git branch -d </tmp/merged-branches
+
 .PHONY: clean
 clean:
 	@rm -f lab/*html
