@@ -142,9 +142,10 @@ class TaskManager:
         self._event_map = event_map
 
         try:
-            dbconfig = schema.DBConfig()
-            dbconfig.provider = schema.DBProvider(self.ndb._db_provider)
-            dbconfig.spec = self.ndb._db_spec
+            dbconfig = {
+                'provider': str(schema.DBProvider(self.ndb._db_provider)),
+                'spec': self.ndb._db_spec,
+            }
             self.ndb.schema = schema.DBSchema(
                 dbconfig,
                 self.ndb,

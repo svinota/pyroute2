@@ -121,7 +121,6 @@ import json
 import random
 import sqlite3
 import sys
-import threading
 import time
 import traceback
 from collections import OrderedDict
@@ -150,10 +149,44 @@ class DBProvider(enum.Enum):
     sqlite3 = 'sqlite3'
     psycopg2 = 'psycopg2'
 
+    def __eq__(self, r):
+        return str(self) == r
 
-class DBConfig:
-    provider = DBProvider.sqlite3
-    spec = ':memory:'
+
+class DBDict(dict):
+    def __init__(self, schema, table):
+        self.schema = schema
+        self.table = table
+
+    def __getitem__(self, key):
+        for (record,) in self.schema.fetch(
+            f'''
+            SELECT f_value FROM {self.table}
+            WHERE f_key = {self.schema.plch}
+            ''',
+            (key,),
+        ):
+            return json.loads(record)
+        raise KeyError(f'key {key} not found')
+
+    def __setitem__(self, key, value):
+        del self[key]
+        self.schema.execute(
+            f'''
+            INSERT INTO {self.table}
+            VALUES ({self.schema.plch}, {self.schema.plch})
+            ''',
+            (key, json.dumps(value)),
+        )
+
+    def __delitem__(self, key):
+        self.schema.execute(
+            f'''
+            DELETE FROM {self.table}
+            WHERE f_key = {self.schema.plch}
+            ''',
+            (key,),
+        )
 
 
 def publish(method):
@@ -164,7 +197,6 @@ def publish(method):
 class DBSchema:
 
     connection = None
-    thread = None
     event_map = None
     key_defaults = None
     snapshots = None  # <table_name>: <obj_weakref>
@@ -182,9 +214,8 @@ class DBSchema:
     def __init__(self, config, ndb, event_map, rtnl_log, log_channel):
         global plugins
         self.ndb = ndb
-        self.config = config
+        self.config = DBDict(self, 'config')
         self.stats = {}
-        self.thread = id(threading.current_thread())
         self.connection = None
         self.cursor = None
         self.rtnl_log = rtnl_log
@@ -206,7 +237,7 @@ class DBSchema:
             for name, cls in plugin.init['classes']:
                 self.classes[name] = cls
         #
-        self.initdb()
+        self.initdb(config)
         #
         for plugin in plugins:
             #
@@ -223,15 +254,15 @@ class DBSchema:
 
         self.gctime = self.ctime = time.time()
 
-    def initdb(self):
+    def initdb(self, config):
         if self.connection is not None:
             self.close()
-        if self.config.provider == DBProvider.sqlite3:
-            self.connection = sqlite3.connect(self.config.spec)
+        if config['provider'] == DBProvider.sqlite3:
+            self.connection = sqlite3.connect(config['spec'])
             self.plch = '?'
             self.connection.execute('PRAGMA foreign_keys = ON')
-        elif self.config.provider == DBProvider.psycopg2:
-            self.connection = psycopg2.connect(**self.config.spec)
+        elif config['provider'] == DBProvider.psycopg2:
+            self.connection = psycopg2.connect(**config['spec'])
             self.plch = '%s'
         else:
             raise TypeError('DB provider not supported')
@@ -260,6 +291,17 @@ class DBSchema:
         )
         self.execute(
             '''
+            DROP TABLE IF EXISTS config
+        '''
+        )
+        self.execute(
+            '''
+            CREATE TABLE config
+                (f_key TEXT PRIMARY KEY, f_value TEXT NOT NULL)
+        '''
+        )
+        self.execute(
+            '''
                      CREATE TABLE IF NOT EXISTS sources
                      (f_target TEXT PRIMARY KEY,
                       f_kind TEXT NOT NULL)
@@ -278,6 +320,8 @@ class DBSchema:
                           ON DELETE CASCADE)
                      '''
         )
+        for key, value in config.items():
+            self.config[key] = value
 
     def merge_spec(self, table1, table2, table, schema_idx):
         spec1 = self.compiled[table1]
@@ -473,7 +517,7 @@ class DBSchema:
     def backup(self, spec):
         if (
             sys.version_info >= (3, 7)
-            and self.config.provider == DBProvider.sqlite3
+            and self.config['provider'] == DBProvider.sqlite3
         ):
             backup_connection = sqlite3.connect(spec)
             self.connection.backup(backup_connection)
@@ -505,7 +549,7 @@ class DBSchema:
                 f.close()
 
     def close(self):
-        if self.config.spec != ':memory:':
+        if self.config['spec'] != ':memory:':
             # simply discard in-memory sqlite db on exit
             self.purge_snapshots()
             self.connection.commit()
@@ -702,9 +746,9 @@ class DBSchema:
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    if self.config.provider == DBProvider.sqlite3:
+                    if self.config['provider'] == DBProvider.sqlite3:
                         self.execute('DROP TABLE %s' % table)
-                    elif self.config.provider == DBProvider.psycopg2:
+                    elif self.config['provider'] == DBProvider.psycopg2:
                         self.execute('DROP TABLE %s CASCADE' % table)
                     self.connection.commit()
                     del self.snapshots[table]
@@ -866,7 +910,7 @@ class DBSchema:
                 values.append(value)
 
             try:
-                if self.config.provider == DBProvider.psycopg2:
+                if self.config['provider'] == DBProvider.psycopg2:
                     #
                     # run UPSERT -- the DB provider must support it
                     #
@@ -887,7 +931,7 @@ class DBSchema:
                         )
                     )
                     #
-                elif self.config.provider == DBProvider.sqlite3:
+                elif self.config['provider'] == DBProvider.sqlite3:
                     #
                     # SQLite3 >= 3.24 actually has UPSERT, but ...
                     #
