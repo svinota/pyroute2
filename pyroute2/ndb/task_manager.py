@@ -32,6 +32,8 @@ class TaskManager:
         self.ndb = ndb
         self.log = ndb.log
         self._event_map = {}
+        self.event_queue = ndb._event_queue
+        self.thread = None
         self.ctime = self.gctime = time.time()
 
     def register_handler(self, event, handler):
@@ -129,6 +131,7 @@ class TaskManager:
 
     def run(self):
         _locals = {'countdown': len(self.ndb._nl)}
+        self.thread = id(threading.current_thread())
 
         # init the events map
         event_map = {
@@ -138,8 +141,6 @@ class TaskManager:
         }
         self._event_map = event_map
 
-        event_queue = self.ndb._event_queue
-
         try:
             dbconfig = schema.DBConfig()
             dbconfig.provider = schema.DBProvider(self.ndb._db_provider)
@@ -147,7 +148,6 @@ class TaskManager:
             self.ndb.schema = schema.DBSchema(
                 dbconfig,
                 self.ndb,
-                self.ndb._event_queue,
                 self._event_map,
                 self.ndb._db_rtnl_log,
                 self.log.channel('schema'),
@@ -157,7 +157,7 @@ class TaskManager:
                 if hasattr(obj, 'publish'):
                     name = f'db_{name}'
                     event, handler, proxy = self.wrap_method(obj)
-                    setattr(self, name, partial(proxy, self.ndb.schema))
+                    setattr(self, name, partial(proxy, self))
                     event_map[event] = [handler]
 
         except Exception as e:
@@ -177,7 +177,7 @@ class TaskManager:
         source = None
         reschedule = []
         while not stop:
-            source, events = event_queue.get()
+            source, events = self.event_queue.get()
             events = Events(events, reschedule)
             reschedule = []
             try:

@@ -179,13 +179,10 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(
-        self, config, ndb, event_queue, event_map, rtnl_log, log_channel
-    ):
+    def __init__(self, config, ndb, event_map, rtnl_log, log_channel):
         global plugins
         self.ndb = ndb
         self.config = config
-        self.event_queue = event_queue
         self.stats = {}
         self.thread = id(threading.current_thread())
         self.connection = None
