@@ -138,6 +138,11 @@ class IPRouteFilter:
     def __init__(self, command):
         self.command = command
 
+    def policy(self, key):
+        if self.command == 'add' and key in ('tso_max_segs', 'tso_max_size'):
+            return False
+        return True
+
 
 class NLAKeyTransform:
 

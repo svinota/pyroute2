@@ -172,13 +172,13 @@ class Address(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.schema.fetchone(
+            return view.ndb.task_manager.db_fetchone(
                 'SELECT count(*) FROM %s WHERE f_index = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.schema.fetchone(
+            return view.ndb.task_manager.db_fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -216,7 +216,7 @@ class Address(RTNL_Object):
               '''
         yield ('target', 'tflags', 'ifname', 'address', 'prefixlen')
         where, values = cls._dump_where(view)
-        for record in view.ndb.schema.fetch(req + where, values):
+        for record in view.ndb.task_manager.db_fetch(req + where, values):
             yield record
 
     def mark_tflags(self, mark):

@@ -285,25 +285,16 @@ import logging
 import logging.handlers
 import sys
 import threading
-import time
-import traceback
-from functools import partial
 
 from pyroute2 import config
 from pyroute2.common import basestring
-from pyroute2.netlink import nlmsg_base
 
 ##
 # NDB stuff
-from . import schema
 from .auth_manager import AuthManager
-from .events import (
-    DBMExitException,
-    InvalidateHandlerException,
-    RescheduleException,
-    ShutdownException,
-)
-from .messages import cmsg, cmsg_event, cmsg_failed, cmsg_sstart
+from .events import ShutdownException
+from .messages import cmsg
+from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
 
@@ -332,7 +323,7 @@ NDB_VIEWS_SPECS = (
 )
 
 
-class Log(object):
+class Log:
     def __init__(self, log_id=None):
         self.logger = None
         self.state = False
@@ -426,12 +417,12 @@ class Log(object):
         return self.main.critical(*argv, **kwarg)
 
 
-class DeadEnd(object):
+class DeadEnd:
     def put(self, *argv, **kwarg):
         raise ShutdownException('shutdown in progress')
 
 
-class EventQueue(object):
+class EventQueue:
     def __init__(self, *argv, **kwarg):
         self._bypass = self._queue = queue.Queue(*argv, **kwarg)
 
@@ -451,14 +442,7 @@ class EventQueue(object):
         return self._bypass.qsize()
 
 
-def Events(*argv):
-    for sequence in argv:
-        if sequence is not None:
-            for item in sequence:
-                yield item
-
-
-class AuthProxy(object):
+class AuthProxy:
     def __init__(self, ndb, auth_managers):
         self._ndb = ndb
         self._auth_managers = auth_managers
@@ -468,7 +452,7 @@ class AuthProxy(object):
             setattr(self, vname, view)
 
 
-class NDB(object):
+class NDB:
     @property
     def nsmanager(self):
         return '%s/nsmanager' % self.localhost
@@ -484,14 +468,12 @@ class NDB(object):
         log=False,
         auto_netns=False,
         libc=None,
-        messenger=None,
     ):
 
         if db_provider == 'postgres':
             db_provider = 'psycopg2'
 
         self.localhost = localhost
-        self.ctime = self.gctime = time.time()
         self.schema = None
         self.config = {}
         self.libc = libc or ctypes.CDLL(
@@ -505,15 +487,8 @@ class NDB(object):
         self._dbm_shutdown = threading.Event()
         self._db_cleanup = db_cleanup
         self._global_lock = threading.Lock()
-        self._event_map = None
         self._event_queue = EventQueue(maxsize=100)
-        self.messenger = messenger
-        if messenger is not None:
-            self._mm_thread = threading.Thread(
-                target=self.__mm__, name='Messenger'
-            )
-            self._mm_thread.setDaemon(True)
-            self._mm_thread.start()
+        self.messenger = None
         #
         if log:
             if isinstance(log, basestring):
@@ -563,8 +538,9 @@ class NDB(object):
         self._dbm_ready.clear()
         self._dbm_error = None
         self._dbm_autoload = set()
+        self.task_manager = TaskManager(self)
         self._dbm_thread = threading.Thread(
-            target=self.__dbm__, name='NDB main loop'
+            target=self.task_manager.run, name='NDB main loop'
         )
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
@@ -602,14 +578,6 @@ class NDB(object):
     def auth_proxy(self, auth_manager):
         return AuthProxy(self, [auth_manager])
 
-    def register_handler(self, event, handler):
-        if event not in self._event_map:
-            self._event_map[event] = []
-        self._event_map[event].append(handler)
-
-    def unregister_handler(self, event, handler):
-        self._event_map[event].remove(handler)
-
     def close(self):
         with self._global_lock:
             if self._dbm_shutdown.is_set():
@@ -631,201 +599,9 @@ class NDB(object):
             self.log.close()
 
     def backup(self, spec):
-        self.schema.backup(spec)
+        self.task_manager.db_backup(spec)
 
     def reload(self, kinds=None):
         for source in self.sources.values():
             if kinds is not None and source.kind in kinds:
                 source.restart()
-
-    def __mm__(self):
-        # notify neighbours by sending hello
-        for peer in self.messenger.transport.peers:
-            peer.hello()
-        # receive events
-        for msg in self.messenger:
-            if msg['type'] == 'system' and msg['data'] == 'HELLO':
-                for peer in self.messenger.transport.peers:
-                    peer.last_exception_time = 0
-                self.reload(kinds=['local', 'netns', 'remote'])
-            elif msg['type'] == 'transport':
-                message = msg['data'][0](data=msg['data'][1])
-                message.decode()
-                message['header']['target'] = msg['target']
-                self._event_queue.put((message,))
-            elif msg['type'] == 'response':
-                if msg['call_id'] in self._call_registry:
-                    event = self._call_registry.pop(msg['call_id'])
-                    self._call_registry[msg['call_id']] = msg
-                    event.set()
-            elif msg['type'] == 'api':
-                if msg['target'] in self.messenger.targets:
-                    try:
-                        ret = self.sources[msg['target']].api(
-                            msg['name'], *msg['argv'], **msg['kwarg']
-                        )
-                        self.messenger.emit(
-                            {
-                                'type': 'response',
-                                'call_id': msg['call_id'],
-                                'return': ret,
-                            }
-                        )
-                    except Exception as e:
-                        self.messenger.emit(
-                            {
-                                'type': 'response',
-                                'call_id': msg['call_id'],
-                                'exception': e,
-                            }
-                        )
-            else:
-                self.log.warning('unknown protocol via messenger')
-
-    def __dbm__(self):
-        def default_handler(target, event):
-            if isinstance(getattr(event, 'payload', None), Exception):
-                raise event.payload
-            log.debug('unsupported event ignored: %s' % type(event))
-
-        def check_sources_started(self, _locals, target, event):
-            _locals['countdown'] -= 1
-            if _locals['countdown'] == 0:
-                self._dbm_ready.set()
-
-        _locals = {'countdown': len(self._nl)}
-
-        # init the events map
-        event_map = {
-            cmsg_event: [lambda t, x: x.payload.set()],
-            cmsg_failed: [lambda t, x: (self.schema.mark(t, 1))],
-            cmsg_sstart: [partial(check_sources_started, self, _locals)],
-        }
-        self._event_map = event_map
-
-        event_queue = self._event_queue
-
-        try:
-            dbconfig = schema.DBConfig()
-            dbconfig.provider = schema.DBProvider(self._db_provider)
-            dbconfig.spec = self._db_spec
-            self.schema = schema.DBSchema(
-                dbconfig,
-                self,
-                self._event_queue,
-                self._event_map,
-                self._db_rtnl_log,
-                self.log.channel('schema'),
-            )
-
-        except Exception as e:
-            self._dbm_error = e
-            self._dbm_ready.set()
-            return
-
-        for spec in self._nl:
-            spec['event'] = None
-            self.sources.add(**spec)
-
-        for (event, handlers) in self.schema.event_map.items():
-            for handler in handlers:
-                self.register_handler(event, handler)
-
-        stop = False
-        source = None
-        reschedule = []
-        while not stop:
-            source, events = event_queue.get()
-            events = Events(events, reschedule)
-            reschedule = []
-            try:
-                for event in events:
-                    handlers = event_map.get(
-                        event.__class__, [default_handler]
-                    )
-                    if self.messenger is not None and (
-                        event.get('header', {}).get('target', None)
-                        in self.messenger.targets
-                    ):
-                        if isinstance(event, nlmsg_base):
-                            if event.data is not None:
-                                data = event.data[
-                                    event.offset : event.offset + event.length
-                                ]
-                            else:
-                                event.reset()
-                                event.encode()
-                                data = event.data
-                            data = (type(event), data)
-                            tgt = event['header']['target']
-                            self.messenger.emit(
-                                {
-                                    'type': 'transport',
-                                    'target': tgt,
-                                    'data': data,
-                                }
-                            )
-
-                    for handler in tuple(handlers):
-                        try:
-                            target = event['header']['target']
-                            handler(target, event)
-                        except RescheduleException:
-                            if 'rcounter' not in event['header']:
-                                event['header']['rcounter'] = 0
-                            if event['header']['rcounter'] < 3:
-                                event['header']['rcounter'] += 1
-                                self.log.debug('reschedule %s' % (event,))
-                                reschedule.append(event)
-                            else:
-                                self.log.error('drop %s' % (event,))
-                        except InvalidateHandlerException:
-                            try:
-                                handlers.remove(handler)
-                            except Exception:
-                                self.log.error(
-                                    'could not invalidate '
-                                    'event handler:\n%s'
-                                    % traceback.format_exc()
-                                )
-                        except ShutdownException:
-                            stop = True
-                            break
-                        except DBMExitException:
-                            return
-                        except Exception:
-                            self.log.error(
-                                'could not load event:\n%s\n%s'
-                                % (event, traceback.format_exc())
-                            )
-                    if time.time() - self.gctime > config.gc_timeout:
-                        self.gctime = time.time()
-            except Exception as e:
-                self.log.error(f'exception <{e}> in source {source}')
-                # restart the target
-                try:
-                    self.log.debug(f'requesting source {source} restart')
-                    self.sources[source].state.set('restart')
-                except KeyError:
-                    self.log.debug(f'key error for {source}')
-                    pass
-
-        # release all the sources
-        for target in tuple(self.sources.cache):
-            source = self.sources.remove(target, sync=False)
-            if source is not None and source.th is not None:
-                self.log.debug(f'closing source {source}')
-                source.close()
-                if self._db_cleanup:
-                    self.log.debug('flush DB for the target %s' % target)
-                    self.schema.flush(target)
-                else:
-                    self.log.debug('leave DB for debug')
-
-        # close the database
-        self.schema.commit()
-        self.schema.close()
-
-        # close the logging
-        for handler in self.log.logger.handlers:
-            handler.close()

@@ -79,13 +79,13 @@ class TmpHandler:
         self.handler = handler
 
     def __enter__(self):
-        self.ndb.register_handler(
+        self.ndb.task_manager.register_handler(
             self.ndb.schema.classes[self.event], self.handler
         )
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.ndb.unregister_handler(
+        self.ndb.task_manager.unregister_handler(
             self.ndb.schema.classes[self.event], self.handler
         )
 
@@ -143,7 +143,7 @@ class View(dict):
             return {}
 
     def getmany(self, spec, table=None):
-        return self.ndb.schema.get(table or self.table, spec)
+        return self.ndb.task_manager.db_get(table or self.table, spec)
 
     def getone(self, spec, table=None):
         for obj in self.getmany(spec, table):
@@ -351,6 +351,7 @@ class View(dict):
 
         table = table or self.table
         schema = self.ndb.schema
+        task_manager = self.ndb.task_manager
         names = schema.compiled[self.table]['all_names']
 
         self.log.debug('check if the key %s exists in table %s' % (key, table))
@@ -365,7 +366,7 @@ class View(dict):
                 if isinstance(value, (dict, list, tuple, set)):
                     value = json.dumps(value)
                 values.append(value)
-        spec = schema.fetchone(
+        spec = task_manager.db_fetchone(
             'SELECT * FROM %s WHERE %s' % (self.table, ' AND '.join(keys)),
             values,
         )
