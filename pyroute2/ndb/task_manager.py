@@ -27,22 +27,45 @@ def Events(*argv):
                 yield item
 
 
+class NDBConfig(dict):
+    def __init__(self, task_manager):
+        self.task_manager = task_manager
+
+    def __getitem__(self, key):
+        return self.task_manager.config_get(key)
+
+    def __setitem__(self, key, value):
+        return self.task_manager.config_set(key, value)
+
+    def __delitem__(self, key):
+        return self.task_manager.config_del(key)
+
+    def keys(self):
+        return self.task_manager.config_keys()
+
+    def items(self):
+        return self.task_manager.config_items()
+
+    def values(self):
+        return self.task_manager.config_values()
+
+
 class TaskManager:
     def __init__(self, ndb):
         self.ndb = ndb
         self.log = ndb.log
-        self._event_map = {}
+        self.event_map = {}
         self.event_queue = ndb._event_queue
         self.thread = None
         self.ctime = self.gctime = time.time()
 
     def register_handler(self, event, handler):
-        if event not in self._event_map:
-            self._event_map[event] = []
-        self._event_map[event].append(handler)
+        if event not in self.event_map:
+            self.event_map[event] = []
+        self.event_map[event].append(handler)
 
     def unregister_handler(self, event, handler):
-        self._event_map[event].remove(handler)
+        self.event_map[event].remove(handler)
 
     def default_handler(self, target, event):
         if isinstance(getattr(event, 'payload', None), Exception):
@@ -129,6 +152,17 @@ class TaskManager:
             proxy = _do_dispatch_generator
         return (cmsg_req, handler, proxy)
 
+    def register_api(self, api_obj, prefix=''):
+        for name in dir(api_obj):
+            method = getattr(api_obj, name, None)
+            if hasattr(method, 'publish'):
+                if isinstance(method.publish, str):
+                    name = method.publish
+                name = f'{prefix}{name}'
+                event, handler, proxy = self.wrap_method(method)
+                setattr(self, name, partial(proxy, self))
+                self.event_map[event] = [handler]
+
     def run(self):
         _locals = {'countdown': len(self.ndb._nl)}
         self.thread = id(threading.current_thread())
@@ -139,27 +173,18 @@ class TaskManager:
             cmsg_failed: [lambda t, x: (self.ndb.schema.mark(t, 1))],
             cmsg_sstart: [partial(self.check_sources_started, _locals)],
         }
-        self._event_map = event_map
+        self.event_map = event_map
 
         try:
-            dbconfig = {
-                'provider': str(schema.DBProvider(self.ndb._db_provider)),
-                'spec': self.ndb._db_spec,
-            }
             self.ndb.schema = schema.DBSchema(
-                dbconfig,
+                self.ndb.config,
                 self.ndb,
-                self._event_map,
-                self.ndb._db_rtnl_log,
+                self.event_map,
                 self.log.channel('schema'),
             )
-            for name in dir(self.ndb.schema):
-                obj = getattr(self.ndb.schema, name, None)
-                if hasattr(obj, 'publish'):
-                    name = f'db_{name}'
-                    event, handler, proxy = self.wrap_method(obj)
-                    setattr(self, name, partial(proxy, self))
-                    event_map[event] = [handler]
+            self.register_api(self.ndb.schema, 'db_')
+            self.register_api(self.ndb.schema.config, 'config_')
+            self.ndb.bonfig = NDBConfig(self)
 
         except Exception as e:
             self.ndb._dbm_error = e
@@ -237,7 +262,7 @@ class TaskManager:
             if source is not None and source.th is not None:
                 self.log.debug(f'closing source {source}')
                 source.close()
-                if self.ndb._db_cleanup:
+                if self.ndb.schema.config['db_cleanup']:
                     self.log.debug('flush DB for the target %s' % target)
                     self.ndb.schema.flush(target)
                 else:

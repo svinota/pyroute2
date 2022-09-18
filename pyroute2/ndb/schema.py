@@ -153,11 +153,25 @@ class DBProvider(enum.Enum):
         return str(self) == r
 
 
+def publish(f):
+    if isinstance(f, str):
+
+        def decorate(m):
+            m.publish = f
+            return m
+
+        return decorate
+
+    f.publish = True
+    return f
+
+
 class DBDict(dict):
     def __init__(self, schema, table):
         self.schema = schema
         self.table = table
 
+    @publish('get')
     def __getitem__(self, key):
         for (record,) in self.schema.fetch(
             f'''
@@ -169,6 +183,7 @@ class DBDict(dict):
             return json.loads(record)
         raise KeyError(f'key {key} not found')
 
+    @publish('set')
     def __setitem__(self, key, value):
         del self[key]
         self.schema.execute(
@@ -179,6 +194,7 @@ class DBDict(dict):
             (key, json.dumps(value)),
         )
 
+    @publish('del')
     def __delitem__(self, key):
         self.schema.execute(
             f'''
@@ -188,10 +204,22 @@ class DBDict(dict):
             (key,),
         )
 
+    @publish
+    def keys(self):
+        for (key,) in self.schema.fetch(f'SELECT f_key FROM {self.table}'):
+            yield key
 
-def publish(method):
-    method.publish = True
-    return method
+    @publish
+    def items(self):
+        for key, value in self.schema.fetch(
+            f'SELECT f_key, f_value FROM {self.table}'
+        ):
+            yield key, json.loads(value)
+
+    @publish
+    def values(self):
+        for (value,) in self.schema.fetch(f'SELECT f_value FROM {self.table}'):
+            yield json.loads(value)
 
 
 class DBSchema:
@@ -211,18 +239,24 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(self, config, ndb, event_map, rtnl_log, log_channel):
+    def __init__(self, config, ndb, event_map, log_channel):
         global plugins
         self.ndb = ndb
         self.config = DBDict(self, 'config')
         self.stats = {}
         self.connection = None
         self.cursor = None
-        self.rtnl_log = rtnl_log
         self.log = log_channel
         self.snapshots = {}
         self.key_defaults = {}
         self.event_map = {}
+        # cache locally these variables so they will not be
+        # loaded from SQL for every incoming message; this
+        # means also that these variables can not be changed
+        # in runtime
+        self.rtnl_log = config['rtnl_debug']
+        self.provider = config['provider']
+        #
         for plugin in plugins:
             #
             # 1. spec
@@ -515,10 +549,7 @@ class DBSchema:
 
     @publish
     def backup(self, spec):
-        if (
-            sys.version_info >= (3, 7)
-            and self.config['provider'] == DBProvider.sqlite3
-        ):
+        if sys.version_info >= (3, 7) and self.provider == DBProvider.sqlite3:
             backup_connection = sqlite3.connect(spec)
             self.connection.backup(backup_connection)
             backup_connection.close()
@@ -746,9 +777,9 @@ class DBSchema:
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    if self.config['provider'] == DBProvider.sqlite3:
+                    if self.provider == DBProvider.sqlite3:
                         self.execute('DROP TABLE %s' % table)
-                    elif self.config['provider'] == DBProvider.psycopg2:
+                    elif self.provider == DBProvider.psycopg2:
                         self.execute('DROP TABLE %s CASCADE' % table)
                     self.connection.commit()
                     del self.snapshots[table]
@@ -910,7 +941,7 @@ class DBSchema:
                 values.append(value)
 
             try:
-                if self.config['provider'] == DBProvider.psycopg2:
+                if self.provider == DBProvider.psycopg2:
                     #
                     # run UPSERT -- the DB provider must support it
                     #
@@ -931,7 +962,7 @@ class DBSchema:
                         )
                     )
                     #
-                elif self.config['provider'] == DBProvider.sqlite3:
+                elif self.provider == DBProvider.sqlite3:
                     #
                     # SQLite3 >= 3.24 actually has UPSERT, but ...
                     #

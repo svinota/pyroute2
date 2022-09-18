@@ -294,6 +294,7 @@ from pyroute2.common import basestring
 from .auth_manager import AuthManager
 from .events import ShutdownException
 from .messages import cmsg
+from .schema import DBProvider
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
@@ -475,17 +476,14 @@ class NDB:
 
         self.localhost = localhost
         self.schema = None
-        self.config = {}
         self.libc = libc or ctypes.CDLL(
             ctypes.util.find_library('c'), use_errno=True
         )
         self.log = Log(log_id=id(self))
-        self._auto_netns = auto_netns
         self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._dbm_shutdown = threading.Event()
-        self._db_cleanup = db_cleanup
         self._global_lock = threading.Lock()
         self._event_queue = EventQueue(maxsize=100)
         self.messenger = None
@@ -531,13 +529,16 @@ class NDB:
         self.sources = SourcesView(self, auth_managers=[am])
         self._call_registry = {}
         self._nl = sources
-        self._db_provider = db_provider
-        self._db_spec = db_spec
-        self._db_rtnl_log = rtnl_debug
         atexit.register(self.close)
         self._dbm_ready.clear()
         self._dbm_error = None
-        self._dbm_autoload = set()
+        self.config = {
+            'provider': str(DBProvider(db_provider)),
+            'spec': db_spec,
+            'rtnl_debug': rtnl_debug,
+            'db_cleanup': db_cleanup,
+            'auto_netns': auto_netns,
+        }
         self.task_manager = TaskManager(self)
         self._dbm_thread = threading.Thread(
             target=self.task_manager.run, name='NDB main loop'
@@ -547,9 +548,6 @@ class NDB:
         self._dbm_ready.wait()
         if self._dbm_error is not None:
             raise self._dbm_error
-        for event in tuple(self._dbm_autoload):
-            event.wait()
-        self._dbm_autoload = None
         for vtable, vname in NDB_VIEWS_SPECS:
             view = View(self, vtable, auth_managers=[am])
             setattr(self, vname, view)
