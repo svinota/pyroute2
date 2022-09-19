@@ -283,7 +283,7 @@ def load_ifinfmsg(schema, target, event):
                 ):
                     schema.log.debug('reload veth %s' % event['index'])
                     try:
-                        update = schema.ndb.sources[target].api(
+                        update = schema.sources[target].api(
                             'link', 'get', index=event['index']
                         )
                         update = tuple(update)[0]

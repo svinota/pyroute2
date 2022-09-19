@@ -178,7 +178,7 @@ class TaskManager:
         try:
             self.ndb.schema = schema.DBSchema(
                 self.ndb.config,
-                self.ndb,
+                self.ndb.sources,
                 self.event_map,
                 self.log.channel('schema'),
             )

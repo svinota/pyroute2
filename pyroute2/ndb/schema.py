@@ -239,9 +239,9 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(self, config, ndb, event_map, log_channel):
+    def __init__(self, config, sources, event_map, log_channel):
         global plugins
-        self.ndb = ndb
+        self.sources = sources
         self.config = DBDict(self, 'config')
         self.stats = {}
         self.connection = None
