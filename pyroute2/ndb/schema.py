@@ -121,7 +121,6 @@ import json
 import random
 import sqlite3
 import sys
-import threading
 import time
 import traceback
 from collections import OrderedDict
@@ -150,21 +149,82 @@ class DBProvider(enum.Enum):
     sqlite3 = 'sqlite3'
     psycopg2 = 'psycopg2'
 
-
-class DBConfig:
-    provider = DBProvider.sqlite3
-    spec = ':memory:'
+    def __eq__(self, r):
+        return str(self) == r
 
 
-def publish(method):
-    method.publish = True
-    return method
+def publish(f):
+    if isinstance(f, str):
+
+        def decorate(m):
+            m.publish = f
+            return m
+
+        return decorate
+
+    f.publish = True
+    return f
+
+
+class DBDict(dict):
+    def __init__(self, schema, table):
+        self.schema = schema
+        self.table = table
+
+    @publish('get')
+    def __getitem__(self, key):
+        for (record,) in self.schema.fetch(
+            f'''
+            SELECT f_value FROM {self.table}
+            WHERE f_key = {self.schema.plch}
+            ''',
+            (key,),
+        ):
+            return json.loads(record)
+        raise KeyError(f'key {key} not found')
+
+    @publish('set')
+    def __setitem__(self, key, value):
+        del self[key]
+        self.schema.execute(
+            f'''
+            INSERT INTO {self.table}
+            VALUES ({self.schema.plch}, {self.schema.plch})
+            ''',
+            (key, json.dumps(value)),
+        )
+
+    @publish('del')
+    def __delitem__(self, key):
+        self.schema.execute(
+            f'''
+            DELETE FROM {self.table}
+            WHERE f_key = {self.schema.plch}
+            ''',
+            (key,),
+        )
+
+    @publish
+    def keys(self):
+        for (key,) in self.schema.fetch(f'SELECT f_key FROM {self.table}'):
+            yield key
+
+    @publish
+    def items(self):
+        for key, value in self.schema.fetch(
+            f'SELECT f_key, f_value FROM {self.table}'
+        ):
+            yield key, json.loads(value)
+
+    @publish
+    def values(self):
+        for (value,) in self.schema.fetch(f'SELECT f_value FROM {self.table}'):
+            yield json.loads(value)
 
 
 class DBSchema:
 
     connection = None
-    thread = None
     event_map = None
     key_defaults = None
     snapshots = None  # <table_name>: <obj_weakref>
@@ -179,22 +239,24 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(
-        self, config, ndb, event_queue, event_map, rtnl_log, log_channel
-    ):
+    def __init__(self, config, sources, event_map, log_channel):
         global plugins
-        self.ndb = ndb
-        self.config = config
-        self.event_queue = event_queue
+        self.sources = sources
+        self.config = DBDict(self, 'config')
         self.stats = {}
-        self.thread = id(threading.current_thread())
         self.connection = None
         self.cursor = None
-        self.rtnl_log = rtnl_log
         self.log = log_channel
         self.snapshots = {}
         self.key_defaults = {}
         self.event_map = {}
+        # cache locally these variables so they will not be
+        # loaded from SQL for every incoming message; this
+        # means also that these variables can not be changed
+        # in runtime
+        self.rtnl_log = config['rtnl_debug']
+        self.provider = config['provider']
+        #
         for plugin in plugins:
             #
             # 1. spec
@@ -209,7 +271,7 @@ class DBSchema:
             for name, cls in plugin.init['classes']:
                 self.classes[name] = cls
         #
-        self.initdb()
+        self.initdb(config)
         #
         for plugin in plugins:
             #
@@ -226,15 +288,15 @@ class DBSchema:
 
         self.gctime = self.ctime = time.time()
 
-    def initdb(self):
+    def initdb(self, config):
         if self.connection is not None:
             self.close()
-        if self.config.provider == DBProvider.sqlite3:
-            self.connection = sqlite3.connect(self.config.spec)
+        if config['provider'] == DBProvider.sqlite3:
+            self.connection = sqlite3.connect(config['spec'])
             self.plch = '?'
             self.connection.execute('PRAGMA foreign_keys = ON')
-        elif self.config.provider == DBProvider.psycopg2:
-            self.connection = psycopg2.connect(**self.config.spec)
+        elif config['provider'] == DBProvider.psycopg2:
+            self.connection = psycopg2.connect(**config['spec'])
             self.plch = '%s'
         else:
             raise TypeError('DB provider not supported')
@@ -263,6 +325,17 @@ class DBSchema:
         )
         self.execute(
             '''
+            DROP TABLE IF EXISTS config
+        '''
+        )
+        self.execute(
+            '''
+            CREATE TABLE config
+                (f_key TEXT PRIMARY KEY, f_value TEXT NOT NULL)
+        '''
+        )
+        self.execute(
+            '''
                      CREATE TABLE IF NOT EXISTS sources
                      (f_target TEXT PRIMARY KEY,
                       f_kind TEXT NOT NULL)
@@ -281,6 +354,8 @@ class DBSchema:
                           ON DELETE CASCADE)
                      '''
         )
+        for key, value in config.items():
+            self.config[key] = value
 
     def merge_spec(self, table1, table2, table, schema_idx):
         spec1 = self.compiled[table1]
@@ -474,10 +549,7 @@ class DBSchema:
 
     @publish
     def backup(self, spec):
-        if (
-            sys.version_info >= (3, 7)
-            and self.config.provider == DBProvider.sqlite3
-        ):
+        if sys.version_info >= (3, 7) and self.provider == DBProvider.sqlite3:
             backup_connection = sqlite3.connect(spec)
             self.connection.backup(backup_connection)
             backup_connection.close()
@@ -508,7 +580,7 @@ class DBSchema:
                 f.close()
 
     def close(self):
-        if self.config.spec != ':memory:':
+        if self.config['spec'] != ':memory:':
             # simply discard in-memory sqlite db on exit
             self.purge_snapshots()
             self.connection.commit()
@@ -705,9 +777,9 @@ class DBSchema:
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    if self.config.provider == DBProvider.sqlite3:
+                    if self.provider == DBProvider.sqlite3:
                         self.execute('DROP TABLE %s' % table)
-                    elif self.config.provider == DBProvider.psycopg2:
+                    elif self.provider == DBProvider.psycopg2:
                         self.execute('DROP TABLE %s CASCADE' % table)
                     self.connection.commit()
                     del self.snapshots[table]
@@ -869,7 +941,7 @@ class DBSchema:
                 values.append(value)
 
             try:
-                if self.config.provider == DBProvider.psycopg2:
+                if self.provider == DBProvider.psycopg2:
                     #
                     # run UPSERT -- the DB provider must support it
                     #
@@ -890,7 +962,7 @@ class DBSchema:
                         )
                     )
                     #
-                elif self.config.provider == DBProvider.sqlite3:
+                elif self.provider == DBProvider.sqlite3:
                     #
                     # SQLite3 >= 3.24 actually has UPSERT, but ...
                     #

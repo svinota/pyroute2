@@ -278,10 +278,12 @@ def load_ifinfmsg(schema, target, event):
                 ifname = event.get_attr('IFLA_IFNAME')
                 # for veth interfaces, IFLA_LINK points to
                 # the peer -- but NOT in automatic updates
-                if (not link) and (target in schema.ndb.sources.keys()):
+                if (not link) and (
+                    (target,) in schema.fetch('SELECT f_target FROM SOURCES')
+                ):
                     schema.log.debug('reload veth %s' % event['index'])
                     try:
-                        update = schema.ndb.sources[target].api(
+                        update = schema.sources[target].api(
                             'link', 'get', index=event['index']
                         )
                         update = tuple(update)[0]
