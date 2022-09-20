@@ -149,13 +149,19 @@ class NFTables(NFTSocket):
         }
 
         if cmd in 'add':
+            set_flags = set(kwarg.pop("nfta_set_flags", set()))
             if 'key_len' not in kwarg:
                 key_type, key_len, _ = DATA_TYPE_NAME_TO_INFO.get(
                     kwarg['key_type']
                 )
                 kwarg["key_type"] = key_type
                 kwarg["key_len"] = key_len
+
+            if 'timeout' in kwarg:
+                set_flags.add("NFT_SET_TIMEOUT")
+
             kwarg['id'] = 1
+            kwarg["nfta_set_flags"] = set_flags
 
         return self._command(nft_set_msg, commands, cmd, kwarg)
 
