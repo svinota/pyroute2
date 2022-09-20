@@ -915,7 +915,7 @@ class nft_set_msg(nfgen_msg, nft_contains_expr):
         ('NFTA_SET_POLICY', 'set_policy'),
         ('NFTA_SET_DESC', 'set_desc'),
         ('NFTA_SET_ID', 'be32'),
-        ('NFTA_SET_TIMEOUT', 'be32'),
+        ('NFTA_SET_TIMEOUT', 'be64'),
         ('NFTA_SET_GC_INTERVAL', 'be32'),
         ('NFTA_SET_USERDATA', 'hex'),
         ('NFTA_SET_PAD', 'hex'),
