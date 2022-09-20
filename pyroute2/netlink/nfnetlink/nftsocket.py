@@ -96,6 +96,14 @@ DATA_TYPE_TIME_HOUR = 44
 DATA_TYPE_TIME_DAY = 45
 DATA_TYPE_CGROUPV2 = 46
 
+# from include/uapi/linux/netfilter.h
+NFPROTO_INET = 1
+NFPROTO_IPV4 = 2
+NFPROTO_ARP = 3
+NFPROTO_NETDEV = 5
+NFPROTO_BRIDGE = 7
+NFPROTO_IPV6 = 10
+
 
 class nft_map_uint8(nla):
     ops = {}
