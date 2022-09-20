@@ -132,6 +132,14 @@ class nft_flags_be32(nla):
             o for i, o in enumerate(self.ops) if self['value'] & 1 << i
         )
 
+    def encode(self):
+        value = 0
+        for i, name in enumerate(self.ops):
+            if name in self.value:
+                value |= 1 << i
+        self["value"] = value
+        nla.encode(self)
+
 
 class nft_flags_be16(nla):
     fields = [('value', '>H')]
