@@ -4,6 +4,7 @@ NFTSocket -- low level nftables API
 See also: pyroute2.nftables
 """
 
+import struct
 import threading
 
 from pyroute2.netlink import (
@@ -16,6 +17,7 @@ from pyroute2.netlink import (
     NLM_F_REPLACE,
     NLM_F_REQUEST,
     nla,
+    nla_base_string,
     nlmsg_atoms,
 )
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES, nfgen_msg
@@ -103,6 +105,63 @@ NFPROTO_ARP = 3
 NFPROTO_NETDEV = 5
 NFPROTO_BRIDGE = 7
 NFPROTO_IPV6 = 10
+
+
+class nftnl_udata(nla_base_string):
+    # TLV structures:
+    # nftnl_udata
+    #  <-------- HEADER --------> <------ PAYLOAD ------>
+    # +------------+-------------+- - - - - - - - - - - -+
+    # |    type    |     len     |         value         |
+    # |  (1 byte)  |   (1 byte)  |                       |
+    # +--------------------------+- - - - - - - - - - - -+
+    #  <-- sizeof(nftnl_udata) -> <-- nftnl_udata->len -->
+    __slots__ = ()
+
+    @classmethod
+    def udata_decode(cls, data):
+        offset = 0
+        result = []
+        while offset + 2 < len(data):
+            utype = data[offset]
+            ulen = data[offset + 1]
+            offset += 2
+            if offset + ulen > len(data):
+                return None  # bad decode
+            try:
+                type_name = cls.udata_types[utype]
+            except IndexError:
+                return None  # bad decode
+
+            value = data[offset : offset + ulen]
+            if type_name.endswith("_COMMENT") and value[-1] == 0:
+                value = value[:-1]  # remove \x00 c *str
+            result.append((type_name, value))
+            offset += ulen
+        return result
+
+    @classmethod
+    def udata_encode(cls, values):
+        value = b""
+        for type_name, udata in values:
+            if isinstance(udata, str):
+                udata = udata.encode()
+            if type_name.endswith("_COMMENT") and udata[-1] != 0:
+                udata = udata + b"\x00"
+            utype = cls.udata_types.index(type_name)
+            value += struct.pack("BB", utype, len(udata)) + udata
+        return value
+
+    def decode(self):
+        nla_base_string.decode(self)
+        value = self.udata_decode(self['value'])
+        if value is not None:
+            self.value = value
+
+    def encode(self):
+        if not isinstance(self.value, (bytes, str)):
+            self['value'] = self.udata_encode(self.value)
+        nla_base_string.encode(self)
 
 
 class nft_map_uint8(nla):
