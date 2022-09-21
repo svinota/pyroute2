@@ -976,13 +976,25 @@ class nft_set_msg(nfgen_msg, nft_contains_expr):
         ('NFTA_SET_ID', 'be32'),
         ('NFTA_SET_TIMEOUT', 'be64'),
         ('NFTA_SET_GC_INTERVAL', 'be32'),
-        ('NFTA_SET_USERDATA', 'hex'),
+        ('NFTA_SET_USERDATA', 'set_udata'),
         ('NFTA_SET_PAD', 'hex'),
         ('NFTA_SET_OBJ_TYPE', 'be32'),
         ('NFTA_SET_HANDLE', 'be64'),
         ('NFTA_SET_EXPR', 'nft_expr'),
         ('NFTA_SET_EXPRESSIONS', '*nft_expr'),
     )
+
+    class set_udata(nftnl_udata):
+        udata_types = (
+            "NFTNL_UDATA_SET_KEYBYTEORDER",
+            "NFTNL_UDATA_SET_DATABYTEORDER",
+            "NFTNL_UDATA_SET_MERGE_ELEMENTS",
+            "NFTNL_UDATA_SET_KEY_TYPEOF",
+            "NFTNL_UDATA_SET_DATA_TYPEOF",
+            "NFTNL_UDATA_SET_EXPR",
+            "NFTNL_UDATA_SET_DATA_INTERVAL",
+            "NFTNL_UDATA_SET_COMMENT",
+        )
 
     class set_flags(nft_flags_be32):
         ops = (
