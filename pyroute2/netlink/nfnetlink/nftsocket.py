@@ -992,10 +992,11 @@ class nft_set_elem_list_msg(nfgen_msg):
             ('NFTA_SET_ELEM_TIMEOUT', 'be64'),
             ('NFTA_SET_ELEM_EXPIRATION', 'be64'),
             ('NFTA_SET_ELEM_USERDATA', 'binary'),
-            ('NFTA_SET_ELEM_EXPR', '*nft_expr'),
+            ('NFTA_SET_ELEM_EXPR', 'nft_expr'),
             ('NFTA_SET_ELEM_PAD', 'hex'),
             ('NFTA_SET_ELEM_OBJREF', 'asciiz'),
             ('NFTA_SET_ELEM_KEY_END', 'data_attributes'),
+            ('NFTA_SET_ELEM_EXPRESSIONS', '*nft_expr'),
         )
 
         class set_elem_flags(nft_flags_be32):
