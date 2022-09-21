@@ -225,7 +225,8 @@ class NFTables(NFTSocket):
         '''
         Example::
             nft.sets("add", table="filter", name="test0", key_type="ipv4_addr",
-                     timeout=10000, counter=True)
+                     timeout=10000, counter=True,
+                     comment="my comment max 252 bytes")
             nft.sets("get", table="filter", name="test0")
             nft.sets("del", table="filter", name="test0")
         '''
@@ -251,6 +252,16 @@ class NFTables(NFTSocket):
                 kwarg["NFTA_SET_EXPR"] = {
                     'attrs': [('NFTA_EXPR_NAME', 'counter')]
                 }
+
+            comment = kwarg.pop('comment')
+            if comment is not None:
+                if isinstance(comment, str):
+                    comment = comment.encode()
+                    if comment[-1] != 0:
+                        comment += b"\x00"
+                kwarg["NFTA_SET_USERDATA"] = [
+                    ("NFTNL_UDATA_SET_COMMENT", comment)
+                ]
 
             kwarg['id'] = 1
             kwarg["nfta_set_flags"] = set_flags
