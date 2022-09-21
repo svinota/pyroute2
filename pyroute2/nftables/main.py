@@ -28,6 +28,92 @@ from pyroute2.netlink.nfnetlink.nftsocket import (
 )
 
 
+class NFTSetElem:
+    __slots__ = (
+        'value',
+        'timeout',
+        'expiration',
+        'counter_bytes',
+        'counter_packets',
+    )
+
+    def __init__(self, value, **kwargs):
+        self.value = value
+        for name in self.__slots__:
+            if name in kwargs:
+                setattr(self, name, kwargs[name])
+            elif name != "value":
+                setattr(self, name, None)
+
+    @classmethod
+    def from_netlink(cls, msg, modifier):
+        value = msg.get_attr('NFTA_SET_ELEM_KEY').get_attr("NFTA_DATA_VALUE")
+        if modifier is not None:
+            # Need to find a better way
+            modifier.data = value
+            modifier.length = 4 + len(modifier.data)
+            modifier.decode()
+            value = modifier.value
+
+        kwarg = {
+            "expiration": msg.get_attr('NFTA_SET_ELEM_EXPIRATION'),
+            "timeout": msg.get_attr('NFTA_SET_ELEM_TIMEOUT'),
+        }
+
+        elem_expr = msg.get_attr('NFTA_SET_ELEM_EXPR')
+        if elem_expr:
+            if elem_expr.get_attr('NFTA_EXPR_NAME') == "counter":
+                elem_expr = elem_expr.get_attr("NFTA_EXPR_DATA")
+                kwarg.update(
+                    {
+                        "counter_bytes": elem_expr.get_attr(
+                            "NFTA_COUNTER_BYTES"
+                        ),
+                        "counter_packets": elem_expr.get_attr(
+                            "NFTA_COUNTER_PACKETS"
+                        ),
+                    }
+                )
+
+        return cls(value=value, **kwarg)
+
+    def as_netlink(self, modifier):
+        if modifier is not None:
+            modifier.value = self.value
+            modifier.encode()
+            value = modifier["value"]
+        else:
+            value = self.value
+
+        attrs = [
+            ['NFTA_SET_ELEM_KEY', {'attrs': [('NFTA_DATA_VALUE', value)]}]
+        ]
+
+        if self.timeout is not None:
+            attrs.append(['NFTA_SET_ELEM_TIMEOUT', self.timeout])
+
+        if self.expiration is not None:
+            attrs.append(['NFTA_SET_ELEM_EXPIRATION', self.expiration])
+
+        return {'attrs': attrs}
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            **{
+                name: value
+                for name, value in d.items()
+                if name in cls.__slots__
+            }
+        )
+
+    def as_dict(self):
+        return {name: getattr(self, name) for name in self.__slots__}
+
+    def __repr__(self):
+        return str(self.as_dict())
+
+
 class NFTables(NFTSocket):
 
     # TODO: documentation
@@ -138,7 +224,8 @@ class NFTables(NFTSocket):
     def sets(self, cmd, **kwarg):
         '''
         Example::
-            nft.sets("add", table="filter", name="test0", key_type="ipv4_addr")
+            nft.sets("add", table="filter", name="test0", key_type="ipv4_addr",
+                     timeout=10000)
             nft.sets("get", table="filter", name="test0")
             nft.sets("del", table="filter", name="test0")
         '''
@@ -169,7 +256,12 @@ class NFTables(NFTSocket):
         '''
         Example::
             nft.set_elems("add", table="filter", set="test0",
-                          elements=["10.2.3.4", "10.4.3.2"])
+                          elements={"10.2.3.4", "10.4.3.2"})
+            nft.set_elems("add", table="filter", set="test0",
+                          elements=[{"value": "10.2.3.4", "timeout": 10000}])
+            nft.set_elems("add", table="filter", set="test0",
+                          elements=[NFTSetElem(value="10.2.3.4",
+                                               timeout=10000)])
             nft.set_elems("get", table="filter", set="test0")
             nft.set_elems("del", table="filter", set="test0",
                           elements=["10.2.3.4"])
@@ -199,37 +291,15 @@ class NFTables(NFTSocket):
             msg = self.request_get(msg, NFT_MSG_GETSETELEM)[0]
             elements = set()
             for elem in msg.get_attr('NFTA_SET_ELEM_LIST_ELEMENTS'):
-                if modifier is not None:
-                    # Need to find a better way
-                    modifier.data = elem.get_attr(
-                        'NFTA_SET_ELEM_KEY'
-                    ).get_attr("NFTA_DATA_VALUE")
-                    modifier.length = 4 + len(modifier.data)
-                    modifier.decode()
-                    elements.add(modifier.value)
+                elements.add(NFTSetElem.from_netlink(elem, modifier))
             return elements
 
-        data_type_name = DATA_TYPE_ID_TO_NAME.get(
-            set_info.get_attr("NFTA_SET_KEY_TYPE")
-        )
-        if modifier is not None:
-            elements = []
-            for elem in kwarg.pop("elements"):
-                modifier.value = elem
-                modifier.encode()
-                elements.append(modifier["value"])
-        else:
-            kwarg.pop("elements")
-
-        kwarg["elements"] = [
-            {
-                'attrs': [
-                    [
-                        'NFTA_SET_ELEM_KEY',
-                        {'attrs': [('NFTA_DATA_VALUE', elem)]},
-                    ]
-                ]
-            }
-            for elem in elements
-        ]
+        elements = []
+        for elem in kwarg.pop("elements"):
+            if isinstance(elem, dict):
+                elem = NFTSetElem.from_dict(elem)
+            elif not isinstance(elem, NFTSetElem):
+                elem = NFTSetElem(value=elem)
+            elements.append(elem.as_netlink(modifier))
+        kwarg["elements"] = elements
         return self._command(nft_set_elem_list_msg, commands, cmd, kwarg)
