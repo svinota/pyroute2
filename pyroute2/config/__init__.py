@@ -27,7 +27,9 @@ gc_timeout = 60
 db_transaction_limit = 1
 cache_expire = 60
 
-signal_stop_remote = signal.SIGUSR1
+signal_stop_remote = None
+if hasattr(signal, 'SIGUSR1'):
+    signal_stop_remote = signal.SIGUSR1
 
 mock_iproute = False
 nlsocket_thread_safe = True
