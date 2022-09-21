@@ -225,7 +225,7 @@ class NFTables(NFTSocket):
         '''
         Example::
             nft.sets("add", table="filter", name="test0", key_type="ipv4_addr",
-                     timeout=10000)
+                     timeout=10000, counter=True)
             nft.sets("get", table="filter", name="test0")
             nft.sets("del", table="filter", name="test0")
         '''
@@ -246,6 +246,11 @@ class NFTables(NFTSocket):
 
             if 'timeout' in kwarg:
                 set_flags.add("NFT_SET_TIMEOUT")
+
+            if kwarg.pop('counter') is True:
+                kwarg["NFTA_SET_EXPR"] = {
+                    'attrs': [('NFTA_EXPR_NAME', 'counter')]
+                }
 
             kwarg['id'] = 1
             kwarg["nfta_set_flags"] = set_flags
