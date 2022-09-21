@@ -921,7 +921,8 @@ class nft_set_msg(nfgen_msg, nft_contains_expr):
         ('NFTA_SET_PAD', 'hex'),
         ('NFTA_SET_OBJ_TYPE', 'be32'),
         ('NFTA_SET_HANDLE', 'be64'),
-        ('NFTA_SET_EXPR', '*nft_expr'),
+        ('NFTA_SET_EXPR', 'nft_expr'),
+        ('NFTA_SET_EXPRESSIONS', '*nft_expr'),
     )
 
     class set_flags(nft_flags_be32):
