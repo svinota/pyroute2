@@ -35,6 +35,7 @@ class NFTSetElem:
         'expiration',
         'counter_bytes',
         'counter_packets',
+        'comment',
     )
 
     def __init__(self, value, **kwargs):
@@ -75,6 +76,12 @@ class NFTSetElem:
                     }
                 )
 
+        udata = msg.get_attr('NFTA_SET_ELEM_USERDATA')
+        if udata:
+            for type_name, data in udata:
+                if type_name == "NFTNL_UDATA_SET_ELEM_COMMENT":
+                    kwarg["comment"] = data
+
         return cls(value=value, **kwarg)
 
     def as_netlink(self, modifier):
@@ -94,6 +101,14 @@ class NFTSetElem:
 
         if self.expiration is not None:
             attrs.append(['NFTA_SET_ELEM_EXPIRATION', self.expiration])
+
+        if self.comment is not None:
+            attrs.append(
+                [
+                    'NFTA_SET_ELEM_USERDATA',
+                    [("NFTNL_UDATA_SET_ELEM_COMMENT", self.comment)],
+                ]
+            )
 
         return {'attrs': attrs}
 
@@ -255,10 +270,6 @@ class NFTables(NFTSocket):
 
             comment = kwarg.pop('comment')
             if comment is not None:
-                if isinstance(comment, str):
-                    comment = comment.encode()
-                    if comment[-1] != 0:
-                        comment += b"\x00"
                 kwarg["NFTA_SET_USERDATA"] = [
                     ("NFTNL_UDATA_SET_COMMENT", comment)
                 ]
@@ -277,7 +288,8 @@ class NFTables(NFTSocket):
                           elements=[{"value": "10.2.3.4", "timeout": 10000}])
             nft.set_elems("add", table="filter", set="test0",
                           elements=[NFTSetElem(value="10.2.3.4",
-                                               timeout=10000)])
+                                               timeout=10000,
+                                               comment="hello world")])
             nft.set_elems("get", table="filter", set="test0")
             nft.set_elems("del", table="filter", set="test0",
                           elements=["10.2.3.4"])
