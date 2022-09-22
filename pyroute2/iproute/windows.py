@@ -83,6 +83,7 @@ class IPRoute(object):
             self, {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False}
         )
         self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
+        self.target = kwarg.get('target') or 'localhost'
 
     def __enter__(self):
         return self
@@ -173,6 +174,8 @@ class IPRoute(object):
             }
 
             msg = ifinfmsg().load(spec)
+            msg['header']['target'] = self.target
+            msg['header']['type'] = RTM_NEWLINK
             del msg['value']
             ret['interfaces'].append(msg)
 
@@ -195,6 +198,8 @@ class IPRoute(object):
                     ),
                 }
                 msg = ifaddrmsg().load(spec)
+                msg['header']['target'] = self.target
+                msg['header']['type'] = RTM_NEWADDR
                 del msg['value']
                 ret['addresses'].append(msg)
                 if ipaddr.Next:
@@ -207,6 +212,16 @@ class IPRoute(object):
             else:
                 break
         return ret
+
+    def dump(self, groups=None):
+        for method in (
+            self.get_links,
+            self.get_addr,
+            self.get_neighbours,
+            self.get_routes,
+        ):
+            for msg in method():
+                yield msg
 
     def get_links(self, *argv, **kwarg):
         '''

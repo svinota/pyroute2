@@ -74,7 +74,12 @@ if hasattr(groups, 'select'):
 else:
     pyroute2_group = groups.get('pyroute2', [])
 for entry_point in pyroute2_group:
-    loaded = entry_point.load()
+    try:
+        loaded = entry_point.load()
+    except ImportError:
+        if not sys.platform.startswith('win'):
+            raise
+        continue
     modules.append(entry_point.name)
     if len(entry_point.value.split(':')) == 1:
         key = 'pyroute2.%s' % entry_point.name
