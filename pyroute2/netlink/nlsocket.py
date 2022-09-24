@@ -743,6 +743,7 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
         ext_ack=False,
         strict_check=False,
         groups=0,
+        nlm_echo=False,
     ):
         # 8<-----------------------------------------
         self.config = {
@@ -759,6 +760,7 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
             'ext_ack': ext_ack,
             'strict_check': strict_check,
             'groups': groups,
+            'nlm_echo': nlm_echo,
         }
         # 8<-----------------------------------------
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
