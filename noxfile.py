@@ -281,6 +281,14 @@ def openbsd(session, config):
 
 @nox.session
 @add_session_config
+def windows(session, config):
+    '''Rin Windows tests.'''
+    setup_venv_dev(session)
+    session.run(*options('test_windows', config))
+
+
+@nox.session
+@add_session_config
 def neutron(session, config):
     '''Run Neutron integration tests.'''
     setup_venv_dev(session)
