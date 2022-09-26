@@ -28,6 +28,93 @@ from pyroute2.netlink.nfnetlink.nftsocket import (
 )
 
 
+class NFTSet:
+    __slots__ = ('table', 'name', 'key_type', 'timeout', 'counter', 'comment')
+
+    def __init__(self, table, name, **kwargs):
+        self.table = table
+        self.name = name
+
+        for attrname in self.__slots__:
+            if attrname in kwargs:
+                setattr(self, attrname, kwargs[attrname])
+            elif attrname not in ("table", "name"):
+                setattr(self, attrname, None)
+
+    def as_netlink(self):
+        attrs = {"NFTA_SET_TABLE": self.table, "NFTA_SET_NAME": self.name}
+        set_flags = set()
+
+        if self.key_type is not None:
+            key_type, key_len, _ = DATA_TYPE_NAME_TO_INFO.get(self.key_type)
+            attrs["NFTA_SET_KEY_TYPE"] = key_type
+            attrs["NFTA_SET_KEY_LEN"] = key_len
+
+        if self.timeout is not None:
+            set_flags.add("NFT_SET_TIMEOUT")
+            attrs["NFTA_SET_TIMEOUT"] = self.timeout
+
+        if self.counter is True:
+            attrs["NFTA_SET_EXPR"] = {'attrs': [('NFTA_EXPR_NAME', 'counter')]}
+
+        if self.comment is not None:
+            attrs["NFTA_SET_USERDATA"] = [
+                ("NFTNL_UDATA_SET_COMMENT", self.comment)
+            ]
+
+        # ID is used for bulk create, but not implemented
+        attrs['NFTA_SET_ID'] = 1
+        attrs["NFTA_SET_FLAGS"] = set_flags
+        return attrs
+
+    @classmethod
+    def from_netlink(cls, msg):
+        data_type_name = DATA_TYPE_ID_TO_NAME.get(
+            msg.get_attr("NFTA_SET_KEY_TYPE"),
+            msg.get_attr("NFTA_SET_KEY_TYPE"),  # fallback to raw value
+        )
+
+        counter = False
+        expr = msg.get_attr('NFTA_SET_EXPR')
+        if expr:
+            expr = expr.get_attrs('NFTA_EXPR_NAME')
+            if expr and "counter" in expr:
+                counter = True
+
+        comment = None
+        udata = msg.get_attr("NFTA_SET_USERDATA")
+        if udata:
+            for key, value in udata:
+                if key == "NFTNL_UDATA_SET_COMMENT":
+                    comment = value
+                    break
+
+        return cls(
+            table=msg.get_attr('NFTA_SET_TABLE'),
+            name=msg.get_attr('NFTA_SET_NAME'),
+            key_type=data_type_name,
+            timeout=msg.get_attr('NFTA_SET_TIMEOUT'),
+            counter=counter,
+            comment=comment,
+        )
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            **{
+                name: value
+                for name, value in d.items()
+                if name in cls.__slots__
+            }
+        )
+
+    def as_dict(self):
+        return {name: getattr(self, name) for name in self.__slots__}
+
+    def __repr__(self):
+        return str(self.as_dict())
+
+
 class NFTSetElem:
     __slots__ = (
         'value',
@@ -244,6 +331,9 @@ class NFTables(NFTSocket):
                      comment="my comment max 252 bytes")
             nft.sets("get", table="filter", name="test0")
             nft.sets("del", table="filter", name="test0")
+            my_set = nft.sets("add", set=NFTSet(table="filter", name="test1",
+                              key_type="ipv4_addr")
+            nft.sets("del", set=my_set)
         '''
         commands = {
             'add': NFT_MSG_NEWSET,
@@ -251,40 +341,22 @@ class NFTables(NFTSocket):
             'del': NFT_MSG_DELSET,
         }
 
-        if cmd in 'add':
-            set_flags = set(kwarg.pop("nfta_set_flags", set()))
-            if 'key_len' not in kwarg:
-                key_type, key_len, _ = DATA_TYPE_NAME_TO_INFO.get(
-                    kwarg['key_type']
-                )
-                kwarg["key_type"] = key_type
-                kwarg["key_len"] = key_len
-
-            if 'timeout' in kwarg:
-                set_flags.add("NFT_SET_TIMEOUT")
-
-            if kwarg.pop('counter') is True:
-                kwarg["NFTA_SET_EXPR"] = {
-                    'attrs': [('NFTA_EXPR_NAME', 'counter')]
-                }
-
-            comment = kwarg.pop('comment')
-            if comment is not None:
-                kwarg["NFTA_SET_USERDATA"] = [
-                    ("NFTNL_UDATA_SET_COMMENT", comment)
-                ]
-
-            kwarg['id'] = 1
-            kwarg["nfta_set_flags"] = set_flags
-
-        return self._command(nft_set_msg, commands, cmd, kwarg)
+        if "set" in kwarg:
+            nft_set = kwarg.pop("set")
+        else:
+            nft_set = NFTSet(**kwarg)
+        kwarg = nft_set.as_netlink()
+        msg = self._command(nft_set_msg, commands, cmd, kwarg)
+        if cmd == "get":
+            return NFTSet.from_netlink(msg)
+        return nft_set
 
     def set_elems(self, cmd, **kwarg):
         '''
         Example::
             nft.set_elems("add", table="filter", set="test0",
                           elements={"10.2.3.4", "10.4.3.2"})
-            nft.set_elems("add", table="filter", set="test0",
+            nft.set_elems("add", set=NFTSet(table="filter", name="test0"),
                           elements=[{"value": "10.2.3.4", "timeout": 10000}])
             nft.set_elems("add", table="filter", set="test0",
                           elements=[NFTSetElem(value="10.2.3.4",
@@ -299,12 +371,16 @@ class NFTables(NFTSocket):
             'get': NFT_MSG_GETSETELEM,
             'del': NFT_MSG_DELSETELEM,
         }
-        set_info = self.sets("get", table=kwarg["table"], name=kwarg["set"])
-        data_type_name = DATA_TYPE_ID_TO_NAME.get(
-            set_info.get_attr("NFTA_SET_KEY_TYPE")
-        )
-        if data_type_name is not None:
-            _, _, modifier = DATA_TYPE_NAME_TO_INFO[data_type_name]
+        if isinstance(kwarg["set"], NFTSet):
+            nft_set = kwarg.pop("set")
+            kwarg["table"] = nft_set.table
+            kwarg["set"] = nft_set.name
+        else:
+            nft_set = self.sets("get", table=kwarg["table"], name=kwarg["set"])
+
+        found = DATA_TYPE_NAME_TO_INFO.get(nft_set.key_type)
+        if found:
+            _, _, modifier = found
             modifier = modifier()
             modifier.header = None
         else:
