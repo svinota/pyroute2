@@ -344,6 +344,6 @@ section section {
 }
 
 .pyroute2-example-description::before {
-    content: "Exercise:";
+    content: "Example:";
     font-weight: bold;
 }

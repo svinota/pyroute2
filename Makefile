@@ -54,6 +54,10 @@ VERSION:
 docs:
 	$(call nox,-e docs)
 
+.PHONY: lab
+lab:
+	$(call nox,-e lab)
+
 .PHONY: format
 format:
 	$(call nox,-e linter)
