@@ -139,17 +139,12 @@ using the `.set()` routine:
 Create virtual interfaces
 =========================
 
-Create a bridge and add a port, `eth0`::
+Create a bridge and add a port, `eth0`:
 
-    (ndb
-     .interfaces
-     .create(ifname='br0', kind='bridge')
-     .commit())
+.. testcode:: preset_1
 
-    (ndb
-     .interfaces['eth0']
-     .set('master', ndb.interfaces['br0']['index'])
-     .commit())
+    with ndb.interfaces.create(ifname='br0', kind='bridge') as br0:
+        br0.add_port('eth0')
 
 Bridge and bond ports
 =====================
