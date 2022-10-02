@@ -531,6 +531,7 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         request.apply_filter(AddressFieldFilter())
         request.apply_filter(AddressIPRouteFilter(command))
         request.finalize()
+        address = None
 
         for address in self.preset['addr']:
             if self._match('address', address, request):
@@ -538,6 +539,8 @@ class IPRoute(LAB_API, NetlinkSocketBase):
                     raise NetlinkError(errno.EEXIST, 'address exists')
                 break
         else:
+            if command == 'del':
+                raise NetlinkError(errno.ENOENT, 'address does not exist')
             address = MockAddress(**request)
 
         if command == 'add':
@@ -549,6 +552,13 @@ class IPRoute(LAB_API, NetlinkSocketBase):
             address.label = link.ifname
             self.preset['addr'].append(address)
             for msg in self._get_dump([address], ifaddrmsg):
+                msg.encode()
+                self.buffer_queue.put(msg.data)
+        elif command == 'del':
+            self.preset['addr'].remove(address)
+            for msg in self._get_dump([address], ifaddrmsg):
+                msg['header']['type'] = 21
+                msg['event'] = 'RTM_DELADDR'
                 msg.encode()
                 self.buffer_queue.put(msg.data)
 

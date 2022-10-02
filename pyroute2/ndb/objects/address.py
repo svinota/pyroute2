@@ -1,104 +1,156 @@
 '''
 
+.. testsetup:: *
+
+    from socket import AF_INET
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+
+.. testcleanup:: *
+
+    ndb.close()
+
 Using the global view
 =====================
 
 The `addresses` view provides access to all the addresses registered in the DB,
-as well as methods to create and remove them::
+as well as methods to create and remove them:
+
+.. testcode::
 
     eth0 = ndb.interfaces['eth0']
 
     # create an address
-    (ndb
-     .addresses
-     .create(address='10.0.0.1', prefixlen=24, index=eth0['index'])
-     .commit())
+    ndb.addresses.create(
+        address='10.0.0.1',
+        prefixlen=24,
+        index=eth0['index'],
+    ).commit()
 
     # remove it
-    (ndb
-     .addresses['10.0.0.1/24']
-     .remove()
-     .commit())
+    with ndb.addresses['10.0.0.1/24'] as addr:
+        addr.remove()
 
     # list addresses
-    (ndb
-     .addresses
-     .summary())  # see also other view dump methods
+    for record in ndb.addresses.summary():
+        print(record)
+
+.. testoutput::
+    :hide:
+
+    ('localhost', 0, 'lo', '127.0.0.1', 8)
+    ('localhost', 0, 'eth0', '192.168.122.28', 24)
+
 
 Using ipaddr views
 ==================
 
 Interfaces also provide address views as subsets of the global
-address view::
+address view:
 
-    (ndb
-     .interfaces['eth0']
-     .ipaddr
-     .summary())
+.. testcode::
 
-It is possible use the same API as with the global address view::
+    with ndb.interfaces['eth0'] as eth0:
+        for record in eth0.ipaddr.summary():
+            print(record)
 
-    (ndb
-     .interfaces['eth0']
-     .ipaddr
-     .create(address='10.0.0.1', prefixlen=24)  # index is implied
-     .commit())
+.. testoutput::
+
+    ('localhost', 0, 'eth0', '192.168.122.28', 24)
+
+It is possible use the same API as with the global address view:
+
+.. testcode::
+
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.ipaddr.create(
+            address='10.0.0.1', prefixlen=24  # index is implied
+        ).commit()
+    for record in ndb.addresses.summary():
+        print(record)
+
+.. testoutput::
+
+    ('localhost', 0, 'lo', '127.0.0.1', 8)
+    ('localhost', 0, 'eth0', '10.0.0.1', 24)
+    ('localhost', 0, 'eth0', '192.168.122.28', 24)
 
 Using interface methods
 =======================
 
-Interfaces provide also simple methods to manage addresses::
+Interfaces provide also simple methods to manage addresses:
 
-    (ndb
-     .interfaces['eth0']
-     .del_ip('172.16.0.1/24')                   # remove an existing address
-     .del_ip(family=AF_INET)                    # remove all IPv4 addresses
-     .add_ip('10.0.0.1/24')                     # add a new IP address
-     .add_ip(address='10.0.0.2', prefixlen=24)  # if you prefer keyword args
-     .set('state', 'up')
-     .commit())
+.. testcode::
+
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.del_ip('192.168.122.28/24')  # remove an existing address
+        eth0.del_ip(family=AF_INET)  # ... or remove all IPv4 addresses
+        eth0.add_ip('10.0.0.1/24')  # add a new IP address
+        eth0.add_ip(address='10.0.0.2', prefixlen=24)  # ... or using keywords
+        eth0.set('state', 'up')
+    with ndb.addresses.summary() as report:
+        report.select_records(ifname='eth0')
+        for address in report:
+            print(address)
+
+.. testoutput::
+
+    ('localhost', 0, 'eth0', '10.0.0.1', 24)
+    ('localhost', 0, 'eth0', '10.0.0.2', 24)
+
 
 Functions `add_ip()` and `del_ip()` return the interface object, so they
 can be chained as in the example above, and the final `commit()` will
 commit all the changes in the chain.
 
 The keywords to `del_ip()` are the same object field names that may be used
-in the selectors or report filters::
+in the selectors or report filters:
 
-    (ndb
-     .interfaces['eth0']
-     .del_ip(prefixlen=25)    # remove all addresses with mask /25
-     .commit())
+.. testcode::
+
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.del_ip(prefixlen=24)  # remove all addresses with mask /24
 
 A match function that may be passed to the `del_ip()` is the same as for
 `addresses.dump().select_records()`, and it gets a named tuple as the argument.
 The fields are named in the same way as address objects fields. So if you
 want to filter addresses by a pattern or the `prefixlen` field with a
-match function, you may use::
+match function, you may use:
 
-    (ndb
-     .interfaces['eth0']
-     .del_ip(lambda x: x.address.startswith('192.168'))
-     .commit())
+.. testcode:: x1
 
-    (ndb
-     .interfaces['eth1']
-     .del_ip(lambda x: x.prefixlen == 25)
-     .commit())
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.add_ip('10.0.0.1/25')
 
-An empty `del_ip()` removes all the IP addresses on the interface::
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.del_ip(lambda x: x.address.startswith('192.168'))
+        eth0.del_ip(lambda x: x.prefixlen == 25)
 
-    (ndb
-     .interfaces['eth0']
-     .del_ip()                # flush all the IP:s
-     .commit())
+An empty `del_ip()` removes all the IP addresses on the interface:
+
+.. testcode:: x2
+
+    with ndb.interfaces['eth0'] as eth0:
+        eth0.del_ip()  # flush all the IP:s
 
 Accessing one address details
 =============================
 
-Access an address as a separate RTNL object::
+Access an address as a separate RTNL object:
 
-    print(ndb.addresses['10.0.0.1/24'])
+.. testcode:: x3
+
+    print(ndb.addresses['192.168.122.28/24'])
+
+.. testoutput:: x3
+    :hide:
+
+    {'target': 'localhost', 'address': '192.168.122.28', 'prefixlen': 24, \
+'tflags': 0, 'family': 2, 'index': 2, 'local': '192.168.122.28', \
+'flags': 512, 'scope': 0, 'label': 'eth0', 'broadcast': '192.168.122.255', \
+'anycast': None, 'multicast': None}
 
 Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
