@@ -2123,6 +2123,23 @@ class RTNL_API:
                 },
             )
 
+        Create SEG6LOCAL tunnel End.DT46 action (kernel >= 5.14)::
+
+            # $ sudo modprobe vrf
+            # $ sudo sysctl -w net.vrf.strict_mode=1
+
+            ip.link('add',
+                    ifname='vrf-foo',
+                    kind='vrf',
+                    vrf_table=10)
+
+            ip.route('add',
+                     dst='2001:0:0:10::2/128',
+                     oif=idx,
+                     encap={'type': 'seg6local',
+                            'action': 'End.DT46',
+                            'vrf_table': 10})
+
         Create SEG6LOCAL tunnel End.B6 action (kernel >= 4.14)::
 
             ipr.route(
