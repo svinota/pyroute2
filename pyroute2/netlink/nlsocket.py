@@ -257,7 +257,7 @@ class Marshal:
                     pass
 
             mtype = msg['header'].get('type', None)
-            if mtype in (1, 2, 3, 4):
+            if mtype in (1, 2, 3, 4) and 'event' not in msg:
                 msg['event'] = mtypes.get(mtype, 'none')
             self.fix_message(msg)
             yield msg
