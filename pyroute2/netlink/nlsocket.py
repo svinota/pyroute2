@@ -257,7 +257,7 @@ class Marshal:
                     pass
 
             mtype = msg['header'].get('type', None)
-            if mtype in (1, 2, 3, 4):
+            if mtype in (1, 2, 3, 4) and 'event' not in msg:
                 msg['event'] = mtypes.get(mtype, 'none')
             self.fix_message(msg)
             yield msg
@@ -447,7 +447,15 @@ class NetlinkSocketBaseSafe:
                     # Check backlog and return already collected
                     # messages.
                     #
-                    if msg_seq == 0 and self.backlog[0]:
+                    if msg_seq == -1 and any(self.backlog.values()):
+                        for seq, backlog in self.backlog.items():
+                            if backlog:
+                                for msg in backlog:
+                                    yield msg
+                                self.backlog[seq] = []
+                                enough = True
+                                break
+                    elif msg_seq == 0 and self.backlog[0]:
                         # Zero queue.
                         #
                         # Load the backlog, if there is valid
@@ -457,7 +465,7 @@ class NetlinkSocketBaseSafe:
                         self.backlog[0] = []
                         # And just exit
                         break
-                    elif msg_seq != 0 and len(self.backlog.get(msg_seq, [])):
+                    elif msg_seq > 0 and len(self.backlog.get(msg_seq, [])):
                         # Any other msg_seq.
                         #
                         # Collect messages up to the terminator.
