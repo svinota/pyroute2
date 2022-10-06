@@ -74,5 +74,4 @@ def test_event_exit(cn_proc_context):
         process_pid=cn_proc_context.child.pid,
         exit_code=0,
         exit_signal=signal.SIGCHLD,
-        parent_pid=os.getpid(),
     )
