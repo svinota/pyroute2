@@ -50,7 +50,7 @@ def add_session_config(func):
     '''
 
     def wrapper(session):
-        if session.posargs:
+        if session.posargs and len(session.posargs[0]) > 0:
             config = json.loads(session.posargs[0])
         else:
             config = {}
