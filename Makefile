@@ -10,7 +10,7 @@ define nox
 	bash -c "source .venv/bin/activate; \
 		python -m pip install --upgrade pip; \
 		python -m pip install nox; \
-		nox $(1)"
+		nox $(1) -- '$(subst ",\",${noxconfig})'"
 endef
 
 .PHONY: all
