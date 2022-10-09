@@ -13,6 +13,7 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
 from pyroute2.requests.link import LinkFieldFilter
 from pyroute2.requests.main import RequestProcessor
+from pyroute2.requests.route import RouteFieldFilter
 
 interface_counter = count(3)
 
@@ -513,6 +514,7 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         keys = {
             'address': ['address', 'prefixlen', 'index', 'family'],
             'link': ['index', 'ifname'],
+            'route': ['dst', 'dst_len', 'oif'],
         }
         check = False
         for key in keys[mode]:
@@ -604,6 +606,29 @@ class IPRoute(LAB_API, NetlinkSocketBase):
                 self.buffer_queue.put(msg.data)
 
         return self._get_dump([interface], ifinfmsg)
+
+    def route(self, command, **spec):
+        if command == 'dump':
+            return self.get_routes()
+        request = RequestProcessor(context=spec, prime=spec)
+        request.apply_filter(RouteFieldFilter())
+        request.finalize()
+
+        for route in self.preset['routes']:
+            if self._match('route', route, request):
+                if command == 'add':
+                    raise NetlinkError(errno.EEXIST, 'route exists')
+                break
+        else:
+            if command == 'del':
+                raise NetlinkError(errno.ENOENT, 'route does not exist')
+            route = MockRoute(**request)
+
+        if command == 'add':
+            self.preset['routes'].append(route)
+            for msg in self._get_dump([route], rtmsg):
+                msg.encode()
+                self.buffer_queue.put(msg.data)
 
     def get_addr(self):
         return self._get_dump(self.preset['addr'], ifaddrmsg)
