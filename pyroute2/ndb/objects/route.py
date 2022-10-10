@@ -1,24 +1,32 @@
 '''
+
+.. testsetup::
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+
 Simple routes
 =============
 
-Ordinary routes management is really simple::
+Ordinary routes management is really simple:
 
-    (ndb            # create a route
-     .routes
-     .create(dst='10.0.0.0/24', gateway='192.168.122.1')
-     .commit())
+.. testcode::
 
-    (ndb            # retrieve a route and change it
-     .routes['10.0.0.0/24']
-     .set('gateway', '192.168.122.10')
-     .set('priority', 500)
-     .commit())
+    # create a route
+    ndb.routes.create(
+        dst='10.0.0.0/24',
+        gateway='192.168.122.1'
+    ).commit()
 
-    (ndb            # remove a route
-     .routes['10.0.0.0/24']
-     .remove()
-     .commit())
+    # retrieve a route and change it
+    with ndb.routes['10.0.0.0/24'] as route:
+        route.set(gateway='192.168.122.10')
+
+    # remove a route
+    with ndb.routes['10.0.0.0/24'] as route:
+        route.remove()
 
 
 Multiple routing tables
