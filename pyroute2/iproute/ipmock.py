@@ -1,6 +1,8 @@
 import copy
 import errno
 import queue
+import socket
+import struct
 from itertools import count
 
 from pyroute2.lab import LAB_API
@@ -622,6 +624,29 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         else:
             if command == 'del':
                 raise NetlinkError(errno.ENOENT, 'route does not exist')
+            if 'tflags' in request:
+                del request['tflags']
+            if 'target' in request:
+                del request['target']
+            if 'multipath' in request:
+                del request['multipath']
+            if 'metrics' in request:
+                del request['metrics']
+            if 'deps' in request:
+                del request['deps']
+            if 'oif' not in request:
+                (gateway,) = struct.unpack(
+                    '>I', socket.inet_aton(request['gateway'])
+                )
+                for route in self.preset['routes']:
+                    if route.dst is None:
+                        continue
+                    (dst,) = struct.unpack('>I', socket.inet_aton(route.dst))
+                    if (gateway & (0xFFFFFFFF << (32 - route.dst_len))) == dst:
+                        request['oif'] = route.oif
+                        break
+                else:
+                    raise NetlinkError(errno.ENOENT, 'no route to the gateway')
             route = MockRoute(**request)
 
         if command == 'add':
@@ -629,6 +654,22 @@ class IPRoute(LAB_API, NetlinkSocketBase):
             for msg in self._get_dump([route], rtmsg):
                 msg.encode()
                 self.buffer_queue.put(msg.data)
+        elif command == 'set':
+            for key, value in request.items():
+                if hasattr(route, key):
+                    setattr(route, key, value)
+            for msg in self._get_dump([route], rtmsg):
+                msg.encode()
+                self.buffer_queue.put(msg.data)
+        elif command == 'del':
+            self.preset['routes'].remove(route)
+            for msg in self._get_dump([route], rtmsg):
+                msg['header']['type'] = 25
+                msg['event'] = 'RTM_DELROUTE'
+                msg.encode()
+                self.buffer_queue.put(msg.data)
+
+        return self._get_dump([route], rtmsg)
 
     def get_addr(self):
         return self._get_dump(self.preset['addr'], ifaddrmsg)
