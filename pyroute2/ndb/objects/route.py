@@ -7,6 +7,22 @@
     config.mock_iproute = True
     ndb = NDB()
 
+.. testsetup:: tables
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+    ndb.routes.create(
+        dst='1.1.1.1/32', gateway='127.0.0.10', oif=1, table=101
+    ).commit()
+    ndb.routes.create(
+        dst='1.1.1.2/32', gateway='127.0.0.10', oif=1, table=5001
+    ).commit()
+    ndb.routes.create(
+        dst='1.1.1.3/32', gateway='127.0.0.10', oif=1, table=5002
+    ).commit()
+
 Simple routes
 =============
 
@@ -32,10 +48,12 @@ Ordinary routes management is really simple:
 Multiple routing tables
 =======================
 
-But Linux systems have more than one routing table::
+But Linux systems have more than one routing table:
+
+.. doctest:: tables
 
     >>> set((x.table for x in ndb.routes.summary()))
-    {101, 254, 255, 5001, 5002}
+    {101, 5001, 5002, 254, 255}
 
 The main routing table is 254. All the routes people mostly work with are
 in that table. To address routes in other routing tables, you can use dict
