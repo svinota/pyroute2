@@ -328,7 +328,7 @@ class MockRoute:
             'dst_len': self.dst_len,
             'src_len': 0,
             'tos': 0,
-            'table': self.table,
+            'table': self.table if self.table <= 255 else 252,
             'proto': self.proto,
             'scope': self.scope,
             'type': 2,
