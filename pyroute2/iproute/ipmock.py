@@ -310,6 +310,7 @@ class MockRoute:
         scope=253,
         proto=2,
         route_type=1,
+        **kwarg,
     ):
         self.dst = dst
         self.gateway = gateway
@@ -321,17 +322,20 @@ class MockRoute:
         self.scope = scope
         self.proto = proto
         self.route_type = route_type
+        self.priority = kwarg.get('priority', 0)
+        self.tos = kwarg.get('tos', 0)
+        self._type = kwarg.get('type', 2)
 
     def export(self):
         ret = {
             'family': self.family,
             'dst_len': self.dst_len,
             'src_len': 0,
-            'tos': 0,
+            'tos': self.tos,
             'table': self.table if self.table <= 255 else 252,
             'proto': self.proto,
             'scope': self.scope,
-            'type': 2,
+            'type': self._type,
             'flags': 0,
             'attrs': [('RTA_TABLE', self.table), ('RTA_OIF', self.oif)],
             'header': {
@@ -352,6 +356,8 @@ class MockRoute:
             ret['attrs'].append(('RTA_PREFSRC', self.prefsrc))
         if self.gateway is not None:
             ret['attrs'].append(('RTA_GATEWAY', self.gateway))
+        if self.priority > 0:
+            ret['attrs'].append(('RTA_PRIORITY', self.priority))
         return ret
 
 
@@ -516,7 +522,7 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         keys = {
             'address': ['address', 'prefixlen', 'index', 'family'],
             'link': ['index', 'ifname'],
-            'route': ['dst', 'dst_len', 'oif'],
+            'route': ['dst', 'dst_len', 'oif', 'priority'],
         }
         check = False
         for key in keys[mode]:
