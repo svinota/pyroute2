@@ -92,7 +92,15 @@ import time
 import traceback
 import warnings
 from functools import partial
-from socket import MSG_PEEK, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
+from socket import (
+    MSG_DONTWAIT,
+    MSG_PEEK,
+    MSG_TRUNC,
+    SO_RCVBUF,
+    SO_SNDBUF,
+    SOCK_DGRAM,
+    SOL_SOCKET,
+)
 
 from pyroute2 import config
 from pyroute2.common import DEFAULT_RCVBUF, AddrPool
@@ -1002,6 +1010,13 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
 
         return ret
 
+    def _peek_bufsize(self, socket_descriptor):
+        data = bytearray()
+        bufsize, _ = socket_descriptor.recvfrom_into(
+            data, 0, MSG_DONTWAIT | MSG_PEEK | MSG_TRUNC
+        )
+        return bufsize
+
     def sendto(self, *argv, **kwarg):
         return self._sendto(*argv, **kwarg)
 
@@ -1011,7 +1026,7 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
             if isinstance(data_in, Exception):
                 raise data_in
             return data_in
-        return self._sock.recv(*argv, **kwarg)
+        return self._sock.recv(self._peek_bufsize(self._sock), **kwarg)
 
     def recv_into(self, data, *argv, **kwarg):
         if self.input_from_buffer_queue:
