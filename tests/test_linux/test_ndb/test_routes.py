@@ -1,10 +1,12 @@
 import random
+from functools import partial
 
 import pytest
 from pr2test.context_manager import make_test_matrix
 from pr2test.marks import require_root
 from pr2test.tools import address_exists, interface_exists, route_exists
 
+from pyroute2.ndb.objects.route import Metrics, MetricsStub
 from pyroute2.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, rtmsg
 
 pytestmark = [require_root()]
@@ -395,6 +397,13 @@ def test_same_multipath(context):
     assert route_exists(context.netns, match=match_multipath)
 
 
+def match_metrics(target, gateway, msg):
+    if msg.get_attr('RTA_GATEWAY') != gateway:
+        return False
+    mtu = msg.get_attr('RTA_METRICS', rtmsg()).get_attr('RTAX_MTU', 0)
+    return mtu == target
+
+
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_same_metrics(context):
     ifaddr = context.new_ipaddr
@@ -428,15 +437,39 @@ def test_same_metrics(context):
     # at this point it's already ok - otherwise the test
     # would explode on the second routes.create()
     # but lets double check
-
-    def match_metrics(msg):
-        if msg.get_attr('RTA_GATEWAY') != gateway2:
-            return False
-        mtu = msg.get_attr('RTA_METRICS', rtmsg()).get_attr('RTAX_MTU', 0)
-        return mtu == target
-
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
-    assert route_exists(context.netns, match=match_metrics)
+    assert route_exists(
+        context.netns, match=partial(match_metrics, target, gateway2)
+    )
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_metrics_set(context):
+    index, ifname = context.default_interface
+    ifaddr = context.new_ipaddr
+    gateway = context.new_ipaddr
+    ipnet = str(context.ipnets[1].network)
+    target = 1280
+
+    with context.ndb.interfaces[ifname] as dummy:
+        dummy.add_ip(address=ifaddr, prefixlen=24)
+        dummy.set(state='up')
+
+    route = context.ndb.routes.create(dst=ipnet, dst_len=24, gateway=gateway)
+    route.commit()
+
+    assert route_exists(context.netns, dst=ipnet, dst_len=24, gateway=gateway)
+    with pytest.raises(KeyError):
+        assert route['metrics']['mtu']
+    assert isinstance(route['metrics'], MetricsStub)
+
+    route['metrics']['mtu'] = target
+    assert isinstance(route['metrics'], Metrics)
+
+    route.commit()
+    assert route_exists(
+        context.netns, match=partial(match_metrics, target, gateway)
+    )
 
 
 def _test_metrics_update(context, method):

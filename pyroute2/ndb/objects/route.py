@@ -577,7 +577,7 @@ class Route(RTNL_Object):
         kwarg['iclass'] = rtmsg
         self.event_map = {rtmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'multipath', [])
-        dict.__setitem__(self, 'metrics', {})
+        dict.__setitem__(self, 'metrics', MetricsStub(self))
         dict.__setitem__(self, 'deps', 0)
         super(Route, self).__init__(*argv, **kwarg)
 
@@ -675,7 +675,7 @@ class Route(RTNL_Object):
                 self.changed.remove(key)
         elif key == 'metrics':
             value = dict(value)
-            if self.state == 'invalid':
+            if not isinstance(self['metrics'], Metrics):
                 value['create'] = True
             obj = Metrics(
                 self, self.view, value, auth_managers=self.auth_managers
@@ -852,6 +852,17 @@ class NextHop(RouteSub, RTNL_Object):
         kwarg['iclass'] = nh
         kwarg['check'] = False
         super(NextHop, self).__init__(*argv, **kwarg)
+
+
+class MetricsStub(dict):
+    def __init__(self, route):
+        self.route = route
+
+    def __setitem__(self, key, value):
+        self.route['metrics'] = {key: value}
+
+    def __getitem__(self, key):
+        raise KeyError('metrics not initialized for this route')
 
 
 class Metrics(RouteSub, RTNL_Object):
