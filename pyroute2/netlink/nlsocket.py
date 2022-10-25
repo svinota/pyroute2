@@ -787,6 +787,7 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
         self._fileno = fileno
         self._sndbuf = sndbuf
         self._rcvbuf = rcvbuf
+        self._use_peek = True
         self.backlog = {0: []}
         self.error_deque = collections.deque(maxlen=1000)
         self.callbacks = []  # [(predicate, callback, args), ...]
@@ -1012,21 +1013,28 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
 
     def _peek_bufsize(self, socket_descriptor):
         data = bytearray()
-        bufsize, _ = socket_descriptor.recvfrom_into(
-            data, 0, MSG_DONTWAIT | MSG_PEEK | MSG_TRUNC
-        )
+        try:
+            bufsize, _ = socket_descriptor.recvfrom_into(
+                data, 0, MSG_DONTWAIT | MSG_PEEK | MSG_TRUNC
+            )
+        except BlockingIOError:
+            self._use_peek = False
+            bufsize = socket_descriptor.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
         return bufsize
 
     def sendto(self, *argv, **kwarg):
         return self._sendto(*argv, **kwarg)
 
-    def recv(self, *argv, **kwarg):
+    def recv(self, bufsize, flags=0):
         if self.input_from_buffer_queue:
             data_in = self.buffer_queue.get()
             if isinstance(data_in, Exception):
                 raise data_in
             return data_in
-        return self._sock.recv(self._peek_bufsize(self._sock), **kwarg)
+        return self._sock.recv(
+            self._peek_bufsize(self._sock) if self._use_peek else bufsize,
+            flags,
+        )
 
     def recv_into(self, data, *argv, **kwarg):
         if self.input_from_buffer_queue:
