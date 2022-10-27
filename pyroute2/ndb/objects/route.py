@@ -67,23 +67,22 @@ But Linux systems have more than one routing table:
 
 The main routing table is 254. All the routes people mostly work with are
 in that table. To address routes in other routing tables, you can use dict
-specs::
+specs:
 
-    (ndb
-     .routes
-     .create(dst='10.0.0.0/24', gateway='192.168.122.1', table=101)
-     .commit())
+.. testcode::
 
-    (ndb
-     .routes[{'table': 101, 'dst': '10.0.0.0/24'}]
-     .set('gateway', '192.168.122.10')
-     .set('priority', 500)
-     .commit())
+    ndb.routes.create(
+        dst='10.0.0.0/24',
+        gateway='192.168.122.1',
+        table=101
+    ).commit()
 
-    (ndb
-     .routes[{'table': 101, 'dst': '10.0.0.0/24'}]
-     .remove()
-     .commit())
+    with ndb.routes[{'table': 101, 'dst': '10.0.0.0/24'}] as route:
+        route.set('gateway', '192.168.122.10')
+        route.set('priority', 500)
+
+    with ndb.routes[{'table': 101, 'dst': '10.0.0.0/24'}] as route:
+        route.remove()
 
 Route metrics
 =============
