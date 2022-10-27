@@ -851,6 +851,9 @@ class RouteSub:
     def commit(self):
         return self.route.commit()
 
+    def set(self, key, value):
+        self[key] = value
+
     def __enter__(self):
         return self
 
@@ -889,8 +892,13 @@ class MetricsStub(RouteSub, dict):
     def __init__(self, route):
         self.route = route
 
-    def set(self, key, value):
-        self[key] = value
+    def __setitem__(self, key, value):
+        # This assignment forces the Metrics object to replace
+        # MetricsStub; it is the MetricsStub object end of life
+        self.route['metrics'] = {key: value}
+
+    def __getitem__(self, key):
+        raise KeyError('metrics not initialized for this route')
 
 
 class Metrics(RouteSub, RTNL_Object):
