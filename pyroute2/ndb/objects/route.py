@@ -700,7 +700,7 @@ class Route(RTNL_Object):
                 self.changed.remove(key)
         elif key == 'metrics':
             value = dict(value)
-            if self.state == 'invalid':
+            if not isinstance(self['metrics'], Metrics):
                 value['create'] = True
             obj = Metrics(
                 self, self.view, value, auth_managers=self.auth_managers
