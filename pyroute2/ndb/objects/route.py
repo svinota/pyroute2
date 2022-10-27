@@ -23,6 +23,16 @@
         dst='1.1.1.3/32', gateway='127.0.0.10', oif=1, table=5002
     ).commit()
 
+.. testsetup:: metrics
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+    ndb.routes.create(
+        dst='10.0.0.0/24', gateway='127.0.0.10'
+    ).commit()
+
 Simple routes
 =============
 
@@ -79,20 +89,18 @@ Route metrics
 =============
 
 `route['metrics']` attribute provides a dictionary-like object that
-reflects route metrics like hop limit, mtu etc::
+reflects route metrics like hop limit, mtu etc:
+
+.. testcode:: metrics
 
     # set up all metrics from a dictionary
-    (ndb
-     .routes['10.0.0.0/24']
-     .set('metrics', {'mtu': 1500, 'hoplimit': 20})
-     .commit())
+    with ndb.routes['10.0.0.0/24'] as route:
+        route.set('metrics', {'mtu': 1500, 'hoplimit': 20})
 
     # fix individual metrics
-    (ndb
-     .routes['10.0.0.0/24']['metrics']
-     .set('mtu', 1500)
-     .set('hoplimit', 20)
-     .commit())
+    with ndb.routes['10.0.0.0/24']['metrics'] as metrics:
+        metrics.set('mtu', 1500)
+        metrics.set('hoplimit', 20)
 
 MPLS routes
 ===========
@@ -595,7 +603,7 @@ class Route(RTNL_Object):
         kwarg['iclass'] = rtmsg
         self.event_map = {rtmsg: "load_rtnlmsg"}
         dict.__setitem__(self, 'multipath', [])
-        dict.__setitem__(self, 'metrics', {})
+        dict.__setitem__(self, 'metrics', MetricsStub(self))
         dict.__setitem__(self, 'deps', 0)
         super(Route, self).__init__(*argv, **kwarg)
 
@@ -837,12 +845,18 @@ class Route(RTNL_Object):
                 )
 
 
-class RouteSub(object):
+class RouteSub:
     def apply(self, rollback=False, req_filter=None, mode='apply'):
         return self.route.apply(rollback, req_filter, mode)
 
     def commit(self):
         return self.route.commit()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.commit()
 
 
 class NextHop(RouteSub, RTNL_Object):
@@ -870,6 +884,14 @@ class NextHop(RouteSub, RTNL_Object):
         kwarg['iclass'] = nh
         kwarg['check'] = False
         super(NextHop, self).__init__(*argv, **kwarg)
+
+
+class MetricsStub(RouteSub, dict):
+    def __init__(self, route):
+        self.route = route
+
+    def set(self, key, value):
+        self[key] = value
 
 
 class Metrics(RouteSub, RTNL_Object):
