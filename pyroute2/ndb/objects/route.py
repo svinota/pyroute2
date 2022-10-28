@@ -7,6 +7,32 @@
     config.mock_iproute = True
     ndb = NDB()
 
+.. testsetup:: tables
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+    ndb.routes.create(
+        dst='1.1.1.1/32', gateway='127.0.0.10', oif=1, table=101
+    ).commit()
+    ndb.routes.create(
+        dst='1.1.1.2/32', gateway='127.0.0.10', oif=1, table=5001
+    ).commit()
+    ndb.routes.create(
+        dst='1.1.1.3/32', gateway='127.0.0.10', oif=1, table=5002
+    ).commit()
+
+.. testsetup:: metrics
+
+    from pyroute2 import NDB
+    from pyroute2 import config
+    config.mock_iproute = True
+    ndb = NDB()
+    ndb.routes.create(
+        dst='10.0.0.0/24', gateway='127.0.0.10'
+    ).commit()
+
 Simple routes
 =============
 
@@ -32,49 +58,48 @@ Ordinary routes management is really simple:
 Multiple routing tables
 =======================
 
-But Linux systems have more than one routing table::
+But Linux systems have more than one routing table:
+
+.. doctest:: tables
 
     >>> set((x.table for x in ndb.routes.summary()))
-    {101, 254, 255, 5001, 5002}
+    {101, 5001, 5002, 254, 255}
 
 The main routing table is 254. All the routes people mostly work with are
 in that table. To address routes in other routing tables, you can use dict
-specs::
+specs:
 
-    (ndb
-     .routes
-     .create(dst='10.0.0.0/24', gateway='192.168.122.1', table=101)
-     .commit())
+.. testcode::
 
-    (ndb
-     .routes[{'table': 101, 'dst': '10.0.0.0/24'}]
-     .set('gateway', '192.168.122.10')
-     .set('priority', 500)
-     .commit())
+    ndb.routes.create(
+        dst='10.0.0.0/24',
+        gateway='192.168.122.1',
+        table=101
+    ).commit()
 
-    (ndb
-     .routes[{'table': 101, 'dst': '10.0.0.0/24'}]
-     .remove()
-     .commit())
+    with ndb.routes[{'table': 101, 'dst': '10.0.0.0/24'}] as route:
+        route.set('gateway', '192.168.122.10')
+        route.set('priority', 500)
+
+    with ndb.routes[{'table': 101, 'dst': '10.0.0.0/24'}] as route:
+        route.remove()
 
 Route metrics
 =============
 
 `route['metrics']` attribute provides a dictionary-like object that
-reflects route metrics like hop limit, mtu etc::
+reflects route metrics like hop limit, mtu etc:
+
+.. testcode:: metrics
 
     # set up all metrics from a dictionary
-    (ndb
-     .routes['10.0.0.0/24']
-     .set('metrics', {'mtu': 1500, 'hoplimit': 20})
-     .commit())
+    with ndb.routes['10.0.0.0/24'] as route:
+        route.set('metrics', {'mtu': 1500, 'hoplimit': 20})
 
     # fix individual metrics
-    (ndb
-     .routes['10.0.0.0/24']['metrics']
-     .set('mtu', 1500)
-     .set('hoplimit', 20)
-     .commit())
+    with ndb.routes['10.0.0.0/24']['metrics'] as metrics:
+        metrics.set('mtu', 1500)
+        metrics.set('hoplimit', 20)
 
 MPLS routes
 ===========
@@ -819,12 +844,21 @@ class Route(RTNL_Object):
                 )
 
 
-class RouteSub(object):
+class RouteSub:
     def apply(self, rollback=False, req_filter=None, mode='apply'):
         return self.route.apply(rollback, req_filter, mode)
 
     def commit(self):
         return self.route.commit()
+
+    def set(self, key, value):
+        self[key] = value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.commit()
 
 
 class NextHop(RouteSub, RTNL_Object):
@@ -854,11 +888,13 @@ class NextHop(RouteSub, RTNL_Object):
         super(NextHop, self).__init__(*argv, **kwarg)
 
 
-class MetricsStub(dict):
+class MetricsStub(RouteSub, dict):
     def __init__(self, route):
         self.route = route
 
     def __setitem__(self, key, value):
+        # This assignment forces the Metrics object to replace
+        # MetricsStub; it is the MetricsStub object end of life
         self.route['metrics'] = {key: value}
 
     def __getitem__(self, key):
