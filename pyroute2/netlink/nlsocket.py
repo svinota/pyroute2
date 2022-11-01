@@ -339,13 +339,44 @@ class LockFactory:
         del self.locks[key]
 
 
-class NetlinkSocketBaseSafe:
+class EngineThreadSafe:
     '''
-    Thread-safe base class for netlink sockets. It buffers all
+    Thread-safe engine for netlink sockets. It buffers all
     incoming messages regardless sequence numbers, and returns
     only messages with requested numbers. This is done using
     synchronization primitives in a quite complicated manner.
     '''
+
+    def __init__(self, socket):
+        self.socket = socket
+        self.lock = socket.lock
+        self.backlog = socket.backlog
+        self.error_deque = socket.error_deque
+        self.backlog_lock = socket.backlog_lock
+        self.get_timeout = socket.get_timeout
+        self.read_lock = threading.Lock()
+        self.buffer_queue = socket.buffer_queue
+        self.change_master = socket.change_master
+
+    @property
+    def qsize(self):
+        return self.socket.qsize
+
+    @property
+    def epid(self):
+        return self.socket.epid
+
+    @property
+    def target(self):
+        return self.socket.target
+
+    @qsize.setter
+    def qsize(self, value):
+        self.socket.qsize = value
+
+    @property
+    def callbacks(self):
+        return self.socket.callbacks
 
     def put(
         self,
@@ -394,7 +425,7 @@ class NetlinkSocketBaseSafe:
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
             msg['header']['pid'] = msg_pid
-            self.sendto_gate(msg, addr)
+            self.socket.sendto_gate(msg, addr)
         except:
             raise
         finally:
@@ -572,10 +603,12 @@ class NetlinkSocketBaseSafe:
                                 #
                                 # This is a time consuming process, so all the
                                 # locks, except the read lock must be released
-                                data = self.recv(bufsize)
+                                data = self.socket.recv(bufsize)
                                 # Parse data
                                 msgs = tuple(
-                                    self.marshal.parse(data, msg_seq, callback)
+                                    self.socket.marshal.parse(
+                                        data, msg_seq, callback
+                                    )
                                 )
                                 # Reset ctime -- timeout should be measured
                                 # for every turn separately
@@ -724,20 +757,7 @@ class NetlinkSocketBaseUnsafe:
             yield last
 
 
-class NetlinkSocketMeta(type):
-    def __new__(cls, name, bases, dct):
-        if (
-            config.nlsocket_thread_safe
-            and os.environ.get('PYROUTE2_NLSOCKET_THREAD_SAFE', 'true').lower()
-            == 'true'
-        ):
-            base = NetlinkSocketBaseSafe
-        else:
-            base = NetlinkSocketBaseUnsafe
-        return super().__new__(cls, name, bases + (base,), dct)
-
-
-class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
+class NetlinkSocketBase:
     '''
     Generic netlink socket.
     '''
@@ -804,7 +824,6 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
             'provide_master': config.kernel[0] > 2,
         }
         self.backlog_lock = threading.Lock()
-        self.read_lock = threading.Lock()
         self.sys_lock = threading.RLock()
         self.change_master = threading.Event()
         self.lock = LockFactory()
@@ -857,12 +876,36 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
 
         # Set defaults
         self.post_init()
+        self.engine = EngineThreadSafe(self)
 
     def post_init(self):
         pass
 
     def clone(self):
         return type(self)(**self.config)
+
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        return self.engine.put(
+            msg, msg_type, msg_flags, addr, msg_seq, msg_pid
+        )
+
+    def get(
+        self,
+        bufsize=DEFAULT_RCVBUF,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
+    ):
+        return self.engine.get(bufsize, msg_seq, terminate, callback, noraise)
 
     def close(self, code=errno.ECONNRESET):
         if code > 0 and self.input_from_buffer_queue:
