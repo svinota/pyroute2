@@ -339,28 +339,34 @@ class LockFactory:
         del self.locks[key]
 
 
-class EngineThreadSafe:
-    '''
-    Thread-safe engine for netlink sockets. It buffers all
-    incoming messages regardless sequence numbers, and returns
-    only messages with requested numbers. This is done using
-    synchronization primitives in a quite complicated manner.
-    '''
-
+class EngineBase:
     def __init__(self, socket):
         self.socket = socket
-        self.lock = socket.lock
-        self.backlog = socket.backlog
-        self.error_deque = socket.error_deque
-        self.backlog_lock = socket.backlog_lock
-        self.get_timeout = socket.get_timeout
+        self.get_timeout = 30
+        self.get_timeout_exception = None
+        self.change_master = threading.Event()
         self.read_lock = threading.Lock()
-        self.buffer_queue = socket.buffer_queue
-        self.change_master = socket.change_master
+        self.qsize = 0
 
     @property
-    def qsize(self):
-        return self.socket.qsize
+    def backlog(self):
+        return self.socket.backlog
+
+    @property
+    def backlog_lock(self):
+        return self.socket.backlog_lock
+
+    @property
+    def error_deque(self):
+        return self.socket.error_deque
+
+    @property
+    def lock(self):
+        return self.socket.lock
+
+    @property
+    def buffer_queue(self):
+        return self.socket.buffer_queue
 
     @property
     def epid(self):
@@ -370,13 +376,18 @@ class EngineThreadSafe:
     def target(self):
         return self.socket.target
 
-    @qsize.setter
-    def qsize(self, value):
-        self.socket.qsize = value
-
     @property
     def callbacks(self):
         return self.socket.callbacks
+
+
+class EngineThreadSafe(EngineBase):
+    '''
+    Thread-safe engine for netlink sockets. It buffers all
+    incoming messages regardless sequence numbers, and returns
+    only messages with requested numbers. This is done using
+    synchronization primitives in a quite complicated manner.
+    '''
 
     def put(
         self,
@@ -693,7 +704,7 @@ class EngineThreadSafe:
                     self.backlog_lock.release()
 
 
-class NetlinkSocketBaseUnsafe:
+class EngineThreadUnsafe(EngineBase):
     '''
     Thread unsafe nlsocket base class. Does not implement any locks
     on message processing. Discards any message if the sequence number
@@ -825,7 +836,6 @@ class NetlinkSocketBase:
         }
         self.backlog_lock = threading.Lock()
         self.sys_lock = threading.RLock()
-        self.change_master = threading.Event()
         self.lock = LockFactory()
         self._sock = None
         self._ctrl_read, self._ctrl_write = os.pipe()
@@ -836,10 +846,7 @@ class NetlinkSocketBase:
             nlm_generator = config.nlm_generator
         self.nlm_generator = nlm_generator
         self.buffer_queue = Queue(maxsize=async_qsize)
-        self.qsize = 0
         self.log = []
-        self.get_timeout = 30
-        self.get_timeout_exception = None
         self.all_ns = all_ns
         self.ext_ack = ext_ack
         self.strict_check = strict_check
