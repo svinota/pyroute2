@@ -990,15 +990,21 @@ class RTNL_API:
             to vlan 500 only via ports that have such vlan filter.
 
 
-        Required arguments for `vlan_filter()` -- `index` and `vlan_info`.
-        Vlan info struct::
+        Required arguments for `vlan_filter()`: `index` and `vlan_info`.
+        Vlan info dict::
 
-            {"vid": uint16,
-             "flags": uint16}
+            ip.vlan_filter('add',
+                            index=<ifindex>,
+                            vlan_info =
+                              {'vid': <single or range>,
+                              'pvid': <bool>,
+                              'flags': int or list}
 
         More details:
             * kernel:Documentation/networking/switchdev.txt
             * pyroute2.netlink.rtnl.ifinfmsg:... vlan_info
+
+        Setting PVID or specifying a range will specify the approprate flags.
 
         One can specify `flags` as int or as a list of flag names:
             * `master` == 0x1
@@ -1010,12 +1016,44 @@ class RTNL_API:
 
         E.g.::
 
-            {"vid": 20,
-             "flags": ["pvid", "untagged"]}
+            {'vid': 20,
+             'pvid': true }
 
             # is equal to
-            {"vid": 20,
-             "flags": 6}
+            {'vid': 20,
+             'flags': ['pvid', 'untagged']}
+
+            # is equal to
+            {'vid': 20,
+             'flags': 6}
+
+            # range
+            {'vid': '100-199'}
+
+
+        Required arguments for `vlan_filter()`: `index` and `vlan_tunnel_info`.
+
+        Vlan tunnel info dict::
+            ip.vlan_filter('add',
+                            index=<ifindex>,
+                            vlan_tunnel_info =
+                              {'vid': <single or range>,
+                              'id': <single or range>}
+
+        vlan_tunnel_info appears to only use the 'range_begin' and 'range_end'
+        flags from vlan_info. Specifying a range will automatically send the
+        needed flags.
+
+        Example::
+            {'vid': 20,
+             'id: 20}
+
+            {'vid': '200-299',
+             'id': '200-299'}
+
+        The above directives can be combined as in the example:
+          ip.vlan_filter('add', index=7, vlan_info={'vid': 600},
+                          vlan_tunnel_info={'vid': 600, 'id': 600})
 
         Commands:
 

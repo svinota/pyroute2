@@ -129,6 +129,12 @@ BRIDGE_VLAN_INFO_BRENTRY = 0x20  # global bridge vlan entry
     'BRIDGE_VLAN_INFO', globals()
 )
 
+BRIDGE_VLAN_TUNNEL_UNSPEC = 0
+BRIDGE_VLAN_TUNNEL_ID = 1
+BRIDGE_VLAN_TUNNEL_VID = 2
+BRIDGE_VLAN_TUNNEL_FLAGS = 3
+BRIDGE_VLAN_TUNNEL_MAX = 4
+
 BRIDGE_FLAGS_MASTER = 1
 BRIDGE_FLAGS_SELF = 2
 (BRIDGE_FLAGS_NAMES, BRIDGE_FLAGS_VALUES) = map_namespace(
@@ -1089,6 +1095,7 @@ class ifinfbase(object):
             (0, 'IFLA_BRIDGE_VLAN_FLAGS', 'vlan_flags'),
             (1, 'IFLA_BRIDGE_MODE', 'uint16'),
             (2, 'IFLA_BRIDGE_VLAN_INFO', 'vlan_info'),
+            (3, 'IFLA_BRIDGE_VLAN_TUNNEL_INFO', 'vlan_tunnel_info'),
         )
 
         class vlan_flags(nla):
@@ -1128,6 +1135,15 @@ class ifinfbase(object):
                 if isinstance(self['flags'], (set, tuple, list)):
                     self['flags'] = self.names2flags(self['flags'])
                 return super(nla, self).encode()
+
+        class vlan_tunnel_info(nla):
+            prefix = 'IFLA_BRIDGE_VLAN_TUNNEL_'
+            nla_map = (
+                ('IFLA_BRIDGE_VLAN_TUNNEL_UNSPEC', 'none'),
+                ('IFLA_BRIDGE_VLAN_TUNNEL_ID', 'uint32'),
+                ('IFLA_BRIDGE_VLAN_TUNNEL_VID', 'uint16'),
+                ('IFLA_BRIDGE_VLAN_TUNNEL_FLAGS', 'uint16'),
+            )
 
     class af_spec_inet(nla):
         nla_map = (
