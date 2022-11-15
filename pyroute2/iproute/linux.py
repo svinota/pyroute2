@@ -11,79 +11,34 @@ from pyroute2 import config
 from pyroute2.common import AF_MPLS, basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.lab import LAB_API
-from pyroute2.netlink import (
-    NLM_F_ACK,
-    NLM_F_APPEND,
-    NLM_F_ATOMIC,
-    NLM_F_CREATE,
-    NLM_F_DUMP,
-    NLM_F_ECHO,
-    NLM_F_EXCL,
-    NLM_F_REPLACE,
-    NLM_F_REQUEST,
-    NLM_F_ROOT,
-    NLMSG_ERROR,
-)
-from pyroute2.netlink.exceptions import (
-    NetlinkDumpInterrupted,
-    NetlinkError,
-    SkipInode,
-)
-from pyroute2.netlink.rtnl import (
-    RTM_DELADDR,
-    RTM_DELLINK,
-    RTM_DELLINKPROP,
-    RTM_DELNEIGH,
-    RTM_DELQDISC,
-    RTM_DELROUTE,
-    RTM_DELRULE,
-    RTM_DELTCLASS,
-    RTM_DELTFILTER,
-    RTM_GETADDR,
-    RTM_GETLINK,
-    RTM_GETNEIGH,
-    RTM_GETNEIGHTBL,
-    RTM_GETNSID,
-    RTM_GETQDISC,
-    RTM_GETROUTE,
-    RTM_GETRULE,
-    RTM_GETSTATS,
-    RTM_GETTCLASS,
-    RTM_GETTFILTER,
-    RTM_NEWADDR,
-    RTM_NEWLINK,
-    RTM_NEWLINKPROP,
-    RTM_NEWNEIGH,
-    RTM_NEWNETNS,
-    RTM_NEWQDISC,
-    RTM_NEWROUTE,
-    RTM_NEWRULE,
-    RTM_NEWTCLASS,
-    RTM_NEWTFILTER,
-    RTM_SETLINK,
-    RTMGRP_IPV4_IFADDR,
-    RTMGRP_IPV4_ROUTE,
-    RTMGRP_IPV4_RULE,
-    RTMGRP_IPV6_IFADDR,
-    RTMGRP_IPV6_ROUTE,
-    RTMGRP_IPV6_RULE,
-    RTMGRP_LINK,
-    RTMGRP_NEIGH,
-    TC_H_ROOT,
-    ndmsg,
-    rt_proto,
-    rt_scope,
-    rt_type,
-)
+from pyroute2.netlink import (NLM_F_ACK, NLM_F_APPEND, NLM_F_ATOMIC,
+                              NLM_F_CREATE, NLM_F_DUMP, NLM_F_ECHO, NLM_F_EXCL,
+                              NLM_F_REPLACE, NLM_F_REQUEST, NLM_F_ROOT,
+                              NLMSG_ERROR)
+from pyroute2.netlink.exceptions import (NetlinkDumpInterrupted, NetlinkError,
+                                         SkipInode)
+from pyroute2.netlink.rtnl import (RTM_DELADDR, RTM_DELLINK, RTM_DELLINKPROP,
+                                   RTM_DELNEIGH, RTM_DELQDISC, RTM_DELROUTE,
+                                   RTM_DELRULE, RTM_DELTCLASS, RTM_DELTFILTER,
+                                   RTM_GETADDR, RTM_GETLINK, RTM_GETNEIGH,
+                                   RTM_GETNEIGHTBL, RTM_GETNSID, RTM_GETQDISC,
+                                   RTM_GETROUTE, RTM_GETRULE, RTM_GETSTATS,
+                                   RTM_GETTCLASS, RTM_GETTFILTER, RTM_NEWADDR,
+                                   RTM_NEWLINK, RTM_NEWLINKPROP, RTM_NEWNEIGH,
+                                   RTM_NEWNETNS, RTM_NEWQDISC, RTM_NEWROUTE,
+                                   RTM_NEWRULE, RTM_NEWTCLASS, RTM_NEWTFILTER,
+                                   RTM_SETLINK, RTMGRP_IPV4_IFADDR,
+                                   RTMGRP_IPV4_ROUTE, RTMGRP_IPV4_RULE,
+                                   RTMGRP_IPV6_IFADDR, RTMGRP_IPV6_ROUTE,
+                                   RTMGRP_IPV6_RULE, RTMGRP_LINK, RTMGRP_NEIGH,
+                                   TC_H_ROOT, ndmsg, rt_proto, rt_scope,
+                                   rt_type)
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifstatsmsg import ifstatsmsg
-from pyroute2.netlink.rtnl.iprsocket import (
-    ChaoticIPRSocket,
-    IPBatchSocket,
-    IPRSocket,
-)
+from pyroute2.netlink.rtnl.iprsocket import (ChaoticIPRSocket, IPBatchSocket,
+                                             IPRSocket)
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
@@ -92,17 +47,12 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
-from pyroute2.requests.bridge import (
-    BridgeFieldFilter,
-    BridgeIPRouteFilter,
-    BridgePortFieldFilter,
-)
+from pyroute2.requests.bridge import (BridgeFieldFilter, BridgeIPRouteFilter,
+                                      BridgePortFieldFilter)
 from pyroute2.requests.link import LinkFieldFilter, LinkIPRouteFilter
 from pyroute2.requests.main import RequestProcessor
-from pyroute2.requests.neighbour import (
-    NeighbourFieldFilter,
-    NeighbourIPRouteFilter,
-)
+from pyroute2.requests.neighbour import (NeighbourFieldFilter,
+                                         NeighbourIPRouteFilter)
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 
@@ -989,16 +939,16 @@ class RTNL_API:
             Now all the traffic to the network 172.16.5.2/24 will go
             to vlan 500 only via ports that have such vlan filter.
 
-
         Required arguments for `vlan_filter()`: `index` and `vlan_info`.
+
         Vlan info dict::
 
             ip.vlan_filter('add',
                             index=<ifindex>,
                             vlan_info =
-                              {'vid': <single or range>,
-                              'pvid': <bool>,
-                              'flags': int or list}
+                            {'vid': <single or range>,
+                            'pvid': <bool>,
+                            'flags': int or list}
 
         More details:
             * kernel:Documentation/networking/switchdev.txt
@@ -1016,44 +966,42 @@ class RTNL_API:
 
         E.g.::
 
-            {'vid': 20,
-             'pvid': true }
+            {'vid': 20, 'pvid': true }
 
             # is equal to
-            {'vid': 20,
-             'flags': ['pvid', 'untagged']}
+            {'vid': 20, 'flags': ['pvid', 'untagged']}
 
             # is equal to
-            {'vid': 20,
-             'flags': 6}
+            {'vid': 20, 'flags': 6}
 
             # range
             {'vid': '100-199'}
 
-
         Required arguments for `vlan_filter()`: `index` and `vlan_tunnel_info`.
 
         Vlan tunnel info dict::
+
             ip.vlan_filter('add',
-                            index=<ifindex>,
-                            vlan_tunnel_info =
-                              {'vid': <single or range>,
-                              'id': <single or range>}
+                          index=<ifindex>,
+                          vlan_tunnel_info = 
+                          {'vid': <single or range>,
+                          'id': <single or range>}
 
         vlan_tunnel_info appears to only use the 'range_begin' and 'range_end'
         flags from vlan_info. Specifying a range will automatically send the
         needed flags.
 
         Example::
-            {'vid': 20,
-             'id: 20}
 
-            {'vid': '200-299',
-             'id': '200-299'}
+            {'vid': 20, 'id: 20}
+            {'vid': '200-299', 'id': '200-299'}
 
-        The above directives can be combined as in the example:
-          ip.vlan_filter('add', index=7, vlan_info={'vid': 600},
-                          vlan_tunnel_info={'vid': 600, 'id': 600})
+        The above directives can be combined as in the example::
+
+          ip.vlan_filter('add',
+                        index=7,
+                        vlan_info={'vid': 600},
+                        vlan_tunnel_info={'vid': 600, 'id': 600})
 
         Commands:
 
@@ -1061,13 +1009,13 @@ class RTNL_API:
 
         Add vlan filter to a bridge port. Example::
 
-            ip.vlan_filter("add", index=2, vlan_info={"vid": 200})
+          ip.vlan_filter("add", index=2, vlan_info={"vid": 200})
 
         **del**
 
         Remove vlan filter from a bridge port. Example::
 
-            ip.vlan_filter("del", index=2, vlan_info={"vid": 200})
+          ip.vlan_filter("del", index=2, vlan_info={"vid": 200})
 
         '''
         command_map = {
