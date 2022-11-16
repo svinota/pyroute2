@@ -1129,6 +1129,14 @@ class RTNL_API:
                    port=5678,
                    vni=600)
 
+            # or specify src_vni for a vlan-aware vxlan device
+            ip.fdb('add',
+                   ifindex=ip.link_lookup(ifname='vx500')[0]
+                   lladdr='00:11:22:33:44:55',
+                   dst='10.0.0.1',
+                   port=5678,
+                   src_vni=600)
+
         **append**
 
         Append a new FDB record. The same syntax as for **add**.
