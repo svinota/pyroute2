@@ -339,9 +339,51 @@ class LockFactory:
         del self.locks[key]
 
 
-class NetlinkSocketBaseSafe:
+class EngineBase:
+    def __init__(self, socket):
+        self.socket = socket
+        self.get_timeout = 30
+        self.get_timeout_exception = None
+        self.change_master = threading.Event()
+        self.read_lock = threading.Lock()
+        self.qsize = 0
+
+    @property
+    def backlog(self):
+        return self.socket.backlog
+
+    @property
+    def backlog_lock(self):
+        return self.socket.backlog_lock
+
+    @property
+    def error_deque(self):
+        return self.socket.error_deque
+
+    @property
+    def lock(self):
+        return self.socket.lock
+
+    @property
+    def buffer_queue(self):
+        return self.socket.buffer_queue
+
+    @property
+    def epid(self):
+        return self.socket.epid
+
+    @property
+    def target(self):
+        return self.socket.target
+
+    @property
+    def callbacks(self):
+        return self.socket.callbacks
+
+
+class EngineThreadSafe(EngineBase):
     '''
-    Thread-safe base class for netlink sockets. It buffers all
+    Thread-safe engine for netlink sockets. It buffers all
     incoming messages regardless sequence numbers, and returns
     only messages with requested numbers. This is done using
     synchronization primitives in a quite complicated manner.
@@ -394,7 +436,7 @@ class NetlinkSocketBaseSafe:
             msg['header']['flags'] = msg_flags
             msg['header']['sequence_number'] = msg_seq
             msg['header']['pid'] = msg_pid
-            self.sendto_gate(msg, addr)
+            self.socket.sendto_gate(msg, addr)
         except:
             raise
         finally:
@@ -572,10 +614,12 @@ class NetlinkSocketBaseSafe:
                                 #
                                 # This is a time consuming process, so all the
                                 # locks, except the read lock must be released
-                                data = self.recv(bufsize)
+                                data = self.socket.recv(bufsize)
                                 # Parse data
                                 msgs = tuple(
-                                    self.marshal.parse(data, msg_seq, callback)
+                                    self.socket.marshal.parse(
+                                        data, msg_seq, callback
+                                    )
                                 )
                                 # Reset ctime -- timeout should be measured
                                 # for every turn separately
@@ -660,7 +704,7 @@ class NetlinkSocketBaseSafe:
                     self.backlog_lock.release()
 
 
-class NetlinkSocketBaseUnsafe:
+class EngineThreadUnsafe(EngineBase):
     '''
     Thread unsafe nlsocket base class. Does not implement any locks
     on message processing. Discards any message if the sequence number
@@ -724,20 +768,7 @@ class NetlinkSocketBaseUnsafe:
             yield last
 
 
-class NetlinkSocketMeta(type):
-    def __new__(cls, name, bases, dct):
-        if (
-            config.nlsocket_thread_safe
-            and os.environ.get('PYROUTE2_NLSOCKET_THREAD_SAFE', 'true').lower()
-            == 'true'
-        ):
-            base = NetlinkSocketBaseSafe
-        else:
-            base = NetlinkSocketBaseUnsafe
-        return super().__new__(cls, name, bases + (base,), dct)
-
-
-class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
+class NetlinkSocketBase:
     '''
     Generic netlink socket.
     '''
@@ -804,9 +835,7 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
             'provide_master': config.kernel[0] > 2,
         }
         self.backlog_lock = threading.Lock()
-        self.read_lock = threading.Lock()
         self.sys_lock = threading.RLock()
-        self.change_master = threading.Event()
         self.lock = LockFactory()
         self._sock = None
         self._ctrl_read, self._ctrl_write = os.pipe()
@@ -817,10 +846,7 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
             nlm_generator = config.nlm_generator
         self.nlm_generator = nlm_generator
         self.buffer_queue = Queue(maxsize=async_qsize)
-        self.qsize = 0
         self.log = []
-        self.get_timeout = 30
-        self.get_timeout_exception = None
         self.all_ns = all_ns
         self.ext_ack = ext_ack
         self.strict_check = strict_check
@@ -857,12 +883,36 @@ class NetlinkSocketBase(metaclass=NetlinkSocketMeta):
 
         # Set defaults
         self.post_init()
+        self.engine = EngineThreadSafe(self)
 
     def post_init(self):
         pass
 
     def clone(self):
         return type(self)(**self.config)
+
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        return self.engine.put(
+            msg, msg_type, msg_flags, addr, msg_seq, msg_pid
+        )
+
+    def get(
+        self,
+        bufsize=DEFAULT_RCVBUF,
+        msg_seq=0,
+        terminate=None,
+        callback=None,
+        noraise=False,
+    ):
+        return self.engine.get(bufsize, msg_seq, terminate, callback, noraise)
 
     def close(self, code=errno.ECONNRESET):
         if code > 0 and self.input_from_buffer_queue:
