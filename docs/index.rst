@@ -11,7 +11,6 @@ General information
 
     general
     changelog
-    makefile
     report
 
 Usage
@@ -22,13 +21,12 @@ Usage
 
     usage
     iproute
-    remote
     ndb
-    ipdb_toc
     wiset
     ipset
     netns
     wireguard
+    event
 
 Howtos
 ------
@@ -39,6 +37,15 @@ Howtos
     mpls
     debug
 
+Man pages
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   pyroute2-cli
+   pyroute2-dhcp-client
+
 Development
 -----------
 
@@ -47,8 +54,25 @@ Development
 
     devcontribute
     arch
+    parser
     netlink
     nlsocket
+
+Experimental
+------------
+
+.. toctree::
+   :maxdepth: 1
+
+   remote
+
+Deprecated
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   ipdb_toc
 
 Indices and tables
 ==================

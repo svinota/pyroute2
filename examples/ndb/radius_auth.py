@@ -1,4 +1,9 @@
 '''
+:test:argv:testing
+:test:argv:secret
+:test:environ:RADIUS_SERVER=127.0.0.1
+:test:environ:RADIUS_SECRET=secret
+
 An example of using RADIUS authentication with NDB.
 
 In order to run the example you can setup a FreeRADIUS server::
@@ -40,13 +45,15 @@ from pyroute2 import NDB
 
 
 class RadiusAuthManager(object):
-
     def __init__(self, user, password, log):
-        client = Client(server=os.environ.get('RADIUS_SERVER'),
-                        secret=os.environ.get('RADIUS_SECRET').encode('ascii'),
-                        dict=Dictionary('dictionary'))
-        req = client.CreateAuthPacket(code=pyrad.packet.AccessRequest,
-                                      User_Name=user)
+        client = Client(
+            server=os.environ.get('RADIUS_SERVER'),
+            secret=os.environ.get('RADIUS_SECRET').encode('ascii'),
+            dict=Dictionary('dictionary'),
+        )
+        req = client.CreateAuthPacket(
+            code=pyrad.packet.AccessRequest, User_Name=user
+        )
         req['User-Password'] = req.PwCrypt(password)
         reply = client.SendPacket(req)
         self.auth = reply.code
@@ -54,7 +61,7 @@ class RadiusAuthManager(object):
 
     def check(self, obj, tag):
         #
-        self.log.info('%s access' % (tag, ))
+        self.log.info('%s access' % (tag,))
         return self.auth == pyrad.packet.AccessAccept
 
 
@@ -64,9 +71,7 @@ with NDB(log='debug') as ndb:
 
     # create an AuthManager-compatible object
     log.info('request radius auth')
-    am = RadiusAuthManager(sys.argv[1],
-                           sys.argv[2],
-                           ndb.log.channel('radius'))
+    am = RadiusAuthManager(sys.argv[1], sys.argv[2], ndb.log.channel('radius'))
     log.info('radius auth complete')
 
     # create an auth proxy for these credentials

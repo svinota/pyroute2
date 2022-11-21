@@ -36,6 +36,7 @@ div.body {
     color: #000000;
     padding: 0 20px 30px 20px;
     max-width: 45em;
+    min-width: 10em;
     padding: 2em;
 }
 
@@ -236,6 +237,12 @@ pre {
     border-radius: 10px;
 }
 
+div.highlight-none > div.highlight > pre {
+    border: none;
+    margin-top: -1.5em;
+    padding-top: 1.5em;
+}
+
 tt {
     background-color: #ecf0f3;
     padding: 0 1px 0 1px;
@@ -276,4 +283,35 @@ dl.method > dt {
 dl.class > dt {
     margin-bottom: 1em;
     padding: 1em;
+}
+
+div.aafig-caption {
+    width: 100%;
+}
+
+div.aafig-caption p {
+    text-align: center;
+    color: #a0a0a0;
+}
+
+div.hidden {
+    display: none;
+}
+
+div.source-switch {
+    cursor: pointer;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+}
+
+span.source-title {
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 120%;
+}
+
+span.source-hint {
+    font-weight: normal;
+    font-size: 100%;
+    color: #909090;
 }

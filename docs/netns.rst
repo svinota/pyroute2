@@ -1,6 +1,6 @@
 .. _netns:
 
-netns management
+NetNS management
 ================
 
 .. automodule:: pyroute2.netns

@@ -1,8 +1,0 @@
-{
- "name": "pyroute2.nftables",
- "description": "nftables",
- "requires": "pyroute2.core",
- "entry_points": ["NFTables = pr2modules.nftables.main:NFTables",
-                  "nftables = pr2modules.nftables"],
- "scripts": ""
-}

@@ -1,0 +1,70 @@
+#!/usr/bin/env pyroute2-cli
+#
+interfaces
+    #
+    # ports
+    create ifname br0p0, kind dummy, state up | commit
+    create ifname br0p1, kind dummy, state up | commit
+    #
+    # bridge
+    create ifname br0, kind bridge, state up
+        br_stp_state 1
+        br_forward_delay 1500
+        address 00:11:22:33:44:55
+        add_port br0p0
+        add_port br0p1
+        add_ip 10.251.0.1/24
+        add_ip 10.251.0.2/24
+        commit
+
+#
+# commas between properies are not required, if properties
+# are in pairs like { name0 value0 name1 value1 }
+routes
+    create dst 10.100.0.0/24 gateway 10.251.0.10 | commit
+    create dst 10.101.0.0/24 gateway 10.251.0.10 | commit
+
+#
+# the pipe operator | connects calls on the same object,
+# these two statements are equal:
+#
+#   interfaces create { ifname test, kind dummy } | commit
+#
+#   interfaces create { ifname test, kind dummy }
+#       commit
+interfaces
+    br0 remove | commit
+    br0p0 remove | commit
+    br0p1 remove | commit
+
+
+interfaces
+    #
+    # you can use more explicit syntax with properties
+    # specified within braces
+    #
+    # => is a synonym of | , use any variant you like more
+    #
+    create { ifname br0p0, kind dummy, state up } => commit
+    create { ifname br0p1, kind dummy, state up } => commit
+    create { ifname br0, kind bridge }
+        set { state up }
+        set { br_stp_state 1 }
+        set { br_forward_delay 1500 }
+        set { address 00:11:22:33:44:55 }
+        add_port { br0p0 }
+        add_port { br0p1 }
+        add_ip { address 10.251.0.1, prefixlen 24 }
+        add_ip { address 10.251.0.2, prefixlen 24 }
+        commit
+
+routes
+    create { dst 10.100.0.0/24, gateway 10.251.0.10 } => commit
+    create { dst 10.101.0.0/24, gateway 10.251.0.10 } => commit
+
+#
+# run cleanup
+interfaces
+    br0 remove => commit
+    br0p0 remove => commit
+    br0p1 remove => commit

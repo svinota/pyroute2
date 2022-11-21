@@ -1,0 +1,17 @@
+#!/usr/bin/env pyroute2-cli
+#
+! Test mixed comments, both ! and #
+#
+interfaces # ... tail comments
+    !
+    # ... indented comments
+    !
+    create {ifname test01, kind dummy, address 00:11:22:33:44:55}
+        commit
+    !
+    test01
+        #
+        show
+        !
+        remove
+        commit

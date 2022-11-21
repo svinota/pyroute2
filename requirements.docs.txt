@@ -1,0 +1,7 @@
+build
+twine
+aafigure
+sphinx==5.1.1
+sphinx-code-include
+pre-commit
+docutils

@@ -57,7 +57,9 @@ See also: :ref:`ndbdebug`
 sources
 ~~~~~~~
 
-::
+.. doctest::
+    :skipif: True
+
     >>> sources = [{'netns': 'test01'},
                    {'netns': 'test02'},
                    {'target': 'localhost', 'kind': 'local'}]
@@ -84,7 +86,9 @@ The RTNL sources documenation: :ref:`ndbsources`
 db_provider, db_spec
 ~~~~~~~~~~~~~~~~~~~~
 
-::
+.. doctest::
+    :skipif: True
+
     >>> ndb_fs = NDB(db_provider='sqlite3', db_spec='test.db')
     ...
     $ echo 'select f_ifla_ifname from interfaces' | sqlite3 test.db

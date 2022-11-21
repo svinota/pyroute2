@@ -13,10 +13,10 @@ Module is a name within rtnl hierarchy. File should be a
 binary data in the escaped string format (see samples).
 '''
 import sys
-from pprint import pprint
 from importlib import import_module
-from pyroute2.common import load_dump
-from pyroute2.common import hexdump
+from pprint import pprint
+
+from pyroute2.common import hexdump, load_dump
 
 mod = sys.argv[1]
 mod = mod.replace('/', '.')

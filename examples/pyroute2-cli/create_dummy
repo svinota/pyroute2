@@ -1,0 +1,31 @@
+#!/usr/bin/env pyroute2-cli
+#
+#
+interfaces
+    # create a dummy interface
+    #
+    # there the very minimal spec consists of ifname,
+    # other properties may be set later
+    #
+    create {ifname test01}
+        #
+        # set properties
+        kind dummy
+        address 00:11:22:33:44:55
+        commit
+        #
+        # create addresses ...
+        ipaddr
+            create {address 192.168.15.67, prefixlen 24}
+                commit
+            create {address 192.168.15.68, prefixlen 24}
+                commit
+            #
+            # and remove one of them
+            192.168.15.68/24
+                remove
+                commit
+        #
+        # remove the interface
+        remove
+        commit

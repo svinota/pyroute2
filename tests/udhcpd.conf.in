@@ -1,7 +1,0 @@
-start 172.16.101.10
-end 172.16.101.100
-option subnet 255.255.255.0
-option router 172.16.101.1
-option dns 172.16.101.1,172.16.101.2
-pidfile udhcpd.pid
-lease_file udhcpd.leases

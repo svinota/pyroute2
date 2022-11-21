@@ -1,0 +1,5 @@
+#!/usr/bin/env pyroute2-cli
+!
+! Just dump the loopback interface.
+!
+interfaces lo show

@@ -1,0 +1,79 @@
+name: Main CI
+
+on:
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linter:
+    runs-on: code
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=linter
+  repo:
+    runs-on: Python3.8
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=repo
+  unit:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=unit
+  lab:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=lab
+  docs:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=docs
+  neutron:
+    runs-on: Python3.8
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=neutron
+  integration:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: make nox session=integration
+  minimal:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: sudo make nox session=minimal
+  linux-fedora-35:
+    runs-on: linux-fedora-35
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: sudo make nox session=linux-3.6
+      - run: sudo make nox session=linux-3.10
+  linux-ubuntu-18:
+    runs-on: linux-ubuntu-18
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: sudo make nox session=linux-3.6
+      - run: sudo make nox session=linux-3.10
+  openbsd:
+    runs-on: OpenBSD
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      - run: /home/github/openbsd_runner.sh
