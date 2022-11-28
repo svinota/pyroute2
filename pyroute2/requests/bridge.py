@@ -12,7 +12,7 @@ class BridgeIPRouteFilter(IPRouteFilter):
     def build_vlan_info_spec(self, orig_spec):
         range_vids = [int(i) for i in str(orig_spec['vid']).split('-')]
         if len(range_vids) == 2:
-            if 1 < int(range_vids[0]) < range_vids[1] < 4095:
+            if 0 < int(range_vids[0]) < range_vids[1] < 4095:
                 new_spec = []
                 new_spec.append(
                     {
@@ -28,7 +28,7 @@ class BridgeIPRouteFilter(IPRouteFilter):
                 )
                 return new_spec
         elif len(range_vids) == 1:
-            if 1 < range_vids[0] < 4095:
+            if 0 < range_vids[0] < 4095:
                 # PVID?
                 if 'pvid' in orig_spec.keys():
                     if orig_spec['pvid']:
@@ -47,7 +47,7 @@ class BridgeIPRouteFilter(IPRouteFilter):
         vlan_info_spec = self.build_vlan_info_spec(orig_spec)
         range_ids = [int(i) for i in str(orig_spec['id']).split('-')]
         if len(range_ids) == 2 and len(vlan_info_spec) == 2:
-            if 1 < range_ids[0] < range_ids[1] < 16777215:
+            if 0 < range_ids[0] < range_ids[1] < 16777215:
                 # vid to id mapping range must be the same length
                 if (
                     vlan_info_spec[1]['vid'] - vlan_info_spec[0]['vid']
@@ -60,7 +60,7 @@ class BridgeIPRouteFilter(IPRouteFilter):
                         self.create_nla_spec(vlan_info_spec[1]),
                     ]
         elif len(range_ids) == 1 and len(vlan_info_spec) == 1:
-            if 1 < range_ids[0] < 4095:
+            if 0 < range_ids[0] < 4095:
                 vlan_info_spec[0]['id'] = range_ids[0]
                 # Delete flags because vlan_tunnel_info doesn't seem
                 #  to use them, except for the RANGE.
