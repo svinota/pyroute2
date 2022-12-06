@@ -195,7 +195,7 @@ class option(msg):
                 isinstance(value, basestring)
                 and self.policy['format'] == 'string'
             ):
-                value = value[: value.find('\x00')]
+                value = value[: value.find(b'\x00')]
             self.value = value
         else:
             # remember current offset as msg.decode() will advance it
