@@ -59,7 +59,7 @@ NOTES:
     In `map` mode, the `num` parameter in `OPS` is always an
     integer unless if you use the OP `addend`, which can be
     a string IPv4 address. You can also add a minus sign at
-    the begining of the `num` value even if it is an IPv4
+    the beginning of the `num` value even if it is an IPv4
     address.
 '''
 
