@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.7.4
+    * rtnl: SRv6 updates <https://github.com/svinota/pyroute2/pull/1037>
+    * connector: basic implementation <https://github.com/svinota/pyroute2/issues/1036>
+    * nftables: sets draft <https://github.com/svinota/pyroute2/pull/1017>
+    * ss2: provide as a module <https://github.com/svinota/pyroute2/pull/1062>
 * 0.7.3
     * nlsocket: CompileContext support
     * nlsocket: support for per request parsers (see `IPRoute.get_default_routes()`)
