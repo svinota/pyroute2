@@ -349,6 +349,10 @@ class EngineBase:
         self.qsize = 0
 
     @property
+    def marshal(self):
+        return self.socket.marshal
+
+    @property
     def backlog(self):
         return self.socket.backlog
 
