@@ -144,6 +144,13 @@ NL80211_BSS_ELEMENTS_RSN = 48
 NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
 NL80211_BSS_ELEMENTS_VENDOR = 221
 
+BSS_HT_OPER_CHAN_WIDTH_20 = "20 Mhz"
+BSS_HT_OPER_CHAN_WIDTH_20_OR_40 = "20 or 40 MHz"
+BSS_VHT_OPER_CHAN_WIDTH_20_OR_40 = BSS_HT_OPER_CHAN_WIDTH_20_OR_40
+BSS_VHT_OPER_CHAN_WIDTH_80 = "80 MHz"
+BSS_VHT_OPER_CHAN_WIDTH_80P80 = "80+80 MHz"
+BSS_VHT_OPER_CHAN_WIDTH_160 = "160 MHz"
+
 BSS_MEMBERSHIP_SELECTOR_HT_PHY = 127
 BSS_MEMBERSHIP_SELECTOR_VHT_PHY = 126
 
@@ -746,6 +753,171 @@ class nl80211cmd(genlmsg):
                     "Bitmap[0] 0x{3}".format(count, period, bitmapc, bitmap0)
                 )
 
+            def _get_cipher_list(self, data):
+                ms_oui = bytes((0x00, 0x50, 0xf2))
+                ieee80211_oui = bytes((0x00, 0x0f, 0xac))
+                if data[:3] == ms_oui:
+                    cipher_list = [
+                        "Use group cipher suite",
+                        "WEP-40",
+                        "TKIP",
+                        None,
+                        "CCMP",
+                        "WEP-104"
+                    ]
+                elif data[:3] == ieee80211_oui:
+                    cipher_list = [
+                        "Use group cipher suite",
+                        "WEP-40",
+                        "TKIP",
+                        None,
+                        "CCMP",
+                        "WEP-104",
+                        "AES-128-CMAC",
+                        "NO-GROUP",
+                        "GCMP"
+                    ]
+                else:
+                    cipher_list = []
+                try:
+                    return cipher_list[data[3]]
+                except IndexError:
+                    return data[:4].hex('-', 1)
+
+            def _get_auth_list(self, data):
+                ms_oui = bytes((0x00, 0x50, 0xf2))
+                ieee80211_oui = bytes((0x00, 0x0f, 0xac))
+                wfa_oui = bytes((0x50, 0x6f, 0x9a))
+                if data[:3] == ms_oui:
+                    auth_list = [
+                        None,
+                        "IEEE 802.1X",
+                        "PSK"
+                    ]
+                elif data[:3] == ieee80211_oui:
+                    auth_list = [
+                        None,
+                        "IEEE 802.1X",
+                        "PSK",
+                        "FT/IEEE 802.1X",
+                        "FT/PSK",
+                        "IEEE 802.1X/SHA-256",
+                        "PSK/SHA-256",
+                        "TDLS/TPK",
+                        "SAE",
+                        "FT/SAE",
+                        "IEEE 802.1X/SUITE-B",
+                        "IEEE 802.1X/SUITE-B-192",
+                        "FT/IEEE 802.1X/SHA-384",
+                        "FILS/SHA-256",
+                        "FILS/SHA-384",
+                        "FT/FILS/SHA-256",
+                        "FT/FILS/SHA-384",
+                        "OWE",
+                    ]
+                elif data[:3] == wfa_oui:
+                    auth_list = [
+                        None,
+                        "OSEN",
+                        "DPP"
+                    ]
+                else:
+                    auth_list = []
+                try:
+                    return auth_list[data[3]]
+                except IndexError:
+                    return data[:4].hex('-', 1)
+
+            def binary_rsn(self, offset, length, defcipher, defauth):
+                data = self.data[offset:offset+length]
+                version = data[0] + (data[1] << 8)
+                data = data[2:]
+                rsn_values = {"version": version, "group_cipher": None,
+                              "pairwise_cipher": [], "auth_suites": [],
+                              "capabilities": [], "pmkid_ids": None,
+                              "group_mgmt_cipher_suite": None}
+
+                if len(data) < 4:
+                    rsn_values["group_cipher"] = defcipher
+                    rsn_values["pairwise_cipher"] = defcipher
+                    return rsn_values
+
+                rsn_values["group_cipher_str"] = self._get_cipher_list(data)
+
+                data = data[4:]
+                if len(data) < 4:
+                    rsn_values["pairwise_cipher"] = defcipher
+                    return rsn_values
+
+                count = data[0] | (data[1] << 8)
+                if 2 + (count * 4) > len(data):
+                    # raise Exception(f"* bogus tail data ({count}):")
+                    return rsn_values
+
+                data = data[2:]
+                for _ in range(count):
+                    rsn_values["pairwise_cipher"].append(
+                        self._get_cipher_list(data)
+                    )
+                    data = data[4:]
+
+                if len(data) < 2:
+                    rsn_values["auth_suites"] = [defauth]
+
+                count = data[0] | (data[1] << 8)
+                if 2 + (count * 4) > len(data):
+                    raise Exception(f"* bogus tail data ({count}):")
+
+                data = data[2:]
+                for _ in range(count):
+                    rsn_values["auth_suites"].append(self._get_auth_list(data))
+                    data = data[4:]
+
+                if len(data) >= 2:
+                    capabilities = []
+                    capa = data[0] | (data[1] << 8)
+                    data = data[2:]
+                    if capa & 0x0001:
+                        capabilities.append("PreAuth")
+                    if capa & 0x0002:
+                        capabilities.append("NoPairwise")
+                    capabilities.append(["1-PTKSA-RC", "2-PTKSA-RC",
+                                         "4-PTKSA-RC", "16-PTKSA-RC",
+                                         ][(capa & 0x000c) >> 2])
+                    capabilities.append(["1-GTKSA-RC", "2-GTKSA-RC",
+                                         "4-GTKSA-RC", "16-GTKSA-RC",
+                                         ][(capa & 0x0030) >> 4])
+                    if capa & 0x0040:
+                        capabilities.append("MFP-required")
+                    if capa & 0x0080:
+                        capabilities.append("MFP-capable")
+                    if capa & 0x0200:
+                        capabilities.append("Peerkey-enabled")
+                    if capa & 0x0400:
+                        capabilities.append("SPP-AMSDU-capable")
+                    if capa & 0x0800:
+                        capabilities.append("SPP-AMSDU-required")
+                    if capa & 0x2000:
+                        capabilities.append("Extended-Key-ID")
+                    rsn_values["capabilities"] = capabilities
+
+                if len(data) >= 2:
+                    pmkid_count = data[0] | (data[1] << 8)
+                    if len(data) < 2 + 16 * pmkid_count:
+                        raise Exception("invalid")
+                    data = data[2:]
+                    for _ in range(pmkid_count):
+                        rsn_values["pmkid_ids"].append(data[:16])
+                        data = data[16:]
+
+                if len(data) >= 4:
+                    rsn_values["group_mgmt_cipher_suite"] = (
+                        self._get_cipher_list(data)
+                    )
+                    data = data[4:]
+
+                return rsn_values
+
             def decode_nlas(self):
                 return
 
@@ -781,8 +953,8 @@ class nl80211cmd(genlmsg):
                         )
 
                     if msg_type == NL80211_BSS_ELEMENTS_RSN:
-                        (self.value["RSN"],) = struct.unpack_from(
-                            '%is' % length, self.data, offset + 2
+                        self.value["RSN"] = self.binary_rsn(
+                            offset + 2, length, "CCMP", "IEEE 802.1X"
                         )
 
                     if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
