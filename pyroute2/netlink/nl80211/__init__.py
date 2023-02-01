@@ -141,6 +141,7 @@ NL80211_BSS_ELEMENTS_SUPPORTED_RATES = 1
 NL80211_BSS_ELEMENTS_CHANNEL = 3
 NL80211_BSS_ELEMENTS_TIM = 5
 NL80211_BSS_ELEMENTS_RSN = 48
+NL80211_BSS_ELEMENTS_HT_OPERATION = 61
 NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
 NL80211_BSS_ELEMENTS_VENDOR = 221
 
@@ -918,6 +919,41 @@ class nl80211cmd(genlmsg):
 
                 return rsn_values
 
+            def binary_ht_operation(self, offset, length):
+                data = self.data[offset:offset+length]
+                ht_operation = {}
+                ht_operation["PRIMARY_CHANNEL"] = data[0]
+                ht_operation["SECONDARY_CHANNEL"] = data[1] & 0x3
+                try:
+                    ht_operation["CHANNEL_WIDTH"] = [
+                        BSS_HT_OPER_CHAN_WIDTH_20,
+                        BSS_HT_OPER_CHAN_WIDTH_20_OR_40,
+                    ][(data[1] & 0x4)>>2]
+                except IndexError:
+                    ht_operation["CHANNEL_WIDTH"] = None
+                try:
+                    ht_operation["HT_PROTECTION"] = [
+                        "no",
+                        "nonmember",
+                        "20 MHz",
+                        "non-HT mixed"
+                    ][data[2] & 0x3]
+                except IndexError:
+                    ht_operation["HT_PROTECTION"] = None
+
+                ht_operation.update({
+                    "RIFS": (data[1] & 0x8) >> 3,
+                    "NON_GF_PRESENT": (data[2] & 0x4) >> 2,
+                    "OBSS_NON_GF_PRESENT": (data[2] & 0x10) >> 4,
+                    "DUAL_BEACON": (data[4] & 0x40) >> 6,
+                    "DUAL_CTS_PROTECTION": (data[4] & 0x80) >> 7,
+                    "STBC_BEACON": data[5] & 0x1,
+                    "L_SIG_TXOP_PROT": (data[5] & 0x2) >> 1,
+                    "PCO_ACTIVE": (data[5] & 0x4) >> 2,
+                    "PCO_PHASE": (data[5] & 0x8) >> 3,
+                })
+                return ht_operation
+
             def decode_nlas(self):
                 return
 
@@ -969,6 +1005,10 @@ class nl80211cmd(genlmsg):
                             '%is' % length, self.data, offset + 2
                         )
                         self.value["VENDOR"].append(vendor_ie)
+
+                    if msg_type == NL80211_BSS_ELEMENTS_HT_OPERATION:
+                        self.value["HT_OPERATION"] = self.binary_ht_operation(
+                            offset + 2, length)
 
                     offset += length + 2
 
