@@ -143,6 +143,7 @@ NL80211_BSS_ELEMENTS_TIM = 5
 NL80211_BSS_ELEMENTS_RSN = 48
 NL80211_BSS_ELEMENTS_HT_OPERATION = 61
 NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
+NL80211_BSS_ELEMENTS_VHT_OPERATION = 192
 NL80211_BSS_ELEMENTS_VENDOR = 221
 
 BSS_HT_OPER_CHAN_WIDTH_20 = "20 Mhz"
@@ -954,6 +955,25 @@ class nl80211cmd(genlmsg):
                 })
                 return ht_operation
 
+            def binary_vht_operation(self, offset, length):
+                data = self.data[offset:offset+length]
+                vht_operation = {
+                    "CENTER_FREQ_SEG_1": data[1],
+                    "CENTER_FREQ_SEG_2": data[1],
+                    "VHT_BASIC_MCS_SET": (data[4], data[3]),
+                }
+                try:
+                    vht_operation["CHANNEL_WIDTH"] = [
+                        BSS_VHT_OPER_CHAN_WIDTH_20_OR_40,
+                        BSS_VHT_OPER_CHAN_WIDTH_80,
+                        BSS_VHT_OPER_CHAN_WIDTH_80P80,
+                        BSS_VHT_OPER_CHAN_WIDTH_160
+                    ][data[0]]
+                except IndexError:
+                    vht_operation["CHANNEL_WIDTH"] = None
+
+                return vht_operation
+
             def decode_nlas(self):
                 return
 
@@ -1008,6 +1028,10 @@ class nl80211cmd(genlmsg):
 
                     if msg_type == NL80211_BSS_ELEMENTS_HT_OPERATION:
                         self.value["HT_OPERATION"] = self.binary_ht_operation(
+                            offset + 2, length)
+
+                    if msg_type == NL80211_BSS_ELEMENTS_VHT_OPERATION:
+                        self.value["VHT_OPERATION"] = self.binary_vht_operation(
                             offset + 2, length)
 
                     offset += length + 2
