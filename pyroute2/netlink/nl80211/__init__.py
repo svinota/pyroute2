@@ -756,8 +756,8 @@ class nl80211cmd(genlmsg):
                 )
 
             def _get_cipher_list(self, data):
-                ms_oui = bytes((0x00, 0x50, 0xf2))
-                ieee80211_oui = bytes((0x00, 0x0f, 0xac))
+                ms_oui = bytes((0x00, 0x50, 0xF2))
+                ieee80211_oui = bytes((0x00, 0x0F, 0xAC))
                 if data[:3] == ms_oui:
                     cipher_list = [
                         "Use group cipher suite",
@@ -765,7 +765,7 @@ class nl80211cmd(genlmsg):
                         "TKIP",
                         None,
                         "CCMP",
-                        "WEP-104"
+                        "WEP-104",
                     ]
                 elif data[:3] == ieee80211_oui:
                     cipher_list = [
@@ -777,7 +777,7 @@ class nl80211cmd(genlmsg):
                         "WEP-104",
                         "AES-128-CMAC",
                         "NO-GROUP",
-                        "GCMP"
+                        "GCMP",
                     ]
                 else:
                     cipher_list = []
@@ -787,15 +787,11 @@ class nl80211cmd(genlmsg):
                     return data[:4].hex('-', 1)
 
             def _get_auth_list(self, data):
-                ms_oui = bytes((0x00, 0x50, 0xf2))
-                ieee80211_oui = bytes((0x00, 0x0f, 0xac))
-                wfa_oui = bytes((0x50, 0x6f, 0x9a))
+                ms_oui = bytes((0x00, 0x50, 0xF2))
+                ieee80211_oui = bytes((0x00, 0x0F, 0xAC))
+                wfa_oui = bytes((0x50, 0x6F, 0x9A))
                 if data[:3] == ms_oui:
-                    auth_list = [
-                        None,
-                        "IEEE 802.1X",
-                        "PSK"
-                    ]
+                    auth_list = [None, "IEEE 802.1X", "PSK"]
                 elif data[:3] == ieee80211_oui:
                     auth_list = [
                         None,
@@ -818,11 +814,7 @@ class nl80211cmd(genlmsg):
                         "OWE",
                     ]
                 elif data[:3] == wfa_oui:
-                    auth_list = [
-                        None,
-                        "OSEN",
-                        "DPP"
-                    ]
+                    auth_list = [None, "OSEN", "DPP"]
                 else:
                     auth_list = []
                 try:
@@ -831,13 +823,18 @@ class nl80211cmd(genlmsg):
                     return data[:4].hex('-', 1)
 
             def binary_rsn(self, offset, length, defcipher, defauth):
-                data = self.data[offset:offset+length]
+                data = self.data[offset : offset + length]
                 version = data[0] + (data[1] << 8)
                 data = data[2:]
-                rsn_values = {"version": version, "group_cipher": None,
-                              "pairwise_cipher": [], "auth_suites": [],
-                              "capabilities": [], "pmkid_ids": None,
-                              "group_mgmt_cipher_suite": None}
+                rsn_values = {
+                    "version": version,
+                    "group_cipher": None,
+                    "pairwise_cipher": [],
+                    "auth_suites": [],
+                    "capabilities": [],
+                    "pmkid_ids": None,
+                    "group_mgmt_cipher_suite": None,
+                }
 
                 if len(data) < 4:
                     rsn_values["group_cipher"] = defcipher
@@ -883,12 +880,22 @@ class nl80211cmd(genlmsg):
                         capabilities.append("PreAuth")
                     if capa & 0x0002:
                         capabilities.append("NoPairwise")
-                    capabilities.append(["1-PTKSA-RC", "2-PTKSA-RC",
-                                         "4-PTKSA-RC", "16-PTKSA-RC",
-                                         ][(capa & 0x000c) >> 2])
-                    capabilities.append(["1-GTKSA-RC", "2-GTKSA-RC",
-                                         "4-GTKSA-RC", "16-GTKSA-RC",
-                                         ][(capa & 0x0030) >> 4])
+                    capabilities.append(
+                        [
+                            "1-PTKSA-RC",
+                            "2-PTKSA-RC",
+                            "4-PTKSA-RC",
+                            "16-PTKSA-RC",
+                        ][(capa & 0x000C) >> 2]
+                    )
+                    capabilities.append(
+                        [
+                            "1-GTKSA-RC",
+                            "2-GTKSA-RC",
+                            "4-GTKSA-RC",
+                            "16-GTKSA-RC",
+                        ][(capa & 0x0030) >> 4]
+                    )
                     if capa & 0x0040:
                         capabilities.append("MFP-required")
                     if capa & 0x0080:
@@ -913,15 +920,15 @@ class nl80211cmd(genlmsg):
                         data = data[16:]
 
                 if len(data) >= 4:
-                    rsn_values["group_mgmt_cipher_suite"] = (
-                        self._get_cipher_list(data)
-                    )
+                    rsn_values[
+                        "group_mgmt_cipher_suite"
+                    ] = self._get_cipher_list(data)
                     data = data[4:]
 
                 return rsn_values
 
             def binary_ht_operation(self, offset, length):
-                data = self.data[offset:offset+length]
+                data = self.data[offset : offset + length]
                 ht_operation = {}
                 ht_operation["PRIMARY_CHANNEL"] = data[0]
                 ht_operation["SECONDARY_CHANNEL"] = data[1] & 0x3
@@ -929,7 +936,7 @@ class nl80211cmd(genlmsg):
                     ht_operation["CHANNEL_WIDTH"] = [
                         BSS_HT_OPER_CHAN_WIDTH_20,
                         BSS_HT_OPER_CHAN_WIDTH_20_OR_40,
-                    ][(data[1] & 0x4)>>2]
+                    ][(data[1] & 0x4) >> 2]
                 except IndexError:
                     ht_operation["CHANNEL_WIDTH"] = None
                 try:
@@ -937,26 +944,28 @@ class nl80211cmd(genlmsg):
                         "no",
                         "nonmember",
                         "20 MHz",
-                        "non-HT mixed"
+                        "non-HT mixed",
                     ][data[2] & 0x3]
                 except IndexError:
                     ht_operation["HT_PROTECTION"] = None
 
-                ht_operation.update({
-                    "RIFS": (data[1] & 0x8) >> 3,
-                    "NON_GF_PRESENT": (data[2] & 0x4) >> 2,
-                    "OBSS_NON_GF_PRESENT": (data[2] & 0x10) >> 4,
-                    "DUAL_BEACON": (data[4] & 0x40) >> 6,
-                    "DUAL_CTS_PROTECTION": (data[4] & 0x80) >> 7,
-                    "STBC_BEACON": data[5] & 0x1,
-                    "L_SIG_TXOP_PROT": (data[5] & 0x2) >> 1,
-                    "PCO_ACTIVE": (data[5] & 0x4) >> 2,
-                    "PCO_PHASE": (data[5] & 0x8) >> 3,
-                })
+                ht_operation.update(
+                    {
+                        "RIFS": (data[1] & 0x8) >> 3,
+                        "NON_GF_PRESENT": (data[2] & 0x4) >> 2,
+                        "OBSS_NON_GF_PRESENT": (data[2] & 0x10) >> 4,
+                        "DUAL_BEACON": (data[4] & 0x40) >> 6,
+                        "DUAL_CTS_PROTECTION": (data[4] & 0x80) >> 7,
+                        "STBC_BEACON": data[5] & 0x1,
+                        "L_SIG_TXOP_PROT": (data[5] & 0x2) >> 1,
+                        "PCO_ACTIVE": (data[5] & 0x4) >> 2,
+                        "PCO_PHASE": (data[5] & 0x8) >> 3,
+                    }
+                )
                 return ht_operation
 
             def binary_vht_operation(self, offset, length):
-                data = self.data[offset:offset+length]
+                data = self.data[offset : offset + length]
                 vht_operation = {
                     "CENTER_FREQ_SEG_1": data[1],
                     "CENTER_FREQ_SEG_2": data[1],
@@ -967,7 +976,7 @@ class nl80211cmd(genlmsg):
                         BSS_VHT_OPER_CHAN_WIDTH_20_OR_40,
                         BSS_VHT_OPER_CHAN_WIDTH_80,
                         BSS_VHT_OPER_CHAN_WIDTH_80P80,
-                        BSS_VHT_OPER_CHAN_WIDTH_160
+                        BSS_VHT_OPER_CHAN_WIDTH_160,
                     ][data[0]]
                 except IndexError:
                     vht_operation["CHANNEL_WIDTH"] = None
@@ -1028,11 +1037,13 @@ class nl80211cmd(genlmsg):
 
                     if msg_type == NL80211_BSS_ELEMENTS_HT_OPERATION:
                         self.value["HT_OPERATION"] = self.binary_ht_operation(
-                            offset + 2, length)
+                            offset + 2, length
+                        )
 
                     if msg_type == NL80211_BSS_ELEMENTS_VHT_OPERATION:
-                        self.value["VHT_OPERATION"] = self.binary_vht_operation(
-                            offset + 2, length)
+                        self.value[
+                            "VHT_OPERATION"
+                        ] = self.binary_vht_operation(offset + 2, length)
 
                     offset += length + 2
 
