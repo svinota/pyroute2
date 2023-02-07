@@ -841,7 +841,7 @@ class nl80211cmd(genlmsg):
                     rsn_values["pairwise_cipher"] = defcipher
                     return rsn_values
 
-                rsn_values["group_cipher_str"] = self._get_cipher_list(data)
+                rsn_values["group_cipher"] = self._get_cipher_list(data)
 
                 data = data[4:]
                 if len(data) < 4:
@@ -865,7 +865,8 @@ class nl80211cmd(genlmsg):
 
                 count = data[0] | (data[1] << 8)
                 if 2 + (count * 4) > len(data):
-                    raise Exception(f"* bogus tail data ({count}):")
+                    # raise Exception(f"* bogus tail data ({count}):")
+                    return rsn_values
 
                 data = data[2:]
                 for _ in range(count):
@@ -913,7 +914,8 @@ class nl80211cmd(genlmsg):
                 if len(data) >= 2:
                     pmkid_count = data[0] | (data[1] << 8)
                     if len(data) < 2 + 16 * pmkid_count:
-                        raise Exception("invalid")
+                        # raise Exception("invalid")
+                        return rsn_values
                     data = data[2:]
                     for _ in range(pmkid_count):
                         rsn_values["pmkid_ids"].append(data[:16])
