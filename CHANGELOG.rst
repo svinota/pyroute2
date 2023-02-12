@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.7.5
+    * nlsocket: fix marshal reference <https://github.com/svinota/pyroute2/issues/1068>
 * 0.7.4
     * rtnl: SRv6 updates <https://github.com/svinota/pyroute2/pull/1037>
     * connector: basic implementation <https://github.com/svinota/pyroute2/issues/1036>
