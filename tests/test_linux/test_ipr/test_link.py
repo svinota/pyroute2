@@ -22,6 +22,17 @@ def test_updown_link(context):
 
 @skip_if_not_supported
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_link_altname_lookup(context):
+    altname = context.new_ifname
+    index, ifname = context.default_interface
+    context.ipr.link('property_add', index=index, altname=altname)
+    assert len(context.ipr.link('get', altname=altname)) == 1
+    assert context.ipr.link_lookup(ifname=ifname) == [index]
+    assert context.ipr.link_lookup(altname=altname) == [index]
+
+
+@skip_if_not_supported
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_link_altname(context):
     altname1 = context.new_ifname
     altname2 = context.new_ifname
