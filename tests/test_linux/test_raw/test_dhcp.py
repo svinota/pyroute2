@@ -30,7 +30,7 @@ def ctx():
     ndb.close()
 
 
-def test_client_module(ctx):
+def _do_test_client_module(ctx):
     if ctx.index == 0:
         pytest.skip('no DHCP interfaces detected')
 
@@ -55,8 +55,12 @@ def test_client_module(ctx):
     return response
 
 
+def test_client_module(ctx):
+    _do_test_client_module(ctx)
+
+
 def test_client_console(ctx):
-    response_from_module = json.loads(json.dumps(test_client_module(ctx)))
+    response_from_module = json.loads(json.dumps(_do_test_client_module(ctx)))
     client = subprocess.run(
         ['pyroute2-dhcp-client', ctx.ifname], stdout=subprocess.PIPE
     )

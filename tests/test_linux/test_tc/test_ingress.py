@@ -11,8 +11,7 @@ pytestmark = [require_root()]
 test_matrix = make_test_matrix(targets=['local', 'netns'])
 
 
-@pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_simple(context):
+def _do_test_simple(context):
     index, ifname = context.default_interface
     context.ipr.tc('add', 'ingress', index=index)
     qdisc = None
@@ -27,8 +26,13 @@ def test_simple(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_simple(context):
+    _do_test_simple(context)
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_filter(context):
-    index, ifname = test_simple(context)
+    index, ifname = _do_test_simple(context)
     context.ipr.tc(
         'add-filter',
         'u32',
@@ -74,7 +78,7 @@ def test_filter(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_action_stats(context):
-    index, ifname = test_simple(context)
+    index, ifname = _do_test_simple(context)
     context.ipr.tc(
         'add-filter',
         'u32',
