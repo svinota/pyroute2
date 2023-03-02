@@ -8,7 +8,6 @@ from pyroute2.netlink import nlmsg
 
 
 def test_bind_first():
-
     with ExitStack() as sockets:
         ts = sockets.enter_context(TaskStats())
         gs = sockets.enter_context(GenericNetlinkSocket())

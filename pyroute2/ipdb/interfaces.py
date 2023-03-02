@@ -291,7 +291,7 @@ class Interface(Transactional):
                 ):
                     return
 
-            for (name, value) in dev.items():
+            for name, value in dev.items():
                 self[name] = value
             for cell in dev['attrs']:
                 #
@@ -561,7 +561,6 @@ class Interface(Transactional):
         with self._write_lock:
             # if the interface does not exist, create it first ;)
             if self['ipdb_scope'] != 'system':
-
                 # a special case: transition "create" -> "remove"
                 if (
                     transaction['ipdb_scope'] == 'remove'
@@ -745,7 +744,6 @@ class Interface(Transactional):
             # 8<---------------------------------------------
             # Port vlans
             if removed['vlans'] or added['vlans']:
-
                 self['vlans'].set_target(transaction['vlans'])
 
                 for i in removed['vlans']:
@@ -1267,7 +1265,6 @@ class InterfacesDict(Dotkeys):
         return device
 
     def _del(self, msg):
-
         target = self.get(msg['index'])
         if target is None:
             return

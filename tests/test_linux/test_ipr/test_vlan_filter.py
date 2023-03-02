@@ -5,7 +5,6 @@ pytestmark = [require_root()]
 
 
 def test_vlan_filter_dump(context):
-
     ifname1 = context.new_ifname
     ifname2 = context.new_ifname
     context.ndb.interfaces.create(
@@ -37,7 +36,6 @@ def test_vlan_filter_dump(context):
     ),
 )
 def _test_vlan_filter_add(context, arg_name, vid_spec, vid):
-
     ifname_port = context.new_ifname
     ifname_bridge = context.new_ifname
     port = context.ndb.interfaces.create(

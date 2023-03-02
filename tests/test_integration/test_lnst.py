@@ -42,7 +42,6 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
 def test_exceptions_compat():
-
     with pytest.raises(NetlinkError1):
         raise NetlinkError1(code=99)
 
@@ -51,7 +50,6 @@ def test_exceptions_compat():
 
 
 def test_exceptions():
-
     with pytest.raises(NetlinkError0):
         raise NetlinkError0(code=99)
 
@@ -80,7 +78,6 @@ def test_constants():
 
 @pytest.mark.parametrize('socket_class', (IPRSocket0, IPRSocket1))
 def test_basic(socket_class):
-
     ip = socket_class()
     ip.bind()
 

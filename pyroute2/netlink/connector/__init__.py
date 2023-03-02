@@ -3,7 +3,6 @@ from pyroute2.netlink.nlsocket import NetlinkSocket
 
 
 class cn_msg(nlmsg):
-
     fields = (
         ('idx', 'I'),
         ('val', 'I'),

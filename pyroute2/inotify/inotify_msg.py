@@ -4,7 +4,6 @@ from pyroute2.netlink import nlmsg_base, nlmsg_decoder_generic
 
 
 class inotify_msg(nlmsg_base, nlmsg_decoder_generic):
-
     fields = (
         ('wd', 'i'),
         ('mask', 'I'),

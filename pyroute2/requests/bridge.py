@@ -4,7 +4,6 @@ from .common import Index, IPRouteFilter, NLAKeyTransform
 
 
 class BridgeFieldFilter(Index, NLAKeyTransform):
-
     _nla_prefix = ifinfmsg.prefix
 
 
@@ -122,7 +121,6 @@ class BridgeIPRouteFilter(IPRouteFilter):
 
 
 class BridgePortFieldFilter(IPRouteFilter):
-
     _nla_prefix = ifinfmsg.prefix
     _allowed = [x[0] for x in protinfo_bridge.nla_map]
     _allowed.append('attrs')

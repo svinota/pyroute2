@@ -195,7 +195,7 @@ class TaskManager:
             spec['event'] = None
             self.ndb.sources.add(**spec)
 
-        for (event, handlers) in self.ndb.schema.event_map.items():
+        for event, handlers in self.ndb.schema.event_map.items():
             for handler in handlers:
                 self.register_handler(event, handler)
 

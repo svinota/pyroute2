@@ -6,7 +6,6 @@ pytestmark = [require_root()]
 
 
 def test_link_add(context):
-
     ifname = context.new_ifname
 
     ipb = IPBatch()

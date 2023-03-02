@@ -126,7 +126,6 @@ if not hasattr(array, 'tobytes'):
 
 
 class option(msg):
-
     code = 0
     data_length = 0
     policy = None
@@ -277,7 +276,7 @@ class dhcpmsg(msg):
         )
         self.buf += self.string(code=60, value='pyroute2').encode().buf
 
-        for (name, value) in options.items():
+        for name, value in options.items():
             if name in ('message_type', 'client_id', 'vendor_id'):
                 continue
             fmt = self._encode_map.get(name, {'format': None})['format']

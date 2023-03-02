@@ -45,7 +45,6 @@ else:
 
 @sync
 def manage_tun(msg):
-
     if TUNSETIFF is None:
         raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
 
@@ -95,7 +94,6 @@ def manage_tun(msg):
 
 @sync
 def manage_tuntap(msg):
-
     if TUNSETIFF is None:
         raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
 

@@ -13,7 +13,6 @@ log = logging.getLogger(__name__)
 
 class ShellIPR(RTNL_API, RemoteSocket):
     def __init__(self, target):
-
         self.target = target
         cmd = '%s python -m pyroute2.remote' % target
         self.shell = subprocess.Popen(

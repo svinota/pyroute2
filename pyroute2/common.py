@@ -123,7 +123,7 @@ class View(object):
 
     def _filter(self):
         ret = []
-        for (key, value) in tuple(self.src.items()):
+        for key, value in tuple(self.src.items()):
             try:
                 if self.constraint(key, value):
                     ret.append((key, value))
@@ -656,7 +656,7 @@ def metaclass(mc):
             slots = [slots]
         for k in slots:
             skip.append(k)
-        for (k, v) in cls.__dict__.items():
+        for k, v in cls.__dict__.items():
             if k not in skip:
                 nvars[k] = v
         return mc(cls.__name__, cls.__bases__, nvars)

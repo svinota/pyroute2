@@ -14,7 +14,6 @@ def ictx(context):
 
 
 def test_interface_dummy(ictx):
-
     ifname = ictx.new_ifname
     ipaddr = ictx.new_ipaddr
     interface = ictx.ipdb.create(ifname=ifname, kind='dummy')
@@ -59,7 +58,6 @@ def test_interface_veth(ictx):
 
 
 def test_interface_bridge(ictx):
-
     ifname = ictx.new_ifname
 
     with ictx.ipdb.create(ifname=ifname, kind='bridge') as i:
@@ -76,7 +74,6 @@ def test_interface_bridge(ictx):
 
 
 def test_route_basic(ictx):
-
     ipaddr = ictx.new_ipaddr
     gateway = ictx.new_ipaddr
     net = ictx.new_ip4net

@@ -26,7 +26,6 @@ RTM_PROPOSAL = 0x13  # proposal for netconfigd
 
 
 class RTMSocketBase(object):
-
     msg_map = {
         RTM_ADD: rt_msg,
         RTM_DELETE: rt_msg,

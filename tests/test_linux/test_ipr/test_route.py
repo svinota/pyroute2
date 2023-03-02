@@ -39,7 +39,6 @@ def test_extended_error_on_route(context):
     'proto', (('static', 'boot'), (4, 3), ('boot', 4), (3, 'static'))
 )
 def test_route_proto(context, proto):
-
     proto, fake = proto
     ipaddr = context.new_ipaddr
     gateway = context.new_ipaddr
@@ -338,7 +337,6 @@ def test_lwtunnel_mpls_labels(context, lid, lnum, labels):
 
 
 def test_route_change_existing(context):
-
     index, ifname = context.default_interface
     ipaddr = context.new_ipaddr
     gateway1 = context.new_ipaddr
@@ -421,7 +419,6 @@ def test_route_replace_not_existing(context):
 
 
 def test_flush_routes(context):
-
     index, ifname = context.default_interface
     ipaddr = context.new_ipaddr
     gateway = context.new_ipaddr

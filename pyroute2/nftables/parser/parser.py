@@ -6,7 +6,6 @@ conv_map_tuple = namedtuple(
 
 
 class nfta_nla_parser(object):
-
     conv_maps = ()
 
     def __init__(self, **kwargs):

@@ -193,7 +193,6 @@ def NSPopenServer(nsname, flags, channel_in, channel_out, argv, kwarg):
 
 
 class ObjNS(object):
-
     ns = None
 
     def __enter__(self):

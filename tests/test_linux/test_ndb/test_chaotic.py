@@ -27,7 +27,6 @@ def test_add_del_ip_dict(context):
             }
         ],
     ) as test_ndb:
-
         (
             test_ndb.interfaces.create(
                 ifname=ifname, kind='dummy', state='down'

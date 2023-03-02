@@ -142,7 +142,6 @@ class NFTData(object):
 
 
 class NFTRuleExpr(nfta_nla_parser):
-
     #######################################################################
     conv_maps = (conv_map_tuple('name', 'NFTA_EXPR_NAME', 'type', 'raw'),)
     #######################################################################
@@ -208,7 +207,6 @@ class NFTRuleExpr(nfta_nla_parser):
 
 
 class ExprMeta(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('key', 'NFTA_META_KEY', 'key', 'meta_key'),
         conv_map_tuple('dreg', 'NFTA_META_DREG', 'dreg', 'reg'),
@@ -219,7 +217,6 @@ class ExprMeta(NFTRuleExpr):
 
 
 class ExprCmp(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('sreg', 'NFTA_CMP_SREG', 'sreg', 'reg'),
         conv_map_tuple('op', 'NFTA_CMP_OP', 'op', 'cmp_op'),
@@ -231,7 +228,6 @@ class ExprCmp(NFTRuleExpr):
 
 
 class ExprImmediate(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('dreg', 'NFTA_IMMEDIATE_DREG', 'dreg', 'reg'),
         conv_map_tuple('data', 'NFTA_IMMEDIATE_DATA', 'data', 'data'),
@@ -239,7 +235,6 @@ class ExprImmediate(NFTRuleExpr):
 
 
 class ExprPayload(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('dreg', 'NFTA_PAYLOAD_DREG', 'dreg', 'reg'),
         conv_map_tuple('base', 'NFTA_PAYLOAD_BASE', 'base', 'payload_base'),
@@ -275,7 +270,6 @@ class ExprPayload(NFTRuleExpr):
 
 
 class ExprLookup(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('setid', 'NFTA_LOOKUP_SET', 'set', 'raw'),
         conv_map_tuple('sreg', 'NFTA_LOOKUP_SREG', 'sreg', 'reg'),
@@ -284,7 +278,6 @@ class ExprLookup(NFTRuleExpr):
 
 
 class ExprNat(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('nat_type', 'NFTA_NAT_TYPE', 'nat_type', 'nat_type'),
         conv_map_tuple('family', 'NFTA_NAT_FAMILY', 'family', 'inet_family'),
@@ -301,7 +294,6 @@ class ExprNat(NFTRuleExpr):
 
 
 class ExprBitwise(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('sreg', 'NFTA_BITWISE_SREG', 'sreg', 'reg'),
         conv_map_tuple('dreg', 'NFTA_BITWISE_DREG', 'dreg', 'reg'),
@@ -312,7 +304,6 @@ class ExprBitwise(NFTRuleExpr):
 
 
 class ExprCounter(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('bytes', 'NFTA_COUNTER_BYTES', 'bytes', 'raw'),
         conv_map_tuple('packets', 'NFTA_COUNTER_PACKETS', 'pkts', 'raw'),
@@ -320,14 +311,12 @@ class ExprCounter(NFTRuleExpr):
 
 
 class ExprMatch(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('match_name', 'NFTA_MATCH_NAME', 'name', 'raw'),
     )
 
 
 class ExprTarget(NFTRuleExpr):
-
     conv_maps = NFTRuleExpr.conv_maps + (
         conv_map_tuple('target_name', 'NFTA_TARGET_NAME', 'name', 'raw'),
     )

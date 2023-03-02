@@ -23,7 +23,6 @@ IFF_MULTICAST = 0x8000
 
 
 class bsdmsg(nlmsg_base):
-
     __slots__ = ()
     header = (
         ('length', 'H'),
@@ -34,7 +33,6 @@ class bsdmsg(nlmsg_base):
 
 
 class if_msg(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('ifm_index', 'H'),
@@ -71,7 +69,6 @@ class if_msg(bsdmsg):
 
 
 class rt_msg_base(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('rtm_index', 'H'),
@@ -120,7 +117,6 @@ class rt_msg_base(bsdmsg):
 
 
 class ifa_msg_base(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('ifam_index', 'H'),
@@ -135,14 +131,12 @@ class ifa_msg_base(bsdmsg):
 
 
 class ifma_msg_base(bsdmsg):
-
     __slots__ = ()
     fields = (('rtm_addrs', 'i'), ('ifmam_flags', 'i'), ('ifmam_index', 'H'))
     sockaddr_offset = 16
 
 
 class if_announcemsg(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('ifan_index', 'H'),

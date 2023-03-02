@@ -69,7 +69,6 @@ def test_cm_interface_change_set_kwarg(context):
 
 
 def test_routes_spec_dst_len(context):
-
     ipaddr = context.new_ipaddr
     gateway = context.new_ipaddr
     ifname = context.new_ifname
@@ -99,7 +98,6 @@ def test_routes_spec_dst_len(context):
 
 
 def test_string_key_in_interfaces(context):
-
     ifname = context.new_ifname
     address = '00:11:22:33:44:55'
     f_ifname = context.new_ifname
@@ -118,7 +116,6 @@ def test_string_key_in_interfaces(context):
 
 
 def test_string_key_in_addresses(context):
-
     ifname = context.new_ifname
     ipaddr = context.new_ipaddr
     f_ipaddr = context.new_ipaddr

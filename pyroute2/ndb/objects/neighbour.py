@@ -76,7 +76,6 @@ def fallback_add(self, idx_req, req):
 
 
 class Neighbour(RTNL_Object):
-
     table = 'neighbours'
     msg_class = ndmsg
     field_filter = NeighbourFieldFilter
@@ -157,7 +156,6 @@ class Neighbour(RTNL_Object):
 
 
 class FDBRecord(Neighbour):
-
     table = 'af_bridge_fdb'
     msg_class = ndmsg
     api = 'fdb'

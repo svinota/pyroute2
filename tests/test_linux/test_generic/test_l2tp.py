@@ -40,7 +40,6 @@ def l2ctx(context):
 
 
 def test_complete(l2ctx):
-
     # 1. create tunnel
     l2ctx.l2tp.create_tunnel(
         tunnel_id=2324,
