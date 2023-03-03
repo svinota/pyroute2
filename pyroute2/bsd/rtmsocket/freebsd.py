@@ -25,7 +25,6 @@ RTM_IEEE80211 = 0x12  # IEEE80211 wireless event
 
 
 class RTMSocketBase(object):
-
     msg_map = {
         RTM_ADD: rt_msg,
         RTM_DELETE: rt_msg,

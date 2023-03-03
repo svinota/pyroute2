@@ -136,7 +136,6 @@ def test_remove_link(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_brport_basic(context):
-
     bridge = context.new_ifname
     port = context.new_ifname
 

@@ -3,7 +3,6 @@ from pyroute2.netlink.generic import GenericNetlinkSocket
 
 
 class EventSocket(GenericNetlinkSocket):
-
     marshal_class = None
     genl_family = None
 

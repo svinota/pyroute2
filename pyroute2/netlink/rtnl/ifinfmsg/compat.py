@@ -74,7 +74,6 @@ def compat_fix_attrs(msg, nl):
 
 
 def proxy_linkinfo(data, nl):
-
     marshal = MarshalRtnl()
     inbox = marshal.parse(data)
     data = b''
@@ -136,7 +135,7 @@ def proxy_setlink(imsg, nl):
         elif kind == 'bridge':
             func = compat_set_bridge
         #
-        for (cmd, value) in infodata.get('attrs', []):
+        for cmd, value in infodata.get('attrs', []):
             cmd = infodata.nla2name(cmd)
             code = func(ifname, cmd, value) or code
         #
@@ -148,7 +147,6 @@ def proxy_setlink(imsg, nl):
     # is it a port setup?
     master = msg.get_attr('IFLA_MASTER')
     if master is not None:
-
         if master == 0:
             # port delete
             # 1. get the current master
@@ -225,7 +223,6 @@ def proxy_newlink(imsg, nl):
 @map_enoent
 @sync
 def manage_team(msg):
-
     if msg['header']['type'] != RTM_NEWLINK:
         raise ValueError('wrong command type')
 

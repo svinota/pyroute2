@@ -145,7 +145,6 @@ class IPRouteFilter:
 
 
 class NLAKeyTransform:
-
     _nla_prefix = ''
 
     def _key_transform(self, key):

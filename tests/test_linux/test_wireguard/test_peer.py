@@ -6,7 +6,6 @@ pytestmark = [require_root()]
 
 
 def test_peer_ipv4(context):
-
     ifname = context.new_ifname
     ipaddr = context.new_ipaddr
     port = 9999
@@ -69,7 +68,6 @@ def test_peer_ipv4(context):
 
 
 def test_peer_ipv6(context):
-
     ifname = context.new_ifname
     ipaddr = context.new_ipaddr
     port = 9999

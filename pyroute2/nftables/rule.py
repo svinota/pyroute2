@@ -18,7 +18,6 @@ NFPROTO_2_NAME = {v: k for k, v in NAME_2_NFPROTO.items()}
 
 
 class NFTRule(nfta_nla_parser):
-
     conv_maps = (
         conv_map_tuple('family', 'nfgen_family', 'family', 'nfproto'),
         conv_map_tuple('table', 'NFTA_RULE_TABLE', 'table', 'raw'),

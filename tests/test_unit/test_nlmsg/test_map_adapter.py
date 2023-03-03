@@ -14,7 +14,6 @@ sample_data_ipaddr = (
 
 
 class ifaddrmsg_default_decode(ifaddrmsg):
-
     # same function will be used both for decode and encode
     nla_map = NlaMapAdapter(
         lambda x: NlaSpec(nlmsg_atoms.hex, x, f'IFA_NLA_{x}')
@@ -22,7 +21,6 @@ class ifaddrmsg_default_decode(ifaddrmsg):
 
 
 class ifaddrmsg_dict_decode(ifaddrmsg):
-
     # define separate decode / encode adapters
     nla_map = {
         'decode': NlaMapAdapter(

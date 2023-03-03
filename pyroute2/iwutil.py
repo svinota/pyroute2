@@ -407,7 +407,6 @@ class IW(NL80211):
         )
 
     def authenticate(self, ifindex, bssid, ssid, freq, auth_type=0):
-
         '''
         Send an Authentication management frame.
         '''
@@ -427,7 +426,6 @@ class IW(NL80211):
         )
 
     def deauthenticate(self, ifindex, bssid, reason_code=0x01):
-
         '''
         Send a Deauthentication management frame.
         '''
@@ -445,7 +443,6 @@ class IW(NL80211):
         )
 
     def associate(self, ifindex, bssid, ssid, freq, info_elements=None):
-
         '''
         Send an Association request frame.
         '''
@@ -467,7 +464,6 @@ class IW(NL80211):
         )
 
     def disassociate(self, ifindex, bssid, reason_code=0x03):
-
         '''
         Send a Disassociation management frame.
         '''
@@ -605,7 +601,6 @@ class IW(NL80211):
                     BSS_STATUS_NAMES['associated'],
                     BSS_STATUS_NAMES['ibss_joined'],
                 ):
-
                     return x
 
         return None

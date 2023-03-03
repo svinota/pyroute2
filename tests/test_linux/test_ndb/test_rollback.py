@@ -63,7 +63,6 @@ def test_set(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_simple_deps(context):
-
     ifname = context.new_ifname
     ipaddr = context.new_ipaddr
     router = context.new_ipaddr
@@ -105,7 +104,6 @@ def test_simple_deps(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_bridge_deps(context):
-
     if_br0 = context.new_ifname
     if_br0p0 = context.new_ifname
     if_br0p1 = context.new_ifname
@@ -155,7 +153,6 @@ def test_bridge_deps(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_vlan_deps(context):
-
     if_host = context.new_ifname
     if_vlan = context.new_ifname
     ifaddr1 = context.new_ipaddr

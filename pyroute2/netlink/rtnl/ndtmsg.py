@@ -23,7 +23,6 @@ class ndtmsg(nlmsg):
     )
 
     class config(nla):
-
         __slots__ = ()
 
         fields = (
@@ -39,7 +38,6 @@ class ndtmsg(nlmsg):
         )
 
     class stats(nla):
-
         __slots__ = ()
 
         fields = (
@@ -56,7 +54,6 @@ class ndtmsg(nlmsg):
         )
 
     class parms(nla):
-
         __slots__ = ()
 
         nla_map = (

@@ -100,7 +100,7 @@ class TestCapsRtnl(object):
         self.event.set()
         while True:
             events = poll.poll()
-            for (fd, evt) in events:
+            for fd, evt in events:
                 if fd == ip.fileno():
                     msgs = ip.get()
                     for msg in msgs:

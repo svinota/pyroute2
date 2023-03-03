@@ -10,7 +10,7 @@ class LAB_API:
         super().__init__(*argv, **kwarg)
         if use_mock:
             registry.append(self)
-            for (name, method) in inspect.getmembers(
+            for name, method in inspect.getmembers(
                 self, predicate=inspect.ismethod
             ):
                 setattr(self, name, mock.MagicMock(name=name, wraps=method))

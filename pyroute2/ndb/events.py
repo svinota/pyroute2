@@ -46,7 +46,6 @@ class InvalidateHandlerException(Exception):
 
 
 class State(object):
-
     events = None
 
     def __init__(self, prime=None, log=None, wait_list=None):

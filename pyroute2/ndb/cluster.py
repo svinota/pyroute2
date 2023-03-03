@@ -8,7 +8,6 @@ from .transport import Messenger, Transport
 
 
 def init(config):
-
     if isinstance(config, basestring):
         config = json.loads(config)
     else:

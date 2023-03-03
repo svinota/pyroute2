@@ -425,7 +425,6 @@ class Source(dict):
         sync.wait()
 
     def start(self):
-
         #
         # Start source thread
         with self.lock:

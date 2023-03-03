@@ -125,7 +125,6 @@ class proc_event_control(cn_msg):
 
 
 class ProcEventMarshal(Marshal):
-
     key_format = 'I'
     key_offset = 36
     error_type = -1

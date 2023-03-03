@@ -46,7 +46,6 @@ SKNLGRP_INET6_UDP_DESTROY = 4
 
 
 class sock_diag_req(nlmsg):
-
     fields = (('sdiag_family', 'B'), ('sdiag_protocol', 'B'))
 
 
@@ -87,7 +86,6 @@ class inet_addr_codec(nlmsg):
 
 
 class inet_diag_req(inet_addr_codec):
-
     ffname = 'sdiag_family'
     fields = (
         ('sdiag_family', 'B'),
@@ -105,7 +103,6 @@ class inet_diag_req(inet_addr_codec):
 
 
 class inet_diag_msg(inet_addr_codec):
-
     ffname = 'idiag_family'
     fields = (
         ('idiag_family', 'B'),
@@ -258,7 +255,6 @@ class inet_diag_msg(inet_addr_codec):
 
 
 class unix_diag_req(nlmsg):
-
     fields = (
         ('sdiag_family', 'B'),
         ('sdiag_protocol', 'B'),
@@ -271,7 +267,6 @@ class unix_diag_req(nlmsg):
 
 
 class unix_diag_msg(nlmsg):
-
     fields = (
         ('udiag_family', 'B'),
         ('udiag_type', 'B'),

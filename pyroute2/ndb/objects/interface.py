@@ -373,7 +373,7 @@ supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 #
 # load supported ifinfo
 #
-for (name, data) in supported_ifinfo.items():
+for name, data in supported_ifinfo.items():
     name = 'ifinfo_%s' % name
     init['classes'].append([name, data])
     schema = (
@@ -399,7 +399,6 @@ def _cmp_master(self, value):
 
 
 class Vlan(RTNL_Object):
-
     table = 'af_bridge_vlans'
     msg_class = ifinfmsg.af_spec_bridge.vlan_info
     api = 'vlan_filter'
@@ -485,7 +484,6 @@ class Vlan(RTNL_Object):
 
 
 class Interface(RTNL_Object):
-
     table = 'interfaces'
     msg_class = ifinfmsg
     api = 'link'

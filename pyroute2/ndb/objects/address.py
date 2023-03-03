@@ -215,7 +215,6 @@ init = {
 
 
 class Address(RTNL_Object):
-
     table = 'addresses'
     msg_class = ifaddrmsg
     field_filter = AddressFieldFilter

@@ -12,7 +12,6 @@ encap_types = {'mpls': 1, AF_MPLS: 1, 'seg6': 5, 'bpf': 6, 'seg6local': 7}
 
 
 class RouteFieldFilter(IPTargets, NLAKeyTransform):
-
     _nla_prefix = 'RTA_'
 
     def __init__(self, add_defaults=True):

@@ -29,13 +29,11 @@ IFF_NOGROUP = 0x800000
 
 
 class bsdmsg(nlmsg_base):
-
     __slots__ = ()
     header = (('length', 'H'), ('version', 'B'), ('type', 'B'))
 
 
 class if_msg(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('ifm_addrs', 'i'),
@@ -71,7 +69,6 @@ class if_msg(bsdmsg):
 
 
 class rt_msg_base(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('rtm_index', 'I'),
@@ -110,7 +107,6 @@ class rt_msg_base(bsdmsg):
 
 
 class ifa_msg_base(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('rtm_addrs', 'i'),
@@ -122,14 +118,12 @@ class ifa_msg_base(bsdmsg):
 
 
 class ifma_msg_base(bsdmsg):
-
     __slots__ = ()
     fields = (('rtm_addrs', 'i'), ('ifmam_flags', 'i'), ('ifmam_index', 'H'))
     sockaddr_offset = 16
 
 
 class if_announcemsg(bsdmsg):
-
     __slots__ = ()
     fields = (
         ('ifan_index', 'H'),

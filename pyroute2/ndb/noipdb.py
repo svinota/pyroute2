@@ -110,7 +110,6 @@ class Interface(ObjectProxy):
 
 
 class Interfaces(ObjectProxy):
-
     text_create = '''
 When `create().commit()` fails, the failed interface object behaves
 differently in IPDB and NDB. IPDB saves the failed object in the database,
@@ -144,7 +143,6 @@ object may stay only being referenced by a variable.
 
 
 class NoIPDB(object):
-
     text_create = '''
 IPDB has a shortcut method to create interfaces: `ipdb.create(...)`.
 

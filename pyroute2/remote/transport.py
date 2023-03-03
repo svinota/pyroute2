@@ -214,7 +214,6 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost', groups=0):
 
 
 class RemoteSocket(NetlinkSocketBase):
-
     trnsp_in = None
     trnsp_out = None
     remote_trnsp_in = None

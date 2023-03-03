@@ -277,7 +277,6 @@ class View(dict):
 
     @check_auth('obj:read')
     def __getitem__(self, key, table=None):
-
         ret = self.template(key, table)
 
         # rtnl_object.key() returns a dcitionary that can not
