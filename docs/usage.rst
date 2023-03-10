@@ -5,7 +5,7 @@ Quickstart
 
 Hello, world::
 
-    $ sudo pip install pyroute2
+    $ pip install pyroute2
 
     $ cat example.py
     from pyroute2 import IPRoute
@@ -68,7 +68,7 @@ Python GC will collect closed objects.
 Imports
 -------
 
-The public API is exported by `pyroute2/__init__.py`. 
+The public API is exported by `pyroute2/__init__.py`.
 
 It is done so to provide a stable API that will not be affected
 by changes in the package layout. There may be significant
