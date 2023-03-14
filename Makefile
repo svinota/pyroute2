@@ -84,16 +84,7 @@ dist: setup
 
 .PHONY: dist-minimal
 dist-minimal: setup
-	# backup original files
-	mv -f setup.cfg .setup.cfg.orig
-	mv -f pyroute2/__init__.py .init.py.orig
-	# replace with the minimal package
-	cp -f setup.minimal.cfg setup.cfg
-	cp -f pyroute2/minimal.py pyroute2/__init__.py
-	$(call nox,-e build)
-	# restore the original files
-	mv -f setup.cfg.orig setup.cfg
-	mv -f .init.py.orig pyroute2/__init__.py
+	$(call nox,-e build_minimal)
 
 .PHONY: install
 install: setup

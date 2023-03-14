@@ -114,12 +114,21 @@ def setup_venv_minimal(session, config):
         session.install('twine')
         session.install('-r', 'requirements.dev.txt')
         session.install('-r', 'requirements.docs.txt')
-        session.run('mv', '-f', 'setup.cfg', 'setup.cfg.orig', external=True)
+        session.run('mv', '-f', 'setup.cfg', '.setup.cfg.orig', external=True)
+        session.run(
+            'mv', '-f', 'pyroute2/__init__.py', '.init.py.orig', external=True
+        )
         session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
+        session.run(
+            'cp', 'pyroute2/minimal.py', 'pyroute2/__init__.py', external=True
+        )
         session.run('python', '-m', 'build')
         session.run('python', '-m', 'twine', 'check', 'dist/*')
         session.install('.')
-        session.run('mv', '-f', 'setup.cfg.orig', 'setup.cfg', external=True)
+        session.run('mv', '-f', '.setup.cfg.orig', 'setup.cfg', external=True)
+        session.run(
+            'mv', '-f', '.init.py.orig', 'pyroute2/__init__.py', external=True
+        )
     tmpdir = os.path.abspath(session.create_tmp())
     session.run('cp', '-a', 'lab', tmpdir, external=True)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
@@ -311,3 +320,10 @@ def build(session):
     session.install('twine')
     session.run('python', '-m', 'build')
     session.run('python', '-m', 'twine', 'check', 'dist/*')
+
+
+@nox.session
+@add_session_config
+def build_minimal(session, config):
+    '''Build the minimal package'''
+    setup_venv_minimal(session, config)
