@@ -14,3 +14,11 @@ def test_pipe_leak():
     etht.close()
     gc.collect()
     assert get_fds() == fds
+
+
+def test_context_manager():
+    fds = get_fds()
+    with Ethtool():
+        pass
+    gc.collect()
+    assert get_fds() == fds
