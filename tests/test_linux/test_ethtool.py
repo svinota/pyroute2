@@ -5,7 +5,11 @@ from pyroute2 import Ethtool
 
 
 def get_fds():
-    return set(os.listdir(f'/proc/{os.getpid()}/fd'))
+    fd = os.open(f'/proc/{os.getpid()}/fd', os.O_RDONLY)
+    try:
+        return set(os.listdir(fd)) - {fd}
+    finally:
+        os.close(fd)
 
 
 def test_pipe_leak():
