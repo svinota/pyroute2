@@ -257,12 +257,18 @@ class EthtoolLinkMode(
         )
 
 
-class Ethtool(object):
+class Ethtool:
     def __init__(self):
         self._with_ioctl = IoctlEthtool()
         self._with_nl = NlEthtool()
         self._with_nl.module_err_level = 'debug'
         self._is_nl_working = self._with_nl.is_nlethtool_in_kernel()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
     def _nl_exec(self, f, with_netlink, *args, **kwargs):
         if with_netlink is None:
@@ -345,4 +351,5 @@ class Ethtool(object):
         self._with_ioctl.set_coalesce(ioctl_coalesce)
 
     def close(self):
+        self._with_ioctl.close()
         self._with_nl.close()

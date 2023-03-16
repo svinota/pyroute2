@@ -346,7 +346,7 @@ class IfReq(ctypes.Structure):
     _fields_ = [("ifr_name", ctypes.c_uint8 * IFNAMSIZ), ("u", IfReqData)]
 
 
-class EthtoolFeaturesList(object):
+class EthtoolFeaturesList:
     def __init__(self, cmd, stringsset):
         self._offsets = {}
         self._cmd = cmd
@@ -424,7 +424,7 @@ class EthtoolFeaturesList(object):
         self._sfeatures[feature_i].changed |= flag_bit
 
 
-class IoctlEthtool(object):
+class IoctlEthtool:
     def __init__(self, ifname=None):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.ifname = None
@@ -432,6 +432,9 @@ class IoctlEthtool(object):
 
         if ifname is not None:
             self.change_ifname(ifname)
+
+    def close(self):
+        self.sock.close()
 
     def change_ifname(self, ifname):
         self.ifname = bytearray(ifname, 'utf-8')
