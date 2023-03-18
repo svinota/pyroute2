@@ -84,10 +84,7 @@ dist: setup
 
 .PHONY: dist-minimal
 dist-minimal: setup
-	mv -f setup.cfg setup.cfg.orig
-	cp setup.minimal.cfg setup.cfg
-	$(call nox,-e build)
-	mv -f setup.cfg.orig setup.cfg
+	$(call nox,-e build_minimal)
 
 .PHONY: install
 install: setup
