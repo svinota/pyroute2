@@ -129,6 +129,7 @@ def setup_venv_minimal(session, config):
         session.run(
             'mv', '-f', '.init.py.orig', 'pyroute2/__init__.py', external=True
         )
+        session.run('rm', '-rf', 'build', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
     session.run('cp', '-a', 'lab', tmpdir, external=True)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
