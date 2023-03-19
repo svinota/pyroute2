@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.7.6
+    * setup: static loader <https://github.com/svinota/pyroute2/issues/1076>
+    * iproute: support altname in link_lookup()
+    * ethtool: fd leaks <https://github.com/svinota/pyroute2/pull/1081>
 * 0.7.5
     * nlsocket: fix marshal reference <https://github.com/svinota/pyroute2/issues/1068>
 * 0.7.4
