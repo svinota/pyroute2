@@ -279,7 +279,7 @@ class View(dict):
     def __getitem__(self, key, table=None):
         ret = self.template(key, table)
 
-        # rtnl_object.key() returns a dcitionary that can not
+        # rtnl_object.key() returns a dictionary that can not
         # be used as a cache key. Create here a tuple from it.
         # The key order guaranteed by the dictionary.
         cache_key = tuple(ret.key.items())
