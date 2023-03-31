@@ -187,6 +187,7 @@ way as with `IPRoute`:
 '''
 
 import errno
+import json
 import traceback
 
 from pyroute2.common import basestring
@@ -217,6 +218,15 @@ def load_ifinfmsg(schema, target, event):
     #
     if event.get_attr('IFLA_WIRELESS'):
         return
+    #
+    # IFLA_PROP_LIST, IFLA_ALT_IFNAME
+    #
+    prop_list = event.get('IFLA_PROP_LIST')
+    event['alt_ifname_list'] = []
+    if prop_list is not None:
+        for ifname in prop_list.altnames():
+            event['alt_ifname_list'].append(ifname)
+
     #
     # AF_BRIDGE events
     #
@@ -299,7 +309,9 @@ def load_ifinfmsg(schema, target, event):
 
 ip_tunnels = ('gre', 'gretap', 'ip6gre', 'ip6gretap', 'ip6tnl', 'sit', 'ipip')
 
-schema_ifinfmsg = ifinfmsg.sql_schema().unique_index('index')
+schema_ifinfmsg = (
+    ifinfmsg.sql_schema().push('alt_ifname_list', 'TEXT').unique_index('index')
+)
 
 schema_brinfmsg = (
     ifinfmsg.sql_schema()
@@ -490,6 +502,7 @@ class Interface(RTNL_Object):
     key_extra_fields = ['IFLA_IFNAME']
     resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
+    fields_load_transform = {'alt_ifname_list': lambda x: set(json.loads(x))}
     field_filter = LinkFieldFilter
 
     @classmethod
@@ -561,6 +574,8 @@ class Interface(RTNL_Object):
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
+        self._alt_ifname_orig = set()
+        dict.__setitem__(self, 'alt_ifname_list', set())
         dict.__setitem__(self, 'state', 'unknown')
         warnings = []
         if isinstance(argv[1], dict):
@@ -777,6 +792,18 @@ class Interface(RTNL_Object):
         return self
 
     @check_auth('obj:modify')
+    def add_altname(self, ifname):
+        new_list = set(self['alt_ifname_list'])
+        new_list.add(ifname)
+        self['alt_ifname_list'] = new_list
+
+    @check_auth('obj:modify')
+    def del_altname(self, ifname):
+        new_list = set(self['alt_ifname_list'])
+        new_list.remove(ifname)
+        self['alt_ifname_list'] = new_list
+
+    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if key == 'peer':
             dict.__setitem__(self, key, value)
@@ -905,8 +932,25 @@ class Interface(RTNL_Object):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
+        alt_ifname_setup = self['alt_ifname_list']
+        if 'alt_ifname_list' in self.changed:
+            self.changed.remove('alt_ifname_list')
         try:
             super(Interface, self).apply(rollback, req_filter, mode)
+            alt_ifname_remove = self['alt_ifname_list'] - alt_ifname_setup
+            alt_ifname_add = alt_ifname_setup - self['alt_ifname_list']
+            for ifname in alt_ifname_remove:
+                self.sources[self['target']].api(
+                    'link', 'property_del', index=self['index'], altname=ifname
+                )
+            for ifname in alt_ifname_add:
+                self.sources[self['target']].api(
+                    'link', 'property_add', index=self['index'], altname=ifname
+                )
+            self.load_from_system()
+            self.load_sql(set_state=False)
+            if self['alt_ifname_list'] != alt_ifname_setup:
+                raise Exception('could not setup alt ifnames')
         except NetlinkError as e:
             if (
                 e.code == 95
