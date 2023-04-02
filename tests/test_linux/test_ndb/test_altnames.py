@@ -1,5 +1,5 @@
 import pytest
-from pr2test.context_manager import make_test_matrix
+from pr2test.context_manager import make_test_matrix, skip_if_not_supported
 from pr2test.marks import require_root
 from pr2test.tools import interface_exists
 
@@ -11,6 +11,7 @@ test_matrix = make_test_matrix(
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+@skip_if_not_supported
 def test_altname_complex(context):
     index, ifname = context.default_interface
     altname1 = context.new_ifname
