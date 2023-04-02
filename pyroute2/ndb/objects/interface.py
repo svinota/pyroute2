@@ -62,12 +62,12 @@ List interface keys:
 '00:00:00:00:00:00', 'lo', 65536, None, 'noqueue', None, 1000, 'UNKNOWN', 0, \
 None, None, None, 0, None, 0, 1, 1, 1, 0, None, None, 0, 65535, 65536, None, \
 None, None, 0, 0, None, None, None, None, None, None, 65536, None, None, \
-'up', None, None, None, None, None, None, None, None)
+'up', None, None, None, None, None, None, None, None, '[]')
     ('localhost', 0, 0, 772, 2, 1, 0, '52:54:00:72:58:b2', \
 'ff:ff:ff:ff:ff:ff', 'eth0', 1500, None, 'fq_codel', None, 1000, 'UNKNOWN', \
 0, None, None, None, 0, None, 0, 1, 1, 1, 0, None, None, 0, 65535, 65536, \
 None, None, None, 0, 0, None, None, None, None, None, None, 65536, None, \
-None, 'up', None, None, None, None, None, None, None, None)
+None, 'up', None, None, None, None, None, None, None, None, '[]')
 
 NDB views support some dict methods: `items()`, `values()`, `keys()`:
 
