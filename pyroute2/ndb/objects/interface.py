@@ -502,7 +502,9 @@ class Interface(RTNL_Object):
     key_extra_fields = ['IFLA_IFNAME']
     resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
-    fields_load_transform = {'alt_ifname_list': lambda x: set(json.loads(x))}
+    fields_load_transform = {
+        'alt_ifname_list': lambda x: list(json.loads(x or '[]'))
+    }
     field_filter = LinkFieldFilter
 
     @classmethod
@@ -575,7 +577,7 @@ class Interface(RTNL_Object):
         kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
         self._alt_ifname_orig = set()
-        dict.__setitem__(self, 'alt_ifname_list', set())
+        dict.__setitem__(self, 'alt_ifname_list', list())
         dict.__setitem__(self, 'state', 'unknown')
         warnings = []
         if isinstance(argv[1], dict):
@@ -795,13 +797,13 @@ class Interface(RTNL_Object):
     def add_altname(self, ifname):
         new_list = set(self['alt_ifname_list'])
         new_list.add(ifname)
-        self['alt_ifname_list'] = new_list
+        self['alt_ifname_list'] = list(new_list)
 
     @check_auth('obj:modify')
     def del_altname(self, ifname):
         new_list = set(self['alt_ifname_list'])
         new_list.remove(ifname)
-        self['alt_ifname_list'] = new_list
+        self['alt_ifname_list'] = list(new_list)
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
@@ -926,31 +928,44 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
+    def apply_altnames(self, alt_ifname_setup):
+        alt_ifname_remove = set(self['alt_ifname_list']) - alt_ifname_setup
+        alt_ifname_add = alt_ifname_setup - set(self['alt_ifname_list'])
+        for ifname in alt_ifname_remove:
+            self.sources[self['target']].api(
+                'link', 'property_del', index=self['index'], altname=ifname
+            )
+        for ifname in alt_ifname_add:
+            self.sources[self['target']].api(
+                'link', 'property_add', index=self['index'], altname=ifname
+            )
+        self.load_from_system()
+        self.load_sql(set_state=False)
+        if set(self['alt_ifname_list']) != alt_ifname_setup:
+            raise Exception('could not setup alt ifnames')
+
+    @check_auth('obj:modify')
     def apply(self, rollback=False, req_filter=None, mode='apply'):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
-        alt_ifname_setup = self['alt_ifname_list']
+        remove = self.state.get() == 'remove'
+        alt_ifname_setup = set(self['alt_ifname_list'])
         if 'alt_ifname_list' in self.changed:
             self.changed.remove('alt_ifname_list')
         try:
             super(Interface, self).apply(rollback, req_filter, mode)
-            alt_ifname_remove = self['alt_ifname_list'] - alt_ifname_setup
-            alt_ifname_add = alt_ifname_setup - self['alt_ifname_list']
-            for ifname in alt_ifname_remove:
-                self.sources[self['target']].api(
-                    'link', 'property_del', index=self['index'], altname=ifname
-                )
-            for ifname in alt_ifname_add:
-                self.sources[self['target']].api(
-                    'link', 'property_add', index=self['index'], altname=ifname
-                )
-            self.load_from_system()
-            self.load_sql(set_state=False)
-            if self['alt_ifname_list'] != alt_ifname_setup:
-                raise Exception('could not setup alt ifnames')
+            if setns:
+                self.load_value('target', self['net_ns_fd'])
+                dict.__setitem__(self, 'net_ns_fd', None)
+                spec = self.load_sql()
+                if spec:
+                    self.state.set('system')
+            if not remove:
+                self.apply_altnames(alt_ifname_setup)
+
         except NetlinkError as e:
             if (
                 e.code == 95
@@ -995,12 +1010,6 @@ class Interface(RTNL_Object):
                 self.apply(rollback, req_filter, mode)
             else:
                 raise
-        if setns:
-            self.load_value('target', self['net_ns_fd'])
-            dict.__setitem__(self, 'net_ns_fd', None)
-            spec = self.load_sql()
-            if spec:
-                self.state.set('system')
         if ('net_ns_fd' in self.get('peer', {})) and (
             self['peer']['net_ns_fd'] in self.view.ndb.sources
         ):
