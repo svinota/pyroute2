@@ -62,12 +62,12 @@ List interface keys:
 '00:00:00:00:00:00', 'lo', 65536, None, 'noqueue', None, 1000, 'UNKNOWN', 0, \
 None, None, None, 0, None, 0, 1, 1, 1, 0, None, None, 0, 65535, 65536, None, \
 None, None, 0, 0, None, None, None, None, None, None, 65536, None, None, \
-'up', None, None, None, None, None, None, None, None)
+'up', None, None, None, None, None, None, None, None, '[]')
     ('localhost', 0, 0, 772, 2, 1, 0, '52:54:00:72:58:b2', \
 'ff:ff:ff:ff:ff:ff', 'eth0', 1500, None, 'fq_codel', None, 1000, 'UNKNOWN', \
 0, None, None, None, 0, None, 0, 1, 1, 1, 0, None, None, 0, 65535, 65536, \
 None, None, None, 0, 0, None, None, None, None, None, None, 65536, None, \
-None, 'up', None, None, None, None, None, None, None, None)
+None, 'up', None, None, None, None, None, None, None, None, '[]')
 
 NDB views support some dict methods: `items()`, `values()`, `keys()`:
 
@@ -187,6 +187,7 @@ way as with `IPRoute`:
 '''
 
 import errno
+import json
 import traceback
 
 from pyroute2.common import basestring
@@ -217,6 +218,15 @@ def load_ifinfmsg(schema, target, event):
     #
     if event.get_attr('IFLA_WIRELESS'):
         return
+    #
+    # IFLA_PROP_LIST, IFLA_ALT_IFNAME
+    #
+    prop_list = event.get('IFLA_PROP_LIST')
+    event['alt_ifname_list'] = []
+    if prop_list is not None:
+        for ifname in prop_list.altnames():
+            event['alt_ifname_list'].append(ifname)
+
     #
     # AF_BRIDGE events
     #
@@ -299,7 +309,9 @@ def load_ifinfmsg(schema, target, event):
 
 ip_tunnels = ('gre', 'gretap', 'ip6gre', 'ip6gretap', 'ip6tnl', 'sit', 'ipip')
 
-schema_ifinfmsg = ifinfmsg.sql_schema().unique_index('index')
+schema_ifinfmsg = (
+    ifinfmsg.sql_schema().push('alt_ifname_list', 'TEXT').unique_index('index')
+)
 
 schema_brinfmsg = (
     ifinfmsg.sql_schema()
@@ -490,6 +502,9 @@ class Interface(RTNL_Object):
     key_extra_fields = ['IFLA_IFNAME']
     resolve_fields = ['vxlan_link', 'link', 'master']
     fields_cmp = {'master': _cmp_master}
+    fields_load_transform = {
+        'alt_ifname_list': lambda x: list(json.loads(x or '[]'))
+    }
     field_filter = LinkFieldFilter
 
     @classmethod
@@ -561,6 +576,8 @@ class Interface(RTNL_Object):
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
+        self._alt_ifname_orig = set()
+        dict.__setitem__(self, 'alt_ifname_list', list())
         dict.__setitem__(self, 'state', 'unknown')
         warnings = []
         if isinstance(argv[1], dict):
@@ -777,6 +794,18 @@ class Interface(RTNL_Object):
         return self
 
     @check_auth('obj:modify')
+    def add_altname(self, ifname):
+        new_list = set(self['alt_ifname_list'])
+        new_list.add(ifname)
+        self['alt_ifname_list'] = list(new_list)
+
+    @check_auth('obj:modify')
+    def del_altname(self, ifname):
+        new_list = set(self['alt_ifname_list'])
+        new_list.remove(ifname)
+        self['alt_ifname_list'] = list(new_list)
+
+    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if key == 'peer':
             dict.__setitem__(self, key, value)
@@ -899,14 +928,44 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
+    def apply_altnames(self, alt_ifname_setup):
+        alt_ifname_remove = set(self['alt_ifname_list']) - alt_ifname_setup
+        alt_ifname_add = alt_ifname_setup - set(self['alt_ifname_list'])
+        for ifname in alt_ifname_remove:
+            self.sources[self['target']].api(
+                'link', 'property_del', index=self['index'], altname=ifname
+            )
+        for ifname in alt_ifname_add:
+            self.sources[self['target']].api(
+                'link', 'property_add', index=self['index'], altname=ifname
+            )
+        self.load_from_system()
+        self.load_sql(set_state=False)
+        if set(self['alt_ifname_list']) != alt_ifname_setup:
+            raise Exception('could not setup alt ifnames')
+
+    @check_auth('obj:modify')
     def apply(self, rollback=False, req_filter=None, mode='apply'):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
                 self[key] = self.ndb.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
+        remove = self.state.get() == 'remove'
+        alt_ifname_setup = set(self['alt_ifname_list'])
+        if 'alt_ifname_list' in self.changed:
+            self.changed.remove('alt_ifname_list')
         try:
             super(Interface, self).apply(rollback, req_filter, mode)
+            if setns:
+                self.load_value('target', self['net_ns_fd'])
+                dict.__setitem__(self, 'net_ns_fd', None)
+                spec = self.load_sql()
+                if spec:
+                    self.state.set('system')
+            if not remove:
+                self.apply_altnames(alt_ifname_setup)
+
         except NetlinkError as e:
             if (
                 e.code == 95
@@ -951,12 +1010,6 @@ class Interface(RTNL_Object):
                 self.apply(rollback, req_filter, mode)
             else:
                 raise
-        if setns:
-            self.load_value('target', self['net_ns_fd'])
-            dict.__setitem__(self, 'net_ns_fd', None)
-            spec = self.load_sql()
-            if spec:
-                self.state.set('system')
         if ('net_ns_fd' in self.get('peer', {})) and (
             self['peer']['net_ns_fd'] in self.view.ndb.sources
         ):
