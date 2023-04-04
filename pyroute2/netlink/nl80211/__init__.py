@@ -282,7 +282,7 @@ class nl80211cmd(genlmsg):
         ('NL80211_ATTR_BSS', 'bss'),
         ('NL80211_ATTR_REG_INITIATOR', 'hex'),
         ('NL80211_ATTR_REG_TYPE', 'hex'),
-        ('NL80211_ATTR_SUPPORTED_COMMANDS', 'hex'),
+        ('NL80211_ATTR_SUPPORTED_COMMANDS', 'supported_commands'),
         ('NL80211_ATTR_FRAME', 'hex'),
         ('NL80211_ATTR_SSID', 'string'),
         ('NL80211_ATTR_AUTH_TYPE', 'uint32'),
@@ -1275,6 +1275,42 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_PAD', 'hex'),
             ('NL80211_STA_INFO_MAX', 'hex'),
         )
+
+    class supported_commands(nla_base):
+        '''
+        Supported commands format
+
+        NLA structure header::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  | NLA type |
+        +++++++++++++++++++++++
+
+        followed by multiple command entries::
+        ++++++++++++++++++++++++++++++++++
+        | uint16_t | uint16_t | uint32_t |
+        |   type   |  index   |   cmd    |
+        ++++++++++++++++++++++++++++++++++
+        '''
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = []
+
+            # Skip the first four bytes: NLA length and NLA type
+            length = self.length - 4
+            offset = self.offset + 4
+            while length > 0:
+                (msg_type, index, cmd_index) = struct.unpack_from(
+                    'HHI', self.data, offset
+                )
+                length -= 8
+                offset += 8
+
+                # Lookup for command name or assign a default name
+                name = NL80211_VALUES.get(cmd_index,
+                                          'NL80211_CMD_{}'.format(cmd_index))
+                self.value.append(name)
 
 
 class MarshalNl80211(Marshal):
