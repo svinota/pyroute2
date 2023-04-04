@@ -228,6 +228,24 @@ NL80211_STA_FLAG_ASSOCIATED = 7
     'NL80211_STA_FLAG_', globals()
 )
 
+# Cipher suites
+WLAN_CIPHER_SUITE_USE_GROUP = 0x00FAC00
+WLAN_CIPHER_SUITE_WEP40 = 0x00FAC01
+WLAN_CIPHER_SUITE_TKIP = 0x00FAC02
+WLAN_CIPHER_SUITE_RESERVED = 0x00FAC03
+WLAN_CIPHER_SUITE_CCMP = 0x00FAC04
+WLAN_CIPHER_SUITE_WEP104 = 0x00FAC05
+WLAN_CIPHER_SUITE_AES_CMAC = 0x00FAC06
+WLAN_CIPHER_SUITE_GCMP = 0x00FAC08
+WLAN_CIPHER_SUITE_GCMP_256 = 0x00FAC09
+WLAN_CIPHER_SUITE_CCMP_256 = 0x00FAC0A
+WLAN_CIPHER_SUITE_BIP_GMAC_128 = 0x00FAC0B
+WLAN_CIPHER_SUITE_BIP_GMAC_256 = 0x00FAC0C
+WLAN_CIPHER_SUITE_BIP_CMAC_256 = 0x00FAC0D
+(WLAN_CIPHER_SUITE_NAMES, WLAN_CIPHER_SUITE_VALUES) = map_namespace(
+    'WLAN_CIPHER_SUITE_', globals()
+)
+
 
 class nl80211cmd(genlmsg):
     prefix = 'NL80211_ATTR_'
@@ -289,7 +307,7 @@ class nl80211cmd(genlmsg):
         ('NL80211_ATTR_REASON_CODE', 'uint16'),
         ('NL80211_ATTR_KEY_TYPE', 'hex'),
         ('NL80211_ATTR_MAX_SCAN_IE_LEN', 'uint16'),
-        ('NL80211_ATTR_CIPHER_SUITES', 'hex'),
+        ('NL80211_ATTR_CIPHER_SUITES', 'cipher_suites'),
         ('NL80211_ATTR_FREQ_BEFORE', 'hex'),
         ('NL80211_ATTR_FREQ_AFTER', 'hex'),
         ('NL80211_ATTR_FREQ_FIXED', 'hex'),
@@ -1310,6 +1328,41 @@ class nl80211cmd(genlmsg):
                 # Lookup for command name or assign a default name
                 name = NL80211_VALUES.get(cmd_index,
                                           'NL80211_CMD_{}'.format(cmd_index))
+                self.value.append(name)
+
+    class cipher_suites(nla_base):
+        '''
+        Cipher suites format
+
+        NLA structure header::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  | NLA type |
+        +++++++++++++++++++++++
+
+        followed by multiple entries::
+        ++++++++++++
+        | uint32_t |
+        |  cipher  |
+        ++++++++++++
+        '''
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = []
+
+            # Skip the first four bytes: NLA length and NLA type
+            length = self.length - 4
+            offset = self.offset + 4
+            while length > 0:
+                (cipher,) = struct.unpack_from('<I', self.data, offset)
+                length -= 4
+                offset += 4
+
+                # Lookup for cipher name or assign a default name
+                name = WLAN_CIPHER_SUITE_VALUES.get(cipher,
+                                                    'WLAN_CIPHER_SUITE_{:08X}'
+                                                    .format(cipher))
                 self.value.append(name)
 
 
