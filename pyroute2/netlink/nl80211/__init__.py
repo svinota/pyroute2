@@ -12,6 +12,9 @@ from pyroute2.netlink import genlmsg, nla, nla_base
 from pyroute2.netlink.generic import GenericNetlinkSocket
 from pyroute2.netlink.nlsocket import Marshal
 
+# Define from uapi/linux/nl80211.h
+NL80211_GENL_NAME = "nl80211"
+
 # nl80211 commands
 
 NL80211_CMD_UNSPEC = 0
@@ -1411,5 +1414,5 @@ class NL80211(GenericNetlinkSocket):
 
     def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(
-            self, 'nl80211', nl80211cmd, groups, None, **kwarg
+            self, NL80211_GENL_NAME, nl80211cmd, groups, None, **kwarg
         )
