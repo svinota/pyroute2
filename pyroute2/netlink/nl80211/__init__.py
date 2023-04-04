@@ -282,7 +282,7 @@ class nl80211cmd(genlmsg):
         ('NL80211_ATTR_BSS_SHORT_PREAMBLE', 'hex'),
         ('NL80211_ATTR_BSS_SHORT_SLOT_TIME', 'hex'),
         ('NL80211_ATTR_HT_CAPABILITY', 'hex'),
-        ('NL80211_ATTR_SUPPORTED_IFTYPES', 'hex'),
+        ('NL80211_ATTR_SUPPORTED_IFTYPES', 'supported_iftypes'),
         ('NL80211_ATTR_REG_ALPHA2', 'asciiz'),
         ('NL80211_ATTR_REG_RULES', '*reg_rule'),
         ('NL80211_ATTR_MESH_CONFIG', 'hex'),
@@ -1363,6 +1363,40 @@ class nl80211cmd(genlmsg):
                 name = WLAN_CIPHER_SUITE_VALUES.get(cipher,
                                                     'WLAN_CIPHER_SUITE_{:08X}'
                                                     .format(cipher))
+                self.value.append(name)
+
+    class supported_iftypes(nla_base):
+        '''
+        Supported iftypes format
+
+        NLA structure header::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  | NLA type |
+        +++++++++++++++++++++++
+
+        followed by multiple iftype entries::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  |  iftype  |
+        +++++++++++++++++++++++
+        '''
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = []
+
+            # Skip the first four bytes: NLA length and NLA type
+            length = self.length - 4
+            offset = self.offset + 4
+            while length > 0:
+                (iflen, iftype) = struct.unpack_from('<HH', self.data, offset)
+                length -= 4
+                offset += 4
+
+                # Lookup for iftype name or assign a default name
+                name = IFTYPE_VALUES.get(iftype,
+                                         'NL80211_IFTYPE_{}'.format(iftype))
                 self.value.append(name)
 
 
