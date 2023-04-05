@@ -1326,8 +1326,9 @@ class nl80211cmd(genlmsg):
                 offset += 8
 
                 # Lookup for command name or assign a default name
-                name = NL80211_VALUES.get(cmd_index,
-                                          'NL80211_CMD_{}'.format(cmd_index))
+                name = NL80211_VALUES.get(
+                    cmd_index, 'NL80211_CMD_{}'.format(cmd_index)
+                )
                 self.value.append(name)
 
     class cipher_suites(nla_base):
@@ -1360,9 +1361,9 @@ class nl80211cmd(genlmsg):
                 offset += 4
 
                 # Lookup for cipher name or assign a default name
-                name = WLAN_CIPHER_SUITE_VALUES.get(cipher,
-                                                    'WLAN_CIPHER_SUITE_{:08X}'
-                                                    .format(cipher))
+                name = WLAN_CIPHER_SUITE_VALUES.get(
+                    cipher, 'WLAN_CIPHER_SUITE_{:08X}'.format(cipher)
+                )
                 self.value.append(name)
 
     class supported_iftypes(nla_base):
@@ -1395,8 +1396,9 @@ class nl80211cmd(genlmsg):
                 offset += 4
 
                 # Lookup for iftype name or assign a default name
-                name = IFTYPE_VALUES.get(iftype,
-                                         'NL80211_IFTYPE_{}'.format(iftype))
+                name = IFTYPE_VALUES.get(
+                    iftype, 'NL80211_IFTYPE_{}'.format(iftype)
+                )
                 self.value.append(name)
 
 
