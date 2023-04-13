@@ -146,7 +146,14 @@ class UserCtxtMap(Mapping):
 
             ctxt = {"cmd": proc.exe(), "full_cmd": proc.cmdline(), "fds": []}
 
-            self._enter_item(usr, flow, ctxt)
+            try:
+                self._enter_item(usr, flow, ctxt)
+            except FileNotFoundError:
+                # Handling edge case of race condition between build and parse
+                # time. That's for very volatile, shortlived flows that can
+                # exist during build but are gone once we want to parse the
+                # inode.
+                pass
 
     def __init__(self):
         self._build()
