@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.7.7
+    * ss2: user context patch <https://github.com/svinota/pyroute2/pull/1087>
+    * ndb: basic altname support
+    * nl80211: decoder improvements <https://github.com/svinota/pyroute2/pull/1086>
 * 0.7.6
     * setup: static loader <https://github.com/svinota/pyroute2/issues/1076>
     * iproute: support altname in link_lookup()
