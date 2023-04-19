@@ -141,14 +141,14 @@ class UserCtxtMap(Mapping):
 
     def _build(self):
         for flow in psutil.net_connections(kind="all"):
-            proc = psutil.Process(flow.pid)
-            usr = proc.username()
-
-            ctxt = {"cmd": proc.exe(), "full_cmd": proc.cmdline(), "fds": []}
-
             try:
+                proc = psutil.Process(flow.pid)
+                usr = proc.username()
+
+                ctxt = {"cmd": proc.exe(), "full_cmd": proc.cmdline(), "fds": []}
+
                 self._enter_item(usr, flow, ctxt)
-            except FileNotFoundError:
+            except (FileNotFoundError, AttributeError, psutil.NoSuchProcess):
                 # Handling edge case of race condition between build and parse
                 # time. That's for very volatile, shortlived flows that can
                 # exist during build but are gone once we want to parse the
