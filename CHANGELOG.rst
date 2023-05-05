@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.7.8
+    * ss2: more fixes <https://github.com/svinota/pyroute2/pull/1088>
 * 0.7.7
     * ss2: user context patch <https://github.com/svinota/pyroute2/pull/1087>
     * ndb: basic altname support
