@@ -141,8 +141,11 @@ class inet_diag_msg(inet_addr_codec):
         ('INET_DIAG_PAD', 'hex'),
         ('INET_DIAG_MARK', 'hex'),
         ('INET_DIAG_BBRINFO', 'tcp_bbr_info'),
-        ('INET_DIAG_CLASS_ID', 'hex'),
+        ('INET_DIAG_CLASS_ID', 'uint32'),
         ('INET_DIAG_MD5SIG', 'hex'),
+        ('INET_DIAG_ULP_INFO', 'hex'),
+        ('INET_DIAG_SK_BPF_STORAGES', 'hex'),
+        ('INET_DIAG_CGROUP_ID', 'uint64'),
     )
 
     class inet_diag_meminfo(nla):
