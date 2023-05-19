@@ -685,7 +685,6 @@ class IW(NL80211):
         )
 
     def set_interface_type(self, ifindex, iftype):
-
         '''
         Set interface type
             - ifindex — device index
@@ -714,10 +713,12 @@ class IW(NL80211):
 
         msg['attrs'] = [
             ['NL80211_ATTR_IFINDEX', ifindex],
-            ['NL80211_ATTR_IFTYPE', iftype]
+            ['NL80211_ATTR_IFTYPE', iftype],
         ]
 
-        self.nlm_request(msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
 
     def get_interface_type(self, ifindex) -> str:
         '''
@@ -728,7 +729,7 @@ class IW(NL80211):
         for d in dump:
             type = d.get_attr('NL80211_ATTR_IFTYPE')
 
-        if not type is None:
+        if type is not None:
             for key, value in IFTYPE_NAMES.items():
                 if value == type:
                     res = key
