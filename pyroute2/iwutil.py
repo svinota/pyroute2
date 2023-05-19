@@ -683,3 +683,57 @@ class IW(NL80211):
         self.nlm_request(
             msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
         )
+
+    def set_interface_type(self, ifindex, iftype):
+        '''
+        Set interface type
+            - ifindex — device index
+            - iftype — interface type
+
+        `iftype` can be integer or string:
+        1. adhoc
+        2. station
+        3. ap
+        4. ap_vlan
+        5. wds
+        6. monitor
+        7. mesh_point
+        8. p2p_client
+        9. p2p_go
+        10. p2p_device
+        11. ocb
+        '''
+
+        iftype = IFTYPE_NAMES.get(iftype, iftype)
+        if not isinstance(iftype, int):
+            raise TypeError('iftype must be int')
+
+        msg = nl80211cmd()
+        msg['cmd'] = NL80211_NAMES['NL80211_CMD_SET_INTERFACE']
+
+        msg['attrs'] = [
+            ['NL80211_ATTR_IFINDEX', ifindex],
+            ['NL80211_ATTR_IFTYPE', iftype],
+        ]
+
+        self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
+
+    def get_interface_type(self, ifindex) -> str:
+        '''
+        return interface type name
+        '''
+        dump = self.get_interface_by_ifindex(ifindex)
+        type = None
+        for d in dump:
+            type = d.get_attr('NL80211_ATTR_IFTYPE')
+
+        if type is not None:
+            for key, value in IFTYPE_NAMES.items():
+                if value == type:
+                    res = key
+        else:
+            res = 'Not Found Type'
+
+        return res
