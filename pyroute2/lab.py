@@ -1,6 +1,3 @@
-import inspect
-from unittest import mock
-
 registry = []
 use_mock = False
 
@@ -9,6 +6,8 @@ class LAB_API:
     def __init__(self, *argv, **kwarg):
         super().__init__(*argv, **kwarg)
         if use_mock:
+            import inspect
+            from unittest import mock
             registry.append(self)
             for name, method in inspect.getmembers(
                 self, predicate=inspect.ismethod
