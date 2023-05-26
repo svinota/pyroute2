@@ -10,7 +10,7 @@ def get_parameters(kwarg):
     limit = kwarg.get('limit', 1000)  # fifo limit (packets) see netem.c:230
     loss = percent2u32(kwarg.get('loss', 0))  # int percentage
     gap = kwarg.get('gap', 0)
-    duplicate = kwarg.get('duplicate', 0)
+    duplicate = percent2u32(kwarg.get('duplicate', 0))  # int percentage
     jitter = time2tick(kwarg.get('jitter', 0))  # in microsecond
 
     opts = {
