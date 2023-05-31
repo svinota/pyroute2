@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.7.9
+    * minimal: fix for embedded envs <https://github.com/svinota/pyroute2/pull/1096>
+    * diag: support CGROUP_ID <https://github.com/svinota/pyroute2/pull/1092>
+    * iwutil: get/set interface (by ifindex) type <https://github.com/svinota/pyroute2/pull/1093>
+    * tc: 'duplicate' parameter fix <https://github.com/svinota/pyroute2/pull/1098>
 * 0.7.8
     * ss2: more fixes <https://github.com/svinota/pyroute2/pull/1088>
 * 0.7.7
