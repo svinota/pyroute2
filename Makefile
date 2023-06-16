@@ -72,7 +72,7 @@ test-platform:
 
 .PHONY: upload
 upload: dist
-	${python} -m twine upload dist/*
+	$(call nox,-e upload)
 
 .PHONY: setup
 setup:
