@@ -108,6 +108,7 @@ __NR = {
     'aarc': {'32bit': 375, '64bit': 268},  # FIXME: EABI vs. OABI?
     'ppc6': {'64bit': 350},
     's390': {'64bit': 339},
+    'loongarch64': {'64bit': 268},
 }
 __NR_setns = __NR.get(config.machine[:4], {}).get(config.arch, 308)
 
