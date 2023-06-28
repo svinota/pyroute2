@@ -328,3 +328,11 @@ def build(session):
 def build_minimal(session, config):
     '''Build the minimal package'''
     setup_venv_minimal(session, config)
+
+
+@nox.session
+@add_session_config
+def upload(session, config):
+    '''Upload built packages'''
+    session.install('twine')
+    session.run('python', '-m', 'twine', 'upload', 'dist/*')
