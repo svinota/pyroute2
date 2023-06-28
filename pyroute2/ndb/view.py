@@ -424,13 +424,27 @@ class View(dict):
     @check_auth('obj:list')
     def dump(self):
         iclass = self.classes[self.table]
-        return RecordSet(self._native(iclass.dump(self)))
+        return RecordSet(
+            self._native(iclass.dump(self)),
+            config={
+                'recordset_pipe': self.ndb.config.get(
+                    'recordset_pipe', 'false'
+                )
+            },
+        )
 
     @cli.show_result
     @check_auth('obj:list')
     def summary(self):
         iclass = self.classes[self.table]
-        return RecordSet(self._native(iclass.summary(self)))
+        return RecordSet(
+            self._native(iclass.summary(self)),
+            config={
+                'recordset_pipe': self.ndb.config.get(
+                    'recordset_pipe', 'false'
+                )
+            },
+        )
 
     def __repr__(self):
         if self.chain and 'ifname' in self.chain:

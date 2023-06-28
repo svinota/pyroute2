@@ -102,5 +102,7 @@ class Server(HTTPServer):
             self.ndb = ndb
         else:
             self.ndb = NDB(sources=sources, log=log)
-        self.ndb.config = {'show_format': 'json'}
+        self.ndb.config.update(
+            {'show_format': 'json', 'recordset_pipe': 'true'}
+        )
         HTTPServer.__init__(self, (address, port), Handler)

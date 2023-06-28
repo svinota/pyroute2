@@ -537,6 +537,7 @@ class NDB:
             'rtnl_debug': rtnl_debug,
             'db_cleanup': db_cleanup,
             'auto_netns': auto_netns,
+            'recordset_pipe': 'false',
         }
         self.task_manager = TaskManager(self)
         self._dbm_thread = threading.Thread(

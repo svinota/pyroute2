@@ -211,6 +211,20 @@ class BaseRecordSet(object):
         return ''.join(ret)
 
 
+class RecordSetConfig(dict):
+    def __init__(self, prime):
+        if isinstance(prime, dict):
+            for key, value in prime.items():
+                self[key] = value
+        else:
+            raise ValueError('only dict allowed')
+
+    def __setitem__(self, key, value):
+        if isinstance(value, str):
+            value = json.loads(value)
+        return super().__setitem__(key, value)
+
+
 class RecordSet(BaseRecordSet):
     '''
     NDB views return objects of this class with `summary()` and `dump()`
@@ -221,9 +235,10 @@ class RecordSet(BaseRecordSet):
     to make chains of filters.
     '''
 
-    def __init__(self, generator, ellipsis=True):
+    def __init__(self, generator, config=None, ellipsis=True):
         super().__init__(generator, ellipsis)
         self.filters = []
+        self.config = RecordSetConfig(config) if config is not None else {}
 
     def __next__(self):
         while True:
@@ -235,6 +250,7 @@ class RecordSet(BaseRecordSet):
             else:
                 return record
 
+    @cli.show_result
     def select_fields(self, *fields):
         '''
         Select only chosen fields for every record:
@@ -253,7 +269,10 @@ class RecordSet(BaseRecordSet):
             2,'eth0'
         '''
         self.filters.append(lambda x: x._select_fields(*fields))
+        if self.config.get('recordset_pipe'):
+            return RecordSet(self, config=self.config)
 
+    @cli.show_result
     def select_records(self, f=None, **spec):
         '''
         Select records based on a function f() or a spec match. A spec
@@ -272,7 +291,10 @@ class RecordSet(BaseRecordSet):
             'localhost',0,'eth0','192.168.122.28',24
         '''
         self.filters.append(lambda x: x if x._match(f, **spec) else None)
+        if self.config.get('recordset_pipe'):
+            return RecordSet(self, config=self.config)
 
+    @cli.show_result
     def transform_fields(self, **kwarg):
         '''
         Transform fields with a function. Function must accept
@@ -295,6 +317,8 @@ class RecordSet(BaseRecordSet):
             'eth0','192.168.122.28/24'
         '''
         self.filters.append(lambda x: x._transform_fields(**kwarg))
+        if self.config.get('recordset_pipe'):
+            return RecordSet(self, config=self.config)
 
     @cli.show_result
     def transform(self, **kwarg):

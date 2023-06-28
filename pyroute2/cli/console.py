@@ -18,7 +18,9 @@ class Console(code.InteractiveConsole):
     def __init__(self, stdout=None, log=None, sources=None):
         global HAS_READLINE
         self.db = NDB(log=log, sources=sources)
-        self.db.config = {'show_format': 'json'}
+        self.db.config.update(
+            {'show_format': 'json', 'recordset_pipe': 'true'}
+        )
         self.stdout = stdout or sys.stdout
         self.session = Session(self.db, self.stdout, self.set_prompt)
         self.matches = []
