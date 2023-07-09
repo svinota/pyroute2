@@ -12,6 +12,7 @@ from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLA_F_NESTED, nla, nlmsg, nlmsg_atoms
 from pyroute2.netlink.rtnl.ifinfmsg.plugins import (
     bond,
+    can,
     geneve,
     gtp,
     ipoib,
@@ -257,6 +258,7 @@ data_plugins = {}
 
 for module in (
     bond,
+    can,
     geneve,
     gtp,
     ipvlan,
