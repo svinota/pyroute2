@@ -26,3 +26,7 @@ for name, value, not_fixed, _, _ in dev.get_features():
 print("\n=== Device coalesce: ===")
 for name, value in dev.get_coalesce().items():
     print("\t{}: {}".format(name, value))
+
+print("\n=== Device statistics: ===")
+for name, value in dev.get_statistics().items():
+    print("\t{}: {}".format(name, value))
