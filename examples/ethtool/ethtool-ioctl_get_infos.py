@@ -28,5 +28,5 @@ for name, value in dev.get_coalesce().items():
     print("\t{}: {}".format(name, value))
 
 print("\n=== Device statistics: ===")
-for name, value in dev.get_statistics().items():
+for name, value in dev.get_statistics():
     print("\t{}: {}".format(name, value))

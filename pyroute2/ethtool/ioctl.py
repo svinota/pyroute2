@@ -487,7 +487,7 @@ class IoctlEthtool:
         self.ifreq.gstats = ctypes.cast(ctypes.pointer(gstats), ctypes.POINTER(None))
         self.ioctl()
         assert len(self.stat_names) == len(gstats.data)
-        return dict(zip(self.stat_names, gstats.data))
+        return list(zip(self.stat_names, gstats.data))
 
     def get_stringset_length(self, set_id):
         sset_info = EthtoolSsetInfo(
