@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import subprocess
+from pathlib import Path
 
 version_module = "pyroute2/config/version.py"
 version_output_file = "VERSION"
@@ -13,11 +14,27 @@ def get_project_version():
     1. fetch version from git
     2. if not available, fallback to the version file in the repo
     """
+    version = None
+
     try:
-        version = subprocess.check_output(
-            ("git", "describe"), stderr=subprocess.DEVNULL
-        ).decode("utf-8")
+        git_top_level = Path(
+            subprocess.check_output(
+                ("git", "rev-parse", "--show-toplevel"),
+                stderr=subprocess.DEVNULL,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+        pyroute2_top_level = Path(__file__).parent.parent.absolute()
+        # Only retrieve the git description from the pyroute2 directory
+        if git_top_level == pyroute2_top_level:
+            version = subprocess.check_output(
+                ("git", "describe"), stderr=subprocess.DEVNULL
+            ).decode("utf-8")
     except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+
+    if version is None:
         with open(version_input_file, "r") as f:
             version = f.read()
 
