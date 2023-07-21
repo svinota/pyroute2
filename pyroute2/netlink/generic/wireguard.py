@@ -263,8 +263,8 @@ class wgmsg(genlmsg):
 
 
 class WireGuard(GenericNetlinkSocket):
-    def __init__(self):
-        GenericNetlinkSocket.__init__(self)
+    def __init__(self, *args, **kwargs):
+        GenericNetlinkSocket.__init__(self, *args, **kwargs)
         self.bind(WG_GENL_NAME, wgmsg)
 
     def info(self, interface):

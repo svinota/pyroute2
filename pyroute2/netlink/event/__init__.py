@@ -6,8 +6,8 @@ class EventSocket(GenericNetlinkSocket):
     marshal_class = None
     genl_family = None
 
-    def __init__(self):
-        GenericNetlinkSocket.__init__(self)
+    def __init__(self, *args, **kwargs):
+        GenericNetlinkSocket.__init__(self, *args, **kwargs)
         self.marshal = self.marshal_class()
         if kernel[0] <= 2:
             self.bind(groups=0xFFFFFF)
