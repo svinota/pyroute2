@@ -145,8 +145,8 @@ class l2tpmsg(genlmsg):
 
 
 class L2tp(GenericNetlinkSocket):
-    def __init__(self):
-        GenericNetlinkSocket.__init__(self)
+    def __init__(self, *args, **kwargs):
+        GenericNetlinkSocket.__init__(self, *args, **kwargs)
         self.bind(L2TP_GENL_NAME, l2tpmsg)
 
     def _do_request(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_ACK):
