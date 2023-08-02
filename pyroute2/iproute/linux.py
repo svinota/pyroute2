@@ -68,6 +68,7 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_IPV6_ROUTE,
     RTMGRP_IPV6_RULE,
     RTMGRP_LINK,
+    RTMGRP_MPLS_ROUTE,
     RTMGRP_NEIGH,
     TC_H_ROOT,
     ndmsg,
@@ -328,6 +329,7 @@ class RTNL_API:
                 RTMGRP_NEIGH: [self.get_neighbours],
                 RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
                 RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
+                RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
                 RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
                 RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
             }
