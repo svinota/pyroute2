@@ -75,6 +75,9 @@ def options(module, config):
         '--verbose',
         '--junitxml=junit.xml',
     ]
+    if config.get('fail_on_warnings'):
+        ret.insert(1, 'error')
+        ret.insert(1, '-W')
     if config.get('pdb'):
         ret.append('--pdb')
     if config.get('coverage'):
