@@ -327,34 +327,25 @@ class FeatureState(ctypes.Structure):
     _fields_ = [("off_flags", ctypes.c_uint32), ("features", EthtoolGfeatures)]
 
 
-def generate_IfReqData(gstrings_length):
-    EthtoolGstrings = generate_EthtoolGstrings(gstrings_length)
-
-    class IfReqData(ctypes.Union):
-        _fields_ = [
-            ("ifr_data", ctypes.POINTER(EthtoolCmd)),
-            ("coalesce", ctypes.POINTER(EthtoolCoalesce)),
-            ("value", ctypes.POINTER(EthtoolValue)),
-            ("sset_info", ctypes.POINTER(EthtoolSsetInfo)),
-            ("gstrings", ctypes.POINTER(EthtoolGstrings)),
-            ("gfeatures", ctypes.POINTER(EthtoolGfeatures)),
-            ("sfeatures", ctypes.POINTER(EthtoolSfeatures)),
-            ("glinksettings", ctypes.POINTER(IoctlEthtoolLinkSettings)),
-            ("wolinfo", ctypes.POINTER(EthtoolWolInfo)),
-        ]
-
-    return IfReqData, EthtoolGstrings
+class IfReqData(ctypes.Union):
+    dummy = generate_EthtoolGstrings(0)
+    _fields_ = [
+        ("ifr_data", ctypes.POINTER(EthtoolCmd)),
+        ("coalesce", ctypes.POINTER(EthtoolCoalesce)),
+        ("value", ctypes.POINTER(EthtoolValue)),
+        ("sset_info", ctypes.POINTER(EthtoolSsetInfo)),
+        ("gstrings", ctypes.POINTER(None)),
+        ("gfeatures", ctypes.POINTER(EthtoolGfeatures)),
+        ("sfeatures", ctypes.POINTER(EthtoolSfeatures)),
+        ("glinksettings", ctypes.POINTER(IoctlEthtoolLinkSettings)),
+        ("wolinfo", ctypes.POINTER(EthtoolWolInfo)),
+    ]
 
 
-def generate_IfReq(gstrings_length):
-    IfReqData, EthtoolGstrings = generate_IfReqData(gstrings_length)
-
-    class IfReq(ctypes.Structure):
-        _pack_ = 1
-        _anonymous_ = ("u",)
-        _fields_ = [("ifr_name", ctypes.c_uint8 * IFNAMSIZ), ("u", IfReqData)]
-
-    return IfReq, EthtoolGstrings
+class IfReq(ctypes.Structure):
+    _pack_ = 1
+    _anonymous_ = ("u",)
+    _fields_ = [("ifr_name", ctypes.c_uint8 * IFNAMSIZ), ("u", IfReqData)]
 
 
 class IfReqSsetInfo(ctypes.Structure):
@@ -458,20 +449,6 @@ class IoctlEthtool:
     def change_ifname(self, ifname):
         self.ifname = bytearray(ifname, 'utf-8')
         self.ifname.extend(b"\0" * (IFNAMSIZ - len(self.ifname)))
-        sset_info = EthtoolSsetInfo(
-            cmd=ETHTOOL_GSSET_INFO, reserved=0, sset_mask=1 << ETH_SS_FEATURES
-        )
-        ifreq_sset = IfReqSsetInfo()
-        ifreq_sset.ifr_name = (ctypes.c_uint8 * IFNAMSIZ)(*self.ifname)
-        ifreq_sset.info = ctypes.pointer(sset_info)
-        fcntl.ioctl(self.sock, SIOCETHTOOL, ifreq_sset)
-        if sset_info.sset_mask:
-            self.gstrings_length = sset_info.data
-        else:
-            self.gstrings_length = 256
-        IfReq, self.EthtoolGstringsType = generate_IfReq(
-            gstrings_length=self.gstrings_length
-        )
         self.ifreq = IfReq()
         self.ifreq.ifr_name = (ctypes.c_uint8 * IFNAMSIZ)(*self.ifname)
 
@@ -486,17 +463,32 @@ class IoctlEthtool:
                 raise NoSuchDevice(self.ifname.decode("utf-8"))
             raise
 
+    def get_stringset_length(self, set_id):
+        sset_info = EthtoolSsetInfo(
+            cmd=ETHTOOL_GSSET_INFO, reserved=0, sset_mask=1 << set_id
+        )
+        ifreq_sset = IfReqSsetInfo()
+        ifreq_sset.ifr_name = (ctypes.c_uint8 * IFNAMSIZ)(*self.ifname)
+        ifreq_sset.info = ctypes.pointer(sset_info)
+        fcntl.ioctl(self.sock, SIOCETHTOOL, ifreq_sset)
+        assert sset_info.sset_mask
+        return sset_info.data
+
     def get_stringset(
         self, set_id=ETH_SS_FEATURES, drvinfo_offset=0, null_terminate=1
     ):
-        strings_found = []
-        gstrings = self.EthtoolGstringsType(
-            cmd=ETHTOOL_GSTRINGS, string_set=set_id, len=self.gstrings_length
+        # different sets have potentially different lengthts,
+        # obtain size dynamically
+        gstrings_length = self.get_stringset_length(set_id)
+        EthtoolGstringsType = generate_EthtoolGstrings(gstrings_length)
+        gstrings = EthtoolGstringsType(
+            cmd=ETHTOOL_GSTRINGS, string_set=set_id, len=gstrings_length
         )
-        self.ifreq.gstrings = ctypes.pointer(gstrings)
+        self.ifreq.gstrings = ctypes.cast(ctypes.pointer(gstrings), ctypes.POINTER(None))
         self.ioctl()
 
-        for i in range(self.gstrings_length):
+        strings_found = []
+        for i in range(gstrings_length):
             buf = ''
             for j in range(ETH_GSTRING_LEN):
                 code = gstrings.strings[i][j]
@@ -507,7 +499,7 @@ class IoctlEthtool:
         return strings_found
 
     def get_features(self):
-        stringsset = self.get_stringset()
+        stringsset = self.get_stringset(set_id=ETH_SS_FEATURES)
         cmd = EthtoolGfeatures()
         cmd.cmd = ETHTOOL_GFEATURES
         cmd.size = feature_bits_to_blocks(len(stringsset))
