@@ -483,8 +483,12 @@ class IoctlEthtool:
         """Statistics in raw format, without names"""
         if not self.stat_names:
             self.stat_names = self.get_stringset(set_id=ETH_SS_STATS)
-        gstats = generate_EthtoolGStats(len(self.stat_names))(cmd=ETHTOOL_GSTATS)
-        self.ifreq.gstats = ctypes.cast(ctypes.pointer(gstats), ctypes.POINTER(None))
+        gstats = generate_EthtoolGStats(len(self.stat_names))(
+            cmd=ETHTOOL_GSTATS
+        )
+        self.ifreq.gstats = ctypes.cast(
+            ctypes.pointer(gstats), ctypes.POINTER(None)
+        )
         self.ioctl()
         assert len(self.stat_names) == len(gstats.data)
         return list(zip(self.stat_names, gstats.data))
@@ -510,7 +514,9 @@ class IoctlEthtool:
         gstrings = EthtoolGstringsType(
             cmd=ETHTOOL_GSTRINGS, string_set=set_id, len=gstrings_length
         )
-        self.ifreq.gstrings = ctypes.cast(ctypes.pointer(gstrings), ctypes.POINTER(None))
+        self.ifreq.gstrings = ctypes.cast(
+            ctypes.pointer(gstrings), ctypes.POINTER(None)
+        )
         self.ioctl()
 
         strings_found = []
