@@ -38,31 +38,31 @@ def ipdb_interfaces_view(ndb):
                 (
                     x.index
                     for x in (
-                        ndb.interfaces.dump().select_records(master=record.index)
+                        ndb.interfaces.dump().select_records(
+                            master=record.index
+                        )
                     )
                 )
             )
         except:
             with ndb.interfaces.dump() as report:
                 report.select_records(ifname=f"{record.ifname}")
-                interface['ports'] = tuple(
-                    (x.index for x in report)
-                )
+                interface['ports'] = tuple((x.index for x in report))
         try:
             interface['neighbours'] = tuple(
                 (
                     x.dst
                     for x in (
-                        ndb.neighbours.dump().select_records(ifindex=record.index)
+                        ndb.neighbours.dump().select_records(
+                            ifindex=record.index
+                        )
                     )
                 )
             )
         except:
             with ndb.neighbours.dump() as report:
                 report.select_records(ifindex=record.index)
-                interface['neighbours'] = tuple(
-                    (x.dst for x in report)
-                )
+                interface['neighbours'] = tuple((x.dst for x in report))
         ret[record.ifname] = interface
 
     return ret
