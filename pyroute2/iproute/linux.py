@@ -7,7 +7,6 @@ from functools import partial
 from itertools import chain
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 
-import pyroute2.netns
 from pyroute2 import config
 from pyroute2.common import AF_MPLS, basestring
 from pyroute2.config import AF_BRIDGE
@@ -743,33 +742,26 @@ class RTNL_API:
             except OSError:
                 pass
 
-    def set_netnsid(self, name=None, fd=None, nsid=None):
+    def set_netnsid(self, nsid=None, pid=None, fd=None):
         '''Assigns an id to a peer netns using RTM_NEWNSID query.
         The kernel chooses an unique id if nsid is omitted.
         This corresponds to the "ip netns set" command.
         '''
         msg = nsidmsg()
-        fh = None
 
-        try:
-            if name is not None:
-                netns_path = pyroute2.netns._get_netnspath(name)
-                fh = open(netns_path, 'r')
-                fd = fh.fileno()
+        if nsid is None or nsid < 0:
+            # kernel auto select
+            msg['attrs'].append(('NETNSA_NSID', 4294967295))
+        else:
+            msg['attrs'].append(('NETNSA_NSID', nsid))
 
+        if pid is not None:
+            msg['attrs'].append(('NETNSA_PID', pid))
+
+        if fd is not None:
             msg['attrs'].append(('NETNSA_FD', fd))
-            if nsid is None or nsid < 0:
-                # kernel auto select
-                msg['attrs'].append(('NETNSA_NSID', 4294967295))
-            else:
-                msg['attrs'].append(('NETNSA_NSID', nsid))
 
-            return self.nlm_request(
-                msg, RTM_NEWNSID, NLM_F_REQUEST | NLM_F_ACK
-            )
-        finally:
-            if fh is not None:
-                fh.close()
+        return self.nlm_request(msg, RTM_NEWNSID, NLM_F_REQUEST | NLM_F_ACK)
 
     # 8<---------------------------------------------------------------
 
