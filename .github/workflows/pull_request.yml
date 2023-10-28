@@ -57,15 +57,17 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: sudo make nox session=minimal
-  linux-fedora-35:
-    runs-on: linux-fedora-35
+  linux-fedora-38:
+    runs-on: linux-fedora-38
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: sudo make nox session=linux-3.6
+      - run: sudo make nox session=linux-3.8
       - run: sudo make nox session=linux-3.10
-  linux-ubuntu-18:
-    runs-on: linux-ubuntu-18
+      - run: sudo make nox session=linux-3.12
+  linux-ubuntu-22:
+    runs-on: linux-ubuntu-22
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
