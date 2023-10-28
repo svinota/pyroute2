@@ -51,14 +51,14 @@ def test_complete(l2ctx):
         encap="udp",
     )
     tunnel = l2ctx.l2tp.get_tunnel(tunnel_id=2324)
-    assert tunnel[0].get_attr("L2TP_ATTR_CONN_ID") == 2324
-    assert tunnel[0].get_attr("L2TP_ATTR_PEER_CONN_ID") == 2425
-    assert tunnel[0].get_attr("L2TP_ATTR_IP_DADDR") == l2ctx.remote_ip
-    assert tunnel[0].get_attr("L2TP_ATTR_IP_SADDR") == l2ctx.local_ip
-    assert tunnel[0].get_attr("L2TP_ATTR_UDP_DPORT") == 32000
-    assert tunnel[0].get_attr("L2TP_ATTR_UDP_SPORT") == 32000
-    assert tunnel[0].get_attr("L2TP_ATTR_ENCAP_TYPE") == 0  # 0 == UDP
-    assert tunnel[0].get_attr("L2TP_ATTR_DEBUG") == 0
+    assert tunnel.get_attr("L2TP_ATTR_CONN_ID") == 2324
+    assert tunnel.get_attr("L2TP_ATTR_PEER_CONN_ID") == 2425
+    assert tunnel.get_attr("L2TP_ATTR_IP_DADDR") == l2ctx.remote_ip
+    assert tunnel.get_attr("L2TP_ATTR_IP_SADDR") == l2ctx.local_ip
+    assert tunnel.get_attr("L2TP_ATTR_UDP_DPORT") == 32000
+    assert tunnel.get_attr("L2TP_ATTR_UDP_SPORT") == 32000
+    assert tunnel.get_attr("L2TP_ATTR_ENCAP_TYPE") == 0  # 0 == UDP
+    assert tunnel.get_attr("L2TP_ATTR_DEBUG") == 0
 
     # 2. create session
     l2ctx.l2tp.create_session(
@@ -68,9 +68,9 @@ def test_complete(l2ctx):
         ifname=l2ctx.l2tpeth0,
     )
     session = l2ctx.l2tp.get_session(tunnel_id=2324, session_id=3435)
-    assert session[0].get_attr("L2TP_ATTR_SESSION_ID") == 3435
-    assert session[0].get_attr("L2TP_ATTR_PEER_SESSION_ID") == 3536
-    assert session[0].get_attr("L2TP_ATTR_DEBUG") == 0
+    assert session.get_attr("L2TP_ATTR_SESSION_ID") == 3435
+    assert session.get_attr("L2TP_ATTR_PEER_SESSION_ID") == 3536
+    assert session.get_attr("L2TP_ATTR_DEBUG") == 0
 
     # setting up DEBUG -> 95, operation not supported; review the test
     # # 3. modify session
@@ -88,8 +88,8 @@ def test_complete(l2ctx):
     l2ctx.l2tp.delete_session(tunnel_id=2324, session_id=3435)
     for _ in range(5):
         try:
-            assert not l2ctx.l2tp.get_session(tunnel_id=2324, session_id=3435)
-        except AssertionError:
+            l2ctx.l2tp.get_session(tunnel_id=2324, session_id=3435)
+        except NetlinkError:
             time.sleep(0.1)
             continue
         break
@@ -100,8 +100,8 @@ def test_complete(l2ctx):
     l2ctx.l2tp.delete_tunnel(tunnel_id=2324)
     for _ in range(5):
         try:
-            assert not l2ctx.l2tp.get_tunnel(tunnel_id=2324)
-        except AssertionError:
+            l2ctx.l2tp.get_tunnel(tunnel_id=2324)
+        except NetlinkError:
             time.sleep(0.1)
             continue
         break
