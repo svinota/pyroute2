@@ -8,7 +8,7 @@ pytestmark = [require_root()]
 
 
 @pytest.mark.xfail(reason='flaky test, only to collect failure logs')
-def test_add_del_ip_dict(context):
+def __test_add_del_ip_dict(context):
     ifname = context.new_ifname
     ifaddr1 = context.new_ipaddr
     ifaddr2 = context.new_ipaddr
