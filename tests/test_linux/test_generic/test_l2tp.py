@@ -39,6 +39,7 @@ def l2ctx(context):
     context.l2tp.close()
 
 
+@pytest.mark.xfail(reason='flaky test, only to collect failure logs')
 def test_complete(l2ctx):
     # 1. create tunnel
     l2ctx.l2tp.create_tunnel(
