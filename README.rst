@@ -88,7 +88,7 @@ More examples:
     for line in if_dump.format('json'):
         print(line)
 
-    addr_summary = nsb.addresses.summary()
+    addr_summary = ndb.addresses.summary()
     addr_summary.select_records(ifname='eth0')
     for line in addr_summary.format('csv'):
         print(line)
