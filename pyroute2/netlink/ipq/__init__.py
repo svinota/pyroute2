@@ -92,7 +92,6 @@ class ipq_verdict_msg(ipq_base_msg):
 
 
 class MarshalIPQ(Marshal):
-
     msg_map = {
         IPQM_MODE: ipq_mode_msg,
         IPQM_VERDICT: ipq_verdict_msg,

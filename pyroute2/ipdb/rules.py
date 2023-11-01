@@ -79,7 +79,7 @@ class Rule(Transactional):
                 return
 
             self['ipdb_scope'] = 'system'
-            for (key, value) in msg.items():
+            for key, value in msg.items():
                 self[key] = value
 
             # merge NLA
@@ -108,7 +108,6 @@ class Rule(Transactional):
     def commit(
         self, tid=None, transaction=None, commit_phase=1, commit_mask=0xFF
     ):
-
         if not commit_phase & commit_mask:
             return self
 
@@ -138,7 +137,6 @@ class Rule(Transactional):
         try:
             # rule add/set
             if any(added.values()) or devop == 'add':
-
                 old_key = self.make_key(self)
                 new_key = self.make_key(transaction)
 
@@ -182,7 +180,6 @@ class Rule(Transactional):
             drop = True
 
         except Exception as e:
-
             error = e
             # prepare postmortem
             debug['traceback'] = traceback.format_exc()
@@ -274,13 +271,12 @@ class RulesDict(dict):
             rule['ipdb_scope'] = 'create'
         #
         rule.begin()
-        for (key, value) in spec.items():
+        for key, value in spec.items():
             rule[key] = value
         self[rule.make_key(spec)] = rule
         return rule
 
     def load_netlink(self, msg):
-
         if not isinstance(msg, fibmsg):
             return
 

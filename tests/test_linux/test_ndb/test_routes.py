@@ -173,7 +173,6 @@ def test_empty_target(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_basic(context):
-
     ifaddr = context.new_ipaddr
     router = context.new_ipaddr
     ifname = context.new_ifname
@@ -200,7 +199,6 @@ def test_basic(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_default(context):
-
     ifaddr = context.new_ipaddr
     router = context.new_ipaddr
     ifname = context.new_ifname
@@ -229,7 +227,6 @@ def test_default(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_spec(context):
-
     ipaddr = context.new_ipaddr
     router = context.new_ipaddr
     ifname = context.new_ifname
@@ -259,7 +256,6 @@ def test_spec(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_multipath_ipv4(context):
-
     ifname = context.new_ifname
     ifaddr = context.new_ipaddr
     hop1 = context.new_ipaddr
@@ -473,7 +469,6 @@ def test_metrics_set(context):
 
 
 def _test_metrics_update(context, method):
-
     ifaddr = context.new_ipaddr
     gateway1 = context.new_ipaddr
     ifname = context.new_ifname

@@ -470,7 +470,6 @@ class NDB:
         auto_netns=False,
         libc=None,
     ):
-
         if db_provider == 'postgres':
             db_provider = 'psycopg2'
 

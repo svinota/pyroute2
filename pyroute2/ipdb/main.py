@@ -943,7 +943,7 @@ class IPDB(object):
 
         idx_list = []
         if 'interfaces' in self._loaded:
-            for (key, dev) in self.by_name.items():
+            for key, dev in self.by_name.items():
                 try:
                     # FIXME
                     self.interfaces._detach(key, dev['index'], dev.nlmsg)
@@ -961,10 +961,8 @@ class IPDB(object):
             flush(idx)
 
     def initdb(self):
-
         # flush all the DB objects
         with self.exclusive:
-
             # explicitly cleanup object references
             for event in tuple(self._event_map):
                 del self._event_map[event]
@@ -1327,7 +1325,7 @@ class IPDB(object):
         tx_prio1 = []
         tx_prio2 = []
         tx_prio3 = []
-        for (target, tx) in transactions:
+        for target, tx in transactions:
             # 8<------------------------------
             # first -- explicit priorities
             if tx['ipdb_priority']:
@@ -1376,7 +1374,7 @@ class IPDB(object):
         transactions = tx_ipdb_prio + tx_main + tx_prio1 + tx_prio2 + tx_prio3
 
         try:
-            for (target, tx) in transactions:
+            for target, tx in transactions:
                 if target['ipdb_scope'] == 'detached':
                     continue
                 if tx['ipdb_scope'] == 'remove':
@@ -1406,12 +1404,12 @@ class IPDB(object):
             raise
         else:
             if phase == 1:
-                for (target, tx) in removed:
+                for target, tx in removed:
                     target['ipdb_scope'] = 'detached'
                     target.detach()
         finally:
             if phase == 1:
-                for (target, tx) in transactions:
+                for target, tx in transactions:
                     target.drop(tx.uid)
 
         return self
@@ -1481,7 +1479,7 @@ class IPDB(object):
             for msg in messages:
                 # Run pre-callbacks
                 # NOTE: pre-callbacks are synchronous
-                for (cuid, cb) in tuple(self._pre_callbacks.items()):
+                for cuid, cb in tuple(self._pre_callbacks.items()):
                     try:
                         cb(self, msg, msg['event'])
                     except:

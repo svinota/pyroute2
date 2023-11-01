@@ -5,7 +5,6 @@ from .common import Index, IPRouteFilter, NLAKeyTransform
 
 
 class LinkFieldFilter(Index, NLAKeyTransform):
-
     _nla_prefix = 'IFLA_'
 
     def _link(self, key, context, value):
@@ -110,7 +109,7 @@ class LinkIPRouteFilter(IPRouteFilter):
 
         if self.command == 'dump':
             context[('linkinfo', 'kind')] = self.kind
-            for (key, value) in tuple(context.items()):
+            for key, value in tuple(context.items()):
                 if key in self.specific:
                     context[('linkinfo', 'data', key)] = value
                     try:
@@ -121,7 +120,7 @@ class LinkIPRouteFilter(IPRouteFilter):
 
         # get common ifinfmsg NLAs
         self.common = []
-        for (key, _) in ifinfmsg.nla_map:
+        for key, _ in ifinfmsg.nla_map:
             self.common.append(key)
             self.common.append(key[len(ifinfmsg.prefix) :].lower())
         self.common.append('family')
@@ -140,7 +139,7 @@ class LinkIPRouteFilter(IPRouteFilter):
         context['IFLA_LINKINFO'] = linkinfo
         self.linkinfo.append(['IFLA_INFO_KIND', self.kind])
         # flush deferred NLAs
-        for (key, value) in tuple(context.items()):
+        for key, value in tuple(context.items()):
             if self.push_specific(key, value):
                 try:
                     del context[key]

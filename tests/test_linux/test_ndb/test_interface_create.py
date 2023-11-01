@@ -14,7 +14,6 @@ test_matrix = make_test_matrix(
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_context_manager(context):
-
     ifname = context.new_ifname
     address = '00:11:22:36:47:58'
     spec = {'ifname': ifname, 'kind': 'dummy'}
@@ -42,7 +41,6 @@ def test_context_manager(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_fail(context):
-
     ifname = context.new_ifname
     kind = context.new_ifname
     spec = {'ifname': ifname, 'kind': kind}
@@ -131,7 +129,6 @@ def test_veth_spec(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_dummy(context):
-
     ifname = context.new_ifname
     spec = {'ifname': ifname, 'kind': 'dummy', 'address': '00:11:22:33:44:55'}
     context.ndb.interfaces.create(**spec).commit()
@@ -142,7 +139,6 @@ def test_dummy(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_bridge(context):
-
     bridge = context.new_ifname
     brport = context.new_ifname
     spec_br = {'ifname': bridge, 'kind': 'bridge'}
@@ -209,7 +205,6 @@ def test_vxlan(context):
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_basic_address(context):
-
     ifaddr = context.new_ipaddr
     ifname = context.new_ifname
     spec_if = {'ifname': ifname, 'kind': 'dummy', 'state': 'up'}

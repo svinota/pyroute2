@@ -447,7 +447,6 @@ class NFCTAttr(object):
 
 
 class NFCTAttrTuple(NFCTAttr):
-
     __slots__ = (
         'saddr',
         'daddr',

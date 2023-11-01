@@ -349,6 +349,10 @@ class EngineBase:
         self.qsize = 0
 
     @property
+    def marshal(self):
+        return self.socket.marshal
+
+    @property
     def backlog(self):
         return self.socket.backlog
 
@@ -528,7 +532,6 @@ class EngineThreadSafe(EngineBase):
                         # Please note, that if terminator not occured,
                         # more `recv()` rounds CAN be required.
                         for msg in tuple(self.backlog[msg_seq]):
-
                             # Drop the message from the backlog, if any
                             self.backlog[msg_seq].remove(msg)
 
@@ -1102,7 +1105,7 @@ class NetlinkSocketBase:
         sockfd = self._sock.fileno()
         while True:
             events = poll.poll()
-            for (fd, event) in events:
+            for fd, event in events:
                 if fd == sockfd:
                     try:
                         data = bytearray(64000)
@@ -1194,7 +1197,6 @@ class NetlinkSocketBase:
         callback=None,
         parser=None,
     ):
-
         msg_seq = self.addr_pool.alloc()
         defer = None
         if callable(parser):
@@ -1284,7 +1286,6 @@ class BatchBacklog(dict):
 
 class BatchSocket(NetlinkSocketBase):
     def post_init(self):
-
         self.backlog = BatchBacklog()
         self.addr_pool = BatchAddrPool()
         self._sock = None
@@ -1431,7 +1432,6 @@ class NetlinkSocket(NetlinkSocketBase):
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):
-
     success_rate = 1
 
     def __init__(self, *argv, **kwarg):

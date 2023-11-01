@@ -307,7 +307,7 @@ class BaseRoute(Transactional):
                     self.add_nh(nh)
                     return
 
-            for (key, value) in msg.items():
+            for key, value in msg.items():
                 self[key] = value
 
             # cleanup multipath NH
@@ -328,7 +328,7 @@ class BaseRoute(Transactional):
                     with self['metrics']._direct_state:
                         for metric in tuple(self['metrics'].keys()):
                             del self['metrics'][metric]
-                        for (rtax, rtax_value) in value['attrs']:
+                        for rtax, rtax_value in value['attrs']:
                             rtax_norm = rtmsg.metrics.nla2name(rtax)
                             self['metrics'][rtax_norm] = rtax_value
                 elif norm == 'multipath':
@@ -410,7 +410,6 @@ class BaseRoute(Transactional):
     def commit(
         self, tid=None, transaction=None, commit_phase=1, commit_mask=0xFF
     ):
-
         if not commit_phase & commit_mask:
             return self
 
@@ -543,7 +542,6 @@ class BaseRoute(Transactional):
             drop = True
 
         except Exception as e:
-
             error = e
             # prepare postmortem
             debug['traceback'] = traceback.format_exc()
@@ -876,7 +874,6 @@ class MPLSRoute(BaseRoute):
 
 
 class RoutingTable(object):
-
     route_class = Route
 
     def __init__(self, ipdb, prime=None):
@@ -1038,7 +1035,6 @@ class RoutingTable(object):
 
 
 class MPLSTable(RoutingTable):
-
     route_class = MPLSRoute
 
     def keys(self):
@@ -1139,7 +1135,7 @@ class RoutingTableSet(object):
                     nh['family'] = AF_MPLS
                 route.add_nh(nh)
         route.begin()
-        for (key, value) in spec.items():
+        for key, value in spec.items():
             if key == 'encap':
                 route[key] = route.make_encap(value)
             else:

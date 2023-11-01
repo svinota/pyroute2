@@ -41,7 +41,6 @@ init = {
 
 
 class Rule(RTNL_Object):
-
     table = 'rules'
     msg_class = fibmsg
     api = 'rule'

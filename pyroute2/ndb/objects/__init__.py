@@ -123,6 +123,7 @@ class RTNL_Object(dict):
     key_extra_fields = []
     hidden_fields = []
     fields_cmp = {}
+    fields_load_transform = {}
     field_filter = object
     rollback_chain = []
 
@@ -1078,9 +1079,10 @@ class RTNL_Object(dict):
         Load a value and clean up the `self.changed` set if the
         loaded value matches the expectation.
         '''
+        if key in self.fields_load_transform:
+            value = self.fields_load_transform[key](value)
         if self.load_debug:
             self.log.debug('load %s: %s' % (key, value))
-
         if key not in self.changed:
             dict.__setitem__(self, key, value)
         elif self.get(key) == value:

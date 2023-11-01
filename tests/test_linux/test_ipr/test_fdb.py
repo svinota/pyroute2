@@ -35,7 +35,6 @@ def test_fdb_vxlan(context):
 
 
 def test_fdb_bridge_simple(context):
-
     ifname = context.new_ifname
     (
         context.ndb.interfaces.create(

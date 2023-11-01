@@ -23,7 +23,7 @@ def req(s, poll, msg, expect):
             xid = s.put(msg)['xid']
         # wait for response
         events = poll.poll(2)
-        for (fd, event) in events:
+        for fd, event in events:
             response = s.get()
             if response['xid'] != xid:
                 do_req = False

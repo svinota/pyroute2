@@ -82,7 +82,6 @@ test_matrix = make_test_matrix(
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_multiple_interfaces(context):
-
     ifname1 = context.new_ifname
     ifname2 = context.new_ifname
     ipaddr1 = context.new_ipaddr
@@ -125,7 +124,6 @@ def test_check_context_manager(context):
 
 
 def test_interfaces_ping(context):
-
     ifname1 = context.new_ifname
     ifname2 = context.new_ifname
     ipaddr1 = context.new_ipaddr
@@ -159,7 +157,6 @@ def test_interfaces_ping(context):
 
 
 def test_interfaces_ping_fail(context):
-
     ifname1 = context.new_ifname
     ifname2 = context.new_ifname
     ipaddr1 = context.new_ipaddr

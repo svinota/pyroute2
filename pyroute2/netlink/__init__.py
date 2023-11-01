@@ -763,12 +763,12 @@ class SQLSchema:
                 )
                 ret.append(((nla_name,), sql_type))
 
-        for (fname, ftype) in cls.sql_extra_fields:
+        for fname, ftype in cls.sql_extra_fields:
             if isinstance(fname, basestring):
                 fname = (fname,)
             ret.append((fname, ftype))
 
-        for (dcls, prefix) in cls.sql_extend:
+        for dcls, prefix in cls.sql_extend:
             for fname, ftype in dcls.sql_schema():
                 ret.append(((prefix,) + fname, ftype))
 
@@ -1377,7 +1377,7 @@ class nlmsg_base(dict):
         and `__setstate__()`.
         '''
         if isinstance(dump, dict):
-            for (k, v) in dump.items():
+            for k, v in dump.items():
                 if k == 'header':
                     self['header'].update(dump['header'])
                 else:
@@ -1393,7 +1393,7 @@ class nlmsg_base(dict):
         a = self.getvalue()
         if isinstance(a, dict):
             ret = {}
-            for (k, v) in a.items():
+            for k, v in a.items():
                 if k == 'header':
                     ret['header'] = dict(a['header'])
                 elif k == 'attrs':
@@ -1434,7 +1434,6 @@ class nlmsg_base(dict):
         return self
 
     def compile_nla(self):
-
         # Bug-Url: https://github.com/svinota/pyroute2/issues/980
         # Bug-Url: https://github.com/svinota/pyroute2/pull/981
         if isinstance(self.nla_map, NlaMapAdapter):
@@ -1479,7 +1478,7 @@ class nlmsg_base(dict):
         else:
             zipped = nla_map
 
-        for (key, name, nla_class, nla_flags) in zipped:
+        for key, name, nla_class, nla_flags in zipped:
             # it is an array
             if nla_class[0] == '*':
                 nla_class = nla_class[1:]
@@ -1579,7 +1578,6 @@ class nlmsg_base(dict):
             length = min(max(length, 4), (self.length - offset + self.offset))
             # we have a mapping for this NLA
             if msg_type in t_nla_map:
-
                 prime = t_nla_map[msg_type]
                 # get the class
                 msg_class = t_nla_map[msg_type]['class']
@@ -1740,7 +1738,6 @@ class nlmsg_encoder_generic(object):
 
 
 class nla_slot(object):
-
     __slots__ = ("cell",)
 
     def __init__(self, name, value):
@@ -1883,119 +1880,102 @@ class nlmsg_atoms(object):
             self.value = True
 
     class uint8(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', 'B')]
 
     class uint16(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', 'H')]
 
     class uint32(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', 'I')]
 
     class uint64(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', 'Q')]
 
     class int8(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', 'b')]
 
     class int16(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', 'h')]
 
     class int32(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', 'i')]
 
     class int64(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', 'q')]
 
     class be8(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', '>B')]
 
     class be16(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', '>H')]
 
     class be32(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', '>I')]
 
     class be64(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', '>Q')]
 
     class sbe8(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', '>b')]
 
     class sbe16(nla_base):
-
         __slots__ = ()
         sql_type = 'INTEGER'
 
         fields = [('value', '>h')]
 
     class sbe32(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', '>i')]
 
     class sbe64(nla_base):
-
         __slots__ = ()
         sql_type = 'BIGINT'
 
         fields = [('value', '>q')]
 
     class ipXaddr(nla_base_string):
-
         __slots__ = ()
         sql_type = 'TEXT'
 
@@ -2134,7 +2114,6 @@ class nlmsg_atoms(object):
                 raise TypeError('socket family not supported')
 
     class mpls_target(target):
-
         __slots__ = ()
 
         family = AF_MPLS
@@ -2424,7 +2403,6 @@ class ctrlmsg(genlmsg):
     )
 
     class ops(nla):
-
         __slots__ = ()
 
         nla_map = (
@@ -2434,7 +2412,6 @@ class ctrlmsg(genlmsg):
         )
 
     class mcast_groups(nla):
-
         __slots__ = ()
 
         nla_map = (
@@ -2444,7 +2421,6 @@ class ctrlmsg(genlmsg):
         )
 
     class policy_nest(nla):
-
         __slots__ = ()
 
         nla_map = {
@@ -2457,7 +2433,6 @@ class ctrlmsg(genlmsg):
         }
 
         class attribute_nest(nla):
-
             __slots__ = ()
 
             nla_map = {
@@ -2470,7 +2445,6 @@ class ctrlmsg(genlmsg):
             }
 
             class nl_policy_type_attr(nla):
-
                 __slots__ = ()
 
                 nla_map = (
@@ -2490,7 +2464,6 @@ class ctrlmsg(genlmsg):
                 )
 
     class command_nest(nla):
-
         __slots__ = ()
 
         nla_map = {
@@ -2503,7 +2476,6 @@ class ctrlmsg(genlmsg):
         }
 
         class command_nest_attrs(nla):
-
             __slots__ = ()
 
             nla_map = (

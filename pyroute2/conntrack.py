@@ -10,7 +10,6 @@ from pyroute2.netlink.nfnetlink.nfctsocket import (
 
 
 class NFCTATcpProtoInfo(object):
-
     __slots__ = (
         'state',
         'wscale_orig',
@@ -64,7 +63,6 @@ class NFCTATcpProtoInfo(object):
 
 
 class ConntrackEntry(object):
-
     __slots__ = (
         'tuple_orig',
         'tuple_reply',
@@ -209,7 +207,6 @@ class Conntrack(NFCTSocket):
             tuple_orig=tuple_orig,
             tuple_reply=tuple_reply,
         ):
-
             if tuple_orig is not None and not tuple_orig.nla_eq(
                 ndmsg['nfgen_family'], ndmsg.get_attr('CTA_TUPLE_ORIG')
             ):

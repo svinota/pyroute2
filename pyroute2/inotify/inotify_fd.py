@@ -70,7 +70,6 @@ class Inotify(object):
                         pass
 
     def parse(self, data):
-
         offset = 0
 
         while offset <= len(data) - 16:

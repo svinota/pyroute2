@@ -7,7 +7,6 @@ from .common import Index, IPRouteFilter, NLAKeyTransform
 
 
 class AddressFieldFilter(Index, NLAKeyTransform):
-
     _nla_prefix = 'IFA_'
 
     def set_prefixlen(self, context, value):

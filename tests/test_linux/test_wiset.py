@@ -198,7 +198,7 @@ def test_replace_content(ipset_name, wiset_sock):
             assert value in myset.content
         myset.replace_entries(content_b)
         myset.update_content()
-        for (old, new) in zip(content_a, content_b):
+        for old, new in zip(content_a, content_b):
             assert old not in myset.content
             assert new in myset.content
         myset.destroy()

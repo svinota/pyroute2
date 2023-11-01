@@ -32,7 +32,6 @@ def proxy_setlink(msg, nl):
     # is it a port setup?
     master = msg.get_attr('IFLA_MASTER')
     if master is not None:
-
         if master == 0:
             # port delete
             # 1. get the current master
@@ -83,7 +82,6 @@ def proxy_newlink(msg, nl):
 @map_enoent
 @sync
 def manage_team(msg):
-
     if msg['header']['type'] != RTM_NEWLINK:
         raise ValueError('wrong command type')
 

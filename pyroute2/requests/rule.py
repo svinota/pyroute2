@@ -8,7 +8,6 @@ DEFAULT_FRA_PRIORITY = 32000
 
 
 class RuleFieldFilter(IPTargets, Index, NLAKeyTransform):
-
     _nla_prefix = fibmsg.prefix
 
 

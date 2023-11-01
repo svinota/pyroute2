@@ -47,7 +47,6 @@ https://docs.pyroute2.org/ndb_reports.html
 
 
 def format_json(dump, headless=False):
-
     buf = []
     fnames = None
     yield '['
@@ -356,7 +355,6 @@ class RecordSet(BaseRecordSet):
         right = tuple(right)
 
         def g():
-
             for r1 in self.generator:
                 for r2 in right:
                     if condition(r1, r2):

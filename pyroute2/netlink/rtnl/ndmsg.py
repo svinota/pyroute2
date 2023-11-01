@@ -103,7 +103,6 @@ class ndmsg(nlmsg):
     )
 
     class cacheinfo(nla):
-
         __slots__ = ()
 
         fields = (

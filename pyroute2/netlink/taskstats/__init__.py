@@ -88,7 +88,6 @@ class tstats(nla_struct):
 
 
 class taskstatsmsg(genlmsg):
-
     nla_map = (
         ('TASKSTATS_TYPE_UNSPEC', 'none'),
         ('TASKSTATS_TYPE_PID', 'uint32'),

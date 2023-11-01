@@ -79,7 +79,6 @@ class Channel(object):
 
 @mitogen.core.takes_router
 def MitogenServer(ch_out, netns, target, router):
-
     ch_in = mitogen.core.Receiver(router)
     ch_out.send(ch_in.to_sender())
 
@@ -92,7 +91,6 @@ def MitogenServer(ch_out, netns, target, router):
 
 class RemoteIPRoute(RTNL_API, RemoteSocket):
     def __init__(self, *argv, **kwarg):
-
         self._argv = tuple(argv)
         self._kwarg = dict(kwarg)
         if 'router' in kwarg:

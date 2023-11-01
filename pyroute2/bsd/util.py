@@ -12,7 +12,6 @@ import subprocess
 
 
 class CMD(object):
-
     cmd = ['uname', '-s']
 
     def __init__(self, cmd=None):
@@ -35,11 +34,9 @@ class CMD(object):
 
 
 class Route(CMD):
-
     cmd = ['netstat', '-rn']
 
     def parse(self, data):
-
         ret = []
         family = 0
         if isinstance(data, bytes):
@@ -100,11 +97,9 @@ class Route(CMD):
 
 
 class ARP(CMD):
-
     cmd = ['arp', '-an']
 
     def parse(self, data):
-
         ret = []
         f_dst = 1
         f_addr = 3
@@ -140,7 +135,6 @@ class ARP(CMD):
 
 
 class Ifconfig(CMD):
-
     match = {'NR': re.compile(r'^\b').match}
     cmd = ['ifconfig', '-a']
 

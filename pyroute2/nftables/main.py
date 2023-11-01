@@ -217,7 +217,6 @@ class NFTSetElem:
 
 
 class NFTables(NFTSocket):
-
     # TODO: documentation
     # TODO: tests
     # TODO: dump()/load() with support for json and xml

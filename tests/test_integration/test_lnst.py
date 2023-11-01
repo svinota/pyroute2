@@ -42,7 +42,6 @@ from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 
 def test_exceptions_compat():
-
     with pytest.raises(NetlinkError1):
         raise NetlinkError1(code=99)
 
@@ -51,7 +50,6 @@ def test_exceptions_compat():
 
 
 def test_exceptions():
-
     with pytest.raises(NetlinkError0):
         raise NetlinkError0(code=99)
 
@@ -80,7 +78,6 @@ def test_constants():
 
 @pytest.mark.parametrize('socket_class', (IPRSocket0, IPRSocket1))
 def test_basic(socket_class):
-
     ip = socket_class()
     ip.bind()
 
@@ -101,3 +98,11 @@ def test_iproute_message_classes(iproute_class):
 def test_iproute_message_subclass(iproute_class):
     with iproute_class() as ip:
         assert all([issubclass(type(x), nlmsg) for x in ip.dump()])
+
+
+@pytest.mark.parametrize('iprsocket_class', (IPRSocket0, IPRSocket1))
+def test_iprsocket_put(iprsocket_class):
+    NL_GROUPS = RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR | RTMGRP_LINK
+    with iprsocket_class() as iprs:
+        iprs.bind(groups=NL_GROUPS)
+        iprs.put(None, RTM_GETLINK, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)

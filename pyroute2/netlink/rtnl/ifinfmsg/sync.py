@@ -32,7 +32,7 @@ def sync(f):
             ipr.bind()
             while True:
                 events = poll.poll()
-                for (fd, event) in events:
+                for fd, event in events:
                     if fd == ipr.fileno():
                         msgs = ipr.get()
                         for msg in msgs:

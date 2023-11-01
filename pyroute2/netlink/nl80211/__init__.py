@@ -13,6 +13,9 @@ from pr2modules.netlink.nlsocket import Marshal
 from pr2modules.netlink import nla
 from pr2modules.netlink import nla_base
 
+# Define from uapi/linux/nl80211.h
+NL80211_GENL_NAME = "nl80211"
+
 # nl80211 commands
 
 NL80211_CMD_UNSPEC = 0
@@ -142,8 +145,17 @@ NL80211_BSS_ELEMENTS_SUPPORTED_RATES = 1
 NL80211_BSS_ELEMENTS_CHANNEL = 3
 NL80211_BSS_ELEMENTS_TIM = 5
 NL80211_BSS_ELEMENTS_RSN = 48
+NL80211_BSS_ELEMENTS_HT_OPERATION = 61
 NL80211_BSS_ELEMENTS_EXTENDED_RATE = 50
+NL80211_BSS_ELEMENTS_VHT_OPERATION = 192
 NL80211_BSS_ELEMENTS_VENDOR = 221
+
+BSS_HT_OPER_CHAN_WIDTH_20 = "20 Mhz"
+BSS_HT_OPER_CHAN_WIDTH_20_OR_40 = "20 or 40 MHz"
+BSS_VHT_OPER_CHAN_WIDTH_20_OR_40 = BSS_HT_OPER_CHAN_WIDTH_20_OR_40
+BSS_VHT_OPER_CHAN_WIDTH_80 = "80 MHz"
+BSS_VHT_OPER_CHAN_WIDTH_80P80 = "80+80 MHz"
+BSS_VHT_OPER_CHAN_WIDTH_160 = "160 MHz"
 
 BSS_MEMBERSHIP_SELECTOR_HT_PHY = 127
 BSS_MEMBERSHIP_SELECTOR_VHT_PHY = 126
@@ -215,312 +227,332 @@ NL80211_STA_FLAG_ASSOCIATED = 7
 (STA_FLAG_NAMES, STA_FLAG_VALUES) = map_namespace('NL80211_STA_FLAG_',
                                                   globals())
 
+# Cipher suites
+WLAN_CIPHER_SUITE_USE_GROUP = 0x00FAC00
+WLAN_CIPHER_SUITE_WEP40 = 0x00FAC01
+WLAN_CIPHER_SUITE_TKIP = 0x00FAC02
+WLAN_CIPHER_SUITE_RESERVED = 0x00FAC03
+WLAN_CIPHER_SUITE_CCMP = 0x00FAC04
+WLAN_CIPHER_SUITE_WEP104 = 0x00FAC05
+WLAN_CIPHER_SUITE_AES_CMAC = 0x00FAC06
+WLAN_CIPHER_SUITE_GCMP = 0x00FAC08
+WLAN_CIPHER_SUITE_GCMP_256 = 0x00FAC09
+WLAN_CIPHER_SUITE_CCMP_256 = 0x00FAC0A
+WLAN_CIPHER_SUITE_BIP_GMAC_128 = 0x00FAC0B
+WLAN_CIPHER_SUITE_BIP_GMAC_256 = 0x00FAC0C
+WLAN_CIPHER_SUITE_BIP_CMAC_256 = 0x00FAC0D
+(WLAN_CIPHER_SUITE_NAMES, WLAN_CIPHER_SUITE_VALUES) = map_namespace(
+    'WLAN_CIPHER_SUITE_', globals()
+)
+
 
 class nl80211cmd(genlmsg):
     prefix = 'NL80211_ATTR_'
-    nla_map = (('NL80211_ATTR_UNSPEC', 'none'),
-               ('NL80211_ATTR_WIPHY', 'uint32'),
-               ('NL80211_ATTR_WIPHY_NAME', 'asciiz'),
-               ('NL80211_ATTR_IFINDEX', 'uint32'),
-               ('NL80211_ATTR_IFNAME', 'asciiz'),
-               ('NL80211_ATTR_IFTYPE', 'uint32'),
-               ('NL80211_ATTR_MAC', 'l2addr'),
-               ('NL80211_ATTR_KEY_DATA', 'hex'),
-               ('NL80211_ATTR_KEY_IDX', 'hex'),
-               ('NL80211_ATTR_KEY_CIPHER', 'uint32'),
-               ('NL80211_ATTR_KEY_SEQ', 'hex'),
-               ('NL80211_ATTR_KEY_DEFAULT', 'hex'),
-               ('NL80211_ATTR_BEACON_INTERVAL', 'hex'),
-               ('NL80211_ATTR_DTIM_PERIOD', 'hex'),
-               ('NL80211_ATTR_BEACON_HEAD', 'hex'),
-               ('NL80211_ATTR_BEACON_TAIL', 'hex'),
-               ('NL80211_ATTR_STA_AID', 'hex'),
-               ('NL80211_ATTR_STA_FLAGS', 'hex'),
-               ('NL80211_ATTR_STA_LISTEN_INTERVAL', 'hex'),
-               ('NL80211_ATTR_STA_SUPPORTED_RATES', 'hex'),
-               ('NL80211_ATTR_STA_VLAN', 'hex'),
-               ('NL80211_ATTR_STA_INFO', 'STAInfo'),
-               ('NL80211_ATTR_WIPHY_BANDS', '*band'),
-               ('NL80211_ATTR_MNTR_FLAGS', 'hex'),
-               ('NL80211_ATTR_MESH_ID', 'hex'),
-               ('NL80211_ATTR_STA_PLINK_ACTION', 'hex'),
-               ('NL80211_ATTR_MPATH_NEXT_HOP', 'hex'),
-               ('NL80211_ATTR_MPATH_INFO', 'hex'),
-               ('NL80211_ATTR_BSS_CTS_PROT', 'hex'),
-               ('NL80211_ATTR_BSS_SHORT_PREAMBLE', 'hex'),
-               ('NL80211_ATTR_BSS_SHORT_SLOT_TIME', 'hex'),
-               ('NL80211_ATTR_HT_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_SUPPORTED_IFTYPES', 'hex'),
-               ('NL80211_ATTR_REG_ALPHA2', 'asciiz'),
-               ('NL80211_ATTR_REG_RULES', '*reg_rule'),
-               ('NL80211_ATTR_MESH_CONFIG', 'hex'),
-               ('NL80211_ATTR_BSS_BASIC_RATES', 'hex'),
-               ('NL80211_ATTR_WIPHY_TXQ_PARAMS', 'hex'),
-               ('NL80211_ATTR_WIPHY_FREQ', 'uint32'),
-               ('NL80211_ATTR_WIPHY_CHANNEL_TYPE', 'hex'),
-               ('NL80211_ATTR_KEY_DEFAULT_MGMT', 'hex'),
-               ('NL80211_ATTR_MGMT_SUBTYPE', 'hex'),
-               ('NL80211_ATTR_IE', 'hex'),
-               ('NL80211_ATTR_MAX_NUM_SCAN_SSIDS', 'uint8'),
-               ('NL80211_ATTR_SCAN_FREQUENCIES', 'hex'),
-               ('NL80211_ATTR_SCAN_SSIDS', '*string'),
-               ('NL80211_ATTR_GENERATION', 'uint32'),
-               ('NL80211_ATTR_BSS', 'bss'),
-               ('NL80211_ATTR_REG_INITIATOR', 'hex'),
-               ('NL80211_ATTR_REG_TYPE', 'hex'),
-               ('NL80211_ATTR_SUPPORTED_COMMANDS', 'hex'),
-               ('NL80211_ATTR_FRAME', 'hex'),
-               ('NL80211_ATTR_SSID', 'string'),
-               ('NL80211_ATTR_AUTH_TYPE', 'uint32'),
-               ('NL80211_ATTR_REASON_CODE', 'uint16'),
-               ('NL80211_ATTR_KEY_TYPE', 'hex'),
-               ('NL80211_ATTR_MAX_SCAN_IE_LEN', 'uint16'),
-               ('NL80211_ATTR_CIPHER_SUITES', 'hex'),
-               ('NL80211_ATTR_FREQ_BEFORE', 'hex'),
-               ('NL80211_ATTR_FREQ_AFTER', 'hex'),
-               ('NL80211_ATTR_FREQ_FIXED', 'hex'),
-               ('NL80211_ATTR_WIPHY_RETRY_SHORT', 'uint8'),
-               ('NL80211_ATTR_WIPHY_RETRY_LONG', 'uint8'),
-               ('NL80211_ATTR_WIPHY_FRAG_THRESHOLD', 'hex'),
-               ('NL80211_ATTR_WIPHY_RTS_THRESHOLD', 'hex'),
-               ('NL80211_ATTR_TIMED_OUT', 'hex'),
-               ('NL80211_ATTR_USE_MFP', 'hex'),
-               ('NL80211_ATTR_STA_FLAGS2', 'hex'),
-               ('NL80211_ATTR_CONTROL_PORT', 'hex'),
-               ('NL80211_ATTR_TESTDATA', 'hex'),
-               ('NL80211_ATTR_PRIVACY', 'hex'),
-               ('NL80211_ATTR_DISCONNECTED_BY_AP', 'hex'),
-               ('NL80211_ATTR_STATUS_CODE', 'hex'),
-               ('NL80211_ATTR_CIPHER_SUITES_PAIRWISE', 'hex'),
-               ('NL80211_ATTR_CIPHER_SUITE_GROUP', 'hex'),
-               ('NL80211_ATTR_WPA_VERSIONS', 'hex'),
-               ('NL80211_ATTR_AKM_SUITES', 'hex'),
-               ('NL80211_ATTR_REQ_IE', 'hex'),
-               ('NL80211_ATTR_RESP_IE', 'hex'),
-               ('NL80211_ATTR_PREV_BSSID', 'hex'),
-               ('NL80211_ATTR_KEY', 'hex'),
-               ('NL80211_ATTR_KEYS', 'hex'),
-               ('NL80211_ATTR_PID', 'uint32'),
-               ('NL80211_ATTR_4ADDR', 'hex'),
-               ('NL80211_ATTR_SURVEY_INFO', 'survey_info'),
-               ('NL80211_ATTR_PMKID', 'hex'),
-               ('NL80211_ATTR_MAX_NUM_PMKIDS', 'uint8'),
-               ('NL80211_ATTR_DURATION', 'hex'),
-               ('NL80211_ATTR_COOKIE', 'hex'),
-               ('NL80211_ATTR_WIPHY_COVERAGE_CLASS', 'uint8'),
-               ('NL80211_ATTR_TX_RATES', 'hex'),
-               ('NL80211_ATTR_FRAME_MATCH', 'hex'),
-               ('NL80211_ATTR_ACK', 'hex'),
-               ('NL80211_ATTR_PS_STATE', 'hex'),
-               ('NL80211_ATTR_CQM', 'hex'),
-               ('NL80211_ATTR_LOCAL_STATE_CHANGE', 'hex'),
-               ('NL80211_ATTR_AP_ISOLATE', 'hex'),
-               ('NL80211_ATTR_WIPHY_TX_POWER_SETTING', 'uint32'),
-               ('NL80211_ATTR_WIPHY_TX_POWER_LEVEL', 'uint32'),
-               ('NL80211_ATTR_TX_FRAME_TYPES', 'hex'),
-               ('NL80211_ATTR_RX_FRAME_TYPES', 'hex'),
-               ('NL80211_ATTR_FRAME_TYPE', 'hex'),
-               ('NL80211_ATTR_CONTROL_PORT_ETHERTYPE', 'hex'),
-               ('NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT', 'hex'),
-               ('NL80211_ATTR_SUPPORT_IBSS_RSN', 'hex'),
-               ('NL80211_ATTR_WIPHY_ANTENNA_TX', 'hex'),
-               ('NL80211_ATTR_WIPHY_ANTENNA_RX', 'hex'),
-               ('NL80211_ATTR_MCAST_RATE', 'hex'),
-               ('NL80211_ATTR_OFFCHANNEL_TX_OK', 'hex'),
-               ('NL80211_ATTR_BSS_HT_OPMODE', 'hex'),
-               ('NL80211_ATTR_KEY_DEFAULT_TYPES', 'hex'),
-               ('NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION', 'hex'),
-               ('NL80211_ATTR_MESH_SETUP', 'hex'),
-               ('NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX', 'uint32'),
-               ('NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX', 'uint32'),
-               ('NL80211_ATTR_SUPPORT_MESH_AUTH', 'hex'),
-               ('NL80211_ATTR_STA_PLINK_STATE', 'hex'),
-               ('NL80211_ATTR_WOWLAN_TRIGGERS', 'hex'),
-               ('NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_INTERVAL', 'hex'),
-               ('NL80211_ATTR_INTERFACE_COMBINATIONS', '*combination'),
-               ('NL80211_ATTR_SOFTWARE_IFTYPES', 'hex'),
-               ('NL80211_ATTR_REKEY_DATA', 'hex'),
-               ('NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS', 'uint8'),
-               ('NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN', 'uint16'),
-               ('NL80211_ATTR_SCAN_SUPP_RATES', 'hex'),
-               ('NL80211_ATTR_HIDDEN_SSID', 'hex'),
-               ('NL80211_ATTR_IE_PROBE_RESP', 'hex'),
-               ('NL80211_ATTR_IE_ASSOC_RESP', 'hex'),
-               ('NL80211_ATTR_STA_WME', 'hex'),
-               ('NL80211_ATTR_SUPPORT_AP_UAPSD', 'hex'),
-               ('NL80211_ATTR_ROAM_SUPPORT', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_MATCH', 'hex'),
-               ('NL80211_ATTR_MAX_MATCH_SETS', 'uint8'),
-               ('NL80211_ATTR_PMKSA_CANDIDATE', 'hex'),
-               ('NL80211_ATTR_TX_NO_CCK_RATE', 'hex'),
-               ('NL80211_ATTR_TDLS_ACTION', 'hex'),
-               ('NL80211_ATTR_TDLS_DIALOG_TOKEN', 'hex'),
-               ('NL80211_ATTR_TDLS_OPERATION', 'hex'),
-               ('NL80211_ATTR_TDLS_SUPPORT', 'hex'),
-               ('NL80211_ATTR_TDLS_EXTERNAL_SETUP', 'hex'),
-               ('NL80211_ATTR_DEVICE_AP_SME', 'hex'),
-               ('NL80211_ATTR_DONT_WAIT_FOR_ACK', 'hex'),
-               ('NL80211_ATTR_FEATURE_FLAGS', 'hex'),
-               ('NL80211_ATTR_PROBE_RESP_OFFLOAD', 'hex'),
-               ('NL80211_ATTR_PROBE_RESP', 'hex'),
-               ('NL80211_ATTR_DFS_REGION', 'hex'),
-               ('NL80211_ATTR_DISABLE_HT', 'hex'),
-               ('NL80211_ATTR_HT_CAPABILITY_MASK', 'hex'),
-               ('NL80211_ATTR_NOACK_MAP', 'hex'),
-               ('NL80211_ATTR_INACTIVITY_TIMEOUT', 'hex'),
-               ('NL80211_ATTR_RX_SIGNAL_DBM', 'hex'),
-               ('NL80211_ATTR_BG_SCAN_PERIOD', 'hex'),
-               ('NL80211_ATTR_WDEV', 'uint64'),
-               ('NL80211_ATTR_USER_REG_HINT_TYPE', 'hex'),
-               ('NL80211_ATTR_CONN_FAILED_REASON', 'hex'),
-               ('NL80211_ATTR_SAE_DATA', 'hex'),
-               ('NL80211_ATTR_VHT_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_SCAN_FLAGS', 'uint32'),
-               ('NL80211_ATTR_CHANNEL_WIDTH', 'uint32'),
-               ('NL80211_ATTR_CENTER_FREQ1', 'uint32'),
-               ('NL80211_ATTR_CENTER_FREQ2', 'uint32'),
-               ('NL80211_ATTR_P2P_CTWINDOW', 'hex'),
-               ('NL80211_ATTR_P2P_OPPPS', 'hex'),
-               ('NL80211_ATTR_LOCAL_MESH_POWER_MODE', 'hex'),
-               ('NL80211_ATTR_ACL_POLICY', 'hex'),
-               ('NL80211_ATTR_MAC_ADDRS', 'hex'),
-               ('NL80211_ATTR_MAC_ACL_MAX', 'hex'),
-               ('NL80211_ATTR_RADAR_EVENT', 'hex'),
-               ('NL80211_ATTR_EXT_CAPA', 'array(uint8)'),
-               ('NL80211_ATTR_EXT_CAPA_MASK', 'array(uint8)'),
-               ('NL80211_ATTR_STA_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_STA_EXT_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_PROTOCOL_FEATURES', 'hex'),
-               ('NL80211_ATTR_SPLIT_WIPHY_DUMP', 'hex'),
-               ('NL80211_ATTR_DISABLE_VHT', 'hex'),
-               ('NL80211_ATTR_VHT_CAPABILITY_MASK', 'array(uint8)'),
-               ('NL80211_ATTR_MDID', 'hex'),
-               ('NL80211_ATTR_IE_RIC', 'hex'),
-               ('NL80211_ATTR_CRIT_PROT_ID', 'hex'),
-               ('NL80211_ATTR_MAX_CRIT_PROT_DURATION', 'hex'),
-               ('NL80211_ATTR_PEER_AID', 'hex'),
-               ('NL80211_ATTR_COALESCE_RULE', 'hex'),
-               ('NL80211_ATTR_CH_SWITCH_COUNT', 'hex'),
-               ('NL80211_ATTR_CH_SWITCH_BLOCK_TX', 'hex'),
-               ('NL80211_ATTR_CSA_IES', 'hex'),
-               ('NL80211_ATTR_CSA_C_OFF_BEACON', 'hex'),
-               ('NL80211_ATTR_CSA_C_OFF_PRESP', 'hex'),
-               ('NL80211_ATTR_RXMGMT_FLAGS', 'hex'),
-               ('NL80211_ATTR_STA_SUPPORTED_CHANNELS', 'hex'),
-               ('NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES', 'hex'),
-               ('NL80211_ATTR_HANDLE_DFS', 'hex'),
-               ('NL80211_ATTR_SUPPORT_5_MHZ', 'hex'),
-               ('NL80211_ATTR_SUPPORT_10_MHZ', 'hex'),
-               ('NL80211_ATTR_OPMODE_NOTIF', 'hex'),
-               ('NL80211_ATTR_VENDOR_ID', 'hex'),
-               ('NL80211_ATTR_VENDOR_SUBCMD', 'hex'),
-               ('NL80211_ATTR_VENDOR_DATA', 'hex'),
-               ('NL80211_ATTR_VENDOR_EVENTS', 'hex'),
-               ('NL80211_ATTR_QOS_MAP', 'hex'),
-               ('NL80211_ATTR_MAC_HINT', 'hex'),
-               ('NL80211_ATTR_WIPHY_FREQ_HINT', 'hex'),
-               ('NL80211_ATTR_MAX_AP_ASSOC_STA', 'hex'),
-               ('NL80211_ATTR_TDLS_PEER_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_SOCKET_OWNER', 'hex'),
-               ('NL80211_ATTR_CSA_C_OFFSETS_TX', 'hex'),
-               ('NL80211_ATTR_MAX_CSA_COUNTERS', 'hex'),
-               ('NL80211_ATTR_TDLS_INITIATOR', 'hex'),
-               ('NL80211_ATTR_USE_RRM', 'hex'),
-               ('NL80211_ATTR_WIPHY_DYN_ACK', 'hex'),
-               ('NL80211_ATTR_TSID', 'hex'),
-               ('NL80211_ATTR_USER_PRIO', 'hex'),
-               ('NL80211_ATTR_ADMITTED_TIME', 'hex'),
-               ('NL80211_ATTR_SMPS_MODE', 'hex'),
-               ('NL80211_ATTR_OPER_CLASS', 'hex'),
-               ('NL80211_ATTR_MAC_MASK', 'hex'),
-               ('NL80211_ATTR_WIPHY_SELF_MANAGED_REG', 'hex'),
-               ('NL80211_ATTR_EXT_FEATURES', 'hex'),
-               ('NL80211_ATTR_SURVEY_RADIO_STATS', 'hex'),
-               ('NL80211_ATTR_NETNS_FD', 'uint32'),
-               ('NL80211_ATTR_SCHED_SCAN_DELAY', 'hex'),
-               ('NL80211_ATTR_REG_INDOOR', 'hex'),
-               ('NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS', 'hex'),
-               ('NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL', 'hex'),
-               ('NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_PLANS', 'hex'),
-               ('NL80211_ATTR_PBSS', 'hex'),
-               ('NL80211_ATTR_BSS_SELECT', 'hex'),
-               ('NL80211_ATTR_STA_SUPPORT_P2P_PS', 'hex'),
-               ('NL80211_ATTR_PAD', 'hex'),
-               ('NL80211_ATTR_IFTYPE_EXT_CAPA', 'hex'),
-               ('NL80211_ATTR_MU_MIMO_GROUP_DATA', 'hex'),
-               ('NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR', 'hex'),
-               ('NL80211_ATTR_SCAN_START_TIME_TSF', 'hex'),
-               ('NL80211_ATTR_SCAN_START_TIME_TSF_BSSID', 'hex'),
-               ('NL80211_ATTR_MEASUREMENT_DURATION', 'hex'),
-               ('NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY', 'hex'),
-               ('NL80211_ATTR_MESH_PEER_AID', 'hex'),
-               ('NL80211_ATTR_NAN_MASTER_PREF', 'hex'),
-               ('NL80211_ATTR_BANDS', 'hex'),
-               ('NL80211_ATTR_NAN_FUNC', 'hex'),
-               ('NL80211_ATTR_NAN_MATCH', 'hex'),
-               ('NL80211_ATTR_FILS_KEK', 'hex'),
-               ('NL80211_ATTR_FILS_NONCES', 'hex'),
-               ('NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED', 'hex'),
-               ('NL80211_ATTR_BSSID', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_RELATIVE_RSSI', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST', 'hex'),
-               ('NL80211_ATTR_TIMEOUT_REASON', 'hex'),
-               ('NL80211_ATTR_FILS_ERP_USERNAME', 'hex'),
-               ('NL80211_ATTR_FILS_ERP_REALM', 'hex'),
-               ('NL80211_ATTR_FILS_ERP_NEXT_SEQ_NUM', 'hex'),
-               ('NL80211_ATTR_FILS_ERP_RRK', 'hex'),
-               ('NL80211_ATTR_FILS_CACHE_ID', 'hex'),
-               ('NL80211_ATTR_PMK', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_MULTI', 'hex'),
-               ('NL80211_ATTR_SCHED_SCAN_MAX_REQS', 'hex'),
-               ('NL80211_ATTR_WANT_1X_4WAY_HS', 'hex'),
-               ('NL80211_ATTR_PMKR0_NAME', 'hex'),
-               ('NL80211_ATTR_PORT_AUTHORIZED', 'hex'),
-               ('NL80211_ATTR_EXTERNAL_AUTH_ACTION', 'hex'),
-               ('NL80211_ATTR_EXTERNAL_AUTH_SUPPORT', 'hex'),
-               ('NL80211_ATTR_NSS', 'hex'),
-               ('NL80211_ATTR_ACK_SIGNAL', 'hex'),
-               ('NL80211_ATTR_CONTROL_PORT_OVER_NL80211', 'hex'),
-               ('NL80211_ATTR_TXQ_STATS', 'hex'),
-               ('NL80211_ATTR_TXQ_LIMIT', 'hex'),
-               ('NL80211_ATTR_TXQ_MEMORY_LIMIT', 'hex'),
-               ('NL80211_ATTR_TXQ_QUANTUM', 'hex'),
-               ('NL80211_ATTR_HE_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_FTM_RESPONDER', 'hex'),
-               ('NL80211_ATTR_FTM_RESPONDER_STATS', 'hex'),
-               ('NL80211_ATTR_TIMEOUT', 'hex'),
-               ('NL80211_ATTR_PEER_MEASUREMENTS', 'hex'),
-               ('NL80211_ATTR_AIRTIME_WEIGHT', 'hex'),
-               ('NL80211_ATTR_STA_TX_POWER_SETTING', 'hex'),
-               ('NL80211_ATTR_STA_TX_POWER', 'hex'),
-               ('NL80211_ATTR_SAE_PASSWORD', 'hex'),
-               ('NL80211_ATTR_TWT_RESPONDER', 'hex'),
-               ('NL80211_ATTR_HE_OBSS_PD', 'hex'),
-               ('NL80211_ATTR_WIPHY_EDMG_CHANNELS', 'hex'),
-               ('NL80211_ATTR_WIPHY_EDMG_BW_CONFIG', 'hex'),
-               ('NL80211_ATTR_VLAN_ID', 'hex'),
-               ('NL80211_ATTR_HE_BSS_COLOR', 'hex'),
-               ('NL80211_ATTR_IFTYPE_AKM_SUITES', 'hex'),
-               ('NL80211_ATTR_TID_CONFIG', 'hex'),
-               ('NL80211_ATTR_CONTROL_PORT_NO_PREAUTH', 'hex'),
-               ('NL80211_ATTR_PMK_LIFETIME', 'hex'),
-               ('NL80211_ATTR_PMK_REAUTH_THRESHOLD', 'hex'),
-               ('NL80211_ATTR_RECEIVE_MULTICAST', 'hex'),
-               ('NL80211_ATTR_WIPHY_FREQ_OFFSET', 'hex'),
-               ('NL80211_ATTR_CENTER_FREQ1_OFFSET', 'hex'),
-               ('NL80211_ATTR_SCAN_FREQ_KHZ', 'hex'),
-               ('NL80211_ATTR_HE_6GHZ_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_FILS_DISCOVERY', 'hex'),
-               ('NL80211_ATTR_UNSOL_BCAST_PROBE_RESP', 'hex'),
-               ('NL80211_ATTR_S1G_CAPABILITY', 'hex'),
-               ('NL80211_ATTR_S1G_CAPABILITY_MASK', 'hex'),
-               ('NL80211_ATTR_SAE_PWE', 'hex'),
-               ('NL80211_ATTR_RECONNECT_REQUESTED', 'hex'),
-               ('NL80211_ATTR_SAR_SPEC', 'hex'),
-               ('NL80211_ATTR_DISABLE_HE', 'hex'),
-               ('NUM_NL80211_ATTR', 'hex'))
+    nla_map = (
+        ('NL80211_ATTR_UNSPEC', 'none'),
+        ('NL80211_ATTR_WIPHY', 'uint32'),
+        ('NL80211_ATTR_WIPHY_NAME', 'asciiz'),
+        ('NL80211_ATTR_IFINDEX', 'uint32'),
+        ('NL80211_ATTR_IFNAME', 'asciiz'),
+        ('NL80211_ATTR_IFTYPE', 'uint32'),
+        ('NL80211_ATTR_MAC', 'l2addr'),
+        ('NL80211_ATTR_KEY_DATA', 'hex'),
+        ('NL80211_ATTR_KEY_IDX', 'hex'),
+        ('NL80211_ATTR_KEY_CIPHER', 'uint32'),
+        ('NL80211_ATTR_KEY_SEQ', 'hex'),
+        ('NL80211_ATTR_KEY_DEFAULT', 'hex'),
+        ('NL80211_ATTR_BEACON_INTERVAL', 'hex'),
+        ('NL80211_ATTR_DTIM_PERIOD', 'hex'),
+        ('NL80211_ATTR_BEACON_HEAD', 'hex'),
+        ('NL80211_ATTR_BEACON_TAIL', 'hex'),
+        ('NL80211_ATTR_STA_AID', 'hex'),
+        ('NL80211_ATTR_STA_FLAGS', 'hex'),
+        ('NL80211_ATTR_STA_LISTEN_INTERVAL', 'hex'),
+        ('NL80211_ATTR_STA_SUPPORTED_RATES', 'hex'),
+        ('NL80211_ATTR_STA_VLAN', 'hex'),
+        ('NL80211_ATTR_STA_INFO', 'STAInfo'),
+        ('NL80211_ATTR_WIPHY_BANDS', '*band'),
+        ('NL80211_ATTR_MNTR_FLAGS', 'hex'),
+        ('NL80211_ATTR_MESH_ID', 'hex'),
+        ('NL80211_ATTR_STA_PLINK_ACTION', 'hex'),
+        ('NL80211_ATTR_MPATH_NEXT_HOP', 'hex'),
+        ('NL80211_ATTR_MPATH_INFO', 'hex'),
+        ('NL80211_ATTR_BSS_CTS_PROT', 'hex'),
+        ('NL80211_ATTR_BSS_SHORT_PREAMBLE', 'hex'),
+        ('NL80211_ATTR_BSS_SHORT_SLOT_TIME', 'hex'),
+        ('NL80211_ATTR_HT_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_SUPPORTED_IFTYPES', 'supported_iftypes'),
+        ('NL80211_ATTR_REG_ALPHA2', 'asciiz'),
+        ('NL80211_ATTR_REG_RULES', '*reg_rule'),
+        ('NL80211_ATTR_MESH_CONFIG', 'hex'),
+        ('NL80211_ATTR_BSS_BASIC_RATES', 'hex'),
+        ('NL80211_ATTR_WIPHY_TXQ_PARAMS', 'hex'),
+        ('NL80211_ATTR_WIPHY_FREQ', 'uint32'),
+        ('NL80211_ATTR_WIPHY_CHANNEL_TYPE', 'hex'),
+        ('NL80211_ATTR_KEY_DEFAULT_MGMT', 'hex'),
+        ('NL80211_ATTR_MGMT_SUBTYPE', 'hex'),
+        ('NL80211_ATTR_IE', 'hex'),
+        ('NL80211_ATTR_MAX_NUM_SCAN_SSIDS', 'uint8'),
+        ('NL80211_ATTR_SCAN_FREQUENCIES', 'hex'),
+        ('NL80211_ATTR_SCAN_SSIDS', '*string'),
+        ('NL80211_ATTR_GENERATION', 'uint32'),
+        ('NL80211_ATTR_BSS', 'bss'),
+        ('NL80211_ATTR_REG_INITIATOR', 'hex'),
+        ('NL80211_ATTR_REG_TYPE', 'hex'),
+        ('NL80211_ATTR_SUPPORTED_COMMANDS', 'supported_commands'),
+        ('NL80211_ATTR_FRAME', 'hex'),
+        ('NL80211_ATTR_SSID', 'string'),
+        ('NL80211_ATTR_AUTH_TYPE', 'uint32'),
+        ('NL80211_ATTR_REASON_CODE', 'uint16'),
+        ('NL80211_ATTR_KEY_TYPE', 'hex'),
+        ('NL80211_ATTR_MAX_SCAN_IE_LEN', 'uint16'),
+        ('NL80211_ATTR_CIPHER_SUITES', 'cipher_suites'),
+        ('NL80211_ATTR_FREQ_BEFORE', 'hex'),
+        ('NL80211_ATTR_FREQ_AFTER', 'hex'),
+        ('NL80211_ATTR_FREQ_FIXED', 'hex'),
+        ('NL80211_ATTR_WIPHY_RETRY_SHORT', 'uint8'),
+        ('NL80211_ATTR_WIPHY_RETRY_LONG', 'uint8'),
+        ('NL80211_ATTR_WIPHY_FRAG_THRESHOLD', 'hex'),
+        ('NL80211_ATTR_WIPHY_RTS_THRESHOLD', 'hex'),
+        ('NL80211_ATTR_TIMED_OUT', 'hex'),
+        ('NL80211_ATTR_USE_MFP', 'hex'),
+        ('NL80211_ATTR_STA_FLAGS2', 'hex'),
+        ('NL80211_ATTR_CONTROL_PORT', 'hex'),
+        ('NL80211_ATTR_TESTDATA', 'hex'),
+        ('NL80211_ATTR_PRIVACY', 'hex'),
+        ('NL80211_ATTR_DISCONNECTED_BY_AP', 'hex'),
+        ('NL80211_ATTR_STATUS_CODE', 'hex'),
+        ('NL80211_ATTR_CIPHER_SUITES_PAIRWISE', 'hex'),
+        ('NL80211_ATTR_CIPHER_SUITE_GROUP', 'hex'),
+        ('NL80211_ATTR_WPA_VERSIONS', 'hex'),
+        ('NL80211_ATTR_AKM_SUITES', 'hex'),
+        ('NL80211_ATTR_REQ_IE', 'hex'),
+        ('NL80211_ATTR_RESP_IE', 'hex'),
+        ('NL80211_ATTR_PREV_BSSID', 'hex'),
+        ('NL80211_ATTR_KEY', 'hex'),
+        ('NL80211_ATTR_KEYS', 'hex'),
+        ('NL80211_ATTR_PID', 'uint32'),
+        ('NL80211_ATTR_4ADDR', 'hex'),
+        ('NL80211_ATTR_SURVEY_INFO', 'survey_info'),
+        ('NL80211_ATTR_PMKID', 'hex'),
+        ('NL80211_ATTR_MAX_NUM_PMKIDS', 'uint8'),
+        ('NL80211_ATTR_DURATION', 'hex'),
+        ('NL80211_ATTR_COOKIE', 'hex'),
+        ('NL80211_ATTR_WIPHY_COVERAGE_CLASS', 'uint8'),
+        ('NL80211_ATTR_TX_RATES', 'hex'),
+        ('NL80211_ATTR_FRAME_MATCH', 'hex'),
+        ('NL80211_ATTR_ACK', 'hex'),
+        ('NL80211_ATTR_PS_STATE', 'hex'),
+        ('NL80211_ATTR_CQM', 'hex'),
+        ('NL80211_ATTR_LOCAL_STATE_CHANGE', 'hex'),
+        ('NL80211_ATTR_AP_ISOLATE', 'hex'),
+        ('NL80211_ATTR_WIPHY_TX_POWER_SETTING', 'uint32'),
+        ('NL80211_ATTR_WIPHY_TX_POWER_LEVEL', 'uint32'),
+        ('NL80211_ATTR_TX_FRAME_TYPES', 'hex'),
+        ('NL80211_ATTR_RX_FRAME_TYPES', 'hex'),
+        ('NL80211_ATTR_FRAME_TYPE', 'hex'),
+        ('NL80211_ATTR_CONTROL_PORT_ETHERTYPE', 'hex'),
+        ('NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT', 'hex'),
+        ('NL80211_ATTR_SUPPORT_IBSS_RSN', 'hex'),
+        ('NL80211_ATTR_WIPHY_ANTENNA_TX', 'uint32'),
+        ('NL80211_ATTR_WIPHY_ANTENNA_RX', 'uint32'),
+        ('NL80211_ATTR_MCAST_RATE', 'hex'),
+        ('NL80211_ATTR_OFFCHANNEL_TX_OK', 'hex'),
+        ('NL80211_ATTR_BSS_HT_OPMODE', 'hex'),
+        ('NL80211_ATTR_KEY_DEFAULT_TYPES', 'hex'),
+        ('NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION', 'hex'),
+        ('NL80211_ATTR_MESH_SETUP', 'hex'),
+        ('NL80211_ATTR_WIPHY_ANTENNA_AVAIL_TX', 'uint32'),
+        ('NL80211_ATTR_WIPHY_ANTENNA_AVAIL_RX', 'uint32'),
+        ('NL80211_ATTR_SUPPORT_MESH_AUTH', 'hex'),
+        ('NL80211_ATTR_STA_PLINK_STATE', 'hex'),
+        ('NL80211_ATTR_WOWLAN_TRIGGERS', 'hex'),
+        ('NL80211_ATTR_WOWLAN_TRIGGERS_SUPPORTED', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_INTERVAL', 'hex'),
+        ('NL80211_ATTR_INTERFACE_COMBINATIONS', '*combination'),
+        ('NL80211_ATTR_SOFTWARE_IFTYPES', 'hex'),
+        ('NL80211_ATTR_REKEY_DATA', 'hex'),
+        ('NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS', 'uint8'),
+        ('NL80211_ATTR_MAX_SCHED_SCAN_IE_LEN', 'uint16'),
+        ('NL80211_ATTR_SCAN_SUPP_RATES', 'hex'),
+        ('NL80211_ATTR_HIDDEN_SSID', 'hex'),
+        ('NL80211_ATTR_IE_PROBE_RESP', 'hex'),
+        ('NL80211_ATTR_IE_ASSOC_RESP', 'hex'),
+        ('NL80211_ATTR_STA_WME', 'hex'),
+        ('NL80211_ATTR_SUPPORT_AP_UAPSD', 'hex'),
+        ('NL80211_ATTR_ROAM_SUPPORT', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_MATCH', 'hex'),
+        ('NL80211_ATTR_MAX_MATCH_SETS', 'uint8'),
+        ('NL80211_ATTR_PMKSA_CANDIDATE', 'hex'),
+        ('NL80211_ATTR_TX_NO_CCK_RATE', 'hex'),
+        ('NL80211_ATTR_TDLS_ACTION', 'hex'),
+        ('NL80211_ATTR_TDLS_DIALOG_TOKEN', 'hex'),
+        ('NL80211_ATTR_TDLS_OPERATION', 'hex'),
+        ('NL80211_ATTR_TDLS_SUPPORT', 'hex'),
+        ('NL80211_ATTR_TDLS_EXTERNAL_SETUP', 'hex'),
+        ('NL80211_ATTR_DEVICE_AP_SME', 'hex'),
+        ('NL80211_ATTR_DONT_WAIT_FOR_ACK', 'hex'),
+        ('NL80211_ATTR_FEATURE_FLAGS', 'hex'),
+        ('NL80211_ATTR_PROBE_RESP_OFFLOAD', 'hex'),
+        ('NL80211_ATTR_PROBE_RESP', 'hex'),
+        ('NL80211_ATTR_DFS_REGION', 'hex'),
+        ('NL80211_ATTR_DISABLE_HT', 'hex'),
+        ('NL80211_ATTR_HT_CAPABILITY_MASK', 'hex'),
+        ('NL80211_ATTR_NOACK_MAP', 'hex'),
+        ('NL80211_ATTR_INACTIVITY_TIMEOUT', 'hex'),
+        ('NL80211_ATTR_RX_SIGNAL_DBM', 'hex'),
+        ('NL80211_ATTR_BG_SCAN_PERIOD', 'hex'),
+        ('NL80211_ATTR_WDEV', 'uint64'),
+        ('NL80211_ATTR_USER_REG_HINT_TYPE', 'hex'),
+        ('NL80211_ATTR_CONN_FAILED_REASON', 'hex'),
+        ('NL80211_ATTR_SAE_DATA', 'hex'),
+        ('NL80211_ATTR_VHT_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_SCAN_FLAGS', 'uint32'),
+        ('NL80211_ATTR_CHANNEL_WIDTH', 'uint32'),
+        ('NL80211_ATTR_CENTER_FREQ1', 'uint32'),
+        ('NL80211_ATTR_CENTER_FREQ2', 'uint32'),
+        ('NL80211_ATTR_P2P_CTWINDOW', 'hex'),
+        ('NL80211_ATTR_P2P_OPPPS', 'hex'),
+        ('NL80211_ATTR_LOCAL_MESH_POWER_MODE', 'hex'),
+        ('NL80211_ATTR_ACL_POLICY', 'hex'),
+        ('NL80211_ATTR_MAC_ADDRS', 'hex'),
+        ('NL80211_ATTR_MAC_ACL_MAX', 'hex'),
+        ('NL80211_ATTR_RADAR_EVENT', 'hex'),
+        ('NL80211_ATTR_EXT_CAPA', 'array(uint8)'),
+        ('NL80211_ATTR_EXT_CAPA_MASK', 'array(uint8)'),
+        ('NL80211_ATTR_STA_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_STA_EXT_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_PROTOCOL_FEATURES', 'hex'),
+        ('NL80211_ATTR_SPLIT_WIPHY_DUMP', 'hex'),
+        ('NL80211_ATTR_DISABLE_VHT', 'hex'),
+        ('NL80211_ATTR_VHT_CAPABILITY_MASK', 'array(uint8)'),
+        ('NL80211_ATTR_MDID', 'hex'),
+        ('NL80211_ATTR_IE_RIC', 'hex'),
+        ('NL80211_ATTR_CRIT_PROT_ID', 'hex'),
+        ('NL80211_ATTR_MAX_CRIT_PROT_DURATION', 'hex'),
+        ('NL80211_ATTR_PEER_AID', 'hex'),
+        ('NL80211_ATTR_COALESCE_RULE', 'hex'),
+        ('NL80211_ATTR_CH_SWITCH_COUNT', 'hex'),
+        ('NL80211_ATTR_CH_SWITCH_BLOCK_TX', 'hex'),
+        ('NL80211_ATTR_CSA_IES', 'hex'),
+        ('NL80211_ATTR_CSA_C_OFF_BEACON', 'hex'),
+        ('NL80211_ATTR_CSA_C_OFF_PRESP', 'hex'),
+        ('NL80211_ATTR_RXMGMT_FLAGS', 'hex'),
+        ('NL80211_ATTR_STA_SUPPORTED_CHANNELS', 'hex'),
+        ('NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES', 'hex'),
+        ('NL80211_ATTR_HANDLE_DFS', 'hex'),
+        ('NL80211_ATTR_SUPPORT_5_MHZ', 'hex'),
+        ('NL80211_ATTR_SUPPORT_10_MHZ', 'hex'),
+        ('NL80211_ATTR_OPMODE_NOTIF', 'hex'),
+        ('NL80211_ATTR_VENDOR_ID', 'hex'),
+        ('NL80211_ATTR_VENDOR_SUBCMD', 'hex'),
+        ('NL80211_ATTR_VENDOR_DATA', 'hex'),
+        ('NL80211_ATTR_VENDOR_EVENTS', 'hex'),
+        ('NL80211_ATTR_QOS_MAP', 'hex'),
+        ('NL80211_ATTR_MAC_HINT', 'hex'),
+        ('NL80211_ATTR_WIPHY_FREQ_HINT', 'hex'),
+        ('NL80211_ATTR_MAX_AP_ASSOC_STA', 'hex'),
+        ('NL80211_ATTR_TDLS_PEER_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_SOCKET_OWNER', 'hex'),
+        ('NL80211_ATTR_CSA_C_OFFSETS_TX', 'hex'),
+        ('NL80211_ATTR_MAX_CSA_COUNTERS', 'hex'),
+        ('NL80211_ATTR_TDLS_INITIATOR', 'hex'),
+        ('NL80211_ATTR_USE_RRM', 'hex'),
+        ('NL80211_ATTR_WIPHY_DYN_ACK', 'hex'),
+        ('NL80211_ATTR_TSID', 'hex'),
+        ('NL80211_ATTR_USER_PRIO', 'hex'),
+        ('NL80211_ATTR_ADMITTED_TIME', 'hex'),
+        ('NL80211_ATTR_SMPS_MODE', 'hex'),
+        ('NL80211_ATTR_OPER_CLASS', 'hex'),
+        ('NL80211_ATTR_MAC_MASK', 'hex'),
+        ('NL80211_ATTR_WIPHY_SELF_MANAGED_REG', 'hex'),
+        ('NL80211_ATTR_EXT_FEATURES', 'hex'),
+        ('NL80211_ATTR_SURVEY_RADIO_STATS', 'hex'),
+        ('NL80211_ATTR_NETNS_FD', 'uint32'),
+        ('NL80211_ATTR_SCHED_SCAN_DELAY', 'hex'),
+        ('NL80211_ATTR_REG_INDOOR', 'hex'),
+        ('NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS', 'hex'),
+        ('NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL', 'hex'),
+        ('NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_PLANS', 'hex'),
+        ('NL80211_ATTR_PBSS', 'hex'),
+        ('NL80211_ATTR_BSS_SELECT', 'hex'),
+        ('NL80211_ATTR_STA_SUPPORT_P2P_PS', 'hex'),
+        ('NL80211_ATTR_PAD', 'hex'),
+        ('NL80211_ATTR_IFTYPE_EXT_CAPA', 'hex'),
+        ('NL80211_ATTR_MU_MIMO_GROUP_DATA', 'hex'),
+        ('NL80211_ATTR_MU_MIMO_FOLLOW_MAC_ADDR', 'hex'),
+        ('NL80211_ATTR_SCAN_START_TIME_TSF', 'hex'),
+        ('NL80211_ATTR_SCAN_START_TIME_TSF_BSSID', 'hex'),
+        ('NL80211_ATTR_MEASUREMENT_DURATION', 'hex'),
+        ('NL80211_ATTR_MEASUREMENT_DURATION_MANDATORY', 'hex'),
+        ('NL80211_ATTR_MESH_PEER_AID', 'hex'),
+        ('NL80211_ATTR_NAN_MASTER_PREF', 'hex'),
+        ('NL80211_ATTR_BANDS', 'hex'),
+        ('NL80211_ATTR_NAN_FUNC', 'hex'),
+        ('NL80211_ATTR_NAN_MATCH', 'hex'),
+        ('NL80211_ATTR_FILS_KEK', 'hex'),
+        ('NL80211_ATTR_FILS_NONCES', 'hex'),
+        ('NL80211_ATTR_MULTICAST_TO_UNICAST_ENABLED', 'hex'),
+        ('NL80211_ATTR_BSSID', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_RELATIVE_RSSI', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_RSSI_ADJUST', 'hex'),
+        ('NL80211_ATTR_TIMEOUT_REASON', 'hex'),
+        ('NL80211_ATTR_FILS_ERP_USERNAME', 'hex'),
+        ('NL80211_ATTR_FILS_ERP_REALM', 'hex'),
+        ('NL80211_ATTR_FILS_ERP_NEXT_SEQ_NUM', 'hex'),
+        ('NL80211_ATTR_FILS_ERP_RRK', 'hex'),
+        ('NL80211_ATTR_FILS_CACHE_ID', 'hex'),
+        ('NL80211_ATTR_PMK', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_MULTI', 'hex'),
+        ('NL80211_ATTR_SCHED_SCAN_MAX_REQS', 'hex'),
+        ('NL80211_ATTR_WANT_1X_4WAY_HS', 'hex'),
+        ('NL80211_ATTR_PMKR0_NAME', 'hex'),
+        ('NL80211_ATTR_PORT_AUTHORIZED', 'hex'),
+        ('NL80211_ATTR_EXTERNAL_AUTH_ACTION', 'hex'),
+        ('NL80211_ATTR_EXTERNAL_AUTH_SUPPORT', 'hex'),
+        ('NL80211_ATTR_NSS', 'hex'),
+        ('NL80211_ATTR_ACK_SIGNAL', 'hex'),
+        ('NL80211_ATTR_CONTROL_PORT_OVER_NL80211', 'hex'),
+        ('NL80211_ATTR_TXQ_STATS', 'hex'),
+        ('NL80211_ATTR_TXQ_LIMIT', 'hex'),
+        ('NL80211_ATTR_TXQ_MEMORY_LIMIT', 'hex'),
+        ('NL80211_ATTR_TXQ_QUANTUM', 'hex'),
+        ('NL80211_ATTR_HE_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_FTM_RESPONDER', 'hex'),
+        ('NL80211_ATTR_FTM_RESPONDER_STATS', 'hex'),
+        ('NL80211_ATTR_TIMEOUT', 'hex'),
+        ('NL80211_ATTR_PEER_MEASUREMENTS', 'hex'),
+        ('NL80211_ATTR_AIRTIME_WEIGHT', 'hex'),
+        ('NL80211_ATTR_STA_TX_POWER_SETTING', 'hex'),
+        ('NL80211_ATTR_STA_TX_POWER', 'hex'),
+        ('NL80211_ATTR_SAE_PASSWORD', 'hex'),
+        ('NL80211_ATTR_TWT_RESPONDER', 'hex'),
+        ('NL80211_ATTR_HE_OBSS_PD', 'hex'),
+        ('NL80211_ATTR_WIPHY_EDMG_CHANNELS', 'hex'),
+        ('NL80211_ATTR_WIPHY_EDMG_BW_CONFIG', 'hex'),
+        ('NL80211_ATTR_VLAN_ID', 'hex'),
+        ('NL80211_ATTR_HE_BSS_COLOR', 'hex'),
+        ('NL80211_ATTR_IFTYPE_AKM_SUITES', 'hex'),
+        ('NL80211_ATTR_TID_CONFIG', 'hex'),
+        ('NL80211_ATTR_CONTROL_PORT_NO_PREAUTH', 'hex'),
+        ('NL80211_ATTR_PMK_LIFETIME', 'hex'),
+        ('NL80211_ATTR_PMK_REAUTH_THRESHOLD', 'hex'),
+        ('NL80211_ATTR_RECEIVE_MULTICAST', 'hex'),
+        ('NL80211_ATTR_WIPHY_FREQ_OFFSET', 'hex'),
+        ('NL80211_ATTR_CENTER_FREQ1_OFFSET', 'hex'),
+        ('NL80211_ATTR_SCAN_FREQ_KHZ', 'hex'),
+        ('NL80211_ATTR_HE_6GHZ_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_FILS_DISCOVERY', 'hex'),
+        ('NL80211_ATTR_UNSOL_BCAST_PROBE_RESP', 'hex'),
+        ('NL80211_ATTR_S1G_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_S1G_CAPABILITY_MASK', 'hex'),
+        ('NL80211_ATTR_SAE_PWE', 'hex'),
+        ('NL80211_ATTR_RECONNECT_REQUESTED', 'hex'),
+        ('NL80211_ATTR_SAR_SPEC', 'hex'),
+        ('NL80211_ATTR_DISABLE_HE', 'hex'),
+        ('NUM_NL80211_ATTR', 'hex'),
+    )
 
     class combination(nla):
 
@@ -771,6 +803,236 @@ class nl80211cmd(genlmsg):
                                                  bitmapc,
                                                  bitmap0))
 
+            def _get_cipher_list(self, data):
+                ms_oui = bytes((0x00, 0x50, 0xF2))
+                ieee80211_oui = bytes((0x00, 0x0F, 0xAC))
+                if data[:3] == ms_oui:
+                    cipher_list = [
+                        "Use group cipher suite",
+                        "WEP-40",
+                        "TKIP",
+                        None,
+                        "CCMP",
+                        "WEP-104",
+                    ]
+                elif data[:3] == ieee80211_oui:
+                    cipher_list = [
+                        "Use group cipher suite",
+                        "WEP-40",
+                        "TKIP",
+                        None,
+                        "CCMP",
+                        "WEP-104",
+                        "AES-128-CMAC",
+                        "NO-GROUP",
+                        "GCMP",
+                    ]
+                else:
+                    cipher_list = []
+                try:
+                    return cipher_list[data[3]]
+                except IndexError:
+                    return data[:4].hex('-', 1)
+
+            def _get_auth_list(self, data):
+                ms_oui = bytes((0x00, 0x50, 0xF2))
+                ieee80211_oui = bytes((0x00, 0x0F, 0xAC))
+                wfa_oui = bytes((0x50, 0x6F, 0x9A))
+                if data[:3] == ms_oui:
+                    auth_list = [None, "IEEE 802.1X", "PSK"]
+                elif data[:3] == ieee80211_oui:
+                    auth_list = [
+                        None,
+                        "IEEE 802.1X",
+                        "PSK",
+                        "FT/IEEE 802.1X",
+                        "FT/PSK",
+                        "IEEE 802.1X/SHA-256",
+                        "PSK/SHA-256",
+                        "TDLS/TPK",
+                        "SAE",
+                        "FT/SAE",
+                        "IEEE 802.1X/SUITE-B",
+                        "IEEE 802.1X/SUITE-B-192",
+                        "FT/IEEE 802.1X/SHA-384",
+                        "FILS/SHA-256",
+                        "FILS/SHA-384",
+                        "FT/FILS/SHA-256",
+                        "FT/FILS/SHA-384",
+                        "OWE",
+                    ]
+                elif data[:3] == wfa_oui:
+                    auth_list = [None, "OSEN", "DPP"]
+                else:
+                    auth_list = []
+                try:
+                    return auth_list[data[3]]
+                except IndexError:
+                    return data[:4].hex('-', 1)
+
+            def binary_rsn(self, offset, length, defcipher, defauth):
+                data = self.data[offset : offset + length]
+                version = data[0] + (data[1] << 8)
+                data = data[2:]
+                rsn_values = {
+                    "version": version,
+                    "group_cipher": None,
+                    "pairwise_cipher": [],
+                    "auth_suites": [],
+                    "capabilities": [],
+                    "pmkid_ids": None,
+                    "group_mgmt_cipher_suite": None,
+                }
+
+                if len(data) < 4:
+                    rsn_values["group_cipher"] = defcipher
+                    rsn_values["pairwise_cipher"] = defcipher
+                    return rsn_values
+
+                rsn_values["group_cipher"] = self._get_cipher_list(data)
+
+                data = data[4:]
+                if len(data) < 4:
+                    rsn_values["pairwise_cipher"] = defcipher
+                    return rsn_values
+
+                count = data[0] | (data[1] << 8)
+                if 2 + (count * 4) > len(data):
+                    # raise Exception(f"* bogus tail data ({count}):")
+                    return rsn_values
+
+                data = data[2:]
+                for _ in range(count):
+                    rsn_values["pairwise_cipher"].append(
+                        self._get_cipher_list(data)
+                    )
+                    data = data[4:]
+
+                if len(data) < 2:
+                    rsn_values["auth_suites"] = [defauth]
+
+                count = data[0] | (data[1] << 8)
+                if 2 + (count * 4) > len(data):
+                    # raise Exception(f"* bogus tail data ({count}):")
+                    return rsn_values
+
+                data = data[2:]
+                for _ in range(count):
+                    rsn_values["auth_suites"].append(self._get_auth_list(data))
+                    data = data[4:]
+
+                if len(data) >= 2:
+                    capabilities = []
+                    capa = data[0] | (data[1] << 8)
+                    data = data[2:]
+                    if capa & 0x0001:
+                        capabilities.append("PreAuth")
+                    if capa & 0x0002:
+                        capabilities.append("NoPairwise")
+                    capabilities.append(
+                        [
+                            "1-PTKSA-RC",
+                            "2-PTKSA-RC",
+                            "4-PTKSA-RC",
+                            "16-PTKSA-RC",
+                        ][(capa & 0x000C) >> 2]
+                    )
+                    capabilities.append(
+                        [
+                            "1-GTKSA-RC",
+                            "2-GTKSA-RC",
+                            "4-GTKSA-RC",
+                            "16-GTKSA-RC",
+                        ][(capa & 0x0030) >> 4]
+                    )
+                    if capa & 0x0040:
+                        capabilities.append("MFP-required")
+                    if capa & 0x0080:
+                        capabilities.append("MFP-capable")
+                    if capa & 0x0200:
+                        capabilities.append("Peerkey-enabled")
+                    if capa & 0x0400:
+                        capabilities.append("SPP-AMSDU-capable")
+                    if capa & 0x0800:
+                        capabilities.append("SPP-AMSDU-required")
+                    if capa & 0x2000:
+                        capabilities.append("Extended-Key-ID")
+                    rsn_values["capabilities"] = capabilities
+
+                if len(data) >= 2:
+                    pmkid_count = data[0] | (data[1] << 8)
+                    if len(data) < 2 + 16 * pmkid_count:
+                        # raise Exception("invalid")
+                        return rsn_values
+                    data = data[2:]
+                    for _ in range(pmkid_count):
+                        rsn_values["pmkid_ids"].append(data[:16])
+                        data = data[16:]
+
+                if len(data) >= 4:
+                    rsn_values[
+                        "group_mgmt_cipher_suite"
+                    ] = self._get_cipher_list(data)
+                    data = data[4:]
+
+                return rsn_values
+
+            def binary_ht_operation(self, offset, length):
+                data = self.data[offset : offset + length]
+                ht_operation = {}
+                ht_operation["PRIMARY_CHANNEL"] = data[0]
+                ht_operation["SECONDARY_CHANNEL"] = data[1] & 0x3
+                try:
+                    ht_operation["CHANNEL_WIDTH"] = [
+                        BSS_HT_OPER_CHAN_WIDTH_20,
+                        BSS_HT_OPER_CHAN_WIDTH_20_OR_40,
+                    ][(data[1] & 0x4) >> 2]
+                except IndexError:
+                    ht_operation["CHANNEL_WIDTH"] = None
+                try:
+                    ht_operation["HT_PROTECTION"] = [
+                        "no",
+                        "nonmember",
+                        "20 MHz",
+                        "non-HT mixed",
+                    ][data[2] & 0x3]
+                except IndexError:
+                    ht_operation["HT_PROTECTION"] = None
+
+                ht_operation.update(
+                    {
+                        "RIFS": (data[1] & 0x8) >> 3,
+                        "NON_GF_PRESENT": (data[2] & 0x4) >> 2,
+                        "OBSS_NON_GF_PRESENT": (data[2] & 0x10) >> 4,
+                        "DUAL_BEACON": (data[4] & 0x40) >> 6,
+                        "DUAL_CTS_PROTECTION": (data[4] & 0x80) >> 7,
+                        "STBC_BEACON": data[5] & 0x1,
+                        "L_SIG_TXOP_PROT": (data[5] & 0x2) >> 1,
+                        "PCO_ACTIVE": (data[5] & 0x4) >> 2,
+                        "PCO_PHASE": (data[5] & 0x8) >> 3,
+                    }
+                )
+                return ht_operation
+
+            def binary_vht_operation(self, offset, length):
+                data = self.data[offset : offset + length]
+                vht_operation = {
+                    "CENTER_FREQ_SEG_1": data[1],
+                    "CENTER_FREQ_SEG_2": data[1],
+                    "VHT_BASIC_MCS_SET": (data[4], data[3]),
+                }
+                try:
+                    vht_operation["CHANNEL_WIDTH"] = [
+                        BSS_VHT_OPER_CHAN_WIDTH_20_OR_40,
+                        BSS_VHT_OPER_CHAN_WIDTH_80,
+                        BSS_VHT_OPER_CHAN_WIDTH_80P80,
+                        BSS_VHT_OPER_CHAN_WIDTH_160,
+                    ][data[0]]
+                except IndexError:
+                    vht_operation["CHANNEL_WIDTH"] = None
+
+                return vht_operation
+
             def decode_nlas(self):
                 return
 
@@ -806,10 +1068,9 @@ class nl80211cmd(genlmsg):
                             self.binary_tim(offset + 2)
 
                     if msg_type == NL80211_BSS_ELEMENTS_RSN:
-                        self.value["RSN"], = (struct
-                                              .unpack_from('%is' % length,
-                                                           self.data,
-                                                           offset + 2))
+                        self.value["RSN"] = self.binary_rsn(
+                            offset + 2, length, "CCMP", "IEEE 802.1X"
+                        )
 
                     if msg_type == NL80211_BSS_ELEMENTS_EXTENDED_RATE:
                         extended_rates = self.binary_rates(offset + 2, length)
@@ -823,6 +1084,16 @@ class nl80211cmd(genlmsg):
                                                          self.data,
                                                          offset + 2))
                         self.value["VENDOR"].append(vendor_ie)
+
+                    if msg_type == NL80211_BSS_ELEMENTS_HT_OPERATION:
+                        self.value["HT_OPERATION"] = self.binary_ht_operation(
+                            offset + 2, length
+                        )
+
+                    if msg_type == NL80211_BSS_ELEMENTS_VHT_OPERATION:
+                        self.value[
+                            "VHT_OPERATION"
+                        ] = self.binary_vht_operation(offset + 2, length)
 
                     offset += length + 2
 
@@ -1044,6 +1315,113 @@ class nl80211cmd(genlmsg):
                    ('NL80211_STA_INFO_MAX', 'hex')
                    )
 
+    class supported_commands(nla_base):
+        '''
+        Supported commands format
+
+        NLA structure header::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  | NLA type |
+        +++++++++++++++++++++++
+
+        followed by multiple command entries::
+        ++++++++++++++++++++++++++++++++++
+        | uint16_t | uint16_t | uint32_t |
+        |   type   |  index   |   cmd    |
+        ++++++++++++++++++++++++++++++++++
+        '''
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = []
+
+            # Skip the first four bytes: NLA length and NLA type
+            length = self.length - 4
+            offset = self.offset + 4
+            while length > 0:
+                (msg_type, index, cmd_index) = struct.unpack_from(
+                    'HHI', self.data, offset
+                )
+                length -= 8
+                offset += 8
+
+                # Lookup for command name or assign a default name
+                name = NL80211_VALUES.get(
+                    cmd_index, 'NL80211_CMD_{}'.format(cmd_index)
+                )
+                self.value.append(name)
+
+    class cipher_suites(nla_base):
+        '''
+        Cipher suites format
+
+        NLA structure header::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  | NLA type |
+        +++++++++++++++++++++++
+
+        followed by multiple entries::
+        ++++++++++++
+        | uint32_t |
+        |  cipher  |
+        ++++++++++++
+        '''
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = []
+
+            # Skip the first four bytes: NLA length and NLA type
+            length = self.length - 4
+            offset = self.offset + 4
+            while length > 0:
+                (cipher,) = struct.unpack_from('<I', self.data, offset)
+                length -= 4
+                offset += 4
+
+                # Lookup for cipher name or assign a default name
+                name = WLAN_CIPHER_SUITE_VALUES.get(
+                    cipher, 'WLAN_CIPHER_SUITE_{:08X}'.format(cipher)
+                )
+                self.value.append(name)
+
+    class supported_iftypes(nla_base):
+        '''
+        Supported iftypes format
+
+        NLA structure header::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  | NLA type |
+        +++++++++++++++++++++++
+
+        followed by multiple iftype entries::
+        +++++++++++++++++++++++
+        | uint16_t | uint16_t |
+        |  length  |  iftype  |
+        +++++++++++++++++++++++
+        '''
+
+        def decode(self):
+            nla_base.decode(self)
+            self.value = []
+
+            # Skip the first four bytes: NLA length and NLA type
+            length = self.length - 4
+            offset = self.offset + 4
+            while length > 0:
+                (iflen, iftype) = struct.unpack_from('<HH', self.data, offset)
+                length -= 4
+                offset += 4
+
+                # Lookup for iftype name or assign a default name
+                name = IFTYPE_VALUES.get(
+                    iftype, 'NL80211_IFTYPE_{}'.format(iftype)
+                )
+                self.value.append(name)
+
 
 class MarshalNl80211(Marshal):
     msg_map = {NL80211_CMD_UNSPEC: nl80211cmd,
@@ -1180,5 +1558,6 @@ class NL80211(GenericNetlinkSocket):
         self.marshal = MarshalNl80211()
 
     def bind(self, groups=0, **kwarg):
-        GenericNetlinkSocket.bind(self, 'nl80211', nl80211cmd,
-                                  groups, None, **kwarg)
+        GenericNetlinkSocket.bind(
+            self, NL80211_GENL_NAME, nl80211cmd, groups, None, **kwarg
+        )

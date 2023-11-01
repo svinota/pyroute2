@@ -403,7 +403,6 @@ class Via(OrderedDict):
 
 
 class Route(RTNL_Object):
-
     table = 'routes'
     msg_class = rtmsg
     hidden_fields = ['route_id']
@@ -862,7 +861,6 @@ class RouteSub:
 
 
 class NextHop(RouteSub, RTNL_Object):
-
     msg_class = nh
     table = 'nh'
     hidden_fields = ('route_id', 'target')
@@ -902,7 +900,6 @@ class MetricsStub(RouteSub, dict):
 
 
 class Metrics(RouteSub, RTNL_Object):
-
     msg_class = rtmsg.metrics
     table = 'metrics'
     hidden_fields = ('route_id', 'target')

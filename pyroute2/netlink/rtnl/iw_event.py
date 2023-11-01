@@ -2,7 +2,6 @@ from pyroute2.netlink import nla
 
 
 class iw_event(nla):
-
     nla_map = (
         (0xB00, 'SIOCSIWCOMMIT', 'hex'),
         (0xB01, 'SIOCGIWNAME', 'hex'),

@@ -33,7 +33,6 @@ init = {
 
 
 class NetNS(RTNL_Object):
-
     table = 'netns'
     msg_class = nsinfmsg
     table_alias = 'n'

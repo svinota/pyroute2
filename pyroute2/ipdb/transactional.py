@@ -41,7 +41,6 @@ class State(object):
 
 def update(f):
     def decorated(self, *argv, **kwarg):
-
         if self._mode == 'snapshot':
             # short-circuit
             with self._write_lock:
@@ -174,7 +173,7 @@ class Transactional(Dotkeys):
             res = self.__class__(
                 ipdb=self.ipdb, mode='snapshot', parent=parent, uid=uid
             )
-            for (key, value) in self.items():
+            for key, value in self.items():
                 if self[key] is not None:
                     if key in self._fields:
                         res[key] = self[key]
@@ -423,7 +422,6 @@ class Transactional(Dotkeys):
         the current one.
         '''
         with self._write_lock:
-
             if tid is None:
                 tx = self.current_tx
                 if tx is None:
@@ -438,7 +436,7 @@ class Transactional(Dotkeys):
             for key in self._linked_sets:
                 if tx[key] in self[key].links:
                     self[key].disconnect(tx[key])
-            for (key, value) in self.items():
+            for key, value in self.items():
                 if isinstance(value, Transactional):
                     try:
                         value.drop(tx.uid)

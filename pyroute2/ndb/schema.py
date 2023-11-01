@@ -223,7 +223,6 @@ class DBDict(dict):
 
 
 class DBSchema:
-
     connection = None
     event_map = None
     key_defaults = None

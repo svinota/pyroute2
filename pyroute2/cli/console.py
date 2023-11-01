@@ -60,7 +60,6 @@ class Console(code.InteractiveConsole):
             self.session.handle(f.read())
 
     def interact(self, readfunc=None):
-
         if self.isatty and readfunc is None:
             self.session.lprint("pyroute2 cli prototype")
 

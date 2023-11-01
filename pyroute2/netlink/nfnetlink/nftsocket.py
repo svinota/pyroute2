@@ -340,7 +340,6 @@ class nft_data(nla):
 # nft_expr struct, used for rules and set
 class nft_contains_expr:
     class nft_expr(nla):
-
         header_type = 1
 
         nla_map = (

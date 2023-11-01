@@ -33,13 +33,11 @@ RTAX_MAX = 8
 
 
 class rt_slot(nlmsg_base):
-
     __slots__ = ()
     header = (('length', 'B'), ('family', 'B'))
 
 
 class rt_msg(rt_msg_base):
-
     __slots__ = ()
     force_mask = False
 

@@ -127,7 +127,6 @@ class NDBContextManager(object):
     '''
 
     def __init__(self, request, tmpdir, **kwarg):
-
         self.spec = SpecContextManager(request, tmpdir)
         self.netns = None
         #
@@ -319,7 +318,7 @@ class NDBContextManager(object):
         self.ndb.close()
         self.ipr.close()
         self.wg.close()
-        for (ifname, nsname) in self.interfaces.items():
+        for ifname, nsname in self.interfaces.items():
             try:
                 ipr = None
                 #

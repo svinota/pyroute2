@@ -53,7 +53,6 @@ plugins = {
 
 
 class tcmsg(nlmsg):
-
     prefix = 'TCA_'
 
     fields = (

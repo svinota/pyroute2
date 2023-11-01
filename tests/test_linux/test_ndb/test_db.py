@@ -11,7 +11,6 @@ except ImportError:
 
 
 def test_no_cleanup(spec):
-
     # start and stop the DB, leaving all the data in the DB file
     NDB(
         db_provider='sqlite3',
@@ -33,7 +32,6 @@ def test_no_cleanup(spec):
 
 
 def test_postgres_fail(spec):
-
     try:
         NDB(
             db_provider='postgres',

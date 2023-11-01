@@ -1,6 +1,28 @@
 Changelog
 =========
 
+* 0.7.9
+    * minimal: fix for embedded envs <https://github.com/svinota/pyroute2/pull/1096>
+    * diag: support CGROUP_ID <https://github.com/svinota/pyroute2/pull/1092>
+    * iwutil: get/set interface (by ifindex) type <https://github.com/svinota/pyroute2/pull/1093>
+    * tc: 'duplicate' parameter fix <https://github.com/svinota/pyroute2/pull/1098>
+* 0.7.8
+    * ss2: more fixes <https://github.com/svinota/pyroute2/pull/1088>
+* 0.7.7
+    * ss2: user context patch <https://github.com/svinota/pyroute2/pull/1087>
+    * ndb: basic altname support
+    * nl80211: decoder improvements <https://github.com/svinota/pyroute2/pull/1086>
+* 0.7.6
+    * setup: static loader <https://github.com/svinota/pyroute2/issues/1076>
+    * iproute: support altname in link_lookup()
+    * ethtool: fd leaks <https://github.com/svinota/pyroute2/pull/1081>
+* 0.7.5
+    * nlsocket: fix marshal reference <https://github.com/svinota/pyroute2/issues/1068>
+* 0.7.4
+    * rtnl: SRv6 updates <https://github.com/svinota/pyroute2/pull/1037>
+    * connector: basic implementation <https://github.com/svinota/pyroute2/issues/1036>
+    * nftables: sets draft <https://github.com/svinota/pyroute2/pull/1017>
+    * ss2: provide as a module <https://github.com/svinota/pyroute2/pull/1062>
 * 0.7.3
     * nlsocket: CompileContext support
     * nlsocket: support for per request parsers (see `IPRoute.get_default_routes()`)

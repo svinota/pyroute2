@@ -14,7 +14,6 @@ test_matrix = make_test_matrix(
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_fdb_create(context):
-
     spec = {
         'ifindex': context.default_interface.index,
         'lladdr': '00:11:22:33:44:55',

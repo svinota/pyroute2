@@ -41,6 +41,7 @@ class MockLink:
         master=0,
         br_max_age=0,
         br_forward_delay=0,
+        alt_ifname_list=None,
     ):
         self.index = index
         self.ifname = ifname
@@ -60,6 +61,7 @@ class MockLink:
         self.master = master
         self.br_max_age = br_max_age
         self.br_forward_delay = br_forward_delay
+        self.alt_ifname_list = alt_ifname_list or []
 
     def export(self):
         ret = {
