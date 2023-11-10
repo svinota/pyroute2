@@ -1255,6 +1255,41 @@ class nl80211cmd(genlmsg):
 
                     offset += length + 2
 
+        class rate_info(nla):
+            '''
+            Decode the data rate information
+            See nl80211.h: struct nl80211_sta_info,
+            NL80211_STA_INFO_TX_BITRATE
+            NL80211_STA_INFO_RX_BITRATE
+            '''
+
+            prefix = "NL80211_RATE_INFO_"
+            nla_map = (
+                ('__NL80211_RATE_INFO_INVALID', 'hex'),
+                ('NL80211_RATE_INFO_BITRATE', 'uint16'),
+                ('NL80211_RATE_INFO_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_40_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_SHORT_GI', 'hex'),
+                ('NL80211_RATE_INFO_BITRATE32', 'uint32'),
+                ('NL80211_RATE_INFO_VHT_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_VHT_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_80_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_80P80_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_160_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_10_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_5_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_HE_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_HE_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_HE_GI', 'uint8'),
+                ('NL80211_RATE_INFO_HE_DCM', 'uint8'),
+                ('NL80211_RATE_INFO_HE_RU_ALLOC', 'uint8'),
+                ('NL80211_RATE_INFO_320_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_EHT_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_EHT_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_EHT_GI', 'uint8'),
+                ('NL80211_RATE_INFO_EHT_RU_ALLOC', 'uint8'),
+            )
+
         prefix = 'NL80211_STA_INFO_'
         nla_map = (
             ('__NL80211_STA_INFO_INVALID', 'hex'),
@@ -1265,13 +1300,13 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_PLID', 'uint16'),
             ('NL80211_STA_INFO_PLINK_STATE', 'uint8'),
             ('NL80211_STA_INFO_SIGNAL', 'int8'),
-            ('NL80211_STA_INFO_TX_BITRATE', 'hex'),
+            ('NL80211_STA_INFO_TX_BITRATE', 'rate_info'),
             ('NL80211_STA_INFO_RX_PACKETS', 'uint32'),
             ('NL80211_STA_INFO_TX_PACKETS', 'uint32'),
             ('NL80211_STA_INFO_TX_RETRIES', 'uint32'),
             ('NL80211_STA_INFO_TX_FAILED', 'uint32'),
             ('NL80211_STA_INFO_SIGNAL_AVG', 'int8'),
-            ('NL80211_STA_INFO_RX_BITRATE', 'hex'),
+            ('NL80211_STA_INFO_RX_BITRATE', 'rate_info'),
             ('NL80211_STA_INFO_BSS_PARAM', 'hex'),
             ('NL80211_STA_INFO_CONNECTED_TIME', 'uint32'),
             ('NL80211_STA_INFO_STA_FLAGS', 'STAFlags'),
