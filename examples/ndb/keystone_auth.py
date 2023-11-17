@@ -40,7 +40,7 @@ run::
 
     $ . openstack.rc  # <-- your OpenStack APIv3 RC file
     $ export PYTHONPATH=`pwd`
-    $ python examples/ndb/keystone_auth.py 14080769fe05e1f8b837fb43ca0f0ba4
+    $ python3 examples/ndb/keystone_auth.py 14080769fe05e1f8b837fb43ca0f0ba4
 
 Using this example you can implement services that export NDB via any RPC,
 e.g. HTTP, and use Keystone integration. Same scheme may be used for any
