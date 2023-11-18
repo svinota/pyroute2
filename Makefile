@@ -6,7 +6,7 @@
 python ?= $(shell util/find_python.sh)
 
 define nox
-	nox $(1) -- '$(subst ",\",${noxconfig})'
+	python3 -m nox $(1) -- '$(subst ",\",${noxconfig})'
 endef
 
 .PHONY: all
