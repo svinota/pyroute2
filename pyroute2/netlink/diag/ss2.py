@@ -58,8 +58,6 @@ except ImportError:
 
 
 class UserCtxtMap(Mapping):
-    _data = {}
-
     _sk_inode_re = re.compile(r"socket:\[(?P<ino>\d+)\]")
 
     _proc_sk_fd_cast = "/proc/%d/fd/%d"
@@ -160,6 +158,7 @@ class UserCtxtMap(Mapping):
                 pass
 
     def __init__(self):
+        self._data = {}
         self._build()
 
     def __getitem__(self, key):
