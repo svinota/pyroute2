@@ -56,6 +56,8 @@ except ImportError:
 # UDIAG_SHOW_RQLEN,
 # UDIAG_SHOW_MEMINFO
 
+RUN_AS_MODULE = False
+
 
 class UserCtxtMap(Mapping):
     _sk_inode_re = re.compile(r"socket:\[(?P<ino>\d+)\]")
@@ -210,9 +212,8 @@ class UNIX(Protocol):
             show=(UDIAG_SHOW_NAME | UDIAG_SHOW_VFS | UDIAG_SHOW_PEER),
         )
         refined_stats = self._refine_diag_raw(sstats, usr_ctxt)
-        printable = self._fmt(refined_stats)
 
-        print(printable)
+        return refined_stats
 
     def _refine_diag_raw(self, raw_stats, usr_ctxt):
         refined = {"UNIX": {"flows": []}}
@@ -289,9 +290,8 @@ class TCP(Protocol):
             states=self._states, family=AF_INET, extensions=self.ext_f
         )
         refined_stats = self._refine_diag_raw(sstats, args.resolve, usr_ctxt)
-        printable = self._fmt(refined_stats)
 
-        print(printable)
+        return refined_stats
 
     def _refine_diag_raw(self, raw_stats, do_resolve, usr_ctxt):
         refined = {"TCP": {"flows": []}}
@@ -616,10 +616,18 @@ def run(args=None):
     if args.process:
         _user_ctxt_map = UserCtxtMap()
 
+    result = list()
+
     with DiagSocket() as ds:
         ds.bind()
         for p in protocols:
-            p(ds, args, _user_ctxt_map)
+            sub_statistics = p(ds, args, _user_ctxt_map)
+            result.append(sub_statistics)
+
+    if RUN_AS_MODULE:
+        return result
+    else:
+        print(json.dumps(result, indent=4))
 
 
 if __name__ == "__main__":
