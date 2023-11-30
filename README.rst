@@ -62,7 +62,7 @@ A "Hello world" example:
     from pyroute2 import NDB
 
     with NDB() as ndb:
-        with ndb.interfaces['eth0'] as eth0
+        with ndb.interfaces['eth0'] as eth0:
             # set one parameter
             eth0.set(state='down')
             eth0.commit()  # make sure that the interface is down
