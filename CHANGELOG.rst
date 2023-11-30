@@ -1,6 +1,20 @@
 Changelog
 =========
 
+* 0.7.10
+    * ss2: fix classful flow data <https://github.com/svinota/pyroute2/pull/1143>
+    * ci: add Python versions 3.8 and 3.12, update platform versions
+    * l2tp: fix get_tunnel/get_session <https://github.com/svinota/pyroute2/pull/1134>
+    * ndb: compat fix <https://github.com/svinota/pyroute2/pull/1133>
+    * ndb: recordset pipes <https://github.com/svinota/pyroute2/pull/1108>
+    * netns: RISCV64 fix <https://github.com/svinota/pyroute2/pull/1128>
+    * netns: loongarch support <https://github.com/svinota/pyroute2/pull/1104>
+    * ethtool: statistics support <https://github.com/svinota/pyroute2/pull/1126>
+    * ethtool: dynamic ioctl gstrings <https://github.com/svinota/pyroute2/issues/1112>
+    * NetNS: set_netnsid fix <https://github.com/svinota/pyroute2/issues/1123>
+    * iproute: nsid allocation <https://github.com/svinota/pyroute2/pull/1121>
+    * iproute: dump mpls routes <https://github.com/svinota/pyroute2/pull/1115>
+    * rtnl: CAN support <https://github.com/svinota/pyroute2/pull/1109>
 * 0.7.9
     * minimal: fix for embedded envs <https://github.com/svinota/pyroute2/pull/1096>
     * diag: support CGROUP_ID <https://github.com/svinota/pyroute2/pull/1092>
