@@ -14,6 +14,7 @@ from pyroute2.ethtool.common import (
 from pyroute2.ethtool.ioctl import WAKE_NAMES, IoctlEthtool
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.generic.ethtool import NlEthtool
+from pyroute2.netlink.generic.ethtool import ethtool_rings_msg
 
 INT32MINUS_UINT32 = c_uint32(-1).value
 INT16MINUS_UINT16 = c_uint16(-1).value
@@ -257,6 +258,63 @@ class EthtoolLinkMode(
         )
 
 
+class EthtoolRings(namedtuple('EthtoolRings', (
+        "rx_max",
+        "rx_mini_max",
+        "rx_jumbo_max",
+        "tx_max",
+        "rx",
+        "rx_mini",
+        "rx_jumbo",
+        "tx",
+        "rx_buf_len",
+        "tcp_data_split",
+        "cqe_size",
+        "tx_push",
+        "rx_push",
+        "tx_push_buf_len",
+        "tx_push_buf_len_max"))):
+
+    nl_attributs_dict = {
+        "rx_max": 'ETHTOOL_A_RINGS_RX_MAX',
+        "rx_mini_max": 'ETHTOOL_A_RINGS_RX_MINI_MAX',
+        "rx_jumbo_max": 'ETHTOOL_A_RINGS_RX_JUMBO_MAX',
+        "tx_max": 'ETHTOOL_A_RINGS_TX_MAX',
+        "rx": 'ETHTOOL_A_RINGS_RX',
+        "rx_mini": 'ETHTOOL_A_RINGS_RX_MINI',
+        "rx_jumbo": 'ETHTOOL_A_RINGS_RX_JUMBO',
+        "tx": 'ETHTOOL_A_RINGS_TX',
+        "rx_buf_len": 'ETHTOOL_A_RINGS_RX_BUF_LEN',
+        "tcp_data_split": 'ETHTOOL_A_RINGS_TCP_DATA_SPLIT',
+        "cqe_size": 'ETHTOOL_A_RINGS_CQE_SIZE',
+        "tx_push": 'ETHTOOL_A_RINGS_TX_PUSH',
+        "rx_push": 'ETHTOOL_A_RINGS_RX_PUSH',
+        "tx_push_buf_len": 'ETHTOOL_A_RINGS_TX_PUSH_BUF_LEN',
+        "tx_push_buf_len_max": 'ETHTOOL_A_RINGS_TX_PUSH_BUF_LEN_MAX',
+    }
+
+    @classmethod
+    def from_netlink(cls, nl_rings):
+        nl_rings = nl_rings[0]
+        return cls(**{cls_attr: nl_rings.get_attr(netlink_attr)
+                      for cls_attr, netlink_attr in
+                      cls.nl_attributs_dict.items()})
+
+    def to_netlink(self):
+        nl_rings_attrs = ethtool_rings_msg()
+        for cls_attr, netlink_attr in self.nl_attributs_dict.items():
+            attr = getattr(self, cls_attr)
+            if attr is not None:
+                nl_rings_attrs["attrs"].append((netlink_attr, attr))
+        return nl_rings_attrs
+
+    @classmethod
+    def from_ioctl(cls, ioctl_rings):
+        ioctl_rings = dict(ioctl_rings)
+        ioctl_rings.pop("cmd")
+        return cls(**ioctl_rings)
+
+
 class Ethtool:
     def __init__(self):
         self._with_ioctl = IoctlEthtool()
@@ -329,6 +387,30 @@ class Ethtool:
             self._with_ioctl.change_ifname(ifname)
             wol_mode = self._with_ioctl.get_wol()
             return EthtoolWakeOnLan.from_ioctl(wol_mode)
+
+    def get_rings(self, ifname, with_netlink=None):
+        try:
+            rings = self._nl_exec(self._with_nl.get_rings,
+                                  with_netlink, ifname)
+            rings = EthtoolRings.from_netlink(rings)
+        except UseIoctl:
+            self._with_ioctl.change_ifname(ifname)
+            rings_info = self._with_ioctl.get_rings()
+            rings = EthtoolRings.from_ioctl(rings_info)
+        return rings
+
+    def set_rings(self, ifname, with_netlink=None, **kwargs):
+        try:
+            rings = EthtoolRings(**kwargs).to_netlink()
+            self._nl_exec(self._with_nl.set_rings, with_netlink, rings, ifname)
+        except UseIoctl:
+            self._with_ioctl.change_ifname(ifname)
+            ioctl_rings = self._with_ioctl.get_rings()
+            for name, value in kwargs.items():
+                if name in ioctl_rings.keys() and ioctl_rings[name] != value:
+                    ioctl_rings[name] = value
+
+            self._with_ioctl.set_rings(ioctl_rings)
 
     def get_features(self, ifname):
         self._with_ioctl.change_ifname(ifname)
