@@ -293,6 +293,16 @@ class EthtoolRings(namedtuple('EthtoolRings', (
         "tx_push_buf_len_max": 'ETHTOOL_A_RINGS_TX_PUSH_BUF_LEN_MAX',
     }
 
+    def __new__(cls, rx_max=None, rx_mini_max=None, rx_jumbo_max=None,
+                tx_max=None, rx=None, rx_mini=None, rx_jumbo=None,
+                tx=None, rx_buf_len=None, tcp_data_split=None,
+                cqe_size=None, tx_push=None, rx_push=None,
+                tx_push_buf_len=None, tx_push_buf_len_max=None):
+        return super(EthtoolRings, cls).__new__(
+            cls, rx_max, rx_mini_max, rx_jumbo_max, tx_max, rx, rx_mini,
+            rx_jumbo, tx, rx_buf_len, tcp_data_split, cqe_size, tx_push,
+            rx_push, tx_push_buf_len, tx_push_buf_len_max)
+
     @classmethod
     def from_netlink(cls, nl_rings):
         nl_rings = nl_rings[0]
