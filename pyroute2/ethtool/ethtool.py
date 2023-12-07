@@ -13,8 +13,7 @@ from pyroute2.ethtool.common import (
 )
 from pyroute2.ethtool.ioctl import WAKE_NAMES, IoctlEthtool
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.generic.ethtool import NlEthtool
-from pyroute2.netlink.generic.ethtool import ethtool_rings_msg
+from pyroute2.netlink.generic.ethtool import NlEthtool, ethtool_rings_msg
 
 INT32MINUS_UINT32 = c_uint32(-1).value
 INT16MINUS_UINT16 = c_uint16(-1).value
@@ -258,23 +257,28 @@ class EthtoolLinkMode(
         )
 
 
-class EthtoolRings(namedtuple('EthtoolRings', (
-        "rx_max",
-        "rx_mini_max",
-        "rx_jumbo_max",
-        "tx_max",
-        "rx",
-        "rx_mini",
-        "rx_jumbo",
-        "tx",
-        "rx_buf_len",
-        "tcp_data_split",
-        "cqe_size",
-        "tx_push",
-        "rx_push",
-        "tx_push_buf_len",
-        "tx_push_buf_len_max"))):
-
+class EthtoolRings(
+    namedtuple(
+        'EthtoolRings',
+        (
+            "rx_max",
+            "rx_mini_max",
+            "rx_jumbo_max",
+            "tx_max",
+            "rx",
+            "rx_mini",
+            "rx_jumbo",
+            "tx",
+            "rx_buf_len",
+            "tcp_data_split",
+            "cqe_size",
+            "tx_push",
+            "rx_push",
+            "tx_push_buf_len",
+            "tx_push_buf_len_max",
+        ),
+    )
+):
     nl_attributs_dict = {
         "rx_max": 'ETHTOOL_A_RINGS_RX_MAX',
         "rx_mini_max": 'ETHTOOL_A_RINGS_RX_MINI_MAX',
@@ -293,22 +297,52 @@ class EthtoolRings(namedtuple('EthtoolRings', (
         "tx_push_buf_len_max": 'ETHTOOL_A_RINGS_TX_PUSH_BUF_LEN_MAX',
     }
 
-    def __new__(cls, rx_max=None, rx_mini_max=None, rx_jumbo_max=None,
-                tx_max=None, rx=None, rx_mini=None, rx_jumbo=None,
-                tx=None, rx_buf_len=None, tcp_data_split=None,
-                cqe_size=None, tx_push=None, rx_push=None,
-                tx_push_buf_len=None, tx_push_buf_len_max=None):
+    def __new__(
+        cls,
+        rx_max=None,
+        rx_mini_max=None,
+        rx_jumbo_max=None,
+        tx_max=None,
+        rx=None,
+        rx_mini=None,
+        rx_jumbo=None,
+        tx=None,
+        rx_buf_len=None,
+        tcp_data_split=None,
+        cqe_size=None,
+        tx_push=None,
+        rx_push=None,
+        tx_push_buf_len=None,
+        tx_push_buf_len_max=None,
+    ):
         return super(EthtoolRings, cls).__new__(
-            cls, rx_max, rx_mini_max, rx_jumbo_max, tx_max, rx, rx_mini,
-            rx_jumbo, tx, rx_buf_len, tcp_data_split, cqe_size, tx_push,
-            rx_push, tx_push_buf_len, tx_push_buf_len_max)
+            cls,
+            rx_max,
+            rx_mini_max,
+            rx_jumbo_max,
+            tx_max,
+            rx,
+            rx_mini,
+            rx_jumbo,
+            tx,
+            rx_buf_len,
+            tcp_data_split,
+            cqe_size,
+            tx_push,
+            rx_push,
+            tx_push_buf_len,
+            tx_push_buf_len_max,
+        )
 
     @classmethod
     def from_netlink(cls, nl_rings):
         nl_rings = nl_rings[0]
-        return cls(**{cls_attr: nl_rings.get_attr(netlink_attr)
-                      for cls_attr, netlink_attr in
-                      cls.nl_attributs_dict.items()})
+        return cls(
+            **{
+                cls_attr: nl_rings.get_attr(netlink_attr)
+                for cls_attr, netlink_attr in cls.nl_attributs_dict.items()
+            }
+        )
 
     def to_netlink(self):
         nl_rings_attrs = ethtool_rings_msg()
@@ -400,8 +434,9 @@ class Ethtool:
 
     def get_rings(self, ifname, with_netlink=None):
         try:
-            rings = self._nl_exec(self._with_nl.get_rings,
-                                  with_netlink, ifname)
+            rings = self._nl_exec(
+                self._with_nl.get_rings, with_netlink, ifname
+            )
             rings = EthtoolRings.from_netlink(rings)
         except UseIoctl:
             self._with_ioctl.change_ifname(ifname)
