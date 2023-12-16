@@ -32,7 +32,7 @@ Then setup your client::
     export PYTHONPATH=`pwd`
 
     $ . radius.rc
-    $ python examples/ndb/radius_auth.py testing secret
+    $ python3 examples/ndb/radius_auth.py testing secret
 
 '''
 

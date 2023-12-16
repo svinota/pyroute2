@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import traceback
 from pyroute2.netlink import NLM_F_REQUEST

@@ -23,6 +23,9 @@ ETHTOOL_GSTRINGS = 0x0000001B
 ETHTOOL_GSTATS = 0x0000001D
 ETH_GSTRING_LEN = 32
 
+ETHTOOL_GRINGPARAM = 0x00000010
+ETHTOOL_SRINGPARAM = 0x00000011
+
 ETHTOOL_GRXCSUM = 0x00000014
 ETHTOOL_SRXCSUM = 0x00000015
 ETHTOOL_GTXCSUM = 0x00000016
@@ -340,6 +343,21 @@ class FeatureState(ctypes.Structure):
     _fields_ = [("off_flags", ctypes.c_uint32), ("features", EthtoolGfeatures)]
 
 
+class EthtoolRingParam(DictStruct):
+    _pack_ = 1
+    _fields_ = [
+        ("cmd", ctypes.c_uint32),
+        ("rx_max", ctypes.c_uint32),
+        ("rx_mini_max", ctypes.c_uint32),
+        ("rx_jumbo_max", ctypes.c_uint32),
+        ("tx_max", ctypes.c_uint32),
+        ("rx", ctypes.c_uint32),
+        ("rx_mini", ctypes.c_uint32),
+        ("rx_jumbo", ctypes.c_uint32),
+        ("tx", ctypes.c_uint32),
+    ]
+
+
 class IfReqData(ctypes.Union):
     dummy = generate_EthtoolGstrings(0)
     _fields_ = [
@@ -353,6 +371,7 @@ class IfReqData(ctypes.Union):
         ("sfeatures", ctypes.POINTER(EthtoolSfeatures)),
         ("glinksettings", ctypes.POINTER(IoctlEthtoolLinkSettings)),
         ("wolinfo", ctypes.POINTER(EthtoolWolInfo)),
+        ("rings", ctypes.POINTER(EthtoolRingParam)),
     ]
 
 
@@ -627,3 +646,14 @@ class IoctlEthtool:
         self.ifreq.wolinfo = ctypes.pointer(cmd)
         self.ioctl()
         return cmd
+
+    def get_rings(self):
+        cmd = EthtoolRingParam(cmd=ETHTOOL_GRINGPARAM)
+        self.ifreq.rings = ctypes.pointer(cmd)
+        self.ioctl()
+        return cmd
+
+    def set_rings(self, rings):
+        rings.cmd = ETHTOOL_SRINGPARAM
+        self.ifreq.rings = ctypes.pointer(rings)
+        self.ioctl()
