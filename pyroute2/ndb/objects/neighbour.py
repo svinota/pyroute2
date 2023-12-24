@@ -48,8 +48,9 @@ ndmsg_schema = (
 
 brmsg_schema = (
     ndmsg.sql_schema()
-    .unique_index('ifindex', 'NDA_LLADDR', 'NDA_VLAN')
+    .unique_index('ifindex', 'NDA_LLADDR', 'NDA_DST', 'NDA_VLAN')
     .constraint('NDA_LLADDR', "NOT NULL DEFAULT ''")
+    .constraint('NDA_DST', "NOT NULL DEFAULT ''")
     .constraint('NDA_VLAN', "NOT NULL DEFAULT 0")
     .foreign_key(
         'interfaces',
