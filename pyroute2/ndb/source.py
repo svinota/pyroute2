@@ -180,6 +180,12 @@ class Source(dict):
         self.ndb.task_manager.db_add_nl_source(self.target, self.kind, spec)
         self.load_sql()
 
+    @classmethod
+    def _count(cls, view):
+        return view.ndb.task_manager.db_fetchone(
+            "SELECT count(*) FROM %s" % view.table
+        )
+
     @property
     def must_restart(self):
         if self.max_errors < 0 or self.errors_counter <= self.max_errors:
