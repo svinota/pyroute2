@@ -7,10 +7,21 @@ Local RTNL source is a simple `IPRoute` instance. By default NDB
 starts with one local RTNL source names `localhost`::
 
     >>> ndb = NDB()
-    >>> ndb.sources.details()
-    {'kind': u'local', u'nlm_generator': 1, 'target': u'localhost'}
+    >>> ndb.sources.summary().format("json")
+    [
+        {
+            "name": "localhost",
+            "spec": "{'target': 'localhost', 'nlm_generator': 1}",
+            "state": "running"
+        },
+        {
+            "name": "localhost/nsmanager",
+            "spec": "{'target': 'localhost/nsmanager'}",
+            "state": "running"
+        }
+    ]
     >>> ndb.sources['localhost']
-    [running] <IPRoute {'nlm_generator': 1}>
+    [running] <IPRoute {'target: 'localhost', 'nlm_generator': 1}>
 
 The `localhost` RTNL source starts an additional async cache thread.
 The `nlm_generator` option means that instead of collections the
@@ -18,7 +29,7 @@ The `nlm_generator` option means that instead of collections the
 consume memory regardless of the RTNL objects number::
 
     >>> ndb.sources['localhost'].nl.link('dump')
-    <generator object _match at 0x7fa444961e10>
+    <generator object RTNL_API.filter_messages at 0x7f61a99a34a0>
 
 See also: :ref:`iproute`
 
@@ -179,6 +190,12 @@ class Source(dict):
         self.state.set('init')
         self.ndb.task_manager.db_add_nl_source(self.target, self.kind, spec)
         self.load_sql()
+
+    @classmethod
+    def _count(cls, view):
+        return view.ndb.task_manager.db_fetchone(
+            "SELECT count(*) FROM %s" % view.table
+        )
 
     @property
     def must_restart(self):

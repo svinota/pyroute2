@@ -38,6 +38,7 @@ def test_multiple_sources(context):
         assert len(list(ndb.neighbours.dump()))
         assert len(list(ndb.addresses.dump()))
         assert len(list(ndb.routes.dump()))
+        assert len(ndb.sources) == len(sources)
     # here NDB() gets closed
     #
 
