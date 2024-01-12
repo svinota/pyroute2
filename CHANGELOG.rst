@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.7.11
+    * ethtool: ring support <https://github.com/svinota/pyroute2/pull/1152>
+    * ndb: fix FDB records index <https://github.com/svinota/pyroute2/pull/1158>
+    * ndb: fix sources objects counting <https://github.com/svinota/pyroute2/pull/1156>
 * 0.7.10
     * ss2: fix classful flow data <https://github.com/svinota/pyroute2/pull/1143>
     * ci: add Python versions 3.8 and 3.12, update platform versions
