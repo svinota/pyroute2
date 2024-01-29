@@ -6,7 +6,15 @@
 python ?= $(shell util/find_python.sh)
 
 define nox
-	nox $(1) -- '$(subst ",\",${noxconfig})'
+        {\
+		which nox 2>/dev/null || {\
+			python -m venv ~/.venv-boot/;\
+			. ~/.venv-boot/bin/activate;\
+			pip install --upgrade pip;\
+			pip install nox;\
+		};\
+		nox $(1) -- '$(subst ",\",${noxconfig})';\
+	}
 endef
 
 .PHONY: all
