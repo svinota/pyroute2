@@ -14,6 +14,10 @@ try:
     from pyroute2.cli.auth.auth_radius import RadiusAuthManager
 except ImportError:
     RadiusAuthManager = None
+try:
+    import readline
+except ImportError:
+    readline = None
 
 
 def run():
@@ -61,6 +65,8 @@ def run():
         return 0
     else:
         console = Console(log=args.l, sources=sources)
+        if readline is not None:
+            console.set_completer(readline)
         if args.r:
             console.loadrc(args.r)
 
