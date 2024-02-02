@@ -1252,7 +1252,7 @@ class nl80211cmd(genlmsg):
         class rate_info(nla):
             '''
             Decode the data rate information
-            See nl80211.h: struct nl80211_sta_info,
+            See nl80211.h: enum nl80211_sta_info,
             NL80211_STA_INFO_TX_BITRATE
             NL80211_STA_INFO_RX_BITRATE
             '''
@@ -1262,26 +1262,50 @@ class nl80211cmd(genlmsg):
                 ('__NL80211_RATE_INFO_INVALID', 'hex'),
                 ('NL80211_RATE_INFO_BITRATE', 'uint16'),
                 ('NL80211_RATE_INFO_MCS', 'uint8'),
-                ('NL80211_RATE_INFO_40_MHZ_WIDTH', 'hex'),
-                ('NL80211_RATE_INFO_SHORT_GI', 'hex'),
+                ('NL80211_RATE_INFO_40_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_SHORT_GI', 'flag'),
                 ('NL80211_RATE_INFO_BITRATE32', 'uint32'),
                 ('NL80211_RATE_INFO_VHT_MCS', 'uint8'),
                 ('NL80211_RATE_INFO_VHT_NSS', 'uint8'),
-                ('NL80211_RATE_INFO_80_MHZ_WIDTH', 'hex'),
-                ('NL80211_RATE_INFO_80P80_MHZ_WIDTH', 'hex'),
-                ('NL80211_RATE_INFO_160_MHZ_WIDTH', 'hex'),
-                ('NL80211_RATE_INFO_10_MHZ_WIDTH', 'hex'),
-                ('NL80211_RATE_INFO_5_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_80_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_80P80_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_160_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_10_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_5_MHZ_WIDTH', 'flag'),
                 ('NL80211_RATE_INFO_HE_MCS', 'uint8'),
                 ('NL80211_RATE_INFO_HE_NSS', 'uint8'),
                 ('NL80211_RATE_INFO_HE_GI', 'uint8'),
                 ('NL80211_RATE_INFO_HE_DCM', 'uint8'),
                 ('NL80211_RATE_INFO_HE_RU_ALLOC', 'uint8'),
-                ('NL80211_RATE_INFO_320_MHZ_WIDTH', 'hex'),
+                ('NL80211_RATE_INFO_320_MHZ_WIDTH', 'flag'),
                 ('NL80211_RATE_INFO_EHT_MCS', 'uint8'),
                 ('NL80211_RATE_INFO_EHT_NSS', 'uint8'),
                 ('NL80211_RATE_INFO_EHT_GI', 'uint8'),
                 ('NL80211_RATE_INFO_EHT_RU_ALLOC', 'uint8'),
+                ('NL80211_RATE_INFO_S1G_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_S1G_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_1_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_2_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_4_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_8_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_16_MHZ_WIDTH', 'flag'),
+            )
+
+        class bss_param(nla):
+            '''
+            Decode the BSS information
+            See nl80211.h: enum nl80211_sta_bss_param,
+            NL80211_STA_INFO_BSS_PARAM
+            '''
+
+            prefix = "NL80211_STA_BSS_PARAM_"
+            nla_map = (
+                ('__NL80211_STA_BSS_PARAM_INVALID', 'hex'),
+                ('NL80211_STA_BSS_PARAM_CTS_PROT', 'flag'),
+                ('NL80211_STA_BSS_PARAM_SHORT_PREAMBLE', 'flag'),
+                ('NL80211_STA_BSS_PARAM_SHORT_SLOT_TIME', 'flag'),
+                ('NL80211_STA_BSS_PARAM_DTIM_PERIOD', 'uint8'),
+                ('NL80211_STA_BSS_PARAM_BEACON_INTERVAL', 'uint16'),
             )
 
         prefix = 'NL80211_STA_INFO_'
@@ -1301,7 +1325,7 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_TX_FAILED', 'uint32'),
             ('NL80211_STA_INFO_SIGNAL_AVG', 'int8'),
             ('NL80211_STA_INFO_RX_BITRATE', 'rate_info'),
-            ('NL80211_STA_INFO_BSS_PARAM', 'hex'),
+            ('NL80211_STA_INFO_BSS_PARAM', 'bss_param'),
             ('NL80211_STA_INFO_CONNECTED_TIME', 'uint32'),
             ('NL80211_STA_INFO_STA_FLAGS', 'STAFlags'),
             ('NL80211_STA_INFO_BEACON_LOSS', 'uint32'),
