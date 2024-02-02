@@ -199,7 +199,9 @@ class Dotkeys(dict):
     __var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
 
     def __dir__(self):
-        return [i for i in self if type(i) == str and self.__var_name.match(i)]
+        return [
+            i for i in self if isinstance(i, str) and self.__var_name.match(i)
+        ]
 
     def __getattribute__(self, key, *argv):
         try:

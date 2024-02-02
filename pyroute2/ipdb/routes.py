@@ -727,7 +727,7 @@ class Route(BaseRoute):
             ret = Transactional.__getitem__(self, key)
             # it doesn't
             # (plain dict can be safely discarded)
-            if (type(ret) == dict) or not ret:
+            if isinstance(ret, dict) or not ret:
                 # bake transactionals in place
                 if key == 'encap':
                     ret = Encap(parent=self)
@@ -822,7 +822,7 @@ class MPLSRoute(BaseRoute):
     def __setitem__(self, key, value):
         if key == 'via' and isinstance(value, dict):
             # replace with a new transactional
-            if type(value) == Via:
+            if isinstance(value, Via):
                 with self._direct_state:
                     return BaseRoute.__setitem__(self, key, value)
             # or load the dict

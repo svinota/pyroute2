@@ -528,7 +528,7 @@ class TCP(Protocol):
         vessel[info_k] = {}
 
         # BUG - pyroute2 diag - seems always last info instance from kernel
-        if type(tcp_info_raw) != str:
+        if not isinstance(tcp_info_raw, str):
             for k, v in tcp_info_raw.items():
                 if k not in info_refine_tabl:
                     continue
