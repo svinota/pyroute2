@@ -1,7 +1,7 @@
 files: '^(noxfile.py|pyroute2|pr2modules|util|examlpes/ndb|docs/conf.py|examples/pyroute2-cli|tests)'
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
