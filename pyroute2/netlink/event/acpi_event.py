@@ -24,6 +24,7 @@ Monitor and receive ACPI events messages via generic netlink.
      'type': 32768}
 
 '''
+
 from pyroute2.common import load_dump
 from pyroute2.netlink import genlmsg, nla
 from pyroute2.netlink.event import EventSocket

@@ -10,6 +10,7 @@ accepts `quantum` parameter::
     ip.tc('add-class', 'drr', interface, '1:20', quantum=1600)
 
 '''
+
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg.common import stats2 as c_stats2

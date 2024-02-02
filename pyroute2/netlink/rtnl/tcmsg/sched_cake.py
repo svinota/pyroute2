@@ -72,7 +72,6 @@ NOTES:
     - wash: False or True (False by default)
 '''
 
-
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl import TC_H_ROOT
 

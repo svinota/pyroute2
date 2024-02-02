@@ -34,6 +34,7 @@ complex. All these structures are described in sources.
 Module contents:
 
 '''
+
 from pyroute2.common import map_namespace
 
 #  RTnetlink multicast group flags (for use with bind())

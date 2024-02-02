@@ -278,6 +278,7 @@ Change an interface property:
     #            context manager's __exit__()
 
 '''
+
 import atexit
 import ctypes
 import ctypes.util

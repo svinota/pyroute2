@@ -1,5 +1,6 @@
 '''
 '''
+
 from pyroute2.netlink.nfnetlink import nfgen_msg
 from pyroute2.netlink.nfnetlink.nftsocket import (
     DATA_TYPE_ID_TO_NAME,

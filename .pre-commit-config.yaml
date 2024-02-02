@@ -12,7 +12,7 @@ repos:
         name: isort (python)
         args: ['-m', '3', '--tc', '-w', '79', '--profile', 'black']
 -   repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 24.1.1
     hooks:
     -   id: black
         args: ['-C', '-S', '-l', '79']

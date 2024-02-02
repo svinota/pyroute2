@@ -63,7 +63,6 @@ NOTES:
     }
 '''
 
-
 import errno
 import logging
 import struct

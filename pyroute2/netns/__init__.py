@@ -79,6 +79,7 @@ loading this module, dumps the core, one can check the
 SELinux state with `getenforce` command.
 
 '''
+
 import ctypes
 import ctypes.util
 import errno
