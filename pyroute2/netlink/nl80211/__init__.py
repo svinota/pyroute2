@@ -1216,44 +1216,38 @@ class nl80211cmd(genlmsg):
                 self.value["TDLS_PEER"] = False
                 self.value["ASSOCIATED"] = False
 
-                init = offset = self.offset + 4
-                while (offset - init) < (self.length - 4):
-                    (msg_type, length) = struct.unpack_from(
-                        'BB', self.data, offset
-                    )
-                    mask, set_ = struct.unpack_from(
-                        'II', self.data, offset + 2
-                    )
+                offset = self.offset + 4
+                mask, set_ = struct.unpack_from(
+                    'II', self.data, offset
+                )
 
-                    if mask & NL80211_STA_FLAG_AUTHORIZED:
-                        if set_ & NL80211_STA_FLAG_AUTHORIZED:
-                            self.value["AUTHORIZED"] = True
+                if mask & (1 << NL80211_STA_FLAG_AUTHORIZED):
+                    if set_ & (1 << NL80211_STA_FLAG_AUTHORIZED):
+                        self.value["AUTHORIZED"] = True
 
-                    if mask & NL80211_STA_FLAG_SHORT_PREAMBLE:
-                        if set_ & NL80211_STA_FLAG_SHORT_PREAMBLE:
-                            self.value["SHORT_PREAMBLE"] = True
+                if mask & (1 << NL80211_STA_FLAG_SHORT_PREAMBLE):
+                    if set_ & (1 << NL80211_STA_FLAG_SHORT_PREAMBLE):
+                        self.value["SHORT_PREAMBLE"] = True
 
-                    if mask & NL80211_STA_FLAG_WME:
-                        if set_ & NL80211_STA_FLAG_WME:
-                            self.value["WME"] = True
+                if mask & (1 << NL80211_STA_FLAG_WME):
+                    if set_ & (1 << NL80211_STA_FLAG_WME):
+                        self.value["WME"] = True
 
-                    if mask & NL80211_STA_FLAG_MFP:
-                        if set_ & NL80211_STA_FLAG_MFP:
-                            self.value["MFP"] = True
+                if mask & (1 << NL80211_STA_FLAG_MFP):
+                    if set_ & (1 << NL80211_STA_FLAG_MFP):
+                        self.value["MFP"] = True
 
-                    if mask & NL80211_STA_FLAG_AUTHENTICATED:
-                        if set_ & NL80211_STA_FLAG_AUTHENTICATED:
-                            self.value["AUTHENTICATED"] = True
+                if mask & (1 << NL80211_STA_FLAG_AUTHENTICATED):
+                    if set_ & (1 << NL80211_STA_FLAG_AUTHENTICATED):
+                        self.value["AUTHENTICATED"] = True
 
-                    if mask & NL80211_STA_FLAG_TDLS_PEER:
-                        if set_ & NL80211_STA_FLAG_TDLS_PEER:
-                            self.value["TDLS_PEER"] = True
+                if mask & (1 << NL80211_STA_FLAG_TDLS_PEER):
+                    if set_ & (1 << NL80211_STA_FLAG_TDLS_PEER):
+                        self.value["TDLS_PEER"] = True
 
-                    if mask & NL80211_STA_FLAG_ASSOCIATED:
-                        if set_ & NL80211_STA_FLAG_ASSOCIATED:
-                            self.value["ASSOCIATED"] = True
-
-                    offset += length + 2
+                if mask & (1 << NL80211_STA_FLAG_ASSOCIATED):
+                    if set_ & (1 << NL80211_STA_FLAG_ASSOCIATED):
+                        self.value["ASSOCIATED"] = True
 
         class rate_info(nla):
             '''
