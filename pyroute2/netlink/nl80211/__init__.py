@@ -1322,7 +1322,7 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_EXPECTED_THROUGHPUT', 'uint32'),
             ('NL80211_STA_INFO_RX_DROP_MISC', 'uint32'),
             ('NL80211_STA_INFO_BEACON_RX', 'uint64'),
-            ('NL80211_STA_INFO_BEACON_SIGNAL_AVG', 'uint8'),
+            ('NL80211_STA_INFO_BEACON_SIGNAL_AVG', 'int8'),
             ('NL80211_STA_INFO_TID_STATS', 'hex'),
             ('NL80211_STA_INFO_RX_DURATION', 'uint64'),
             ('NL80211_STA_INFO_PAD', 'hex'),
