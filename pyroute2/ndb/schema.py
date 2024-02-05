@@ -116,6 +116,7 @@ If you're using a PostgreSQL DB or a file based SQLite, simply drop
 all the tables from the DB, and NDB will create them from scratch
 on startup.
 '''
+
 import enum
 import json
 import random

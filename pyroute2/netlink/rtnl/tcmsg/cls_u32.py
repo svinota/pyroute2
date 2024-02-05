@@ -54,6 +54,7 @@ filter types::
         # 0xffffff00 = 255.255.255.0 (/24)
         # 16 = Destination network field bit offset
 '''
+
 import struct
 from socket import htons
 

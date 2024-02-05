@@ -196,9 +196,9 @@ def Server(trnsp_in, trnsp_out, netns=None, target='localhost', groups=0):
                             and ipr._brd_socket is not None
                         ):
                             inputs.append(ipr._brd_socket.fileno())
-                            broadcasts[
-                                ipr._brd_socket.fileno()
-                            ] = ipr._brd_socket
+                            broadcasts[ipr._brd_socket.fileno()] = (
+                                ipr._brd_socket
+                            )
                     except Exception as e:
                         ret = None
                         error = e

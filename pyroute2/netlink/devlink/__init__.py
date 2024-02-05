@@ -2,6 +2,7 @@
 devlink module
 ==============
 '''
+
 from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg, nla
 from pyroute2.netlink.generic import GenericNetlinkSocket

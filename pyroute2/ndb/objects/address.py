@@ -155,6 +155,7 @@ Access an address as a separate RTNL object:
 Please notice that address objects are read-only, you may not change them,
 only remove old ones, and create new.
 '''
+
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.requests.address import AddressFieldFilter
 

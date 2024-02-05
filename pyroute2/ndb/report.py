@@ -31,6 +31,7 @@ Filtering example:
     2,'eth0','5254.0072.58b2','up'
 
 '''
+
 import json
 import warnings
 from itertools import chain

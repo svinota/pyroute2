@@ -4,6 +4,7 @@ NL80211 module
 
 TODO
 '''
+
 import datetime
 import struct
 
@@ -943,9 +944,9 @@ class nl80211cmd(genlmsg):
                         data = data[16:]
 
                 if len(data) >= 4:
-                    rsn_values[
-                        "group_mgmt_cipher_suite"
-                    ] = self._get_cipher_list(data)
+                    rsn_values["group_mgmt_cipher_suite"] = (
+                        self._get_cipher_list(data)
+                    )
                     data = data[4:]
 
                 return rsn_values
@@ -1064,9 +1065,9 @@ class nl80211cmd(genlmsg):
                         )
 
                     if msg_type == NL80211_BSS_ELEMENTS_VHT_OPERATION:
-                        self.value[
-                            "VHT_OPERATION"
-                        ] = self.binary_vht_operation(offset + 2, length)
+                        self.value["VHT_OPERATION"] = (
+                            self.binary_vht_operation(offset + 2, length)
+                        )
 
                     offset += length + 2
 

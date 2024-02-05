@@ -10,6 +10,7 @@ extending the functionality, you're welcome to propose PRs.
     Using pyroute2 on Windows requires installing `win_inet_pton` module,
     you can use `pip install win_inet_pton`.
 '''
+
 import ctypes
 import os
 from socket import AF_INET

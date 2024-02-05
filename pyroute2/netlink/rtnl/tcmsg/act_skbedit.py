@@ -42,7 +42,6 @@ NOTES:
     - queue: integer
 '''
 
-
 from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
 

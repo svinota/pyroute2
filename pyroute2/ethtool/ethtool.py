@@ -196,11 +196,9 @@ class EthtoolLinkMode(
 
     @classmethod
     def from_ioctl(cls, link_settings):
-        (
-            map_supported,
-            map_advertising,
-            map_lp_advertising,
-        ) = IoctlEthtool.get_link_mode_masks(link_settings)
+        (map_supported, map_advertising, map_lp_advertising) = (
+            IoctlEthtool.get_link_mode_masks(link_settings)
+        )
         bits_supported = IoctlEthtool.get_link_mode_bits(map_supported)
         supported_ports = []
         supported_modes = []
