@@ -1217,9 +1217,7 @@ class nl80211cmd(genlmsg):
                 self.value["ASSOCIATED"] = False
 
                 offset = self.offset + 4
-                mask, set_ = struct.unpack_from(
-                    'II', self.data, offset
-                )
+                mask, set_ = struct.unpack_from('II', self.data, offset)
 
                 if mask & NL80211_STA_FLAG_AUTHORIZED:
                     if set_ & NL80211_STA_FLAG_AUTHORIZED:
