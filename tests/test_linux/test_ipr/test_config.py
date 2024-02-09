@@ -1,6 +1,9 @@
 import pytest
+from pr2test.marks import require_root
 
 from pyroute2 import IPRoute
+
+pytestmark = [require_root()]
 
 
 @pytest.mark.parametrize('nlm_echo', (True, False))
