@@ -834,6 +834,7 @@ class nlmsg_base(dict):
     sql_constraints = {}
     sql_extra_fields = ()
     sql_extend = ()
+    lookup_fallbacks = {}
     nla_flags = 0  # NLA flags
     value_map = {}
     is_nla = False
