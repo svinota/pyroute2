@@ -130,6 +130,7 @@ class RemoteIPRoute(RTNL_API, RemoteSocket):
             raise
         self.marshal = MarshalRtnl()
         self.target = target
+        self.groups = 67372509
 
     def clone(self):
         return type(self)(*self._argv, **self._kwarg)
