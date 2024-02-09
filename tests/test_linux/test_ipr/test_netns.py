@@ -22,9 +22,9 @@ def test_get_netns_info(context):
         target = veth.get_attr('IFLA_LINK_NETNSID')
         for info in context.ipr.get_netns_info():
             path = info.get_attr('NSINFO_PATH')
-            assert path.endswith(nsname)
-            netnsid = info['netnsid']
-            if target == netnsid:
-                break
+            if path.endswith(nsname):
+                netnsid = info['netnsid']
+                if target == netnsid:
+                    break
         else:
             raise KeyError('peer netns not found')

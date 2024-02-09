@@ -13,7 +13,7 @@ define nox
 			pip install --upgrade pip;\
 			pip install nox;\
 		};\
-		nox $(1) -- '$(subst ",\",${noxconfig})';\
+		nox $(1) -- '${noxconfig}';\
 	}
 endef
 
