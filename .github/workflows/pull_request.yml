@@ -62,17 +62,17 @@ jobs:
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
-      - run: sudo make nox session=linux-3.6
-      - run: sudo make nox session=linux-3.8
-      - run: sudo make nox session=linux-3.10
-      - run: sudo make nox session=linux-3.12
+      - run: sudo make nox session=linux-python3.6
+      - run: sudo make nox session=linux-python3.8
+      - run: sudo make nox session=linux-python3.10
+      - run: sudo make nox session=linux-python3.12
   linux-ubuntu-22:
     runs-on: linux-ubuntu-22
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
-      - run: sudo make nox session=linux-3.6
-      - run: sudo make nox session=linux-3.10
+      - run: sudo make nox session=linux-python3.6
+      - run: sudo make nox session=linux-python3.10
   openbsd:
     runs-on: OpenBSD
     steps:
