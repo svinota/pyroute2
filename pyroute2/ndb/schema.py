@@ -461,6 +461,7 @@ class DBSchema:
             'fset': ','.join(f_set),
             'knames': ','.join(f_idx),
             'fidx': ' AND '.join(f_idx_match),
+            'lookup_fallbacks': iclass.lookup_fallbacks,
         }
 
     @publish

@@ -450,6 +450,7 @@ class ifinfbase(object):
     #
     sql_constraints = {'index': 'NOT NULL'}
     sql_extra_fields = (('state', 'TEXT'),)
+    lookup_fallbacks = {'index': 'ifname'}
 
     fields = (
         ('family', 'B'),

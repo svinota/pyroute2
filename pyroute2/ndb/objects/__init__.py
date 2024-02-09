@@ -302,6 +302,9 @@ class RTNL_Object(dict):
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
         self.names = self.schema.compiled[self.table]['norm_names']
+        self.lookup_fallbacks = self.schema.compiled[self.table][
+            'lookup_fallbacks'
+        ]
         self.names_count = [self.names.count(x) for x in self.names]
         self.last_save = None
         if self.event_map is None:

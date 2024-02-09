@@ -655,6 +655,21 @@ class Interface(RTNL_Object):
         return self
 
     @check_auth('obj:modify')
+    def ensure_vlan(self, spec):
+        def do_ensure_vlan(self, mode, spec):
+            try:
+                method = getattr(self.vlan.create(spec), mode)
+                return [method()]
+            except KeyError:
+                return []
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return [e_s]
+
+        self._apply_script.append((do_ensure_vlan, {'spec': spec}))
+        return self
+
+    @check_auth('obj:modify')
     def del_vlan(self, spec):
         def do_del_vlan(self, mode, spec):
             try:
@@ -680,6 +695,23 @@ class Interface(RTNL_Object):
                 return [e_s]
 
         self._apply_script.append((do_add_neighbour, {'spec': spec}))
+        return self
+
+    @check_auth('obj:modify')
+    def ensure_neighbour(self, spec=None, **kwarg):
+        spec = spec or kwarg
+
+        def do_ensure_neighbour(self, mode, spec):
+            try:
+                method = getattr(self.neighbours.create(spec), mode)
+                return [method()]
+            except KeyError:
+                return []
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return [e_s]
+
+        self._apply_script.append((do_ensure_neighbour, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
@@ -725,6 +757,23 @@ class Interface(RTNL_Object):
                 return [e_s]
 
         self._apply_script.append((do_add_ip, {'spec': spec}))
+        return self
+
+    @check_auth('obj:modify')
+    def ensure_ip(self, spec=None, **kwarg):
+        spec = spec or kwarg
+
+        def do_ensure_ip(self, mode, spec):
+            try:
+                method = getattr(self.ipaddr.create(spec), mode)
+                return [method()]
+            except KeyError:
+                return []
+            except Exception as e_s:
+                e_s.trace = traceback.format_stack()
+                return [e_s]
+
+        self._apply_script.append((do_ensure_ip, {'spec': spec}))
         return self
 
     @check_auth('obj:modify')
