@@ -15,9 +15,10 @@ nox.options.sessions = [
     'lab',
     'neutron',
     'integration',
-    'linux-python3.6',
     'linux-python3.8',
+    'linux-python3.9',
     'linux-python3.10',
+    'linux-python3.11',
     'linux-python3.12',
     'minimal',
 ]
@@ -245,7 +246,9 @@ def integration(session, config):
     session.run(*options('test_integration', config))
 
 
-@nox.session(python=['python3.6', 'python3.8', 'python3.10', 'python3.12'])
+@nox.session(
+    python=['python3.8', 'python3.9', 'python3.10', 'python3.11', 'python3.12']
+)
 @add_session_config
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
