@@ -1,6 +1,14 @@
 Changelog
 =========
 
+* 0.7.12
+    * cli: move readline import to the script <https://github.com/svinota/pyroute2/pull/1165>
+    * ci: update tools versions <https://github.com/svinota/pyroute2/pull/1167>
+    * ci: generic make test target, update docs <https://github.com/svinota/pyroute2/pull/1173>
+    * ci: rename Linux python sessions in nox <https://github.com/svinota/pyroute2/pull/1172>
+    * nl80211: decoder improvements <https://github.com/svinota/pyroute2/pull/1168>
+    * remote: fix dump() on RemoteIPRoute <https://github.com/svinota/pyroute2/pull/1169>
+    * ndb: add ensure() call <https://github.com/svinota/pyroute2/pull/1171>
 * 0.7.11
     * ethtool: ring support <https://github.com/svinota/pyroute2/pull/1152>
     * ndb: fix FDB records index <https://github.com/svinota/pyroute2/pull/1158>
