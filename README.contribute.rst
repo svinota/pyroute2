@@ -64,7 +64,7 @@ More details: https://github.com/svinota/pyroute2/discussions/786
 Step 3: test the change
 -----------------------
 
-Assume the environment is already set up on the step 1. Thus:
+Assume the environment is already set up on the step 1:
 
 .. code-block:: sh
 
@@ -88,4 +88,4 @@ The code must comply some requirements:
 * the library **must** work on Python >= 3.9
 * the code **must** pass `make format`
 * the code **must** not break existing unit and functional tests (`make test`)
-* the `ctypes` usage must not break the library on SELinux
+* the `ctypes` usage **must not** break the library on SELinux
