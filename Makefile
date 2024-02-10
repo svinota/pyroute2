@@ -4,6 +4,7 @@
 #
 #
 python ?= $(shell util/find_python.sh)
+platform := $(shell uname -s)
 
 define nox
         {\
@@ -68,7 +69,13 @@ format:
 
 .PHONY: test
 test:
+ifeq ($(platform), Linux)
 	$(call nox,)
+else ifeq ($(platform), OpenBSD)
+	$(call nox,-e openbsd)
+else
+	$(info >> Platform not supported)
+endif
 
 .PHONY: test-platform
 test-platform:
