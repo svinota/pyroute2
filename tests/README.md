@@ -18,7 +18,7 @@ Requirements
 ============
 
 * nox
-* python >= 3.6
+* python >= 3.8
 * `-r requirements.dev.txt`
 
 Run tests
@@ -31,7 +31,6 @@ for those who prefer::
     # using nox
     $ nox --list
     $ nox -e unit                     # run only unit tests
-    $ nox -e unit -- '{"pdb": true}'  # provide a session config
     $ nox                             # run all the tests
 
     # using make
@@ -39,6 +38,23 @@ for those who prefer::
     $ make nox session=unit           # run only unit tests
     $ make nox session=openbsd        # OpenBSD tests
 
+It is possible to provide a session config. This example runs
+only one particular test module starting debugger on failure::
+
+    # using nox
+    $ nox -e linux -- '{"pdb": true, "sub": "test_ipr/test_rule.py"}'
+
+    # using make
+    $ make nox \
+        session=linux \
+        noxconfig='{"pdb": true, "sub": "test_ipr/test_rule.py"}'
+
 Get code coverage and run PDB on failures::
 
+    # using nox
     $ nox -e linux -- '{"pdb": true, "coverage": true}'
+
+    # using make
+    $ make nox \
+        session=linux \
+        noxconfig='{"pdb": true, "coverage": true}'

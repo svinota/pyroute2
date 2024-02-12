@@ -246,7 +246,7 @@ Using source, requires make and nox
 Requirements
 ------------
 
-Python >= 3.6
+Python >= 3.8
 
 Links
 -----
