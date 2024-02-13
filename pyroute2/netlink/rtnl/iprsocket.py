@@ -17,6 +17,7 @@ if sys.platform.startswith('linux'):
         proxy_newlink,
         proxy_setlink,
     )
+    from pyroute2.netlink.rtnl.probe_msg import proxy_newprobe
 
 
 class IPRSocketBase(object):
@@ -37,6 +38,7 @@ class IPRSocketBase(object):
             self._sproxy.pmap = {
                 rtnl.RTM_NEWLINK: proxy_newlink,
                 rtnl.RTM_SETLINK: proxy_setlink,
+                rtnl.RTM_NEWPROBE: proxy_newprobe,
             }
 
     def bind(self, groups=None, **kwarg):

@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
-import errno
 import logging
 import os
-import shutil
-import subprocess
 import time
 import warnings
 from functools import partial
@@ -388,52 +385,19 @@ class RTNL_API:
     # Diagnostics
     #
     def probe(self, command, **kwarg):
-        response = probe_msg()
-        response['header']['sequence_number'] = 255
-        response['header']['pid'] = 0
-        response['header']['type'] = RTM_NEWPROBE
+        msg = probe_msg()
         #
-        response['family'] = AF_INET
-        response['proto'] = 1
-        response['port'] = 0
-        response['dst_len'] = 32
-        response['cmd'] = 1
+        msg['family'] = AF_INET
+        msg['proto'] = 1
+        msg['port'] = 0
+        msg['dst_len'] = 32
         #
         kind = kwarg.get('kind', 'ping')
         dst = kwarg.get('dst', '0.0.0.0')
-        timeout = kwarg.get('timeout', 1)
-        num = kwarg.get('num', 1)
-        response['attrs'].append(['PROBE_KIND', kind])
-        response['attrs'].append(['PROBE_DST', dst])
+        msg['attrs'].append(['PROBE_KIND', kind])
+        msg['attrs'].append(['PROBE_DST', dst])
 
-        args = [
-            shutil.which(kind),
-            '-c',
-            f'{num}',
-            '-W',
-            f'{timeout}',
-            f'{dst}',
-        ]
-        if args[0] is None:
-            raise NetlinkError(errno.ENOENT, "probe not found")
-
-        process = subprocess.Popen(
-            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        try:
-            out, err = process.communicate(timeout=timeout)
-            response['attrs'].append(['PROBE_STDOUT', out])
-            response['attrs'].append(['PROBE_STDERR', err])
-        except subprocess.TimeoutExpired:
-            process.terminate()
-            raise NetlinkError(errno.ETIMEDOUT, "timeout expired")
-        finally:
-            process.stdout.close()
-            process.stderr.close()
-            return_code = process.wait()
-        if return_code != 0:
-            raise NetlinkError(errno.EHOSTUNREACH, "probe failed")
-        return [response]
+        return self.nlm_request(msg, msg_type=RTM_NEWPROBE, msg_flags=1)
 
     # 8<---------------------------------------------------------------
     #
