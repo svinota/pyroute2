@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+import errno
 import logging
 import os
+import shutil
+import subprocess
 import time
 import warnings
 from functools import partial
@@ -56,6 +59,7 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWNEIGH,
     RTM_NEWNETNS,
     RTM_NEWNSID,
+    RTM_NEWPROBE,
     RTM_NEWQDISC,
     RTM_NEWROUTE,
     RTM_NEWRULE,
@@ -89,6 +93,7 @@ from pyroute2.netlink.rtnl.iprsocket import (
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
+from pyroute2.netlink.rtnl.probe_msg import probe_msg
 from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
@@ -377,6 +382,58 @@ class RTNL_API:
             except NetlinkDumpInterrupted:
                 pass
         raise TimeoutError()
+
+    # 8<---------------------------------------------------------------
+    #
+    # Diagnostics
+    #
+    def probe(self, command, **kwarg):
+        response = probe_msg()
+        response['header']['sequence_number'] = 255
+        response['header']['pid'] = 0
+        response['header']['type'] = RTM_NEWPROBE
+        #
+        response['family'] = AF_INET
+        response['proto'] = 1
+        response['port'] = 0
+        response['dst_len'] = 32
+        response['cmd'] = 1
+        #
+        kind = kwarg.get('kind', 'ping')
+        dst = kwarg.get('dst', '0.0.0.0')
+        timeout = kwarg.get('timeout', 1)
+        num = kwarg.get('num', 1)
+        response['attrs'].append(['PROBE_KIND', kind])
+        response['attrs'].append(['PROBE_DST', dst])
+
+        args = [
+            shutil.which(kind),
+            '-c',
+            f'{num}',
+            '-W',
+            f'{timeout}',
+            f'{dst}',
+        ]
+        if args[0] is None:
+            raise NetlinkError(errno.ENOENT, "probe not found")
+
+        process = subprocess.Popen(
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        try:
+            out, err = process.communicate(timeout=timeout)
+            response['attrs'].append(['PROBE_STDOUT', out])
+            response['attrs'].append(['PROBE_STDERR', err])
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            raise NetlinkError(errno.ETIMEDOUT, "timeout expired")
+        finally:
+            process.stdout.close()
+            process.stderr.close()
+            return_code = process.wait()
+        if return_code != 0:
+            raise NetlinkError(errno.EHOSTUNREACH, "probe failed")
+        return [response]
 
     # 8<---------------------------------------------------------------
     #
