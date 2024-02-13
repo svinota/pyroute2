@@ -321,6 +321,7 @@ NDB_VIEWS_SPECS = (
     ('af_bridge_fdb', 'fdb'),
     ('rules', 'rules'),
     ('netns', 'netns'),
+    ('probe', 'probe'),
     ('af_bridge_vlans', 'vlans'),
 )
 

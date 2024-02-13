@@ -66,6 +66,7 @@ from .objects.address import Address
 from .objects.interface import Interface, Vlan
 from .objects.neighbour import FDBRecord, Neighbour
 from .objects.netns import NetNS
+from .objects.probe import Probe
 from .objects.route import Route
 from .objects.rule import Rule
 from .report import Record, RecordSet
@@ -120,6 +121,7 @@ class View(dict):
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
         self.classes['netns'] = NetNS
+        self.classes['probe'] = Probe
         self.classes['af_bridge_vlans'] = Vlan
 
     def __enter__(self):
