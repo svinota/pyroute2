@@ -11,6 +11,7 @@
    ndb_interfaces
    ndb_addresses
    ndb_routes
+   ndb_probes
    ndb_schema
    ndb_sources
    ndb_debug

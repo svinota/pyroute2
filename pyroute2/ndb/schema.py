@@ -131,7 +131,7 @@ from pyroute2 import config
 from pyroute2.common import basestring, uuid32
 
 #
-from .objects import address, interface, neighbour, netns, route, rule
+from .objects import address, interface, neighbour, netns, probe, route, rule
 
 try:
     import psycopg2
@@ -141,7 +141,7 @@ except ImportError:
 #
 # the order is important
 #
-plugins = [interface, address, neighbour, route, netns, rule]
+plugins = [interface, address, neighbour, route, netns, rule, probe]
 
 MAX_ATTEMPTS = 5
 
