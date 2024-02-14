@@ -121,7 +121,7 @@ class View(dict):
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
         self.classes['netns'] = NetNS
-        self.classes['probe'] = Probe
+        self.classes['probes'] = Probe
         self.classes['af_bridge_vlans'] = Vlan
 
     def __enter__(self):

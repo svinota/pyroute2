@@ -23,7 +23,7 @@ def test_ping_ok(context):
     with context.ndb.interfaces['lo'] as i:
         i.set(state='up')
 
-    context.ndb.probe.create(kind='ping', dst=ipaddr).commit()
+    context.ndb.probes.create(kind='ping', dst=ipaddr).commit()
 
 
 @pytest.mark.parametrize(
@@ -34,7 +34,7 @@ def test_ping_fail_ehostunreach(context):
     with context.ndb.interfaces['lo'] as i:
         i.set(state='down')
     with pytest.raises(NetlinkError) as e:
-        context.ndb.probe.create(kind='ping', dst='127.0.0.1').commit()
+        context.ndb.probes.create(kind='ping', dst='127.0.0.1').commit()
     assert e.value.code == errno.EHOSTUNREACH
 
 
@@ -53,5 +53,5 @@ def test_ping_fail_etimedout(context):
     with context.ndb.interfaces['lo'] as i:
         i.set(state='up')
     with pytest.raises(NetlinkError) as e:
-        context.ndb.probe.create(kind='ping', dst=target).commit()
+        context.ndb.probes.create(kind='ping', dst=target).commit()
     assert e.value.code == errno.ETIMEDOUT

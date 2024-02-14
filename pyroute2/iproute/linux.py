@@ -385,6 +385,44 @@ class RTNL_API:
     # Diagnostics
     #
     def probe(self, command, **kwarg):
+        '''
+        Run a network probe.
+
+        The API will trigger a network probe from the environment it
+        works in. For NetNS it will be the network namespace, for
+        remote IPRoute instances it will be the host it runs on.
+
+        Running probes via API allows to test network connectivity
+        between the environments in a simple uniform way.
+
+        Supported arguments:
+
+        * kind -- probe type, for now only ping is supported
+        * dst -- target to run the probe against
+        * num -- number of probes to run
+        * timeout -- timeout for the whole request
+
+        Examples::
+
+            ipr.probe("add", kind="ping", dst="10.0.0.1")
+
+        By default ping probe will send one ICMP request towards
+        the target. To change this, use num argument::
+
+            ipr.probe(
+                "add",
+                kind="ping",
+                dst="10.0.0.1",
+                num=4,
+                timeout=10
+            )
+
+        Timeout for the ping probe by default is 1 second, which
+        may not be enough to run multiple requests.
+
+        In the next release more probe types are planned, like TCP
+        port probe.
+        '''
         msg = probe_msg()
         #
         msg['family'] = AF_INET
@@ -392,10 +430,10 @@ class RTNL_API:
         msg['port'] = 0
         msg['dst_len'] = 32
         #
-        kind = kwarg.get('kind', 'ping')
-        dst = kwarg.get('dst', '0.0.0.0')
-        msg['attrs'].append(['PROBE_KIND', kind])
-        msg['attrs'].append(['PROBE_DST', dst])
+        msg['attrs'].append(['PROBE_KIND', kwarg.get('kind', 'ping')])
+        msg['attrs'].append(['PROBE_DST', kwarg.get('dst', '0.0.0.0')])
+        msg['attrs'].append(['PROBE_NUM', kwarg.get('num', 1)])
+        msg['attrs'].append(['PROBE_TIMEOUT', kwarg.get('timeout', 1)])
         # iterate the results immediately, don't defer the probe run
         return tuple(self.nlm_request(msg, msg_type=RTM_NEWPROBE, msg_flags=1))
 
