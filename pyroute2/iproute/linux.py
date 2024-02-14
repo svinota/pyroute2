@@ -396,8 +396,8 @@ class RTNL_API:
         dst = kwarg.get('dst', '0.0.0.0')
         msg['attrs'].append(['PROBE_KIND', kind])
         msg['attrs'].append(['PROBE_DST', dst])
-
-        return self.nlm_request(msg, msg_type=RTM_NEWPROBE, msg_flags=1)
+        # iterate the results immediately, don't defer the probe run
+        return tuple(self.nlm_request(msg, msg_type=RTM_NEWPROBE, msg_flags=1))
 
     # 8<---------------------------------------------------------------
     #
