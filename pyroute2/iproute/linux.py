@@ -107,6 +107,7 @@ from pyroute2.requests.neighbour import (
     NeighbourFieldFilter,
     NeighbourIPRouteFilter,
 )
+from pyroute2.requests.probe import ProbeFieldFilter
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 
@@ -425,15 +426,22 @@ class RTNL_API:
         '''
         msg = probe_msg()
         #
+        request = (
+            RequestProcessor(context=kwarg, prime=kwarg)
+            .apply_filter(ProbeFieldFilter())
+            .finalize()
+        )
+        #
         msg['family'] = AF_INET
         msg['proto'] = 1
-        msg['port'] = 0
+        msg['port'] = kwarg.get('port', 0)
         msg['dst_len'] = 32
         #
-        msg['attrs'].append(['PROBE_KIND', kwarg.get('kind', 'ping')])
-        msg['attrs'].append(['PROBE_DST', kwarg.get('dst', '0.0.0.0')])
-        msg['attrs'].append(['PROBE_NUM', kwarg.get('num', 1)])
-        msg['attrs'].append(['PROBE_TIMEOUT', kwarg.get('timeout', 1)])
+        for key, value in request.items():
+            nla = probe_msg.name2nla(key)
+            if msg.valid_nla(nla) and value is not None:
+                msg['attrs'].append([nla, value])
+
         # iterate the results immediately, don't defer the probe run
         return tuple(self.nlm_request(msg, msg_type=RTM_NEWPROBE, msg_flags=1))
 
