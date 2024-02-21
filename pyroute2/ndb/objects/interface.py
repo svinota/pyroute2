@@ -847,12 +847,14 @@ class Interface(RTNL_Object):
         new_list = set(self['alt_ifname_list'])
         new_list.add(ifname)
         self['alt_ifname_list'] = list(new_list)
+        return self
 
     @check_auth('obj:modify')
     def del_altname(self, ifname):
         new_list = set(self['alt_ifname_list'])
         new_list.remove(ifname)
         self['alt_ifname_list'] = list(new_list)
+        return self
 
     @check_auth('obj:modify')
     def __setitem__(self, key, value):
