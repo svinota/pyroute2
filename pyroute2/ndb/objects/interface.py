@@ -506,6 +506,7 @@ class Interface(RTNL_Object):
         'alt_ifname_list': lambda x: list(json.loads(x or '[]'))
     }
     field_filter = LinkFieldFilter
+    old_ifname = None
 
     @classmethod
     def _count(cls, view):
@@ -860,6 +861,10 @@ class Interface(RTNL_Object):
     def __setitem__(self, key, value):
         if key == 'peer':
             dict.__setitem__(self, key, value)
+        elif key == 'ifname':
+            if key in self and self.old_ifname is None:
+                self.old_ifname = self[key]
+            super(Interface, self).__setitem__(key, value)
         elif key == 'target' and self.state == 'invalid':
             dict.__setitem__(self, key, value)
         elif key == 'net_ns_fd' and self.state == 'invalid':
@@ -979,7 +984,7 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
-    def apply_altnames(self, alt_ifname_setup):
+    def apply_altnames(self, alt_ifname_setup, old_ifname=None):
         alt_ifname_remove = set(self['alt_ifname_list']) - alt_ifname_setup
         alt_ifname_add = alt_ifname_setup - set(self['alt_ifname_list'])
         for ifname in alt_ifname_remove:
@@ -992,10 +997,9 @@ class Interface(RTNL_Object):
             )
         self.load_from_system()
         self.load_sql(set_state=False)
-        if (
-            'ifname' not in self.changed
-            and set(self['alt_ifname_list']) != alt_ifname_setup
-        ):
+        if old_ifname is not None and old_ifname in self['alt_ifname_list']:
+            alt_ifname_setup.add(old_ifname)
+        if set(self['alt_ifname_list']) != alt_ifname_setup:
             raise Exception('could not setup alt ifnames')
 
     @check_auth('obj:modify')
@@ -1007,6 +1011,7 @@ class Interface(RTNL_Object):
         setns = self.state.get() == 'setns'
         remove = self.state.get() == 'remove'
         alt_ifname_setup = set(self['alt_ifname_list'])
+        old_ifname = self.old_ifname if 'ifname' in self.changed else None
         if 'alt_ifname_list' in self.changed:
             self.changed.remove('alt_ifname_list')
         try:
@@ -1018,7 +1023,7 @@ class Interface(RTNL_Object):
                 if spec:
                     self.state.set('system')
             if not remove:
-                self.apply_altnames(alt_ifname_setup)
+                self.apply_altnames(alt_ifname_setup, old_ifname)
 
         except NetlinkError as e:
             if (
@@ -1064,6 +1069,8 @@ class Interface(RTNL_Object):
                 self.apply(rollback, req_filter, mode)
             else:
                 raise
+        finally:
+            self.old_ifname = None
         if ('net_ns_fd' in self.get('peer', {})) and (
             self['peer']['net_ns_fd'] in self.view.ndb.sources
         ):
