@@ -992,7 +992,10 @@ class Interface(RTNL_Object):
             )
         self.load_from_system()
         self.load_sql(set_state=False)
-        if set(self['alt_ifname_list']) != alt_ifname_setup:
+        if (
+            'ifname' not in self.changed
+            and set(self['alt_ifname_list']) != alt_ifname_setup
+        ):
             raise Exception('could not setup alt ifnames')
 
     @check_auth('obj:modify')
