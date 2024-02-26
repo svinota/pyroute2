@@ -862,6 +862,8 @@ class Interface(RTNL_Object):
         if key == 'peer':
             dict.__setitem__(self, key, value)
         elif key == 'ifname':
+            if value in self['alt_ifname_list']:
+                self.del_altname(value)
             if key in self and self.old_ifname is None:
                 self.old_ifname = self[key]
             super(Interface, self).__setitem__(key, value)
@@ -984,9 +986,19 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
-    def apply_altnames(self, alt_ifname_setup, old_ifname=None):
-        alt_ifname_remove = set(self['alt_ifname_list']) - alt_ifname_setup
-        alt_ifname_add = alt_ifname_setup - set(self['alt_ifname_list'])
+    def apply_altnames(
+        self, alt_ifname_setup, alt_ifname_current, old_ifname=None
+    ):
+        if 'alt_ifname_list' in self.changed:
+            self.changed.remove('alt_ifname_list')
+        if alt_ifname_current is None:
+            # load the current state
+            self.load_from_system()
+            self.load_sql(set_state=False)
+            alt_ifname_current = set(self['alt_ifname_list'])
+
+        alt_ifname_remove = alt_ifname_current - alt_ifname_setup
+        alt_ifname_add = alt_ifname_setup - alt_ifname_current
         for ifname in alt_ifname_remove:
             self.sources[self['target']].api(
                 'link', 'property_del', index=self['index'], altname=ifname
@@ -995,6 +1007,7 @@ class Interface(RTNL_Object):
             self.sources[self['target']].api(
                 'link', 'property_add', index=self['index'], altname=ifname
             )
+        # reload alt ifnames from the system to check the state
         self.load_from_system()
         self.load_sql(set_state=False)
         if old_ifname is not None and old_ifname in self['alt_ifname_list']:
@@ -1012,9 +1025,13 @@ class Interface(RTNL_Object):
         remove = self.state.get() == 'remove'
         alt_ifname_setup = set(self['alt_ifname_list'])
         old_ifname = self.old_ifname if 'ifname' in self.changed else None
-        if 'alt_ifname_list' in self.changed:
-            self.changed.remove('alt_ifname_list')
         try:
+            if 'index' in self and (
+                self.old_ifname or 'alt_ifname_list' in self.changed
+            ):
+                self.apply_altnames(alt_ifname_setup, None)
+            if 'alt_ifname_list' in self.changed:
+                self.changed.remove('alt_ifname_list')
             super(Interface, self).apply(rollback, req_filter, mode)
             if setns:
                 self.load_value('target', self['net_ns_fd'])
@@ -1023,7 +1040,9 @@ class Interface(RTNL_Object):
                 if spec:
                     self.state.set('system')
             if not remove:
-                self.apply_altnames(alt_ifname_setup, old_ifname)
+                self.apply_altnames(
+                    alt_ifname_setup, set(self['alt_ifname_list']), old_ifname
+                )
 
         except NetlinkError as e:
             if (
@@ -1113,6 +1132,7 @@ class Interface(RTNL_Object):
                 self.ndb._event_queue.put(update)
 
     def load_from_system(self):
+        self.load_event.clear()
         (
             self.ndb._event_queue.put(
                 self.sources[self['target']].api(
@@ -1120,6 +1140,7 @@ class Interface(RTNL_Object):
                 )
             )
         )
+        self.load_event.wait(1)
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
