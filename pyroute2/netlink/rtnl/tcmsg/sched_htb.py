@@ -195,6 +195,11 @@ class options(nla_plus_rtab):
         ('TCA_HTB_INIT', 'htb_glob'),
         ('TCA_HTB_CTAB', 'ctab'),
         ('TCA_HTB_RTAB', 'rtab'),
+        ('TCA_HTB_DIRECT_QLEN', 'uint32'),
+        ('TCA_HTB_RATE64', 'uint64'),
+        ('TCA_HTB_CEIL64', 'uint64'),
+        ('TCA_HTB_PAD', 'hex'),
+        ('TCA_HTB_OFFLOAD', 'hex'),
     )
 
     class htb_glob(nla):
