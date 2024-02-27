@@ -128,8 +128,8 @@ from collections import OrderedDict
 from functools import partial
 
 from pyroute2 import config
-from pyroute2.netlink import NLM_F_REPLACE
 from pyroute2.common import basestring, uuid32
+from pyroute2.netlink import NLM_F_REPLACE
 
 #
 from .objects import address, interface, neighbour, netns, probe, route, rule
@@ -912,15 +912,25 @@ class DBSchema:
             r_values = []
 
             # Check route replace
-            if event['header'].get('flags', 0) == NLM_F_REPLACE and event['event'] == 'RTM_NEWROUTE':
+            if (
+                event['header'].get('flags', 0) == NLM_F_REPLACE
+                and event['event'] == 'RTM_NEWROUTE'
+            ):
                 # Replace existing route
                 r_conditions = [table + '.f_target = %s' % self.plch]
                 r_values = [target]
                 for key in self.indices[table]:
-                    if key not in ['RTA_DST', 'dst_len', 'table', 'RTA_PRIORITY']:
+                    if key not in [
+                        'RTA_DST',
+                        'dst_len',
+                        'table',
+                        'RTA_PRIORITY',
+                    ]:
                         continue
 
-                    r_conditions.append(table + '.f_%s = %s' % (key, self.plch))
+                    r_conditions.append(
+                        table + '.f_%s = %s' % (key, self.plch)
+                    )
                     value = event.get(key) or event.get_attr(key)
                     if value is None:
                         value = self.key_defaults[table][key]
