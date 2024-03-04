@@ -34,8 +34,8 @@ all:
 git-clean:
 	git clean -d -f -x
 	git remote prune origin
-	git branch --merged >/tmp/merged-branches && \
-		vi /tmp/merged-branches && xargs git branch -d </tmp/merged-branches
+	git branch --merged | grep -vE '(^\*| master )' >/tmp/merged-branches && \
+		( xargs git branch -d </tmp/merged-branches ) ||:
 
 .PHONY: clean
 clean:
