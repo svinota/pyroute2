@@ -9,7 +9,7 @@ platform := $(shell uname -s)
 define nox
         {\
 		which nox 2>/dev/null || {\
-			python -m venv ~/.venv-boot/;\
+			${python} -m venv ~/.venv-boot/;\
 			. ~/.venv-boot/bin/activate;\
 			pip install --upgrade pip;\
 			pip install nox;\
