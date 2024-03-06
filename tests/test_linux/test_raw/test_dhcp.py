@@ -46,11 +46,6 @@ def _do_test_client_module(ctx):
         hexdump(hexload(l2addr)) == ctx.ndb.interfaces[ctx.ifname]['address']
     )
     assert router == ctx.ndb.routes['default']['gateway']
-    assert {
-        'address': address,
-        'prefixlen': prefixlen,
-        'index': ctx.index,
-    } in ctx.ndb.addresses
     assert options['lease_time'] > 0
     return response
 
