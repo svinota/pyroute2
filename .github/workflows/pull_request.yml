@@ -63,7 +63,7 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: sudo make nox session=linux
-  fedora:
+  ubuntu:
     runs-on: Ubuntu
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE

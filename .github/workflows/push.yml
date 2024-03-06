@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
