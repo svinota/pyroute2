@@ -47,6 +47,8 @@ def _do_test_client_module(ctx):
     )
     assert router == ctx.ndb.routes['default']['gateway']
     assert options['lease_time'] > 0
+    assert prefixlen > 0
+    assert address is not None
     return response
 
 
