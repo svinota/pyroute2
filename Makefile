@@ -5,6 +5,8 @@
 #
 python ?= $(shell util/find_python.sh)
 platform := $(shell uname -s)
+releaseTag ?= $(shell git describe --tags --abbrev=0)
+releaseDescription := $(shell git tag -l -n1 ${releaseTag} | sed 's/[0-9. ]\+//')
 
 define nox
         {\
@@ -84,6 +86,14 @@ test-platform:
 .PHONY: upload
 upload: dist
 	$(call nox,-e upload)
+
+.PHONY: release
+release: dist
+	gh release create \
+		--verify-tag \
+		--title "${releaseDescription}" \
+		${releaseTag} \
+		./dist/*${releaseTag}*
 
 .PHONY: setup
 setup:
