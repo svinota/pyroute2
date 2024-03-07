@@ -4,6 +4,7 @@ import shutil
 import socket
 import ssl
 import subprocess
+import time
 
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.exceptions import NetlinkError
@@ -20,7 +21,13 @@ class probe_msg(nlmsg):
     __slots__ = ()
     prefix = 'PROBE_'
 
-    fields = (('family', 'B'), ('proto', 'B'), ('port', 'H'), ('dst_len', 'I'))
+    fields = (
+        ('family', 'B'),
+        ('proto', 'B'),
+        ('port', 'H'),
+        ('dst_len', 'I'),
+        ('generation', 'I'),
+    )
 
     nla_map = (
         ('PROBE_UNSPEC', 'none'),
@@ -31,6 +38,7 @@ class probe_msg(nlmsg):
         ('PROBE_DST', 'asciiz'),
         ('PROBE_NUM', 'uint8'),
         ('PROBE_TIMEOUT', 'uint8'),
+        ('PROBE_TIMESTAMP_NS', 'uint64'),
         ('PROBE_HOSTNAME', 'asciiz'),
         ('PROBE_SSL_VERIFY', 'uint8'),
         ('PROBE_SSL_VERSION', 'asciiz'),
@@ -130,6 +138,15 @@ def proxy_newprobe(msg, nl):
     else:
         raise NetlinkError(errno.ENOTSUP, 'probe type not supported')
 
+    # add the timestamp
+    msg['attrs'].append(['PROBE_TIMESTAMP_NS', time.time_ns()])
+    # unicast response
     msg.reset()
     msg.encode()
-    return {'verdict': 'return', 'data': msg.data}
+    data = msg.data
+    # broadcast response
+    msg['header']['sequence_number'] = 0
+    msg.reset()
+    msg.encode()
+    data += msg.data
+    return {'verdict': 'return', 'data': data}

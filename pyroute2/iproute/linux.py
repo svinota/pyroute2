@@ -436,6 +436,7 @@ class RTNL_API:
         msg['proto'] = 1
         msg['port'] = kwarg.get('port', 0)
         msg['dst_len'] = 32
+        msg['generation'] = kwarg.get('generation', 0)
         #
         for key, value in request.items():
             nla = probe_msg.name2nla(key)

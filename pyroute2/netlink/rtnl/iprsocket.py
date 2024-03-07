@@ -21,6 +21,8 @@ if sys.platform.startswith('linux'):
 
 
 class IPRSocketBase(object):
+    brd_socket = None
+
     def __init__(self, *argv, **kwarg):
         if 'family' in kwarg:
             kwarg.pop('family')
@@ -62,7 +64,9 @@ class IPRSocketBase(object):
                     msgs = self.marshal.parse(ret['data'])
                     for msg in msgs:
                         seq = msg['header']['sequence_number']
-                        if seq in self.backlog:
+                        if seq == 0 and self.brd_socket is not None:
+                            self.brd_socket.buffer_queue.put_nowait(msg.data)
+                        elif seq in self.backlog:
                             self.backlog[seq].append(msg)
                         else:
                             self.backlog[seq] = [msg]
@@ -136,11 +140,9 @@ class IPRSocket(IPRSocketBase, NetlinkSocket):
         >>>
     '''
 
-    _brd_socket = None
-
     def bind(self, *argv, **kwarg):
         if kwarg.pop('clone_socket', False):
-            self._brd_socket = self.clone()
+            self.brd_socket = self.clone()
 
             def get(
                 self,
@@ -150,7 +152,7 @@ class IPRSocket(IPRSocketBase, NetlinkSocket):
                 callback=None,
             ):
                 if msg_seq == 0:
-                    return self._brd_socket.get(
+                    return self.brd_socket.get(
                         bufsize, msg_seq, terminate, callback
                     )
                 else:
@@ -160,12 +162,12 @@ class IPRSocket(IPRSocketBase, NetlinkSocket):
 
             def close(self, code=errno.ECONNRESET):
                 with self.sys_lock:
-                    self._brd_socket.close()
+                    self.brd_socket.close()
                     return super(IPRSocket, self).close(code=code)
 
             self.get = types.MethodType(get, self)
             self.close = types.MethodType(close, self)
             kwarg['recursive'] = True
-            return self._brd_socket.bind(*argv, **kwarg)
+            return self.brd_socket.bind(*argv, **kwarg)
         else:
             return super(IPRSocket, self).bind(*argv, **kwarg)

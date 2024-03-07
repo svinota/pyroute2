@@ -54,16 +54,21 @@ from pyroute2.netlink.rtnl.probe_msg import probe_msg
 
 from ..objects import RTNL_Object
 
+schema = probe_msg.sql_schema().unique_index(
+    'family',
+    'proto',
+    'port',
+    'dst_len',
+    'PROBE_KIND',
+    'PROBE_SRC',
+    'PROBE_DST',
+    'PROBE_HOSTNAME',
+)
 
-def load_probe_msg(schema, target, event):
-    pass
-
-
-schema = probe_msg.sql_schema().unique_index()
 init = {
     'specs': [['probes', schema]],
     'classes': [['probes', probe_msg]],
-    'event_map': {probe_msg: [load_probe_msg]},
+    'event_map': {probe_msg: ['probes']},
 }
 
 
@@ -75,8 +80,9 @@ class Probe(RTNL_Object):
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = probe_msg
-        self.event_map = {probe_msg: 'load_probe_msg'}
+        self.event_map = {probe_msg: 'load_rtnlmsg'}
         super().__init__(*argv, **kwarg)
 
-    def check(self):
-        return True
+    def update(self):
+        self['generation'] += 1
+        return self
