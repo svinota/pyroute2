@@ -10,13 +10,13 @@ permissions:
 
 jobs:
   linter:
-    runs-on: code
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: make nox session=linter
   repo:
-    runs-on: Python3.8
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: make nox session=docs
   neutron:
-    runs-on: Python3.8
+    runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
@@ -57,21 +57,21 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: sudo make nox session=minimal
-  linux-fedora-38:
-    runs-on: linux-fedora-38
+  fedora:
+    runs-on: Fedora
+    strategy:
+      matrix:
+        python: [python3.8, python3.9, python3.10, python3.11, python3.12]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
-      - run: sudo make nox session=linux
-  linux-ubuntu-22:
-    runs-on: linux-ubuntu-22
+      - run: sudo make nox session=linux-${{ matrix.python }}
+  ubuntu:
+    runs-on: Ubuntu
+    strategy:
+      matrix:
+        python: [python3.10, python3.11]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
-      - run: sudo make nox session=linux
-  openbsd:
-    runs-on: OpenBSD
-    steps:
-      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
-      - run: /home/github/openbsd_runner.sh
+      - run: sudo make nox session=linux-${{ matrix.python }}
