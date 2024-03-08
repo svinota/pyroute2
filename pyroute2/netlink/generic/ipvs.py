@@ -1,4 +1,4 @@
-from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, genlmsg
+from pyroute2.netlink import genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
 
 GENL_NAME = "IPVS"
@@ -48,12 +48,8 @@ class IPVSSocket(GenericNetlinkSocket):
         super().__init__(*argv, **kwargs)
         self.bind(GENL_NAME, ipvsmsg)
 
-    def service(self, cmd):
+    def make_request(self, cmd, flags):
         msg = ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = GENL_VERSION
-        return self.nlm_request(
-            msg,
-            msg_type=self.prid,
-            msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_DUMP,
-        )
+        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
