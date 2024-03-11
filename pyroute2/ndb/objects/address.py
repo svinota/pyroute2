@@ -196,6 +196,28 @@ def load_ifaddrmsg(schema, target, event):
                 % (schema.plch, schema.plch, schema.plch),
                 (target, event['index'], event['index']),
             )
+            # Take care of multipath routes
+            schema.execute(
+                '''
+                           DELETE FROM nh WHERE
+                           f_target = %s AND
+                           f_oif = %s
+                           '''
+                % (schema.plch, schema.plch),
+                (target, event['index']),
+            )
+
+            schema.execute(
+                '''
+                           DELETE FROM routes WHERE
+                           f_target = %s AND
+                           f_deps = 1 AND
+                           f_route_id NOT IN
+                           (SELECT n.f_route_id FROM nh n)
+                           '''
+                % (schema.plch,),
+                (target,),
+            )
 
 
 ifaddr_spec = (
