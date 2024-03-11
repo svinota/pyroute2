@@ -473,6 +473,7 @@ Please notice, that NLA list *MUST* be mutable.
 
 import io
 import logging
+import socket
 import struct
 import sys
 import threading
@@ -2051,15 +2052,37 @@ class nlmsg_atoms(object):
         __slots__ = ()
         sql_type = 'TEXT'
         family = None
+        family_attr = None
         own_parent = True
+
+        def __init__(self, *argv, **kwarg):
+            init = kwarg.get('init', None)
+            if init is not None:
+                key, value = init.split(',')
+                if key == 'family' and value.startswith('AF_'):
+                    self.family = getattr(socket, value)
+                elif key == 'nla':
+                    self.family_attr = value
+            super().__init__(*argv, **kwarg)
 
         def get_family(self):
             if self.family is not None:
                 return self.family
             pointer = self
+            if self.family_attr is not None:
+                nla = self.family_attr
+            else:
+                nla = 'family'
             while pointer.parent is not None:
                 pointer = pointer.parent
-            return pointer.get('family', AF_UNSPEC)
+                family = pointer.get(nla)
+                if family is not None:
+                    return family
+            return AF_UNSPEC
+
+        @staticmethod
+        def get_addrlen(family):
+            return {AF_INET: 4, AF_INET6: 16, AF_MPLS: 4}.get(family, 4)
 
         def encode(self):
             family = self.get_family()
@@ -2096,14 +2119,17 @@ class nlmsg_atoms(object):
         def decode(self):
             nla_base_string.decode(self)
             family = self.get_family()
+            data = self['value']
             if family in (AF_INET, AF_INET6):
-                self.value = inet_ntop(family, self['value'])
+                if family == AF_INET:
+                    data = data[:4]
+                elif family == AF_INET6:
+                    data = data[:16]
+                self.value = inet_ntop(family, data)
             elif family == AF_MPLS:
                 self.value = []
-                for i in range(len(self['value']) // 4):
-                    label = struct.unpack(
-                        '>I', self['value'][i * 4 : i * 4 + 4]
-                    )[0]
+                for i in range(len(data) // 4):
+                    label = struct.unpack('>I', data[i * 4 : i * 4 + 4])[0]
                     record = {
                         'label': (label & 0xFFFFF000) >> 12,
                         'tc': (label & 0x00000E00) >> 9,
