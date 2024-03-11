@@ -894,7 +894,7 @@ class nlmsg_base(dict):
         self.value = NotInitialized
         # work only on non-empty mappings
         if self.nla_map and not self.__class__.__compiled_nla:
-            self.compile_nla()
+            self.compile_nla_table()
         if self.header:
             self['header'] = {}
 
@@ -1434,7 +1434,7 @@ class nlmsg_base(dict):
 
         return self
 
-    def compile_nla(self):
+    def compile_nla_table(self):
         # Bug-Url: https://github.com/svinota/pyroute2/issues/980
         # Bug-Url: https://github.com/svinota/pyroute2/pull/981
         if isinstance(self.nla_map, NlaMapAdapter):
