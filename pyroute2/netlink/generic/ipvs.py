@@ -47,7 +47,7 @@ class ipvsmsg(genlmsg):
             ("IPVS_SVC_ATTR_UNSPEC", "none"),
             ("IPVS_SVC_ATTR_AF", "uint16"),
             ("IPVS_SVC_ATTR_PROTOCOL", "uint16"),
-            ("IPVS_SVC_ATTR_ADDR", "target"),
+            ("IPVS_SVC_ATTR_ADDR", "target(nla,IPVS_SVC_ATTR_AF)"),
             ("IPVS_SVC_ATTR_PORT", "be16"),
             ("IPVS_SVC_ATTR_FWMARK", "uint32"),
             ("IPVS_SVC_ATTR_SCHED_NAME", "asciiz"),
