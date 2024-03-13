@@ -97,7 +97,7 @@ class ipvsmsg(genlmsg):
         nla_map = (
             ("IPVS_DEST_ATTR_UNSPEC", "none"),
             ("IPVS_DEST_ATTR_ADDR", "target(nla,IPVS_DEST_ATTR_ADDR_FAMILY)"),
-            ("IPVS_DEST_ATTR_PORT", "uint16"),
+            ("IPVS_DEST_ATTR_PORT", "be16"),
             ("IPVS_DEST_ATTR_FWD_METHOD", "uint32"),
             ("IPVS_DEST_ATTR_WEIGHT", "uint32"),
             ("IPVS_DEST_ATTR_U_THRESH", "uint32"),

@@ -1,3 +1,40 @@
+'''
+IPVS -- IP Virtual Server
+-------------------------
+
+IPVS configuration is done via generic netlink protocol.
+At the low level one can use it with a GenericNetlinkSocket,
+binding it to "IPVS" generic netlink family.
+
+But for the convenience the library provides utility classes:
+
+    * IPVS -- a socket class to access the API
+    * IPVSService -- a class to define IPVS service records
+    * IPVSDest -- a class to define real server records
+
+An example to dump all the records::
+
+    from pyroute2 import IPVS, IPVSDest, IPVSService
+
+    # run the socket
+    ipvs = IPVS()
+
+    # iterate all the IPVS services
+    for s in ipvs.service("dump"):
+
+        # create a utility object from a netlink record
+        service = IPVSService.from_record(s)
+        print("Service: ", service)
+
+        # iterate all the real servers for this service
+        for d in ipvs.dest("dump", service=service):
+
+            # create and print a utility object
+            dest = IPVSDest.from_record(d)
+            print("  Real server: ", dest)
+
+'''
+
 from pyroute2.netlink.generic import ipvs
 from pyroute2.requests.common import NLAKeyTransform
 from pyroute2.requests.main import RequestProcessor
@@ -15,9 +52,19 @@ class NLAFilter(RequestProcessor):
     msg = None
     keys = tuple()
     field_filter = None
+    nla = None
 
     def __init__(self, prime):
         super().__init__(prime=prime)
+
+    @classmethod
+    def from_record(cls, record):
+        obj = cls({})
+        for key, value in record.get(cls.nla)["attrs"]:
+            obj[key] = value
+        obj.pop("stats", None)
+        obj.pop("stats64", None)
+        return obj
 
     def dump_nla(self, items=None):
         if items is None:
@@ -39,12 +86,14 @@ class NLAFilter(RequestProcessor):
 class IPVSService(NLAFilter):
     field_filter = ServiceFieldFilter()
     msg = ipvs.ipvsmsg.service
-    keys = ('af', 'protocol', 'addr', 'port')
+    keys = ("af", "protocol", "addr", "port")
+    nla = "IPVS_CMD_ATTR_SERVICE"
 
 
 class IPVSDest(NLAFilter):
     field_filter = DestFieldFilter()
     msg = ipvs.ipvsmsg.dest
+    nla = "IPVS_CMD_ATTR_DEST"
 
 
 class IPVS(ipvs.IPVSSocket):

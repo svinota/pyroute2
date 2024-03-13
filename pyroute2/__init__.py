@@ -28,7 +28,7 @@ from pyroute2.ipdb.main import IPDB
 from pyroute2.iproute import ChaoticIPRoute, IPBatch, IPRoute, RawIPRoute
 from pyroute2.iproute.ipmock import IPRoute as IPMock
 from pyroute2.ipset import IPSet
-from pyroute2.ipvs import IPVS
+from pyroute2.ipvs import IPVS, IPVSDest, IPVSService
 from pyroute2.iwutil import IW
 from pyroute2.ndb.main import NDB
 from pyroute2.ndb.noipdb import NoIPDB
@@ -83,6 +83,8 @@ modules = [
     IPRSocket,
     IPSet,
     IPVS,
+    IPVSDest,
+    IPVSService,
     IW,
     GenericNetlinkSocket,
     L2tp,
