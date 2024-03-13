@@ -22,15 +22,15 @@ An example to dump all the records::
     # iterate all the IPVS services
     for s in ipvs.service("dump"):
 
-        # create a utility object from a netlink record
-        service = IPVSService.from_record(s)
+        # create a utility object from a netlink message
+        service = IPVSService.from_message(s)
         print("Service: ", service)
 
         # iterate all the real servers for this service
         for d in ipvs.dest("dump", service=service):
 
             # create and print a utility object
-            dest = IPVSDest.from_record(d)
+            dest = IPVSDest.from_message(d)
             print("  Real server: ", dest)
 
 '''
@@ -58,9 +58,9 @@ class NLAFilter(RequestProcessor):
         super().__init__(prime=prime)
 
     @classmethod
-    def from_record(cls, record):
+    def from_message(cls, msg):
         obj = cls({})
-        for key, value in record.get(cls.nla)["attrs"]:
+        for key, value in msg.get(cls.nla)["attrs"]:
             obj[key] = value
         obj.pop("stats", None)
         obj.pop("stats64", None)
