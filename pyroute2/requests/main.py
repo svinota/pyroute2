@@ -7,8 +7,12 @@ from collections import ChainMap
 
 
 class RequestProcessor(dict):
+    field_filter = None
+    context = None
+
     def __init__(self, field_filter=None, context=None, prime=None):
-        self.field_filter = field_filter
+        if field_filter is not None:
+            self.field_filter = field_filter
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
         )
