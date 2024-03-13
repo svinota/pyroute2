@@ -128,5 +128,5 @@ class IPVS(ipvs.IPVSSocket):
         msg["version"] = 0x1
         msg["attrs"] = [("IPVS_CMD_ATTR_SERVICE", service.dump_key())]
         if dest is not None:
-            msg["attrs"].append("IPVS_CMD_ATTR_SERVICE", dest.dump_nla())
+            msg["attrs"].append(("IPVS_CMD_ATTR_DEST", dest.dump_nla()))
         return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
