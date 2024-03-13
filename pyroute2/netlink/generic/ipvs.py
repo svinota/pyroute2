@@ -30,19 +30,52 @@ IPVS_CMD_ZERO = 16
 IPVS_CMD_FLUSH = 17
 
 
+class ipvsstats:
+    class stats(nla):
+        nla_map = (
+            ("IPVS_STATS_ATTR_UNSPEC", "none"),
+            ("IPVS_STATS_ATTR_CONNS", "uint32"),
+            ("IPVS_STATS_ATTR_INPKTS", "uint32"),
+            ("IPVS_STATS_ATTR_OUTPKTS", "uint32"),
+            ("IPVS_STATS_ATTR_INBYTES", "uint64"),
+            ("IPVS_STATS_ATTR_OUTBYTES", "uint64"),
+            ("IPVS_STATS_ATTR_CPS", "uint32"),
+            ("IPVS_STATS_ATTR_INPPS", "uint32"),
+            ("IPVS_STATS_ATTR_OUTPPS", "uint32"),
+            ("IPVS_STATS_ATTR_INBPS", "uint32"),
+            ("IPVS_STATS_ATTR_OUTBPS", "uint32"),
+        )
+
+    class stats64(nla):
+        nla_map = (
+            ("IPVS_STATS_ATTR_UNSPEC", "none"),
+            ("IPVS_STATS_ATTR_CONNS", "uint64"),
+            ("IPVS_STATS_ATTR_INPKTS", "uint64"),
+            ("IPVS_STATS_ATTR_OUTPKTS", "uint64"),
+            ("IPVS_STATS_ATTR_INBYTES", "uint64"),
+            ("IPVS_STATS_ATTR_OUTBYTES", "uint64"),
+            ("IPVS_STATS_ATTR_CPS", "uint64"),
+            ("IPVS_STATS_ATTR_INPPS", "uint64"),
+            ("IPVS_STATS_ATTR_OUTPPS", "uint64"),
+            ("IPVS_STATS_ATTR_INBPS", "uint64"),
+            ("IPVS_STATS_ATTR_OUTBPS", "uint64"),
+        )
+
+
 class ipvsmsg(genlmsg):
     prefix = "IPVS_CMD_ATTR_"
     nla_map = (
         ("IPVS_CMD_ATTR_UNSPEC", "none"),
         ("IPVS_CMD_ATTR_SERVICE", "service"),
-        ("IPVS_CMD_ATTR_DEST", "hex"),
+        ("IPVS_CMD_ATTR_DEST", "dest"),
         ("IPVS_CMD_ATTR_DAEMON", "hex"),
         ("IPVS_CMD_ATTR_TIMEOUT_TCP", "hex"),
         ("IPVS_CMD_ATTR_TIMEOUT_TCP_FIN", "hex"),
         ("IPVS_CMD_ATTR_TIMEOUT_UDP", "hex"),
     )
 
-    class service(nla):
+    class service(nla, ipvsstats):
+        prefix = "IPVS_SVC_ATTR_"
         nla_map = (
             ("IPVS_SVC_ATTR_UNSPEC", "none"),
             ("IPVS_SVC_ATTR_AF", "uint16"),
@@ -59,46 +92,29 @@ class ipvsmsg(genlmsg):
             ("IPVS_SVC_ATTR_STATS64", "stats64"),
         )
 
-        class stats(nla):
-
-            nla_map = (
-                ("IPVS_STATS_ATTR_UNSPEC", "none"),
-                ("IPVS_STATS_ATTR_CONNS", "uint32"),
-                ("IPVS_STATS_ATTR_INPKTS", "uint32"),
-                ("IPVS_STATS_ATTR_OUTPKTS", "uint32"),
-                ("IPVS_STATS_ATTR_INBYTES", "uint64"),
-                ("IPVS_STATS_ATTR_OUTBYTES", "uint64"),
-                ("IPVS_STATS_ATTR_CPS", "uint32"),
-                ("IPVS_STATS_ATTR_INPPS", "uint32"),
-                ("IPVS_STATS_ATTR_OUTPPS", "uint32"),
-                ("IPVS_STATS_ATTR_INBPS", "uint32"),
-                ("IPVS_STATS_ATTR_OUTBPS", "uint32"),
-            )
-
-        class stats64(nla):
-
-            nla_map = (
-                ("IPVS_STATS_ATTR_UNSPEC", "none"),
-                ("IPVS_STATS_ATTR_CONNS", "uint64"),
-                ("IPVS_STATS_ATTR_INPKTS", "uint64"),
-                ("IPVS_STATS_ATTR_OUTPKTS", "uint64"),
-                ("IPVS_STATS_ATTR_INBYTES", "uint64"),
-                ("IPVS_STATS_ATTR_OUTBYTES", "uint64"),
-                ("IPVS_STATS_ATTR_CPS", "uint64"),
-                ("IPVS_STATS_ATTR_INPPS", "uint64"),
-                ("IPVS_STATS_ATTR_OUTPPS", "uint64"),
-                ("IPVS_STATS_ATTR_INBPS", "uint64"),
-                ("IPVS_STATS_ATTR_OUTBPS", "uint64"),
-            )
+    class dest(nla, ipvsstats):
+        prefix = "IPVS_DEST_ATTR_"
+        nla_map = (
+            ("IPVS_DEST_ATTR_UNSPEC", "none"),
+            ("IPVS_DEST_ATTR_ADDR", "target(nla,IPVS_DEST_ATTR_ADDR_FAMILY)"),
+            ("IPVS_DEST_ATTR_PORT", "uint16"),
+            ("IPVS_DEST_ATTR_FWD_METHOD", "uint32"),
+            ("IPVS_DEST_ATTR_WEIGHT", "uint32"),
+            ("IPVS_DEST_ATTR_U_THRESH", "uint32"),
+            ("IPVS_DEST_ATTR_L_THRESH", "uint32"),
+            ("IPVS_DEST_ATTR_ACTIVE_CONNS", "uint32"),
+            ("IPVS_DEST_ATTR_INACT_CONNS", "uint32"),
+            ("IPVS_DEST_ATTR_PERSIST_CONNS", "uint32"),
+            ("IPVS_DEST_ATTR_STATS", "stats"),
+            ("IPVS_DEST_ATTR_ADDR_FAMILY", "uint16"),
+            ("IPVS_DEST_ATTR_STATS64", "stats64"),
+            ("IPVS_DEST_ATTR_TUN_TYPE", "uint8"),
+            ("IPVS_DEST_ATTR_TUN_PORT", "uint16"),
+            ("IPVS_DEST_ATTR_TUN_FLAGS", "uint16"),
+        )
 
 
 class IPVSSocket(GenericNetlinkSocket):
     def __init__(self, *argv, **kwargs):
         super().__init__(*argv, **kwargs)
         self.bind(GENL_NAME, ipvsmsg)
-
-    def make_request(self, cmd, flags):
-        msg = ipvsmsg()
-        msg["cmd"] = cmd
-        msg["version"] = GENL_VERSION
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
