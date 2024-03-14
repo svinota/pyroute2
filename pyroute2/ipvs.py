@@ -46,6 +46,19 @@ Create a service and a real server record::
     ipvs.service("add", service=service)
     ipvs.dest("add", service=service, dest=real_server)
 
+Delete a service::
+
+    from pyroute2 import IPVS, IPVSService
+
+    ipvs = IPVS()
+    ipvs.service("del",
+        service=IPVSService(
+            addr="192.168.122.1",
+            port=80,
+            protocol=IPPROTO_TCP
+        )
+    )
+
 '''
 
 from socket import AF_INET
