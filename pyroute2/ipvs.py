@@ -12,7 +12,7 @@ But for the convenience the library provides utility classes:
     * IPVSService -- a class to define IPVS service records
     * IPVSDest -- a class to define real server records
 
-An example to dump all the records::
+Dump all the records::
 
     from pyroute2 import IPVS, IPVSDest, IPVSService
 
@@ -33,8 +33,23 @@ An example to dump all the records::
             dest = IPVSDest.from_message(d)
             print("  Real server: ", dest)
 
+Create a service and a real server record::
+
+    from socket import IPPROTO_TCP
+    from pyroute2 import IPVS, IPVSDest, IPVSService
+
+    ipvs = IPVS()
+
+    service = IPVSService(addr="192.168.122.1", port=80, protocol=IPPROTO_TCP)
+    real_server = IPVSDest(addr="10.0.2.20", port=80)
+
+    ipvs.service("add", service=service)
+    ipvs.dest("add", service=service, dest=real_server)
+
 '''
 
+from socket import AF_INET
+from pyroute2.common import get_address_family
 from pyroute2.netlink.generic import ipvs
 from pyroute2.requests.common import NLAKeyTransform
 from pyroute2.requests.main import RequestProcessor
@@ -43,9 +58,25 @@ from pyroute2.requests.main import RequestProcessor
 class ServiceFieldFilter(NLAKeyTransform):
     _nla_prefix = 'IPVS_SVC_ATTR_'
 
+    def set_addr(self, context, value):
+        ret = {"addr": value}
+        if "af" in context.keys():
+            family = context["af"]
+        else:
+            family = ret["af"] = get_address_family(value)
+        if family == AF_INET and "netmask" not in context.keys():
+            ret["netmask"] = "255.255.255.255"
+        return ret
+
 
 class DestFieldFilter(NLAKeyTransform):
     _nla_prefix = 'IPVS_DEST_ATTR_'
+
+    def set_addr(self, context, value):
+        ret = {"addr": value}
+        if "addr_family" not in context.keys():
+            ret["addr_family"] = get_address_family(value)
+        return ret
 
 
 class NLAFilter(RequestProcessor):
@@ -53,13 +84,15 @@ class NLAFilter(RequestProcessor):
     keys = tuple()
     field_filter = None
     nla = None
+    default_values = {}
 
-    def __init__(self, prime):
-        super().__init__(prime=prime)
+    def __init__(self, **kwarg):
+        dict.update(self, self.default_values)
+        super().__init__(prime=kwarg)
 
     @classmethod
     def from_message(cls, msg):
-        obj = cls({})
+        obj = cls()
         for key, value in msg.get(cls.nla)["attrs"]:
             obj[key] = value
         obj.pop("stats", None)
@@ -79,26 +112,40 @@ class NLAFilter(RequestProcessor):
 
     def dump_key(self):
         return self.dump_nla(
-            items=filter(lambda x: x[0] in self.keys, self.items())
+            items=filter(lambda x: x[0] in self.key_fields, self.items())
         )
 
 
 class IPVSService(NLAFilter):
     field_filter = ServiceFieldFilter()
     msg = ipvs.ipvsmsg.service
-    keys = ("af", "protocol", "addr", "port")
+    key_fields = ("af", "protocol", "addr", "port")
     nla = "IPVS_CMD_ATTR_SERVICE"
+    default_values = {
+        "timeout": 0,
+        "sched_name": "wlc",
+        "flags": {"flags": 0, "mask": 0xffff},
+    }
 
 
 class IPVSDest(NLAFilter):
     field_filter = DestFieldFilter()
     msg = ipvs.ipvsmsg.dest
     nla = "IPVS_CMD_ATTR_DEST"
+    default_values = {
+        "fwd_method": 3,
+        "weight": 1,
+        "tun_type": 0,
+        "tun_port": 0,
+        "tun_flags": 0,
+        "u_thresh": 0,
+        "l_thresh": 0,
+    }
 
 
 class IPVS(ipvs.IPVSSocket):
 
-    def service(self, command, **kwarg):
+    def service(self, command, service=None):
         command_map = {
             "add": (ipvs.IPVS_CMD_NEW_SERVICE, "create"),
             "set": (ipvs.IPVS_CMD_SET_SERVICE, "change"),
@@ -111,9 +158,11 @@ class IPVS(ipvs.IPVSSocket):
         msg = ipvs.ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = ipvs.GENL_VERSION
+        if service is not None:
+            msg["attrs"] = [("IPVS_CMD_ATTR_SERVICE", service.dump_nla())]
         return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
 
-    def dest(self, command, service, dest=None, **kwarg):
+    def dest(self, command, service, dest=None):
         command_map = {
             "add": (ipvs.IPVS_CMD_NEW_DEST, "create"),
             "set": (ipvs.IPVS_CMD_SET_DEST, "change"),
