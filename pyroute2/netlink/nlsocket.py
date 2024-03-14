@@ -103,7 +103,7 @@ from socket import (
 )
 
 from pyroute2 import config
-from pyroute2.common import DEFAULT_RCVBUF, AddrPool
+from pyroute2.common import DEFAULT_RCVBUF, AddrPool, basestring
 from pyroute2.config import AF_NETLINK
 from pyroute2.netlink import (
     NETLINK_ADD_MEMBERSHIP,
@@ -114,9 +114,14 @@ from pyroute2.netlink import (
     NETLINK_LISTEN_ALL_NSID,
     NLM_F_ACK,
     NLM_F_ACK_TLVS,
+    NLM_F_APPEND,
+    NLM_F_CREATE,
     NLM_F_DUMP,
     NLM_F_DUMP_INTR,
+    NLM_F_ECHO,
+    NLM_F_EXCL,
     NLM_F_MULTI,
+    NLM_F_REPLACE,
     NLM_F_REQUEST,
     NLMSG_DONE,
     NLMSG_ERROR,
@@ -893,6 +898,35 @@ class NetlinkSocketBase:
 
     def clone(self):
         return type(self)(**self.config)
+
+    def make_request_type(self, command, command_map):
+        if isinstance(command, basestring):
+            return (lambda x: (x[0], self.make_request_flags(x[1])))(
+                command_map[command]
+            )
+        elif isinstance(command, int):
+            return command, self.make_request_flags('create')
+        elif isinstance(command, (list, tuple)):
+            return command
+        else:
+            raise TypeError('allowed command types: int, str, list, tuple')
+
+    def make_request_flags(self, mode):
+        flags = {
+            'dump': NLM_F_REQUEST | NLM_F_DUMP,
+            'get': NLM_F_REQUEST | NLM_F_ACK,
+            'req': NLM_F_REQUEST | NLM_F_ACK,
+        }
+        flags['create'] = flags['req'] | NLM_F_CREATE | NLM_F_EXCL
+        flags['append'] = flags['req'] | NLM_F_CREATE | NLM_F_APPEND
+        flags['change'] = flags['req'] | NLM_F_REPLACE
+        flags['replace'] = flags['change'] | NLM_F_CREATE
+
+        return flags[mode] | (
+            NLM_F_ECHO
+            if (self.config['nlm_echo'] and mode not in ('get', 'dump'))
+            else 0
+        )
 
     def put(
         self,
