@@ -49,6 +49,7 @@ Create a service and a real server record::
 '''
 
 from socket import AF_INET
+
 from pyroute2.common import get_address_family
 from pyroute2.netlink.generic import ipvs
 from pyroute2.requests.common import NLAKeyTransform
@@ -124,7 +125,7 @@ class IPVSService(NLAFilter):
     default_values = {
         "timeout": 0,
         "sched_name": "wlc",
-        "flags": {"flags": 0, "mask": 0xffff},
+        "flags": {"flags": 0, "mask": 0xFFFF},
     }
 
 

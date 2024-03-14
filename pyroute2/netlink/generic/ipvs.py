@@ -93,8 +93,7 @@ class ipvsmsg(genlmsg):
         )
 
         class flags(nla):
-            fields = (("flags", "I"),
-                      ("mask", "I"))
+            fields = (("flags", "I"), ("mask", "I"))
 
     class dest(nla, ipvsstats):
         prefix = "IPVS_DEST_ATTR_"
