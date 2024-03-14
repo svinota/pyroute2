@@ -84,13 +84,17 @@ class ipvsmsg(genlmsg):
             ("IPVS_SVC_ATTR_PORT", "be16"),
             ("IPVS_SVC_ATTR_FWMARK", "uint32"),
             ("IPVS_SVC_ATTR_SCHED_NAME", "asciiz"),
-            ("IPVS_SVC_ATTR_FLAGS", "hex"),
+            ("IPVS_SVC_ATTR_FLAGS", "flags"),
             ("IPVS_SVC_ATTR_TIMEOUT", "uint32"),
             ("IPVS_SVC_ATTR_NETMASK", "ip4addr"),
             ("IPVS_SVC_ATTR_STATS", "stats"),
             ("IPVS_SVC_ATTR_PE_NAME", "asciiz"),
             ("IPVS_SVC_ATTR_STATS64", "stats64"),
         )
+
+        class flags(nla):
+            fields = (("flags", "I"),
+                      ("mask", "I"))
 
     class dest(nla, ipvsstats):
         prefix = "IPVS_DEST_ATTR_"
