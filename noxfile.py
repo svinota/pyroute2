@@ -240,6 +240,14 @@ def unit(session, config):
 
 @nox.session
 @add_session_config
+def decoder(session, config):
+    '''Run decoder tests.'''
+    setup_venv_dev(session)
+    session.run(*options('test_decoder', config))
+
+
+@nox.session
+@add_session_config
 def integration(session, config):
     '''Run integration tests (lnst, kuryr, ...).'''
     setup_venv_dev(session)

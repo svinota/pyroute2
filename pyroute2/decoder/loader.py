@@ -56,17 +56,17 @@ class Message:
             self.exception = repr(e)
             self.msg = hexdump(self.data)
 
+    def dump(self):
+        return {
+            "pcap header": repr(self.packet_header),
+            "link layer header": repr(self.ll_header),
+            "message class": repr(self.cls),
+            "exception": self.exception,
+            "data": self.msg,
+        }
+
     def __repr__(self):
-        return json.dumps(
-            {
-                "pcap header": repr(self.packet_header),
-                "link layer header": repr(self.ll_header),
-                "message class": repr(self.cls),
-                "exception": self.exception,
-                "data": self.msg,
-            },
-            indent=4,
-        )
+        return json.dumps(self.dump(), indent=4)
 
 
 class MatchOps:
@@ -91,8 +91,9 @@ class MatchOps:
 
     @staticmethod
     def ll_header(family):
-        if not isinstance(family, int) or family < 0 or family > 0xffff:
+        if not isinstance(family, int) or family < 0 or family > 0xFFFF:
             raise TypeError('family must be unsigned short integer')
+
         def f(packet_header, ll_header, raw, data_offset, stack):
             return ll_header.family == family
 
@@ -104,6 +105,7 @@ class MatchOps:
             raise TypeError('format must be string')
         if not isinstance(offset, int) or not isinstance(value, int):
             raise TypeError('offset and value must be integers')
+
         def f(packet_header, ll_header, raw, data_offset, stack):
             o = data_offset + offset
             s = struct.calcsize(fmt)
@@ -193,7 +195,9 @@ class LoaderPcap:
             ll_header = self.decode_ll_header(self.raw, self.offset)
             self.offset += ll_header.header_len
             length = packet_header.incl_len - ll_header.header_len
-            if self.matcher.match(packet_header, ll_header, self.raw, self.offset):
+            if self.matcher.match(
+                packet_header, ll_header, self.raw, self.offset
+            ):
                 msg = Message(
                     packet_header,
                     ll_header,

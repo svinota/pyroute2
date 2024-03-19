@@ -2,14 +2,18 @@
 A cli tool to decode netlink buffers.
 '''
 
-from args import args
-from loader import get_loader
+import json
+
+from pyroute2.decoder.args import args
+from pyroute2.decoder.loader import get_loader
 
 
 def run():
     loader = get_loader(args)
+    ret = []
     for message in loader.data:
-        print(message)
+        ret.append(message.dump())
+    print(json.dumps(ret, indent=4))
 
 
 if __name__ == "__main__":
