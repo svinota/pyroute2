@@ -1,8 +1,11 @@
 import io
+import json
 import shlex
 import struct
 from collections import namedtuple
 from importlib import import_module
+
+from pyroute2.common import hexdump
 
 PcapMetaData = namedtuple(
     "pCAPMetaData",
@@ -24,6 +27,46 @@ PcapLLHeader = namedtuple(
     "PcapLLHeader",
     ("pad0", "addr_type", "pad1", "pad2", "pad3", "family", "header_len"),
 )
+
+
+class Message:
+
+    def __init__(self, packet_header, ll_header, met, data):
+        self.packet_header = packet_header
+        self.ll_header = ll_header
+        self.cls = None
+        self.met = met
+        self.data = data
+        self.exception = None
+        self.msg = None
+
+    def get_message_class(self):
+        if hasattr(self.met, 'msg_map'):
+            (msg_type,) = struct.unpack('H', self.data[4:6])
+            return self.met.msg_map[msg_type]
+        return self.met
+
+    def decode(self):
+        try:
+            self.cls = self.get_message_class()
+            self.msg = self.cls(self.data)
+            self.msg.decode()
+            self.msg = self.msg.dump()
+        except Exception as e:
+            self.exception = repr(e)
+            self.msg = hexdump(self.data)
+
+    def __repr__(self):
+        return json.dumps(
+            {
+                "pcap header": repr(self.packet_header),
+                "link layer header": repr(self.ll_header),
+                "message class": repr(self.cls),
+                "exception": self.exception,
+                "data": self.msg,
+            },
+            indent=4,
+        )
 
 
 class Match:
@@ -127,9 +170,6 @@ class LoaderPcap:
             *struct.unpack(">HHIIHH", data[offset : offset + 16]) + (16,)
         )
 
-    def get_message_class(self, packet_header, ll_header, data, offset):
-        return self.cls
-
     def match(self, packet_header, ll_header, data, offset):
         stack = []
         for method in self.parser.filters:
@@ -144,11 +184,13 @@ class LoaderPcap:
             ll_header = self.decode_ll_header(self.raw, self.offset)
             self.offset += ll_header.header_len
             length = packet_header.incl_len - ll_header.header_len
-            met = self.get_message_class(
-                packet_header, ll_header, self.raw, self.offset
-            )
             if self.match(packet_header, ll_header, self.raw, self.offset):
-                msg = met(self.raw[self.offset : self.offset + length])
+                msg = Message(
+                    packet_header,
+                    ll_header,
+                    self.cls,
+                    self.raw[self.offset : self.offset + length],
+                )
                 msg.decode()
                 yield msg
             self.offset += length
