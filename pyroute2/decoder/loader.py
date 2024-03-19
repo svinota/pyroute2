@@ -69,7 +69,7 @@ class Message:
         )
 
 
-class Match:
+class MatchOps:
 
     @staticmethod
     def AND():
@@ -106,7 +106,7 @@ class Match:
         return f
 
 
-class Parser:
+class Matcher:
     def __init__(self, script):
         self.parsed = []
         self.filters = []
@@ -117,16 +117,16 @@ class Parser:
             token = self.get_token(ignore=',')
             if token == '':
                 break
-            method = getattr(Match, token)
+            method = getattr(MatchOps, token)
             if token in ('AND', 'OR'):
                 op = method
                 continue
             kwarg = {}
             token = self.get_token(expect='{')
-            while token != '}':
+            while True:
                 token = self.get_token(ignore=',')
-                if token == '}':
-                    continue
+                if token in ('}', ''):
+                    break
                 self.get_token(expect='=')
                 value = self.get_token()
                 try:
@@ -149,6 +149,12 @@ class Parser:
             self.parsed.append(token)
         return token
 
+    def match(self, packet_header, ll_header, data, offset):
+        stack = []
+        for method in self.filters:
+            stack.append(method(packet_header, ll_header, data, offset, stack))
+        return all(stack)
+
 
 class LoaderPcap:
 
@@ -158,7 +164,7 @@ class LoaderPcap:
         self.metadata = PcapMetaData(*struct.unpack("IHHiIII", self.raw[:24]))
         self.offset = 24
         self.cls = cls
-        self.parser = Parser(script)
+        self.matcher = Matcher(script)
 
     def decode_packet_header(self, data, offset):
         return PcapPacketHeader(
@@ -170,12 +176,6 @@ class LoaderPcap:
             *struct.unpack(">HHIIHH", data[offset : offset + 16]) + (16,)
         )
 
-    def match(self, packet_header, ll_header, data, offset):
-        stack = []
-        for method in self.parser.filters:
-            stack.append(method(packet_header, ll_header, data, offset, stack))
-        return all(stack)
-
     @property
     def data(self):
         while self.offset < len(self.raw):
@@ -184,7 +184,7 @@ class LoaderPcap:
             ll_header = self.decode_ll_header(self.raw, self.offset)
             self.offset += ll_header.header_len
             length = packet_header.incl_len - ll_header.header_len
-            if self.match(packet_header, ll_header, self.raw, self.offset):
+            if self.matcher.match(packet_header, ll_header, self.raw, self.offset):
                 msg = Message(
                     packet_header,
                     ll_header,
