@@ -91,6 +91,8 @@ class MatchOps:
 
     @staticmethod
     def ll_header(family):
+        if not isinstance(family, int) or family < 0 or family > 0xffff:
+            raise TypeError('family must be unsigned short integer')
         def f(packet_header, ll_header, raw, data_offset, stack):
             return ll_header.family == family
 
@@ -98,6 +100,10 @@ class MatchOps:
 
     @staticmethod
     def data(fmt, offset, value):
+        if not isinstance(fmt, str):
+            raise TypeError('format must be string')
+        if not isinstance(offset, int) or not isinstance(value, int):
+            raise TypeError('offset and value must be integers')
         def f(packet_header, ll_header, raw, data_offset, stack):
             o = data_offset + offset
             s = struct.calcsize(fmt)
@@ -112,14 +118,15 @@ class Matcher:
         self.filters = []
         self.script = script
         self.shlex = shlex.shlex(instream=io.StringIO(script))
-        op = None
+        self.shlex.wordchars += '-~'
+        postpone = None
         while True:
             token = self.get_token(ignore=',')
             if token == '':
                 break
             method = getattr(MatchOps, token)
             if token in ('AND', 'OR'):
-                op = method
+                postpone = method
                 continue
             kwarg = {}
             token = self.get_token(expect='{')
@@ -129,15 +136,17 @@ class Matcher:
                     break
                 self.get_token(expect='=')
                 value = self.get_token()
-                try:
+                if value[0] in ['"', "'"]:
+                    # string
+                    value = value[1:-1]
+                else:
+                    # int
                     value = int(value)
-                except ValueError:
-                    pass
                 kwarg[token] = value
             self.filters.append(method(**kwarg))
-            if op is not None:
-                self.filters.append(op())
-                op = None
+            if postpone is not None:
+                self.filters.append(postpone())
+                postpone = None
 
     def get_token(self, expect=None, ignore=None):
         token = self.shlex.get_token()
