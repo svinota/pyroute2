@@ -1388,6 +1388,23 @@ class nlmsg_base(dict):
             self.setvalue(dump)
         return self
 
+    def dump_attrs(self, attrs):
+        ret = []
+        for i in attrs:
+            if isinstance(i, nlmsg_base):
+                ret.append(i.dump())
+            elif isinstance(i[1], nlmsg_base):
+                # catch nlmsg
+                ret.append([i[0], i[1].dump()])
+            elif isinstance(i[1], (set, list, tuple)):
+                # catch iterables
+                ret.append([i[0], self.dump_attrs(i[1])])
+            elif isinstance(i[1], bytes):
+                ret.append([i[0], hexdump(i[1])])
+            else:
+                ret.append([i[0], i[1]])
+        return ret
+
     def dump(self):
         '''
         Dump packet as a dict
@@ -1399,16 +1416,11 @@ class nlmsg_base(dict):
                 if k == 'header':
                     ret['header'] = dict(a['header'])
                 elif k == 'attrs':
-                    ret['attrs'] = attrs = []
-                    for i in a['attrs']:
-                        if isinstance(i[1], nlmsg_base):
-                            attrs.append([i[0], i[1].dump()])
-                        elif isinstance(i[1], set):
-                            attrs.append([i[0], tuple(i[1])])
-                        else:
-                            attrs.append([i[0], i[1]])
+                    ret['attrs'] = self.dump_attrs(v)
                 else:
                     ret[k] = v
+        elif isinstance(a, nlmsg_base):
+            ret = a.dump()
         else:
             ret = a
         return ret
