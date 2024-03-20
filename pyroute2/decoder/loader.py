@@ -5,7 +5,7 @@ import struct
 from collections import namedtuple
 from importlib import import_module
 
-from pyroute2.common import hexdump
+from pyroute2.common import hexdump, load_dump
 
 PcapMetaData = namedtuple(
     "pCAPMetaData",
@@ -70,9 +70,27 @@ class Message:
 
 
 class MatchOps:
+    '''
+    Functions to match netlink messages.
+
+    The matcher object maintains a stack, where every function
+    leaves True or False. A message matches only when the stack
+    contains True.
+
+    Some functions take arguments from the command line, other
+    like `AND` and `OR` work with the stack.
+    '''
 
     @staticmethod
     def AND():
+        '''
+        Consumes values left on the stack by functions to the
+        left and to the right in the expression, and leaves
+        the result of AND operation::
+
+            func_a{...} AND func_b{...}
+        '''
+
         def f(packet_header, ll_header, raw, data_offset, stack):
             v1 = stack.pop()
             v2 = stack.pop()
@@ -82,6 +100,14 @@ class MatchOps:
 
     @staticmethod
     def OR():
+        '''
+        Consumes values left on the stack by functions to the
+        left and to the right in the expression, and leaves
+        the result of OR operation::
+
+            func_a{...} OR func_b{...}
+        '''
+
         def f(packet_header, ll_header, raw, data_offset, stack):
             v1 = stack.pop()
             v2 = stack.pop()
@@ -91,16 +117,52 @@ class MatchOps:
 
     @staticmethod
     def ll_header(family):
+        '''
+        Match link layer header fields. As for now only netlink
+        family is supported, see `pyroute2.netlink` for netlink
+        families (`NETLINK_.*`) constants::
+
+            # match generic netlink messages
+            ll_header{family=16}
+
+            # match RTNL messages
+            ll_header{family=0}
+        '''
         if not isinstance(family, int) or family < 0 or family > 0xFFFF:
             raise TypeError('family must be unsigned short integer')
 
         def f(packet_header, ll_header, raw, data_offset, stack):
+            if ll_header is None:
+                return False
             return ll_header.family == family
 
         return f
 
     @staticmethod
     def data(fmt, offset, value):
+        '''
+        Match a voluntary data in the message. Use `struct` notation
+        for the format, integers for offset and value::
+
+            # match four bytes with offset 4 bytes and value 16,
+            # or 10:00:00:00 in hex:
+
+            data{fmt='I', offset=4, value=16}
+
+            # match one byte with offset 16 and value 1, or 01 in hex
+
+            data{fmt='B', offset=16, value=1}
+
+        More examples::
+
+            # match:
+            #   * generic netlink protocol, 16
+            #   * message type 37 -- IPVS protocol for this session
+            #   * message command 1 -- IPVS_CMD_NEW_SERVICE
+            ll_header{family=16}
+                AND data{fmt='H', offset=4, value=37}
+                AND data{fmt='B', offset=16, value=1}
+        '''
         if not isinstance(fmt, str):
             raise TypeError('format must be string')
         if not isinstance(offset, int) or not isinstance(value, int):
@@ -167,6 +229,25 @@ class Matcher:
         return all(stack)
 
 
+class LoaderHex:
+
+    def __init__(self, data, cls, script):
+        with open(data, 'r') as f:
+            self.raw = load_dump(f)
+        self.cls = cls
+        self.offset = 0
+        self.matcher = Matcher(script)
+
+    @property
+    def data(self):
+        while self.offset < len(self.raw):
+            msg = Message(None, None, self.cls, self.raw[self.offset :])
+            msg.decode()
+            if self.matcher.match(None, None, self.raw, self.offset):
+                yield msg
+            self.offset += msg.msg['header']['length']
+
+
 class LoaderPcap:
 
     def __init__(self, data, cls, script):
@@ -217,4 +298,9 @@ def get_loader(args):
         module = import_module(module_name)
         cls = getattr(module, cls_name)
 
-    return LoaderPcap(args.data, cls, args.match)
+    if args.format == 'pcap':
+        return LoaderPcap(args.data, cls, args.match)
+    elif args.format == 'hex':
+        return LoaderHex(args.data, cls, args.match)
+    else:
+        raise ValueError('data format not supported')
