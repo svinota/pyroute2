@@ -1393,16 +1393,23 @@ class nlmsg_base(dict):
         for i in attrs:
             if isinstance(i, nlmsg_base):
                 ret.append(i.dump())
-            elif isinstance(i[1], nlmsg_base):
-                # catch nlmsg
-                ret.append([i[0], i[1].dump()])
-            elif isinstance(i[1], (set, list, tuple)):
-                # catch iterables
-                ret.append([i[0], self.dump_attrs(i[1])])
-            elif isinstance(i[1], bytes):
-                ret.append([i[0], hexdump(i[1])])
+            elif isinstance(i, (set, list, tuple, nla_slot)):
+                if isinstance(i[1], nlmsg_base):
+                    # catch nlmsg
+                    ret.append([i[0], i[1].dump()])
+                elif isinstance(i[1], (set, list, tuple)):
+                    # catch iterables
+                    ret.append([i[0], self.dump_attrs(i[1])])
+                elif isinstance(i[1], bytes):
+                    ret.append([i[0], hexdump(i[1])])
+                else:
+                    ret.append([i[0], i[1]])
+            elif isinstance(i, dict):
+                if 'attrs' in i:
+                    i['attrs'] = self.dump_attrs(i['attrs'])
+                ret.append(i)
             else:
-                ret.append([i[0], i[1]])
+                ret.append(i)
         return ret
 
     def dump(self):
