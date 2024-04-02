@@ -71,10 +71,21 @@ class EthtoolFeatures(namedtuple('EthtoolFeatures', ('features',))):
             ioctl_features[feature.name] = feature.enable
 
 
-class EthtoolChannels(namedtuple('EthtoolChannels', (
-    "max_rx", "max_tx", "max_other", "max_combined",
-    "rx_count", "tx_count", "other_count", "combined_count",
-))):
+class EthtoolChannels(
+    namedtuple(
+        'EthtoolChannels',
+        (
+            "max_rx",
+            "max_tx",
+            "max_other",
+            "max_combined",
+            "rx_count",
+            "tx_count",
+            "other_count",
+            "combined_count",
+        ),
+    )
+):
     @classmethod
     def from_ioctl(cls, channels):
         return cls(**{k: getattr(channels, k) for k in cls._fields})
