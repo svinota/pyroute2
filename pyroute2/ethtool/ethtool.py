@@ -71,6 +71,31 @@ class EthtoolFeatures(namedtuple('EthtoolFeatures', ('features',))):
             ioctl_features[feature.name] = feature.enable
 
 
+class EthtoolChannels(
+    namedtuple(
+        'EthtoolChannels',
+        (
+            "max_rx",
+            "max_tx",
+            "max_other",
+            "max_combined",
+            "rx_count",
+            "tx_count",
+            "other_count",
+            "combined_count",
+        ),
+    )
+):
+    @classmethod
+    def from_ioctl(cls, channels):
+        return cls(**{k: getattr(channels, k) for k in cls._fields})
+
+    @staticmethod
+    def to_ioctl(ioctl_channels, eth_channel):
+        for key, val in eth_channel.items():
+            setattr(ioctl_channels, key, val)
+
+
 class EthtoolWakeOnLan(namedtuple('EthtoolWolMode', ('modes', 'sopass'))):
     @classmethod
     def from_netlink(cls, nl_wol):
@@ -464,6 +489,16 @@ class Ethtool:
         ioctl_features = self._with_ioctl.get_features()
         EthtoolFeatures.to_ioctl(ioctl_features, features)
         self._with_ioctl.set_features(ioctl_features)
+
+    def get_channels(self, ifname):
+        self._with_ioctl.change_ifname(ifname)
+        return EthtoolChannels.from_ioctl(self._with_ioctl.get_channels())
+
+    def set_channels(self, ifname, channels):
+        self._with_ioctl.change_ifname(ifname)
+        ioctl_channels = self._with_ioctl.get_channels()
+        EthtoolChannels.to_ioctl(ioctl_channels, channels)
+        self._with_ioctl.set_channels(ioctl_channels)
 
     def get_coalesce(self, ifname):
         self._with_ioctl.change_ifname(ifname)
