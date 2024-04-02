@@ -719,6 +719,10 @@ class EngineThreadUnsafe(EngineBase):
     does not match.
     '''
 
+    def __init__(self, socket):
+        self.buffer = []
+        super().__init__(socket)
+
     def put(
         self,
         msg,
@@ -737,7 +741,21 @@ class EngineThreadUnsafe(EngineBase):
         msg['header']['flags'] = msg_flags
         msg['header']['sequence_number'] = msg_seq
         msg['header']['pid'] = msg_pid
-        self.sendto_gate(msg, addr)
+        self.socket.sendto_gate(msg, addr)
+
+    def consume(self, block=False):
+        if block:
+            flags = 0
+        else:
+            flags = MSG_DONTWAIT
+        data = bytearray(16384)
+        bufsize, _ = self.socket._sock.recvfrom_into(
+                data, 0, flags | MSG_PEEK | MSG_TRUNC
+        )
+        self.socket._sock.recvfrom_into(
+                data, bufsize, flags
+        )
+        return data
 
     def get(
         self,
@@ -747,19 +765,26 @@ class EngineThreadUnsafe(EngineBase):
         callback=None,
         noraise=False,
     ):
-        if bufsize == -1:
-            # get bufsize from the network data
-            bufsize = struct.unpack("I", self.recv(4, MSG_PEEK))[0]
-        elif bufsize == 0:
-            # get bufsize from SO_RCVBUF
-            bufsize = self.getsockopt(SOL_SOCKET, SO_RCVBUF) // 2
         enough = False
         while not enough:
-            data = self.recv(bufsize)
-            *messages, last = tuple(
+            # step 1. receive as much as we can from the socket
+            while True:
+                try:
+                    self.buffer.append(self.consume(block=False))
+                except BlockingIOError:
+                    break
+            if len(self.buffer) == 0:
+                self.buffer.append(self.consume(block=True))
+            # step 2. fetch one data block from the buffer
+            data = self.buffer.pop(0)
+            # step 3. parse the data block
+            messages = tuple(
                 self.marshal.parse(data, msg_seq, callback)
             )
+            last = messages[-1]
             for msg in messages:
+                if msg['header']['sequence_number'] != msg_seq:
+                    continue
                 msg['header']['target'] = self.target
                 msg['header']['stats'] = Stats(0, 0, 0)
                 yield msg
@@ -773,7 +798,6 @@ class EngineThreadUnsafe(EngineBase):
                 or (callable(terminate) and terminate(last))
             ):
                 enough = True
-            yield last
 
 
 class NetlinkSocketBase:
@@ -891,7 +915,7 @@ class NetlinkSocketBase:
 
         # Set defaults
         self.post_init()
-        self.engine = EngineThreadSafe(self)
+        self.engine = EngineThreadUnsafe(self)
 
     def post_init(self):
         pass
