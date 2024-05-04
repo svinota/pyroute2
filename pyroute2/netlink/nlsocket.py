@@ -749,12 +749,16 @@ class EngineThreadUnsafe(EngineBase):
         else:
             flags = MSG_DONTWAIT
         data = bytearray(16384)
-        bufsize, _ = self.socket._sock.recvfrom_into(
+        log.debug("consume, block=%s", block)
+        if hasattr(self.socket._sock, 'recvfrom_into'):
+            bufsize, _ = self.socket._sock.recvfrom_into(
                 data, 0, flags | MSG_PEEK | MSG_TRUNC
-        )
-        self.socket._sock.recvfrom_into(
-                data, bufsize, flags
-        )
+            )
+            log.debug("consume bufsize=%s", bufsize)
+            ret = self.socket._sock.recvfrom_into(data, bufsize, flags)
+            log.debug("consume return %s", ret)
+        else:
+            data = self.socket.recv(16843, flags)
         return data
 
     def get(
@@ -765,7 +769,9 @@ class EngineThreadUnsafe(EngineBase):
         callback=None,
         noraise=False,
     ):
+        log.debug("get: %s / %s / %s / %s", msg_seq, terminate, callback, noraise)
         enough = False
+        started = False
         while not enough:
             # step 1. receive as much as we can from the socket
             while True:
@@ -778,26 +784,30 @@ class EngineThreadUnsafe(EngineBase):
             # step 2. fetch one data block from the buffer
             data = self.buffer.pop(0)
             # step 3. parse the data block
-            messages = tuple(
-                self.marshal.parse(data, msg_seq, callback)
-            )
-            last = messages[-1]
+            messages = tuple(self.marshal.parse(data, msg_seq, callback))
             for msg in messages:
-                if msg['header']['sequence_number'] != msg_seq:
+                if msg_seq > 0 and msg['header']['sequence_number'] != msg_seq:
                     continue
                 msg['header']['target'] = self.target
                 msg['header']['stats'] = Stats(0, 0, 0)
+                started = True
+                log.debug("yield %s", msg['header'])
+                log.debug("message %s", msg)
                 yield msg
 
-            if last['header']['type'] == NLMSG_DONE:
+            if started and msg['header']['type'] == NLMSG_DONE:
                 break
 
-            if (
+            if started and (
                 (msg_seq == 0)
-                or (not last['header']['flags'] & NLM_F_MULTI)
-                or (callable(terminate) and terminate(last))
+                or (not msg['header']['flags'] & NLM_F_MULTI)
+                or (callable(terminate) and terminate(msg))
             ):
                 enough = True
+
+            # drop orphaned NLMSG_ERROR
+            if msg['header']['type'] == NLMSG_ERROR:
+                continue
 
 
 class NetlinkSocketBase:
@@ -1457,13 +1467,9 @@ class NetlinkSocket(NetlinkSocketBase):
             else:
                 raise KeyError('no free address available')
         # all is OK till now, so start async recv, if we need
-        if async_cache:
-            self.buffer_thread = threading.Thread(
-                name="Netlink async cache", target=self.buffer_thread_routine
-            )
-            self.input_from_buffer_queue = True
-            self.buffer_thread.daemon = True
-            self.buffer_thread.start()
+        #if async_cache:
+        #    self.buffer_thread.daemon = True
+        #    self.buffer_thread.start()
 
     def add_membership(self, group):
         self.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
