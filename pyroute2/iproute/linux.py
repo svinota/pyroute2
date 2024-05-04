@@ -841,7 +841,7 @@ class RTNL_API:
             try:
                 for link in self.link('get', **kwarg):
                     return [link['index']]
-            except NetlinkError:
+            except (NetlinkError, KeyError):
                 return []
         else:
             # otherwise fallback to the userspace filter
