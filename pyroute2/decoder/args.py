@@ -13,4 +13,14 @@ def parse_args():
     argument_parser.add_argument(
         '-m', '--match', help='match protocol family (only for pcap data)'
     )
+    argument_parser.add_argument(
+        '-o',
+        '--offset',
+        help='message offset in the data',
+        default=0,
+        type=int,
+    )
+    argument_parser.add_argument(
+        '-k', '--key', help='key format (see struct)', default='H'
+    )
     return argument_parser.parse_args()
