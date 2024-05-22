@@ -174,7 +174,7 @@ class RTNL_API:
         else:
             self.netns_path = config.netns_path
         super().__init__(*argv, **kwarg)
-        if not self.nlm_generator:
+        if not self.status['nlm_generator']:
 
             def filter_messages(*argv, **kwarg):
                 return tuple(self._genmatch(*argv, **kwarg))
@@ -958,7 +958,10 @@ class RTNL_API:
         if match is not None:
             ret = self.filter_messages(match, ret)
 
-        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not msg_flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret
@@ -1333,7 +1336,7 @@ class RTNL_API:
         for field in msg.fields:
             if (
                 command == "dump"
-                and self.strict_check
+                and self.status['strict_check']
                 and field[0] == "ifindex"
             ):
                 # is dump & strict_check, leave ifindex for NLA
@@ -1350,7 +1353,10 @@ class RTNL_API:
         if command == 'dump' and dump_filter:
             ret = self.filter_messages(dump_filter, ret)
 
-        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not msg_flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret
@@ -1739,7 +1745,10 @@ class RTNL_API:
                 )
             ret = self.filter_messages(dump_filter, ret)
 
-        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not msg_flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret
@@ -1852,7 +1861,10 @@ class RTNL_API:
         if command == 'dump' and dump_filter is not None:
             ret = self.filter_messages(dump_filter, ret)
 
-        if self.nlm_generator and not msg_flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not msg_flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret
@@ -2327,7 +2339,7 @@ class RTNL_API:
         # if table is not defined in kwarg, save it there
         # also for nla_attr. Do not set it in strict_check, use
         # NLA instead
-        if not self.strict_check:
+        if not self.status['strict_check']:
             table = kwarg.get('table', 254)
             msg['table'] = table if table <= 255 else 252
         msg['family'] = kwarg.pop('family', AF_INET)
@@ -2378,7 +2390,10 @@ class RTNL_API:
                 )
             ret = self.filter_messages(match, ret)
 
-        if self.nlm_generator and not flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret
@@ -2484,7 +2499,7 @@ class RTNL_API:
         msg['attrs'] = []
 
         for key in request:
-            if command == RTM_GETRULE and self.strict_check:
+            if command == RTM_GETRULE and self.status['strict_check']:
                 if key in ("match", "priority"):
                     continue
             nla = fibmsg.name2nla(key)
@@ -2503,7 +2518,10 @@ class RTNL_API:
                 )
             ret = self.filter_messages(match, ret)
 
-        if self.nlm_generator and not flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret
@@ -2531,7 +2549,10 @@ class RTNL_API:
         if match is not None:
             ret = self.filter_messages(match, ret)
 
-        if self.nlm_generator and not flags & NLM_F_DUMP == NLM_F_DUMP:
+        if (
+            self.status['nlm_generator']
+            and not flags & NLM_F_DUMP == NLM_F_DUMP
+        ):
             ret = tuple(ret)
 
         return ret

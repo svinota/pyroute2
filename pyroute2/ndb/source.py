@@ -93,7 +93,7 @@ import uuid
 from pyroute2.common import basestring
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import NetlinkSocketBase
+from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.remote import RemoteIPRoute
 
@@ -248,7 +248,7 @@ class Source(dict):
         return ret
 
     def __repr__(self):
-        if isinstance(self.nl_prime, NetlinkSocketBase):
+        if isinstance(self.nl_prime, NetlinkSocket):
             name = self.nl_prime.__class__.__name__
         elif isinstance(self.nl_prime, type):
             name = self.nl_prime.__name__
