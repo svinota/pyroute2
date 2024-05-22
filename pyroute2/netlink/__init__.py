@@ -1635,27 +1635,48 @@ class nlmsg_base(dict):
 # NLMSG fields codecs, mixin classes
 #
 class nlmsg_decoder_generic(object):
-    def ft_decode(self, offset):
+    @staticmethod
+    def ft_decode_field(fmt, data, offset):
         global cache_fmt
+        ##
+        # ~~ size = struct.calcsize(efmt)
+        #
+        # The use of the cache gives here a tiny performance
+        # improvement, but it is an improvement anyways
+        #
+        size = (
+            cache_fmt.get(fmt, None)
+            or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
+            or cache_fmt[fmt]
+        )
+        ##
+        value = struct.unpack_from(fmt, data, offset)
+        offset += size
+        if len(value) == 1:
+            return value[0], offset
+        else:
+            return value, offset
+
+    @staticmethod
+    def ft_decode_str(data, offset):
+        (length,) = struct.unpack_from('H', data, offset)
+        (value,) = struct.unpack_from(f'{length}s', data, offset + 2)
+        offset += length + 2
+        return value.decode('utf-8'), offset
+
+    def ft_decode(self, offset):
         for name, fmt in self.fields:
-            ##
-            # ~~ size = struct.calcsize(efmt)
-            #
-            # The use of the cache gives here a tiny performance
-            # improvement, but it is an improvement anyways
-            #
-            size = (
-                cache_fmt.get(fmt, None)
-                or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
-                or cache_fmt[fmt]
-            )
-            ##
-            value = struct.unpack_from(fmt, self.data, offset)
-            offset += size
-            if len(value) == 1:
-                self[name] = value[0]
-            else:
-                self[name] = value
+            if isinstance(fmt, str):
+                self[name], offset = self.ft_decode_field(
+                    fmt, self.data, offset
+                )
+            elif fmt is str:
+                self[name], offset = self.ft_decode_str(self.data, offset)
+            elif isinstance(fmt, dict):
+                self[name] = fmt['struct'].decode(
+                    self.data[offset : offset + fmt['length']]
+                )
+                offset += fmt['length']
         # read NLA chain
         if self.nla_map:
             offset = (offset + 4 - 1) & ~(4 - 1)
@@ -1722,14 +1743,10 @@ class nlmsg_encoder_generic(object):
             self.data.extend([0] * length)
 
             # in python3 we should force it
-            if sys.version[0] == '3':
-                if isinstance(value, str):
-                    value = bytes(value, 'utf-8')
-                elif isinstance(value, float):
-                    value = int(value)
-            elif sys.version[0] == '2':
-                if isinstance(value, unicode):
-                    value = value.encode('utf-8')
+            if isinstance(value, str):
+                value = bytes(value, 'utf-8')
+            elif isinstance(value, float):
+                value = int(value)
 
             try:
                 if fmt[-1] == 'x':
