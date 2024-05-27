@@ -828,6 +828,7 @@ class nlmsg_base(dict):
 
     fields = ()
     header = ()
+    defaults = {'header': {}}
     pack = None  # pack pragma
     cell_header = None
     align = 4
@@ -1234,8 +1235,9 @@ class nlmsg_base(dict):
             )
             offset = self.offset
             for name, fmt in self.header:
+                default = self.defaults['header'].get(name, 0)
                 struct.pack_into(
-                    fmt, self.data, offset, self['header'].get(name, 0)
+                    fmt, self.data, offset, self['header'].get(name, default)
                 )
                 offset += struct.calcsize(fmt)
 
@@ -1635,6 +1637,7 @@ class nlmsg_base(dict):
 # NLMSG fields codecs, mixin classes
 #
 class nlmsg_decoder_generic(object):
+
     @staticmethod
     def ft_decode_field(fmt, data, offset):
         global cache_fmt
@@ -1658,11 +1661,29 @@ class nlmsg_decoder_generic(object):
             return value, offset
 
     @staticmethod
-    def ft_decode_str(data, offset):
-        (length,) = struct.unpack_from('H', data, offset)
-        (value,) = struct.unpack_from(f'{length}s', data, offset + 2)
-        offset += length + 2
-        return value.decode('utf-8'), offset
+    def ft_decode_struct(fmt, data, offset):
+        if hasattr(fmt, 'header_fmt'):
+            # variable length data
+            header = fmt.header_fmt
+            header_length = struct.calcsize(header)
+            (length,) = struct.unpack_from(header, data, offset)
+            offset += header_length
+            if fmt.base is str:
+                (value,) = struct.unpack_from(f'{length}s', data, offset)
+                value = value.decode('utf-8')
+            else:
+                value = fmt.base(data[offset : offset + length])
+            offset += length
+        elif hasattr(fmt, 'decode_count'):
+            # array
+            value, offset = fmt.decode(data, offset)
+        elif hasattr(fmt, 'length'):
+            # fixed length struct
+            value = fmt.decode(data[offset : offset + fmt.length], 0)
+            offset += fmt.length
+        else:
+            raise ValueError('can not use decoder type')
+        return value, offset
 
     def ft_decode(self, offset):
         for name, fmt in self.fields:
@@ -1670,13 +1691,10 @@ class nlmsg_decoder_generic(object):
                 self[name], offset = self.ft_decode_field(
                     fmt, self.data, offset
                 )
-            elif fmt is str:
-                self[name], offset = self.ft_decode_str(self.data, offset)
-            elif isinstance(fmt, dict):
-                self[name] = fmt['struct'].decode(
-                    self.data[offset : offset + fmt['length']]
+            elif isinstance(fmt, type):
+                self[name], offset = self.ft_decode_struct(
+                    fmt, self.data, offset
                 )
-                offset += fmt['length']
         # read NLA chain
         if self.nla_map:
             offset = (offset + 4 - 1) & ~(4 - 1)
@@ -1729,43 +1747,78 @@ class nlmsg_decoder_struct(object):
 
 
 class nlmsg_encoder_generic(object):
+    @staticmethod
+    def ft_encode_struct(fmt, data, offset, value, zstring=0):
+        if hasattr(fmt, 'header_fmt'):
+            # variable length
+            length = len(value)
+            total_length = length + struct.calcsize(fmt.header_fmt)
+            data.extend([0] * total_length)
+            struct.pack_into(
+                f'{fmt.header_fmt}{length}s',
+                data,
+                offset,
+                length,
+                value.encode('utf-8'),
+            )
+            return offset + total_length
+        else:
+            return fmt.encode(data, offset, value)
+
+    @staticmethod
+    def ft_encode_field(fmt, data, offset, value, zstring=0):
+        if fmt == 's':
+            length = len(value or '') + zstring
+            efmt = '%is' % (length)
+        else:
+            length = struct.calcsize(fmt)
+            efmt = fmt
+
+        data.extend([0] * length)
+
+        # in python3 we should force it
+        if isinstance(value, str):
+            value = bytes(value, 'utf-8')
+        elif isinstance(value, float):
+            value = int(value)
+
+        try:
+            if fmt[-1] == 'x':
+                struct.pack_into(efmt, data, offset)
+            elif type(value) in (list, tuple, set):
+                struct.pack_into(efmt, data, offset, *value)
+            else:
+                struct.pack_into(efmt, data, offset, value)
+        except struct.error:
+            log.error(''.join(traceback.format_stack()))
+            log.error(traceback.format_exc())
+            log.error("error pack: %s %s %s" % (efmt, value, type(value)))
+            raise
+
+        return offset + length
+
     def ft_encode(self, offset):
+        if hasattr(self, 'zstring'):
+            zs = self.zstring
+        else:
+            zs = 0
         for name, fmt in self.fields:
             value = self[name]
 
-            if fmt == 's':
-                length = len(value or '') + self.zstring
-                efmt = '%is' % (length)
-            else:
-                length = struct.calcsize(fmt)
-                efmt = fmt
+            if isinstance(fmt, str):
+                offset = self.ft_encode_field(
+                    fmt, self.data, offset, value, zs
+                )
+            elif isinstance(fmt, type):
+                offset = self.ft_encode_struct(
+                    fmt, self.data, offset, value, zs
+                )
 
-            self.data.extend([0] * length)
-
-            # in python3 we should force it
-            if isinstance(value, str):
-                value = bytes(value, 'utf-8')
-            elif isinstance(value, float):
-                value = int(value)
-
-            try:
-                if fmt[-1] == 'x':
-                    struct.pack_into(efmt, self.data, offset)
-                elif type(value) in (list, tuple, set):
-                    struct.pack_into(efmt, self.data, offset, *value)
-                else:
-                    struct.pack_into(efmt, self.data, offset, value)
-            except struct.error:
-                log.error(''.join(traceback.format_stack()))
-                log.error(traceback.format_exc())
-                log.error("error pack: %s %s %s" % (efmt, value, type(value)))
-                raise
-
-            offset += length
-
-        diff = ((offset + 4 - 1) & ~(4 - 1)) - offset
-        offset += diff
-        self.data.extend([0] * diff)
+        diff = 0
+        if self.align > 0:
+            diff = ((offset + self.align - 1) & ~(self.align - 1)) - offset
+            offset += diff
+            self.data.extend([0] * diff)
 
         return offset, diff
 

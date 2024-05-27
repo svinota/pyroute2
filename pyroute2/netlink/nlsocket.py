@@ -457,7 +457,6 @@ class NetlinkSocket:
             'sendto',
             'connect',
             'listen',
-            'accept',
         ):
             return getattr(self.socket, attr)
         elif attr in ('_sendto', '_recv', '_recv_into'):
@@ -613,6 +612,8 @@ class NetlinkSocket:
             data = self.buffer.pop(0)
             # step 3. parse the data block
             messages = tuple(self.marshal.parse(data, msg_seq, callback))
+            if len(messages) == 0:
+                break
             for msg in messages:
                 if msg_seq > 0 and msg['header']['sequence_number'] != msg_seq:
                     continue
