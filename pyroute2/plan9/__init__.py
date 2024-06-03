@@ -1,10 +1,6 @@
 import struct
 
-from pyroute2.netlink import (
-    nlmsg,
-    nlmsg_decoder_generic,
-    nlmsg_encoder_generic,
-)
+from pyroute2.netlink import nlmsg
 from pyroute2.netlink.nlsocket import Marshal
 
 Tversion = 100
@@ -48,35 +44,36 @@ def array(kind, header='H'):
             return count, offset + struct.calcsize(header)
 
         @staticmethod
-        def decode(data, offset):
+        def decode_from(data, offset):
             count, offset = CustomArray.decode_count(data, offset)
             ret = []
             for _ in range(count):
-                value, offset = nlmsg_decoder_generic.ft_decode_struct(
-                    kind, data, offset
-                )
+                value, offset = kind.decode_from(data, offset)
                 ret.append(value)
             return ret, offset
 
         @staticmethod
-        def encode(data, offset, value):
+        def encode_into(data, offset, value):
             data.extend([0] * struct.calcsize(header))
             struct.pack_into(header, data, offset, len(value))
             offset += struct.calcsize(header)
             for item in value:
-                offset = nlmsg_encoder_generic.ft_encode_struct(
-                    kind, data, offset, item
-                )
+                offset = kind.encode_into(data, offset, item)
             return offset
 
     return CustomArray
 
 
-class Qid:
+class Qid(dict):
     length = 13
 
+    def __init__(self, qtype, vers, path):
+        self['type'] = qtype
+        self['vers'] = vers
+        self['path'] = path
+
     @staticmethod
-    def decode(data, offset):
+    def decode_from(data, offset):
         return dict(
             zip(
                 ('type', 'vers', 'path'),
@@ -85,7 +82,7 @@ class Qid:
         )
 
     @staticmethod
-    def encode(data, offset, value):
+    def encode_into(data, offset, value):
         data.extend([0] * Qid.length)
         struct.pack_into(
             '=BIQ', data, offset, value['type'], value['vers'], value['path']
@@ -93,14 +90,141 @@ class Qid:
         return offset + Qid.length
 
 
+class Stat(dict):
+    header_fmt = 'H'
+
+    def __init__(self):
+        self['size'] = 58
+        self['type'] = 0
+        self['dev'] = 0
+        self['qid.type'] = 0
+        self['qid.vers'] = 0
+        self['qid.path'] = 0
+        self['mode'] = 0
+        self['atime'] = 0
+        self['mtime'] = 0
+        self['length'] = 0
+        self['name'] = ''
+        self['uid'] = ''
+        self['gid'] = ''
+        self['muid'] = ''
+
+    @staticmethod
+    def decode_from(data, offset=0):
+        ret = dict(
+            zip(
+                (
+                    'size',
+                    'type',
+                    'dev',
+                    'qid.type',
+                    'qid.vers',
+                    'qid.path',
+                    'mode',
+                    'atime',
+                    'mtime',
+                    'length',
+                ),
+                struct.unpack_from('=HHIBIQIIIQ', data, offset),
+            )
+        )
+        offset += 42
+        for key in ('name', 'uid', 'gid', 'muid'):
+            ret[key], offset = String.decode_from(data, offset)
+        return ret
+
+    @staticmethod
+    def encode_into(data, offset, value):
+        data.extend([0] * 41)
+        # size of all the data except uint16 `size` header
+        # 41 + 2 + name + 2 + uid + 2 + gid + 2 + muid
+        value['size'] = (
+            47
+            + len(value['name'])
+            + len(value['uid'])
+            + len(value['gid'])
+            + len(value['muid'])
+        )
+        struct.pack_into(
+            '=HHIBIQIIIQ',
+            data,
+            offset,
+            value['size'],
+            value['type'],
+            value['dev'],
+            value['qid.type'],
+            value['qid.vers'],
+            value['qid.path'],
+            value['mode'],
+            value['atime'],
+            value['mtime'],
+            value['length'],
+        )
+        offset += 41
+        for key in ('name', 'uid', 'gid', 'muid'):
+            offset = String.encode_into(data, offset, value[key])
+        return offset
+
+
+class WStat(Stat):
+    @staticmethod
+    def decode_from(data, offset=0):
+        # just ignore plength for now
+        return Stat.decode_from(data, offset + 2)
+
+    @staticmethod
+    def encode_into(data, offset, value):
+        data.extend([0] * 2)
+        new_offset = Stat.encode_into(data, offset + 2, value)
+        # size of all the data except uint16 `plength` header
+        struct.pack_into('H', data, offset, new_offset - offset - 2)
+        return new_offset
+
+
 class CData:
     header_fmt = 'I'
-    base = bytearray
+
+    @staticmethod
+    def decode_from(data, offset=0):
+        (length,) = struct.unpack_from(CData.header_fmt, data, offset)
+        offset += struct.calcsize(CData.header_fmt)
+        return bytearray(data[offset : offset + length]), offset + length
+
+    @staticmethod
+    def encode_into(data, offset, value):
+        length = len(value)
+        if isinstance(value, str):
+            value = value.encode('utf-8')
+        data.extend([0] * (length + struct.calcsize(CData.header_fmt)))
+        struct.pack_into(
+            f'{CData.header_fmt}{length}s', data, offset, length, value
+        )
+        return offset + length + struct.calcsize(CData.header_fmt)
 
 
 class String:
     header_fmt = 'H'
-    base = str
+
+    @staticmethod
+    def decode_from(data, offset=0):
+        (length,) = struct.unpack_from(String.header_fmt, data, offset)
+        offset += struct.calcsize(String.header_fmt)
+        (value,) = struct.unpack_from(f'{length}s', data, offset)
+        value = value.decode('utf-8')
+        return value, offset + length
+
+    @staticmethod
+    def encode_into(data, offset, value):
+        length = len(value)
+        data.extend([0] * (length + struct.calcsize(String.header_fmt)))
+        struct.pack_into(
+            f'{String.header_fmt}{length}s',
+            data,
+            offset,
+            length,
+            value.encode('utf-8'),
+        )
+        return offset + length + struct.calcsize(String.header_fmt)
 
 
 class msg_base(nlmsg):
@@ -110,6 +234,7 @@ class msg_base(nlmsg):
 
 class msg_terror(msg_base):
     defaults = {'header': {'type': Terror}}
+
 
 class msg_rerror(msg_base):
     defaults = {'header': {'type': Rerror}}
@@ -168,23 +293,7 @@ class msg_tstat(msg_base):
 
 class msg_rstat(msg_base):
     defaults = {'header': {'type': Rstat}}
-    fields = (
-        ('plength', 'H'),
-        ('size', 'H'),
-        ('type', 'H'),
-        ('dev', 'I'),
-        ('qid.type', 'B'),
-        ('qid.vers', 'I'),
-        ('qid.path', 'Q'),
-        ('mode', 'I'),
-        ('atime', 'I'),
-        ('mtime', 'I'),
-        ('length', 'Q'),
-        ('name', String),
-        ('uid', String),
-        ('gid', String),
-        ('muid', String),
-    )
+    fields = (('stat', WStat),)
 
 
 class msg_tclunk(msg_base):
@@ -217,6 +326,16 @@ class msg_rread(msg_base):
     fields = (('data', CData),)
 
 
+class msg_twrite(msg_base):
+    defaults = {'header': {'type': Twrite}}
+    fields = (('fid', 'I'), ('offset', 'Q'), ('data', CData))
+
+
+class msg_rwrite(msg_base):
+    defaults = {'header': {'type': Rwrite}}
+    fields = (('count', 'I'),)
+
+
 class Marshal9P(Marshal):
     default_message_class = msg_rerror
     error_type = Rerror
@@ -238,6 +357,8 @@ class Marshal9P(Marshal):
         Rclunk: msg_rclunk,
         Tstat: msg_tstat,
         Rstat: msg_rstat,
+        Twrite: msg_twrite,
+        Rwrite: msg_rwrite,
     }
 
     def parse(self, data, seq=None, callback=None, skip_alien_seq=False):

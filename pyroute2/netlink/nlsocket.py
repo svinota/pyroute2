@@ -382,8 +382,6 @@ class NetlinkSocket:
             }
         )
         self.status = self.spec.status
-        print(self.spec)
-        print(self.status)
         self.capabilities = {
             'create_bridge': config.kernel > [3, 2, 0],
             'create_bond': config.kernel > [3, 2, 0],
@@ -603,7 +601,10 @@ class NetlinkSocket:
             # step 1. receive as much as we can from the socket
             while True:
                 try:
-                    self.buffer.append(self.getdata(block=False))
+                    data = self.getdata(block=False)
+                    if len(data) == 0 or data[0] == 0:
+                        return
+                    self.buffer.append(data)
                 except BlockingIOError:
                     break
             if len(self.buffer) == 0:

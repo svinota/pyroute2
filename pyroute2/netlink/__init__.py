@@ -843,6 +843,8 @@ class nlmsg_base(dict):
     prefix = None
     own_parent = False
     header_type = None
+    header_fmt = None
+    decode_as = None
     # caches
     __compiled_nla = False
     __compiled_ft = False
@@ -1639,7 +1641,7 @@ class nlmsg_base(dict):
 class nlmsg_decoder_generic(object):
 
     @staticmethod
-    def ft_decode_field(fmt, data, offset):
+    def decode_field(fmt, data, offset):
         global cache_fmt
         ##
         # ~~ size = struct.calcsize(efmt)
@@ -1660,41 +1662,12 @@ class nlmsg_decoder_generic(object):
         else:
             return value, offset
 
-    @staticmethod
-    def ft_decode_struct(fmt, data, offset):
-        if hasattr(fmt, 'header_fmt'):
-            # variable length data
-            header = fmt.header_fmt
-            header_length = struct.calcsize(header)
-            (length,) = struct.unpack_from(header, data, offset)
-            offset += header_length
-            if fmt.base is str:
-                (value,) = struct.unpack_from(f'{length}s', data, offset)
-                value = value.decode('utf-8')
-            else:
-                value = fmt.base(data[offset : offset + length])
-            offset += length
-        elif hasattr(fmt, 'decode_count'):
-            # array
-            value, offset = fmt.decode(data, offset)
-        elif hasattr(fmt, 'length'):
-            # fixed length struct
-            value = fmt.decode(data[offset : offset + fmt.length], 0)
-            offset += fmt.length
-        else:
-            raise ValueError('can not use decoder type')
-        return value, offset
-
     def ft_decode(self, offset):
         for name, fmt in self.fields:
             if isinstance(fmt, str):
-                self[name], offset = self.ft_decode_field(
-                    fmt, self.data, offset
-                )
+                self[name], offset = self.decode_field(fmt, self.data, offset)
             elif isinstance(fmt, type):
-                self[name], offset = self.ft_decode_struct(
-                    fmt, self.data, offset
-                )
+                self[name], offset = fmt.decode_from(self.data, offset)
         # read NLA chain
         if self.nla_map:
             offset = (offset + 4 - 1) & ~(4 - 1)
@@ -1747,26 +1720,9 @@ class nlmsg_decoder_struct(object):
 
 
 class nlmsg_encoder_generic(object):
-    @staticmethod
-    def ft_encode_struct(fmt, data, offset, value, zstring=0):
-        if hasattr(fmt, 'header_fmt'):
-            # variable length
-            length = len(value)
-            total_length = length + struct.calcsize(fmt.header_fmt)
-            data.extend([0] * total_length)
-            struct.pack_into(
-                f'{fmt.header_fmt}{length}s',
-                data,
-                offset,
-                length,
-                value.encode('utf-8'),
-            )
-            return offset + total_length
-        else:
-            return fmt.encode(data, offset, value)
 
     @staticmethod
-    def ft_encode_field(fmt, data, offset, value, zstring=0):
+    def encode_field(fmt, data, offset, value, zstring=0):
         if fmt == 's':
             length = len(value or '') + zstring
             efmt = '%is' % (length)
@@ -1806,13 +1762,9 @@ class nlmsg_encoder_generic(object):
             value = self[name]
 
             if isinstance(fmt, str):
-                offset = self.ft_encode_field(
-                    fmt, self.data, offset, value, zs
-                )
+                offset = self.encode_field(fmt, self.data, offset, value, zs)
             elif isinstance(fmt, type):
-                offset = self.ft_encode_struct(
-                    fmt, self.data, offset, value, zs
-                )
+                offset = fmt.encode_into(self.data, offset, value)
 
         diff = 0
         if self.align > 0:
