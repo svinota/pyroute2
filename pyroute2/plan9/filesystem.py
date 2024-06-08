@@ -13,6 +13,7 @@ class Inode:
     qid = None
     stat = None
     data = None
+    callbacks = None
 
     def __init__(
         self,
@@ -29,6 +30,7 @@ class Inode:
         self.data = io.BytesIO(data.encode('utf-8'))
         self.parents = parents if parents is not None else set()
         self.children = children if children is not None else set()
+        self.callbacks = {}
         self.stat = Stat()
         self.qid = Qid(qtype, 0, path)
         self.stat['uid'] = (
@@ -58,6 +60,10 @@ class Inode:
             if child.stat['name'] == name:
                 return child
         raise KeyError('file not found')
+
+    def add_callback(self, call, f):
+        self.callbacks[call] = f
+        return self
 
     def add_parent(self, inode):
         return self.parents.add(inode)

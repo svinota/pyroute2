@@ -1,7 +1,10 @@
+import json
+
 from pyroute2.plan9 import (
     Stat,
     Tattach,
     Tauth,
+    Tcall,
     Tclunk,
     Topen,
     Tread,
@@ -10,6 +13,7 @@ from pyroute2.plan9 import (
     Twalk,
     Twrite,
     msg_rattach,
+    msg_rcall,
     msg_rclunk,
     msg_rerror,
     msg_ropen,
@@ -25,18 +29,18 @@ from pyroute2.plan9.plan9socket import Plan9Socket
 data = str(dir())
 
 
+def get_exception_args(exc):
+    args = []
+    if hasattr(exc, 'errno'):
+        args.append(exc.errno)
+        args.append(exc.strerror)
+    return args
+
+
 def route(rtable, request, state):
     def decorator(f):
-        def wrapped(*argv, **kwarg):
-            try:
-                return f(*argv, **kwarg)
-            except Exception as e:
-                m = msg_rerror()
-                m['ename'] = repr(e)
-                return m
-
-        rtable[request] = wrapped
-        return wrapped
+        rtable[request] = f
+        return f
 
     return decorator
 
@@ -104,10 +108,21 @@ class Plan9ClientConnection:
         m['iounit'] = 8192
         return m
 
+    @route(rtable, request=Tcall, state=(Twalk, Topen, Tstat))
+    def t_call(self, req):
+        m = msg_rcall()
+        inode = self.session.get_fid(req['fid'])
+        m['err'] = 255
+        if Tcall in inode.callbacks:
+            m = inode.callbacks[Tcall](self.session, inode, req, m)
+        return m
+
     @route(rtable, request=Twrite, state=(Topen,))
     def t_write(self, req):
         m = msg_rwrite()
         inode = self.session.get_fid(req['fid'])
+        if Twrite in inode.callbacks:
+            return inode.callbacks[Twrite](self.session, inode, req, m)
         if inode.qid['type'] & 0x80:
             raise TypeError('can not call write() on dir')
         inode.data.seek(req['offset'])
@@ -118,6 +133,8 @@ class Plan9ClientConnection:
     def t_read(self, req):
         m = msg_rread()
         inode = self.session.get_fid(req['fid'])
+        if Tread in inode.callbacks:
+            return inode.callbacks[Tread](self.session, inode, req, m)
         if inode.qid['type'] & 0x80:
             data = bytearray()
             offset = 0
@@ -140,23 +157,29 @@ class Plan9ClientConnection:
             if len(request) != 1:
                 return
             t_message = request[0]
-            r_message = self.rtable[t_message['header']['type']](
-                self, t_message
-            )
             try:
+                r_message = self.rtable[t_message['header']['type']](
+                    self, t_message
+                )
+                r_message['header']['tag'] = t_message['header']['tag']
                 r_message.encode()
             except Exception as e:
                 r_message = msg_rerror()
-                r_message['ename'] = repr(e)
+                spec = {
+                    'class': e.__class__.__name__,
+                    'argv': get_exception_args(e),
+                }
+                r_message['ename'] = json.dumps(spec)
                 r_message.encode()
             self.socket.send(r_message.data)
 
 
 class Plan9Server:
-    def __init__(self, address):
-        self.socket = Plan9Socket()
-        self.socket.bind(address)
-        self.socket.listen(1)
+    def __init__(self, address=None, use_socket=None):
+        self.socket = Plan9Socket(use_socket=use_socket)
+        if use_socket is None:
+            self.socket.bind(address)
+            self.socket.listen(1)
         self.filesystem = Filesystem()
 
     def accept(self):

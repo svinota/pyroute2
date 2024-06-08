@@ -877,8 +877,6 @@ class nlmsg_base(dict):
     ):
         global cache_jit
         dict.__init__(self)
-        for i in self.fields:
-            self[i[0]] = 0  # FIXME: only for number values
         self._buf = None
         self.data = data or bytearray()
         self.offset = offset
@@ -1006,12 +1004,10 @@ class nlmsg_base(dict):
             res['attrs'] = []
             for attr in lvalue['attrs']:
                 if isinstance(attr[1], nlmsg_base):
-                    print("recursion")
                     diff = getattr(attr[1], op0)(rvalue.get_attr(attr[0]))
                     if diff is not None:
                         res['attrs'].append([attr[0], diff])
                 else:
-                    print("fail", type(attr[1]))
                     if op0 == '__sub__':
                         # operator -, complement
                         if rvalue.get_attr(attr[0]) != attr[1]:
@@ -1024,7 +1020,6 @@ class nlmsg_base(dict):
             del res['attrs']
         if not res:
             return None
-        print(res)
         return res
 
     def __bool__(self):
@@ -1759,7 +1754,10 @@ class nlmsg_encoder_generic(object):
         else:
             zs = 0
         for name, fmt in self.fields:
-            value = self[name]
+            default = self.defaults.get(name)
+            value = self[name] if name in self else default
+            if value is None:
+                continue
 
             if isinstance(fmt, str):
                 offset = self.encode_field(fmt, self.data, offset, value, zs)

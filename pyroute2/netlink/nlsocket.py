@@ -221,7 +221,6 @@ class Marshal:
         not support any defragmentation on that level
         '''
         offset = 0
-
         # there must be at least one header in the buffer,
         # 'IHHII' == 16 bytes
         while offset <= len(data) - 16:
@@ -349,6 +348,7 @@ class NetlinkSocket:
         fileno=None,
         sndbuf=1048576,
         rcvbuf=1048576,
+        rcvsize=16384,
         all_ns=False,
         async_qsize=None,
         nlm_generator=None,
@@ -357,6 +357,7 @@ class NetlinkSocket:
         strict_check=False,
         groups=0,
         nlm_echo=False,
+        use_socket=None,
     ):
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
@@ -367,6 +368,7 @@ class NetlinkSocket:
                 'fileno': fileno,
                 'sndbuf': sndbuf,
                 'rcvbuf': rcvbuf,
+                'rcvsize': rcvsize,
                 'all_ns': all_ns,
                 'async_qsize': async_qsize,
                 'target': target,
@@ -379,8 +381,11 @@ class NetlinkSocket:
                 'strict_check': strict_check,
                 'groups': groups,
                 'nlm_echo': nlm_echo,
+                'use_socket': use_socket is not None,
+                'tag_field': 'sequence_number',
             }
         )
+        self.use_socket = use_socket
         self.status = self.spec.status
         self.capabilities = {
             'create_bridge': config.kernel > [3, 2, 0],
@@ -421,6 +426,8 @@ class NetlinkSocket:
 
     def restart_base_socket(self, sock=None):
         """Re-init a netlink socket."""
+        if self.status['use_socket']:
+            return self.use_socket
         sock = self.socket if sock is None else sock
         if sock is not None:
             sock.close()
@@ -447,11 +454,9 @@ class NetlinkSocket:
             'settimeout',
             'gettimeout',
             'shutdown',
-            'recv',
             'recvfrom',
             'recvfrom_into',
             'fileno',
-            'send',
             'sendto',
             'connect',
             'listen',
@@ -571,18 +576,13 @@ class NetlinkSocket:
         self.put_header(msg, msg_type, msg_flags, msg_seq, msg_pid)
         msg.reset()
         msg.encode()
-        return self.sendto(msg.data, addr)
+        return self.send(msg.data)
 
-    def getdata(self, block=False):
-        if block:
-            flags = 0
-        else:
-            flags = MSG_DONTWAIT
-        data = bytearray(16384)
-        log.debug("consume, block=%s", block)
-        bufsize = self.socket.recv_into(data, 0, flags)
-        log.debug("consumed bufsize=%s", bufsize)
-        return data
+    def recv(self, buffersize, flags=0):
+        return self.socket.recv(buffersize, flags)
+
+    def send(self, data, flags=0):
+        return self.socket.send(data, flags)
 
     def get(
         self,
@@ -601,14 +601,14 @@ class NetlinkSocket:
             # step 1. receive as much as we can from the socket
             while True:
                 try:
-                    data = self.getdata(block=False)
+                    data = self.recv(self.status['rcvsize'], MSG_DONTWAIT)
                     if len(data) == 0 or data[0] == 0:
                         return
                     self.buffer.append(data)
                 except BlockingIOError:
                     break
             if len(self.buffer) == 0:
-                self.buffer.append(self.getdata(block=True))
+                self.buffer.append(self.recv(self.status['rcvsize']))
             # step 2. fetch one data block from the buffer
             data = self.buffer.pop(0)
             # step 3. parse the data block
@@ -616,7 +616,12 @@ class NetlinkSocket:
             if len(messages) == 0:
                 break
             for msg in messages:
-                if msg_seq > 0 and msg['header']['sequence_number'] != msg_seq:
+                if started and msg['header']['type'] == NLMSG_DONE:
+                    return
+                if (
+                    msg_seq > 0
+                    and msg['header'][self.status['tag_field']] != msg_seq
+                ):
                     continue
                 msg['header']['target'] = self.status['target']
                 msg['header']['stats'] = Stats(0, 0, 0)
@@ -625,12 +630,9 @@ class NetlinkSocket:
                 log.debug("message %s", msg)
                 yield msg
 
-            if started and msg['header']['type'] == NLMSG_DONE:
-                break
-
             if started and (
                 (msg_seq == 0)
-                or (not msg['header']['flags'] & NLM_F_MULTI)
+                or (not msg['header'].get('flags', 0) & NLM_F_MULTI)
                 or (callable(terminate) and terminate(msg))
             ):
                 enough = True

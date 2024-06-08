@@ -1,3 +1,5 @@
+import builtins
+import json
 import struct
 
 from pyroute2.netlink import nlmsg
@@ -33,6 +35,10 @@ Twstat = 126
 Rwstat = 127
 Topenfd = 98
 Ropenfd = 99
+
+# 9P2000.pr2 extensions
+Tcall = 80
+Rcall = 81
 
 
 def array(kind, header='H'):
@@ -74,11 +80,14 @@ class Qid(dict):
 
     @staticmethod
     def decode_from(data, offset):
-        return dict(
-            zip(
-                ('type', 'vers', 'path'),
-                struct.unpack_from('=BIQ', data, offset),
-            )
+        return (
+            dict(
+                zip(
+                    ('type', 'vers', 'path'),
+                    struct.unpack_from('=BIQ', data, offset),
+                )
+            ),
+            offset + struct.calcsize('=BIQ'),
         )
 
     @staticmethod
@@ -322,7 +331,7 @@ class msg_tread(msg_base):
 
 
 class msg_rread(msg_base):
-    defaults = {'header': {'type': Rread}}
+    defaults = {'header': {'type': Rread}, 'data': b''}
     fields = (('data', CData),)
 
 
@@ -336,9 +345,19 @@ class msg_rwrite(msg_base):
     fields = (('count', 'I'),)
 
 
+class msg_tcall(msg_base):
+    defaults = {'header': {'type': Tcall}}
+    fields = (('fid', 'I'), ('text', String), ('data', CData))
+
+
+class msg_rcall(msg_base):
+    defaults = {'header': {'type': Rcall}}
+    fields = (('err', 'H'), ('text', String), ('data', CData))
+
+
 class Marshal9P(Marshal):
     default_message_class = msg_rerror
-    error_type = Rerror
+
     msg_map = {
         Tversion: msg_tversion,
         Rversion: msg_rversion,
@@ -359,18 +378,27 @@ class Marshal9P(Marshal):
         Rstat: msg_rstat,
         Twrite: msg_twrite,
         Rwrite: msg_rwrite,
+        Tcall: msg_tcall,
+        Rcall: msg_rcall,
     }
 
     def parse(self, data, seq=None, callback=None, skip_alien_seq=False):
         offset = 0
         while offset <= len(data) - 5:
-            (length, key, tag) = struct.unpack_from('IBH', data, offset)
+            (length, key, tag) = struct.unpack_from('=IBH', data, offset)
             if skip_alien_seq and tag != seq:
                 continue
             if not 0 < length <= len(data):
                 break
             parser = self.get_parser(key, 0, tag)
             msg = parser(data, offset, length)
+            if key == Rerror:
+                spec = json.loads(msg['ename'])
+                if spec['class'] in dir(builtins):
+                    cls = getattr(builtins, spec['class'])
+                else:
+                    cls = Exception
+                raise cls(spec['argv'])
             offset += length
             if msg is None:
                 continue
