@@ -39,7 +39,7 @@ class Plan9Client:
             msg.reset()
             msg.encode()
             self.socket.send(msg.data)
-            return self.socket.get(msg_seq=tag)[0]
+            return tuple(self.socket.get(msg_seq=tag))[0]
         finally:
             self.socket.addr_pool.free(tag, ban=0xFF)
 

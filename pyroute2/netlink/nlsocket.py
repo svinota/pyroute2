@@ -83,16 +83,15 @@ classes
 import collections
 import errno
 import logging
+import multiprocessing
 import os
 import random
 import struct
-import threading
 import time
-from functools import partial
-from socket import MSG_DONTWAIT, SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
+from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET, socketpair
 
 from pyroute2 import config
-from pyroute2.common import DEFAULT_RCVBUF, AddrPool, basestring
+from pyroute2.common import AddrPool, basestring
 from pyroute2.config import AF_NETLINK
 from pyroute2.netlink import (
     NETLINK_ADD_MEMBERSHIP,
@@ -102,37 +101,27 @@ from pyroute2.netlink import (
     NETLINK_GET_STRICT_CHK,
     NETLINK_LISTEN_ALL_NSID,
     NLM_F_ACK,
-    NLM_F_ACK_TLVS,
     NLM_F_APPEND,
     NLM_F_CREATE,
     NLM_F_DUMP,
     NLM_F_DUMP_INTR,
     NLM_F_ECHO,
     NLM_F_EXCL,
-    NLM_F_MULTI,
     NLM_F_REPLACE,
     NLM_F_REQUEST,
-    NLMSG_DONE,
-    NLMSG_ERROR,
     SOL_NETLINK,
-    mtypes,
     nlmsg,
-    nlmsgerr,
 )
+from pyroute2.netlink.core import CoreSocket, CoreSocketSpec
 from pyroute2.netlink.exceptions import (
     ChaoticException,
-    NetlinkDecodeError,
     NetlinkDumpInterrupted,
     NetlinkError,
-    NetlinkHeaderDecodeError,
 )
-from pyroute2.requests.main import RequestProcessor
+from pyroute2.netlink.marshal import Marshal
+from pyroute2.plan9.client import Plan9Client
 
 log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
-Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
-
-NL_BUFSIZE = 32768
 
 
 class CompileContext:
@@ -150,120 +139,6 @@ class CompileContext:
         self.netlink_socket.compiled = None
 
 
-class Marshal:
-    '''
-    Generic marshalling class
-    '''
-
-    msg_map = {}
-    seq_map = None
-    key_offset = None
-    key_format = None
-    key_mask = None
-    debug = False
-    default_message_class = nlmsg
-    error_type = NLMSG_ERROR
-
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.msg_map = self.msg_map.copy()
-        self.seq_map = {}
-        self.defragmentation = {}
-
-    def parse_one_message(
-        self, key, flags, sequence_number, data, offset, length
-    ):
-        msg = None
-        error = None
-        msg_class = self.msg_map.get(key, self.default_message_class)
-        # ignore length for a while
-        # get the message
-        if (key == self.error_type) or (
-            key == NLMSG_DONE and flags & NLM_F_ACK_TLVS
-        ):
-            msg = nlmsgerr(data, offset=offset)
-        else:
-            msg = msg_class(data, offset=offset)
-
-        try:
-            msg.decode()
-        except NetlinkHeaderDecodeError as e:
-            msg = nlmsg()
-            msg['header']['error'] = e
-        except NetlinkDecodeError as e:
-            msg['header']['error'] = e
-
-        if isinstance(msg, nlmsgerr) and msg['error'] != 0:
-            error = NetlinkError(
-                abs(msg['error']), msg.get_attr('NLMSGERR_ATTR_MSG')
-            )
-            enc_type = struct.unpack_from('H', data, offset + 24)[0]
-            enc_class = self.msg_map.get(enc_type, nlmsg)
-            enc = enc_class(data, offset=offset + 20)
-            enc.decode()
-            msg['header']['errmsg'] = enc
-
-        msg['header']['error'] = error
-        return msg
-
-    def get_parser(self, key, flags, sequence_number):
-        return self.seq_map.get(
-            sequence_number,
-            partial(self.parse_one_message, key, flags, sequence_number),
-        )
-
-    def parse(self, data, seq=None, callback=None, skip_alien_seq=False):
-        '''
-        Parse string data.
-
-        At this moment all transport, except of the native
-        Netlink is deprecated in this library, so we should
-        not support any defragmentation on that level
-        '''
-        offset = 0
-        # there must be at least one header in the buffer,
-        # 'IHHII' == 16 bytes
-        while offset <= len(data) - 16:
-            # pick type and length
-            (length, key, flags, sequence_number) = struct.unpack_from(
-                'IHHI', data, offset
-            )
-            if skip_alien_seq and sequence_number != seq:
-                continue
-            if not 0 < length <= len(data):
-                break
-            # support custom parser keys
-            # see also: pyroute2.netlink.diag.MarshalDiag
-            if self.key_format is not None:
-                (key,) = struct.unpack_from(
-                    self.key_format, data, offset + self.key_offset
-                )
-                if self.key_mask is not None:
-                    key &= self.key_mask
-
-            parser = self.get_parser(key, flags, sequence_number)
-            msg = parser(data, offset, length)
-            offset += length
-            if msg is None:
-                continue
-
-            if callable(callback) and seq == sequence_number:
-                try:
-                    if callback(msg):
-                        continue
-                except Exception:
-                    pass
-
-            mtype = msg['header'].get('type', None)
-            if mtype in (1, 2, 3, 4) and 'event' not in msg:
-                msg['event'] = mtypes.get(mtype, 'none')
-            self.fix_message(msg)
-            yield msg
-
-    def fix_message(self, msg):
-        pass
-
-
 # 8<-----------------------------------------------------------
 # Singleton, containing possible modifiers to the NetlinkSocket
 # bind() call.
@@ -275,20 +150,6 @@ class Marshal:
 # See also libnl library, lib/socket.c:generate_local_port()
 sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 # 8<-----------------------------------------------------------
-
-
-class ControlPipe:
-    read_fd = 0
-    write_fd = 0
-
-    def __init__(self):
-        self.read_fd, self.write_fd = os.pipe()
-
-    def read(self, bufsize=None):
-        return os.read(self.read_fd, bufsize)
-
-    def write(self, data):
-        return os.write(self.write_fd, data)
 
 
 class NetlinkSocketSpecFilter:
@@ -305,40 +166,19 @@ class NetlinkSocketSpecFilter:
             return {'port': value, 'epid': context['pid'] + (value << 22)}
 
 
-class NetlinkSocketSpec(dict):  # RequestProcessor):
+class NetlinkSocketSpec(CoreSocketSpec):
     def __init__(self, spec=None):
         super().__init__(spec)
-        spec = {} if spec is None else spec
-        default = {
-            'pid': 0,
-            'epid': 0,
-            'port': 0,
-            'closed': False,
-            'compiled': None,
-            'uname': config.uname,
-        }
-        self.status = RequestProcessor()
+        default = {'pid': 0, 'epid': 0, 'port': 0, 'uname': config.uname}
         self.status.set_filter(NetlinkSocketSpecFilter())
         self.status.update(default)
         self.status.update(self)
 
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self.status.update(self)
 
-    def __delitem__(self, key):
-        super().__delitem__(key)
-        self.status.update(self)
-
-
-class NetlinkSocket:
+class NetlinkSocket(CoreSocket):
     '''
     Netlink socket
     '''
-
-    input_from_buffer_queue = False
-    socket = None
-    compiled = None
 
     def __init__(
         self,
@@ -372,11 +212,7 @@ class NetlinkSocket:
                 'all_ns': all_ns,
                 'async_qsize': async_qsize,
                 'target': target,
-                'nlm_generator': (
-                    config.nlm_generator
-                    if nlm_generator is None
-                    else nlm_generator
-                ),
+                'nlm_generator': True,
                 'ext_ack': ext_ack,
                 'strict_check': strict_check,
                 'groups': groups,
@@ -385,46 +221,37 @@ class NetlinkSocket:
                 'tag_field': 'sequence_number',
             }
         )
-        self.use_socket = use_socket
-        self.status = self.spec.status
+        # TODO: merge capabilities to self.status
         self.capabilities = {
             'create_bridge': config.kernel > [3, 2, 0],
             'create_bond': config.kernel > [3, 2, 0],
             'create_dummy': True,
             'provide_master': config.kernel[0] > 2,
         }
-        # 8<-----------------------------------------
-        self.callbacks = []  # [(predicate, callback, args), ...]
-        self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
+        super().__init__()
         self.marshal = Marshal()
-        self.control = ControlPipe()
-        self.buffer = []
-        # 8<-----------------------------------------
-        if not nlm_generator:
 
-            def nlm_request(*argv, **kwarg):
-                return tuple(self._genlm_request(*argv, **kwarg))
+    @property
+    def uname(self):
+        return self.status['uname']
 
-            def get(*argv, **kwarg):
-                return tuple(self._genlm_get(*argv, **kwarg))
+    @property
+    def groups(self):
+        return self.status['groups']
 
-            self._genlm_request = self.nlm_request
-            self._genlm_get = self.get
+    @property
+    def port(self):
+        return self.status['port']
 
-            self.nlm_request = nlm_request
-            self.get = get
+    @property
+    def pid(self):
+        return self.status['pid']
 
-            def nlm_request_batch(*argv, **kwarg):
-                return tuple(self._genlm_request_batch(*argv, **kwarg))
+    @property
+    def target(self):
+        return self.status['target']
 
-            self._genlm_request_batch = self.nlm_request_batch
-            self.nlm_request_batch = nlm_request_batch
-
-        # Set defaults
-        self.socket = self.restart_base_socket()
-        self.broadcast_socket = None
-
-    def restart_base_socket(self, sock=None):
+    def setup_socket(self, sock=None):
         """Re-init a netlink socket."""
         if self.status['use_socket']:
             return self.use_socket
@@ -442,29 +269,23 @@ class NetlinkSocket:
             sock.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
         if self.status['strict_check']:
             sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
-        return sock
 
-    def __getattr__(self, attr):
-        if attr in (
-            'getsockname',
-            'getsockopt',
-            'makefile',
-            'setsockopt',
-            'setblocking',
-            'settimeout',
-            'gettimeout',
-            'shutdown',
-            'recvfrom',
-            'recvfrom_into',
-            'fileno',
-            'sendto',
-            'connect',
-            'listen',
-        ):
-            return getattr(self.socket, attr)
-        elif attr in ('_sendto', '_recv', '_recv_into'):
-            return getattr(self.socket, attr.lstrip("_"))
-        raise AttributeError(attr)
+        class Bala:
+            def __init__(self, sock):
+                self._socket = sock
+
+            def ignore(self, *argv, **kwarg):
+                print("ignore close")
+                import traceback
+
+                traceback.print_stack()
+
+            def __getattr__(self, attr):
+                if attr == 'close':
+                    return self.ignore
+                return getattr(self._socket, attr)
+
+        return Bala(sock)
 
     def bind(self, groups=0, pid=None, **kwarg):
         '''
@@ -497,30 +318,10 @@ class NetlinkSocket:
                 raise KeyError('no free address available')
 
     def add_membership(self, group):
-        self.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
+        self.socket.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)
 
     def drop_membership(self, group):
-        self.setsockopt(SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group)
-
-    def close(self, code=errno.ECONNRESET):
-        '''
-        Correctly close the socket and free all resources.
-        '''
-        with self.sys_lock:
-            if self.closed:
-                return
-            self.closed = True
-
-        if self.buffer_thread:
-            os.write(self._ctrl_write, b'exit')
-            self.buffer_thread.join()
-        super(NetlinkSocket, self).close(code=code)
-
-        # Common shutdown procedure
-        self._sock.close()
-
-    def clone(self):
-        return type(self)(**self.spec)
+        self.socket.setsockopt(SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group)
 
     def make_request_type(self, command, command_map):
         if isinstance(command, basestring):
@@ -551,15 +352,10 @@ class NetlinkSocket:
             else 0
         )
 
-    def put_header(
-        self, msg, msg_type=0, msg_flags=NLM_F_REQUEST, msg_seq=0, msg_pid=None
-    ):
-        if msg_pid is None:
-            msg_pid = self.status['epid'] or os.getpid()
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
-        msg['header']['sequence_number'] = msg_seq
-        msg['header']['pid'] = msg_pid
+    def enqueue(self, data, addr):
+        # calculate msg_seq
+        tag = struct.unpack_from('I', data, 8)[0]
+        return self.msg_queue.put_nowait(tag, data)
 
     def put(
         self,
@@ -573,204 +369,16 @@ class NetlinkSocket:
         if not isinstance(msg, nlmsg):
             msg_class = self.marshal.msg_map[msg_type]
             msg = msg_class(msg)
-        self.put_header(msg, msg_type, msg_flags, msg_seq, msg_pid)
+        if msg_pid is None:
+            msg_pid = self.status['epid'] or os.getpid()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg['header']['sequence_number'] = msg_seq
+        msg['header']['pid'] = msg_pid
         msg.reset()
         msg.encode()
+        self.msg_queue.ensure(msg_seq)
         return self.send(msg.data)
-
-    def recv(self, buffersize, flags=0):
-        return self.socket.recv(buffersize, flags)
-
-    def send(self, data, flags=0):
-        return self.socket.send(data, flags)
-
-    def get(
-        self,
-        bufsize=DEFAULT_RCVBUF,
-        msg_seq=0,
-        terminate=None,
-        callback=None,
-        noraise=False,
-    ):
-        log.debug(
-            "get: %s / %s / %s / %s", msg_seq, terminate, callback, noraise
-        )
-        enough = False
-        started = False
-        while not enough:
-            # step 1. receive as much as we can from the socket
-            while True:
-                try:
-                    data = self.recv(self.status['rcvsize'], MSG_DONTWAIT)
-                    if len(data) == 0 or data[0] == 0:
-                        return
-                    self.buffer.append(data)
-                except BlockingIOError:
-                    break
-            if len(self.buffer) == 0:
-                self.buffer.append(self.recv(self.status['rcvsize']))
-            # step 2. fetch one data block from the buffer
-            data = self.buffer.pop(0)
-            # step 3. parse the data block
-            messages = tuple(self.marshal.parse(data, msg_seq, callback))
-            if len(messages) == 0:
-                break
-            for msg in messages:
-                if started and msg['header']['type'] == NLMSG_DONE:
-                    return
-                if (
-                    msg_seq > 0
-                    and msg['header'][self.status['tag_field']] != msg_seq
-                ):
-                    continue
-                msg['header']['target'] = self.status['target']
-                msg['header']['stats'] = Stats(0, 0, 0)
-                started = True
-                log.debug("yield %s", msg['header'])
-                log.debug("message %s", msg)
-                yield msg
-
-            if started and (
-                (msg_seq == 0)
-                or (not msg['header'].get('flags', 0) & NLM_F_MULTI)
-                or (callable(terminate) and terminate(msg))
-            ):
-                enough = True
-
-            # drop orphaned NLMSG_ERROR
-            if msg['header']['type'] == NLMSG_ERROR:
-                continue
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
-    def register_callback(self, callback, predicate=lambda x: True, args=None):
-        '''
-        Register a callback to run on a message arrival.
-
-        Callback is the function that will be called with the
-        message as the first argument. Predicate is the optional
-        callable object, that returns True or False. Upon True,
-        the callback will be called. Upon False it will not.
-        Args is a list or tuple of arguments.
-
-        Simplest example, assume ipr is the IPRoute() instance::
-
-            # create a simplest callback that will print messages
-            def cb(msg):
-                print(msg)
-
-            # register callback for any message:
-            ipr.register_callback(cb)
-
-        More complex example, with filtering::
-
-            # Set object's attribute after the message key
-            def cb(msg, obj):
-                obj.some_attr = msg["some key"]
-
-            # Register the callback only for the loopback device, index 1:
-            ipr.register_callback(cb,
-                                  lambda x: x.get('index', None) == 1,
-                                  (self, ))
-
-        Please note: you do **not** need to register the default 0 queue
-        to invoke callbacks on broadcast messages. Callbacks are
-        iterated **before** messages get enqueued.
-        '''
-        if args is None:
-            args = []
-        self.callbacks.append((predicate, callback, args))
-
-    def unregister_callback(self, callback):
-        '''
-        Remove the first reference to the function from the callback
-        register
-        '''
-        cb = tuple(self.callbacks)
-        for cr in cb:
-            if cr[1] == callback:
-                self.callbacks.pop(cb.index(cr))
-                return
-
-    def register_policy(self, policy, msg_class=None):
-        '''
-        Register netlink encoding/decoding policy. Can
-        be specified in two ways:
-        `nlsocket.register_policy(MSG_ID, msg_class)`
-        to register one particular rule, or
-        `nlsocket.register_policy({MSG_ID1: msg_class})`
-        to register several rules at once.
-        E.g.::
-
-            policy = {RTM_NEWLINK: ifinfmsg,
-                      RTM_DELLINK: ifinfmsg,
-                      RTM_NEWADDR: ifaddrmsg,
-                      RTM_DELADDR: ifaddrmsg}
-            nlsocket.register_policy(policy)
-
-        One can call `register_policy()` as many times,
-        as one want to -- it will just extend the current
-        policy scheme, not replace it.
-        '''
-        if isinstance(policy, int) and msg_class is not None:
-            policy = {policy: msg_class}
-
-        if not isinstance(policy, dict):
-            raise TypeError('wrong policy type')
-        for key in policy:
-            self.marshal.msg_map[key] = policy[key]
-
-        return self.marshal.msg_map
-
-    def unregister_policy(self, policy):
-        '''
-        Unregister policy. Policy can be:
-
-            - int -- then it will just remove one policy
-            - list or tuple of ints -- remove all given
-            - dict -- remove policies by keys from dict
-
-        In the last case the routine will ignore dict values,
-        it is implemented so just to make it compatible with
-        `get_policy_map()` return value.
-        '''
-        if isinstance(policy, int):
-            policy = [policy]
-        elif isinstance(policy, dict):
-            policy = list(policy)
-
-        if not isinstance(policy, (tuple, list, set)):
-            raise TypeError('wrong policy type')
-
-        for key in policy:
-            del self.marshal.msg_map[key]
-
-        return self.marshal.msg_map
-
-    def get_policy_map(self, policy=None):
-        '''
-        Return policy for a given message type or for all
-        message types. Policy parameter can be either int,
-        or a list of ints. Always return dictionary.
-        '''
-        if policy is None:
-            return self.marshal.msg_map
-
-        if isinstance(policy, int):
-            policy = [policy]
-
-        if not isinstance(policy, (list, tuple, set)):
-            raise TypeError('wrong policy type')
-
-        ret = {}
-        for key in policy:
-            ret[key] = self.marshal.msg_map[key]
-
-        return ret
 
     def compile(self):
         return CompileContext(self)
@@ -901,6 +509,52 @@ class NetlinkSocket:
                 self.marshal.seq_map.pop(msg_seq)
         if defer is not None:
             raise defer
+
+
+IPCSocketPair = collections.namedtuple('IPCSocketPair', ('server', 'client'))
+
+
+class IPCSocket(NetlinkSocket):
+
+    def setup_socket(self):
+        # create socket pair
+        sp = IPCSocketPair(*socketpair())
+        # start the server
+        self.socket = sp
+        self.p9server = multiprocessing.Process(target=self.ipc_server)
+        self.p9server.daemon = True
+        self.p9server.start()
+        # create and init the client
+        self.p9client = Plan9Client(use_socket=sp.client)
+        self.p9client.init()
+        return sp
+
+    def ipc_server(self):
+        raise NotImplementedError()
+
+    def recv(self, buffersize, flags=0):
+        ret = self.p9client.call(
+            fid=self.p9client.fid('call'),
+            fname='recv',
+            kwarg={'buffersize': buffersize, 'flags': flags},
+        )
+        return ret['data']
+
+    def send(self, data, flags=0):
+        return self.p9client.call(
+            fid=self.p9client.fid('call'),
+            fname='send',
+            kwarg={'flags': flags},
+            data=data,
+        )
+
+    def bind(self):
+        return self.p9client.call(fid=self.p9client.fid('call'), fname='bind')
+
+    def close(self):
+        self.socket.client.close()
+        self.socket.server.close()
+        self.p9server.wait()
 
 
 class BatchAddrPool:

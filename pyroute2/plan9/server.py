@@ -153,7 +153,7 @@ class Plan9ClientConnection:
 
     def serve(self):
         while True:
-            request = self.socket.get()
+            request = tuple(self.socket.get())
             if len(request) != 1:
                 return
             t_message = request[0]

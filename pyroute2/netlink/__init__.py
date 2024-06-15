@@ -1754,7 +1754,7 @@ class nlmsg_encoder_generic(object):
         else:
             zs = 0
         for name, fmt in self.fields:
-            default = self.defaults.get(name)
+            default = self.defaults.get(name, 0)
             value = self[name] if name in self else default
             if value is None:
                 continue

@@ -79,8 +79,7 @@ class IPRSocket(NetlinkSocket):
         super().__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
         self.marshal = MarshalRtnl()
         if self.status['groups'] == 0:
-            self.status['groups'] = rtnl.RTMGRP_DEFAULTS
-        print(">>", self.status)
+            self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
         self._s_channel = None
         if sys.platform.startswith('linux'):
             send_ns = Namespace(
