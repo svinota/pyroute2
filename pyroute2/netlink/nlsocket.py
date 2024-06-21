@@ -112,7 +112,11 @@ from pyroute2.netlink import (
     SOL_NETLINK,
     nlmsg,
 )
-from pyroute2.netlink.core import CoreSocket, CoreSocketSpec
+from pyroute2.netlink.core import (
+    CoreDatagramProtocol,
+    CoreSocket,
+    CoreSocketSpec,
+)
 from pyroute2.netlink.exceptions import (
     ChaoticException,
     NetlinkDumpInterrupted,
@@ -198,6 +202,9 @@ class NetlinkSocket(CoreSocket):
         groups=0,
         nlm_echo=False,
         use_socket=None,
+        netns=None,
+        flags=os.O_CREAT,
+        libc=None,
     ):
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
@@ -219,6 +226,8 @@ class NetlinkSocket(CoreSocket):
                 'nlm_echo': nlm_echo,
                 'use_socket': use_socket is not None,
                 'tag_field': 'sequence_number',
+                'netns': netns,
+                'flags': flags,
             }
         )
         # TODO: merge capabilities to self.status
@@ -228,8 +237,17 @@ class NetlinkSocket(CoreSocket):
             'create_dummy': True,
             'provide_master': config.kernel[0] > 2,
         }
-        super().__init__()
+        super().__init__(libc=libc)
         self.marshal = Marshal()
+
+    async def setup_endpoint(self, loop=None):
+        # Setup asyncio
+        if self.endpoint is not None:
+            return
+        self.endpoint = await self.event_loop.create_datagram_endpoint(
+            lambda: CoreDatagramProtocol(self.connection_lost, self.enqueue),
+            sock=self.socket,
+        )
 
     @property
     def uname(self):

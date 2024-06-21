@@ -2,12 +2,15 @@ import asyncio
 import collections
 import errno
 import logging
+import multiprocessing
+import os
 import socket
 from urllib import parse
 
 from pyroute2 import config
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE
+from pyroute2.netns import setns
 from pyroute2.requests.main import RequestProcessor
 
 log = logging.getLogger(__name__)
@@ -68,7 +71,6 @@ class CoreMessageQueue:
 
 
 class CoreProtocol(asyncio.Protocol):
-
     def __init__(self, on_con_lost, enqueue):
         self.transport = None
         self.enqueue = enqueue
@@ -77,11 +79,30 @@ class CoreProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
 
-    def datagram_received(self, data, addr):
-        self.enqueue(data, addr)
-
     def connection_lost(self, exc):
         self.on_con_lost.set_result(True)
+
+
+class CoreStreamProtocol(CoreProtocol):
+
+    def data_received(self, data):
+        log.debug('SOCK_STREAM enqueue %s bytes' % len(data))
+        self.enqueue(data, None)
+
+
+class CoreDatagramProtocol(CoreProtocol):
+
+    def datagram_received(self, data, addr):
+        log.debug('SOCK_DGRAM enqueue %s bytes' % len(data))
+        self.enqueue(data, addr)
+
+
+def netns_init(ctl, nsname, cls):
+    setns(nsname)
+    s = cls()
+    print(" <<< ", s)
+    socket.send_fds(ctl, [b'test'], [s.socket.fileno()], 1)
+    print(" done ")
 
 
 class CoreSocket:
@@ -91,25 +112,54 @@ class CoreSocket:
     communications, both Netlink and internal RPC.
     '''
 
+    libc = None
     socket = None
     compiled = None
     endpoint = None
     event_loop = None
     __spec = None
 
-    def __init__(self, target='localhost', rcvsize=16384, use_socket=None):
+    def __init__(
+        self,
+        target='localhost',
+        rcvsize=16384,
+        use_socket=None,
+        netns=None,
+        flags=os.O_CREAT,
+        libc=None,
+        groups=0,
+    ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
             {
                 'target': target,
                 'use_socket': use_socket is not None,
                 'rcvsize': rcvsize,
+                'netns': netns,
+                'flags': flags,
+                'groups': groups,
             }
         )
+        if libc is not None:
+            self.libc = libc
         self.status = self.spec.status
         url = parse.urlparse(self.status['target'])
         self.scheme = url.scheme if url.scheme else url.path
         self.use_socket = use_socket
+        # 8<-----------------------------------------
+        # Setup netns
+        if self.spec['netns'] is not None:
+            # inspect self.__init__ argument names
+            ctrl = socket.socketpair()
+            nsproc = multiprocessing.Process(
+                target=netns_init,
+                args=(ctrl[0], self.spec['netns'], type(self)),
+            )
+            nsproc.start()
+            (_, (self.spec['fileno'],), _, _) = socket.recv_fds(
+                ctrl[1], 1024, 1
+            )
+            nsproc.join()
         # 8<-----------------------------------------
         self.callbacks = []  # [(predicate, callback, args), ...]
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
@@ -119,8 +169,13 @@ class CoreSocket:
         # 8<-----------------------------------------
         # Setup the underlying socket
         self.socket = self.setup_socket()
+        self.msg_queue = CoreMessageQueue()
         self.event_loop = self.setup_event_loop()
-        self.event_loop.run_until_complete(self.setup_endpoint())
+        self.connection_lost = self.event_loop.create_future()
+        if self.event_loop.is_running():
+            asyncio.ensure_future(self.setup_endpoint())
+        else:
+            self.event_loop.run_until_complete(self.setup_endpoint())
 
     def get_loop(self):
         return self.event_loop
@@ -138,10 +193,8 @@ class CoreSocket:
         # Setup asyncio
         if self.endpoint is not None:
             return
-        self.msg_queue = CoreMessageQueue()
-        self.connection_lost = self.event_loop.create_future()
-        self.endpoint = await self.event_loop.create_datagram_endpoint(
-            lambda: CoreProtocol(self.connection_lost, self.enqueue),
+        self.endpoint = await self.event_loop.connect_accepted_socket(
+            lambda: CoreStreamProtocol(self.connection_lost, self.enqueue),
             sock=self.socket,
         )
 
@@ -149,8 +202,10 @@ class CoreSocket:
         if event_loop is None:
             try:
                 event_loop = asyncio.get_running_loop()
+                self.status['event_loop'] = 'auto'
             except RuntimeError:
                 event_loop = asyncio.new_event_loop()
+                self.status['event_loop'] = 'new'
         return event_loop
 
     def setup_socket(self, sock=None):

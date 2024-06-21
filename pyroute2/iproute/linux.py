@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 import logging
 import os
 import time
@@ -26,7 +25,6 @@ from pyroute2.netlink.exceptions import (
     NetlinkError,
     SkipInode,
 )
-from pyroute2.netlink.nlsocket import IPCSocket
 from pyroute2.netlink.rtnl import (
     RTM_DELADDR,
     RTM_DELLINK,
@@ -61,6 +59,7 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWTCLASS,
     RTM_NEWTFILTER,
     RTM_SETLINK,
+    RTMGRP_DEFAULTS,
     RTMGRP_IPV4_IFADDR,
     RTMGRP_IPV4_ROUTE,
     RTMGRP_IPV4_RULE,
@@ -85,7 +84,6 @@ from pyroute2.netlink.rtnl.iprsocket import (
     IPBatchSocket,
     IPRSocket,
 )
-from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
@@ -94,9 +92,6 @@ from pyroute2.netlink.rtnl.riprsocket import RawIPRSocket
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 from pyroute2.netlink.rtnl.tcmsg import tcmsg
-from pyroute2.netns import setns
-from pyroute2.plan9 import Tcall
-from pyroute2.plan9.server import Plan9Server
 from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
 from pyroute2.requests.bridge import (
     BridgeFieldFilter,
@@ -2603,36 +2598,23 @@ class IPRoute(LAB_API, RTNL_API, IPRSocket):
     pass
 
 
-def ipr_call(session, inode, req, response):
-    arg = json.loads(req['text'])
-    data = req['data']
-    if data:
-        arg['kwarg']['data'] = data
-    response['err'] = 0
-    ret = getattr(session.ipr, arg['call'])(*arg['argv'], **arg['kwarg'])
-    if isinstance(ret, bytes):
-        response['data'] = ret
-        response['text'] = ''
-    else:
-        response['data'] = b''
-        response['text'] = json.dumps(ret)
-    return response
+class NetNS(IPRoute):
 
-
-class NetNS(RTNL_API, IPCSocket):
-
-    def __init__(self, netns):
-        super().__init__(target=netns)
-        self.marshal = MarshalRtnl()
-
-    def ipc_server(self):
-        setns(self.status['target'])
-        p9 = Plan9Server(use_socket=self.socket.server)
-        p9.filesystem.create('call').add_callback(Tcall, ipr_call)
-        p9.filesystem.create('log')
-        connection = p9.accept()
-        connection.session.ipr = IPRoute()
-        connection.serve()
+    def __init__(
+        self,
+        netns=None,
+        flags=os.O_CREAT,
+        target='localhost',
+        libc=None,
+        groups=RTMGRP_DEFAULTS,
+    ):
+        super().__init__(
+            target=netns if netns is not None else target,
+            netns=netns,
+            flags=flags,
+            libc=libc,
+            groups=groups,
+        )
 
 
 class RawIPRoute(RTNL_API, RawIPRSocket):
