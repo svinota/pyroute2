@@ -57,7 +57,8 @@ class CoreMessageQueue:
         return ret
 
     async def put(self, tag, message):
-        self.ensure(tag)
+        if tag not in self.queues:
+            tag = 0
         return await self.queues[tag].put(message)
 
     def ensure(self, tag):
@@ -66,7 +67,7 @@ class CoreMessageQueue:
 
     def put_nowait(self, tag, message):
         if tag not in self.queues:
-            self.queues[tag] = asyncio.Queue()
+            tag = 0
         return self.queues[tag].put_nowait(message)
 
 
