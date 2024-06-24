@@ -18,12 +18,6 @@ from pyroute2.cli.server import Server
 from pyroute2.conntrack import Conntrack, ConntrackEntry
 from pyroute2.devlink import DL
 from pyroute2.ethtool.ethtool import Ethtool
-from pyroute2.ipdb.exceptions import (
-    CommitException,
-    CreateException,
-    DeprecationException,
-    PartialCommitException,
-)
 from pyroute2.iproute import (
     ChaoticIPRoute,
     IPBatch,
@@ -65,12 +59,9 @@ modules = [
     AcpiEventSocket,
     ChaoticException,
     ChaoticIPRoute,
-    CommitException,
     Conntrack,
     ConntrackEntry,
     Console,
-    CreateException,
-    DeprecationException,
     DevlinkSocket,
     DiagSocket,
     DL,
@@ -98,7 +89,6 @@ modules = [
     NFTSocket,
     NL80211,
     NSPopen,
-    PartialCommitException,
     ProcEventSocket,
     RawIPRoute,
     Server,
