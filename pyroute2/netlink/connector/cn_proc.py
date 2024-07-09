@@ -147,8 +147,8 @@ class ProcEventSocket(ConnectorSocket):
         super().__init__(fileno=fileno)
         self.marshal = ProcEventMarshal()
 
-    def bind(self):
-        return super().bind(groups=CN_IDX_PROC)
+    def bind(self, **kwarg):
+        return super().bind(groups=CN_IDX_PROC, **kwarg)
 
     def control(self, listen):
         msg = proc_event_control()
