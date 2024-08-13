@@ -86,7 +86,7 @@ class ipset_msg(nfgen_msg):
         ('IPSET_ATTR_FLAGS', 'be32'),
         ('IPSET_ATTR_DATA', 'get_data_type'),
         ('IPSET_ATTR_ADT', 'attr_adt'),
-        ('IPSET_ATTR_LINENO', 'hex'),
+        ('IPSET_ATTR_LINENO', 'be32'),
         ('IPSET_ATTR_PROTOCOL_MIN', 'uint8'),
         ('IPSET_ATTR_INDEX', 'be16'),
     )
