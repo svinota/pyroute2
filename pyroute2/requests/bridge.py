@@ -122,8 +122,8 @@ class BridgeIPRouteFilter(IPRouteFilter):
 
 class BridgePortFieldFilter(IPRouteFilter):
     _nla_prefix = ifinfmsg.prefix
-    _allowed = [x[0] for x in protinfo_bridge.nla_map]
-    _allowed.append('attrs')
+    allowed = [x[0] for x in protinfo_bridge.nla_map]
+    allowed.append('attrs')
 
     def finalize(self, context):
         keys = tuple(context.keys())

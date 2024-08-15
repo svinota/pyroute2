@@ -1,4 +1,4 @@
-from socket import AF_INET6
+from socket import AF_INET, AF_INET6
 
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
@@ -149,7 +149,17 @@ class RouteIPRouteFilter(IPRouteFilter):
                         nh['attrs'].append([rta, v[name]])
                 ret.append(nh)
             if ret:
-                return {'multipath': ret}
+                ret = {'multipath': ret}
+                if context.get('family') is None:
+                    # autodetect and propagate family
+                    hop = ret[0]
+                    attrs = hop.get('attrs', [])
+                    for attr in attrs:
+                        if attr[0] == 'RTA_GATEWAY':
+                            ret['family'] = (
+                                AF_INET6 if attr[1].find(':') >= 0 else AF_INET
+                            )
+                            break
         return {}
 
     def set_encap(self, context, value):
@@ -246,6 +256,12 @@ class RouteIPRouteFilter(IPRouteFilter):
         return {}
 
     def finalize(self, context):
+        # cleanup extra NLA for AF_MPLS
+        if context.get('family') == AF_MPLS:
+            for key in tuple(context.keys()):
+                if key not in ('dst', 'newdst', 'via', 'multipath', 'oif'):
+                    context.pop(key)
+        # cleanup empty strings
         for key in context:
             if context[key] in ('', None):
                 try:

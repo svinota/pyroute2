@@ -5,10 +5,10 @@ import time
 import warnings
 from functools import partial
 from itertools import chain
-from socket import AF_INET, AF_INET6, AF_UNSPEC
+from socket import AF_INET, AF_UNSPEC
 
 from pyroute2 import config
-from pyroute2.common import AF_MPLS, basestring
+from pyroute2.common import basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.lab import LAB_API
 from pyroute2.netlink import (
@@ -25,6 +25,7 @@ from pyroute2.netlink.exceptions import (
     NetlinkError,
     SkipInode,
 )
+from pyroute2.netlink.nlsocket import NetlinkRequest
 from pyroute2.netlink.rtnl import (
     RTM_DELADDR,
     RTM_DELLINK,
@@ -62,18 +63,9 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_DEFAULTS,
     RTMGRP_IPV4_IFADDR,
     RTMGRP_IPV4_ROUTE,
-    RTMGRP_IPV4_RULE,
-    RTMGRP_IPV6_IFADDR,
-    RTMGRP_IPV6_ROUTE,
-    RTMGRP_IPV6_RULE,
     RTMGRP_LINK,
-    RTMGRP_MPLS_ROUTE,
-    RTMGRP_NEIGH,
     TC_H_ROOT,
     ndmsg,
-    rt_proto,
-    rt_scope,
-    rt_type,
 )
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
@@ -114,14 +106,47 @@ DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
 
 
-def get_dump_filter(kwarg):
-    if 'match' in kwarg:
-        return kwarg.pop('match'), kwarg
+def get_default_request_filters(mode, command):
+    filters = {
+        'link': [LinkFieldFilter(), LinkIPRouteFilter(command)],
+        'addr': [AddressFieldFilter(), AddressIPRouteFilter(command)],
+        'route': [
+            RouteFieldFilter(add_defaults=(command != 'dump')),
+            RouteIPRouteFilter(command),
+        ],
+    }
+    return filters[mode]
+
+
+def get_dump_filter(mode, command, query):
+    if command != 'dump':
+        return RequestProcessor(), query
+    if 'match' in query:
+        return query.pop('match'), query
     else:
-        new_kwarg = {}
-        if 'family' in kwarg:
-            new_kwarg['family'] = kwarg.pop('family')
-        return kwarg, new_kwarg
+        new_query = {}
+        if 'family' in query:
+            new_query['family'] = query.pop('family')
+        dump_filter = RequestProcessor(context=query, prime=query)
+        for rf in query.pop(
+            'dump_filter', get_default_request_filters(mode, command)
+        ):
+            dump_filter.add_filter(rf)
+        dump_filter.finalize()
+        return dump_filter, new_query
+
+
+def get_request_filter(mode, command, query):
+    if not query:
+        return RequestProcessor()
+    request_filter = RequestProcessor(context=query, prime=query)
+    for rf in query.pop(
+        'request_filter', get_default_request_filters(mode, command)
+    ):
+        print("apply", rf)
+        request_filter.add_filter(rf)
+    request_filter.finalize()
+    return request_filter
 
 
 def transform_handle(handle):
@@ -183,6 +208,26 @@ class RTNL_API:
             self._genmatch = self.filter_messages
             self.filter_messages = filter_messages
 
+    def match_one_message(self, dump_filter, msg):
+        if hasattr(dump_filter, '__call__'):
+            return dump_filter(msg)
+        elif isinstance(dump_filter, dict):
+            matches = []
+            for key in dump_filter:
+                # get the attribute
+                if isinstance(key, str):
+                    nkey = (key,)
+                elif isinstance(key, tuple):
+                    nkey = key
+                else:
+                    continue
+                value = msg.get_nested(*nkey)
+                if value is not None and callable(dump_filter[key]):
+                    matches.append(dump_filter[key](value))
+                else:
+                    matches.append(dump_filter[key] == value)
+            return all(matches)
+
     def filter_messages(self, dump_filter, msgs):
         '''
         Filter messages using `dump_filter`. The filter might be a
@@ -230,30 +275,12 @@ class RTNL_API:
         '''
         # filtered results, the generator version
         for msg in msgs:
-            if hasattr(dump_filter, '__call__'):
-                if dump_filter(msg):
-                    yield msg
-            elif isinstance(dump_filter, dict):
-                matches = []
-                for key in dump_filter:
-                    # get the attribute
-                    if isinstance(key, str):
-                        nkey = (key,)
-                    elif isinstance(key, tuple):
-                        nkey = key
-                    else:
-                        continue
-                    value = msg.get_nested(*nkey)
-                    if value is not None and callable(dump_filter[key]):
-                        matches.append(dump_filter[key](value))
-                    else:
-                        matches.append(dump_filter[key] == value)
-                if all(matches):
-                    yield msg
+            if self.match_one_message(dump_filter, msg):
+                yield msg
 
     # 8<---------------------------------------------------------------
     #
-    def dump(self, groups=None):
+    async def dump(self, groups=None):
         '''
         Dump network objects.
 
@@ -280,35 +307,40 @@ class RTNL_API:
         # and the code may be run on BSD systems as well, though
         # BSD systems have only subset of the API
         #
-        if self.uname[0] == 'OpenBSD':
-            groups_map = {
-                1: [
-                    self.get_links,
-                    self.get_addr,
-                    self.get_neighbours,
-                    self.get_routes,
-                ]
-            }
-        else:
-            groups_map = {
-                RTMGRP_LINK: [
-                    self.get_links,
-                    self.get_vlans,
-                    partial(self.fdb, 'dump'),
-                ],
-                RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
-                RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
-                RTMGRP_NEIGH: [self.get_neighbours],
-                RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
-                RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
-                RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
-                RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
-                RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
-            }
+        # if self.uname[0] == 'OpenBSD':
+        #    groups_map = {
+        #        1: [
+        #            self.get_links,
+        #            self.get_addr,
+        #            self.get_neighbours,
+        #            self.get_routes,
+        #        ]
+        #    }
+        # else:
+        #    groups_map = {
+        #        RTMGRP_LINK: [
+        #            self.get_links,
+        #            self.get_vlans,
+        #            partial(self.fdb, 'dump'),
+        #        ],
+        #        RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
+        #        RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
+        #        RTMGRP_NEIGH: [self.get_neighbours],
+        #        RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
+        #       RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
+        #        RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
+        #        RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
+        #        RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
+        #    }
+        groups_map = {
+            RTMGRP_LINK: [partial(self.link, 'dump')],
+            RTMGRP_IPV4_IFADDR: [partial(self.addr, 'dump', family=AF_INET)],
+            RTMGRP_IPV4_ROUTE: [partial(self.route, 'dump', family=AF_INET)],
+        }
         for group, methods in groups_map.items():
             if group & (groups if groups is not None else self.groups):
                 for method in methods:
-                    for msg in method():
+                    async for msg in await method():
                         yield msg
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
@@ -1362,7 +1394,7 @@ class RTNL_API:
 
         return ret
 
-    def link(self, command, **kwarg):
+    async def link(self, command, **kwarg):
         '''
         Link operations.
 
@@ -1706,55 +1738,17 @@ class RTNL_API:
             'dump': (RTM_GETLINK, 'dump'),
             'get': (RTM_GETLINK, 'get'),
         }
-        dump_filter = None
-        request = {}
-        msg = ifinfmsg()
-
+        dump_filter, kwarg = get_dump_filter('link', command, kwarg)
+        request_filter = get_request_filter('link', command, kwarg)
+        request = NetlinkRequest(
+            self, ifinfmsg(), command, command_map, dump_filter, request_filter
+        )
+        await request.send()
         if command == 'dump':
-            dump_filter, kwarg = get_dump_filter(kwarg)
+            return request.response()
+        return [x async for x in request.response()]
 
-        if kwarg:
-            if kwarg.get('kwarg_filter'):
-                filters = kwarg['kwarg_filter']
-            else:
-                filters = [LinkFieldFilter(), LinkIPRouteFilter(command)]
-            request = RequestProcessor(context=kwarg, prime=kwarg)
-            for rfilter in filters:
-                request.apply_filter(rfilter)
-            request.finalize()
-
-        msg_type, msg_flags = self.make_request_type(command, command_map)
-
-        for field in msg.fields:
-            msg[field[0]] = request.pop(field[0], 0)
-
-        # attach NLA
-        for key, value in request.items():
-            nla = type(msg).name2nla(key)
-            if msg.valid_nla(nla) and value is not None:
-                msg['attrs'].append([nla, value])
-
-        ret = self.nlm_request(msg, msg_type=msg_type, msg_flags=msg_flags)
-
-        if command == 'dump' and dump_filter is not None:
-            if isinstance(dump_filter, dict):
-                dump_filter = (
-                    RequestProcessor(context=dump_filter, prime=dump_filter)
-                    .apply_filter(LinkFieldFilter())
-                    .apply_filter(LinkIPRouteFilter('dump'))
-                    .finalize()
-                )
-            ret = self.filter_messages(dump_filter, ret)
-
-        if (
-            self.status['nlm_generator']
-            and not msg_flags & NLM_F_DUMP == NLM_F_DUMP
-        ):
-            ret = tuple(ret)
-
-        return ret
-
-    def addr(self, command, *argv, **kwarg):
+    async def addr(self, command, **kwarg):
         '''
         Address operations
 
@@ -1803,20 +1797,7 @@ class RTNL_API:
                     local='10.1.1.1')
         '''
         if command in ('get', 'set'):
-            return []
-        ##
-        # This block will be deprecated in a short term
-        if argv:
-            warnings.warn(
-                'positional arguments for IPRoute.addr() are deprecated, '
-                'use keyword arguments',
-                DeprecationWarning,
-            )
-            converted_argv = zip(
-                ('index', 'address', 'prefixlen', 'family', 'scope', 'match'),
-                argv,
-            )
-            kwarg.update(converted_argv)
+            return
         if 'mask' in kwarg:
             warnings.warn(
                 'usage of mask is deprecated, use prefixlen instead',
@@ -1830,45 +1811,22 @@ class RTNL_API:
             'replace': (RTM_NEWADDR, 'replace'),
             'dump': (RTM_GETADDR, 'dump'),
         }
-        dump_filter = None
-        msg = ifaddrmsg()
-        if command == 'dump':
-            dump_filter, kwarg = get_dump_filter(kwarg)
-
-        request = (
-            RequestProcessor(context=kwarg, prime=kwarg)
-            .apply_filter(AddressFieldFilter())
-            .apply_filter(AddressIPRouteFilter(command))
-            .finalize()
-        )
-        msg_type, msg_flags = self.make_request_type(command, command_map)
-
-        for field in msg.fields:
-            if field[0] != 'flags':  # Flags are supplied as NLA
-                msg[field[0]] = request.pop(field[0], 0)
-
-        # work on NLA
-        for key, value in request.items():
-            nla = ifaddrmsg.name2nla(key)
-            if msg.valid_nla(nla) and value is not None:
-                msg['attrs'].append([nla, value])
-
-        ret = self.nlm_request(
-            msg,
-            msg_type=msg_type,
-            msg_flags=msg_flags,
+        # quirks in the filter: flags are supplied as NLA, not as a field
+        dump_filter, kwarg = get_dump_filter('addr', command, kwarg)
+        request_filter = get_request_filter('addr', command, kwarg)
+        request = NetlinkRequest(
+            self,
+            ifaddrmsg(),
+            command,
+            command_map,
+            dump_filter,
+            request_filter,
             terminate=lambda x: x['header']['type'] == NLMSG_ERROR,
         )
-        if command == 'dump' and dump_filter is not None:
-            ret = self.filter_messages(dump_filter, ret)
-
-        if (
-            self.status['nlm_generator']
-            and not msg_flags & NLM_F_DUMP == NLM_F_DUMP
-        ):
-            ret = tuple(ret)
-
-        return ret
+        await request.send()
+        if command == 'dump':
+            return request.response()
+        return [x async for x in request.response()]
 
     def tc(self, command, kind=None, index=0, handle=0, **kwarg):
         '''
@@ -2001,7 +1959,7 @@ class RTNL_API:
             msg['attrs'].append(['TCA_OPTIONS', opts])
         return tuple(self.nlm_request(msg, msg_type=command, msg_flags=flags))
 
-    def route(self, command, **kwarg):
+    async def route(self, command, **kwarg):
         '''
         Route operations.
 
@@ -2307,18 +2265,6 @@ class RTNL_API:
         if command in ('add', 'set', 'replace', 'change', 'append'):
             kwarg['proto'] = kwarg.get('proto', 'static') or 'static'
             kwarg['type'] = kwarg.get('type', 'unicast') or 'unicast'
-        if 'match' not in kwarg and command in ('dump', 'show'):
-            match = kwarg
-        else:
-            match = kwarg.pop('match', None)
-        callback = kwarg.pop('callback', None)
-        request = (
-            RequestProcessor(context=kwarg, prime=kwarg)
-            .apply_filter(RouteFieldFilter())
-            .apply_filter(RouteIPRouteFilter(command))
-            .finalize()
-        )
-        kwarg = request
 
         command_map = {
             'add': (RTM_NEWROUTE, 'create'),
@@ -2333,71 +2279,27 @@ class RTNL_API:
             'show': (RTM_GETROUTE, 'dump'),
             'dump': (RTM_GETROUTE, 'dump'),
         }
-        (command, flags) = self.make_request_type(command, command_map)
         msg = rtmsg()
-
         # table is mandatory without strict_check; by default == 254
         # if table is not defined in kwarg, save it there
         # also for nla_attr. Do not set it in strict_check, use
         # NLA instead
+        #
+        # begin
+        #   FIXME: move this block to the request processor
         if not self.status['strict_check']:
             table = kwarg.get('table', 254)
             msg['table'] = table if table <= 255 else 252
-        msg['family'] = kwarg.pop('family', AF_INET)
-        msg['scope'] = kwarg.pop('scope', rt_scope['universe'])
-        msg['dst_len'] = kwarg.pop('dst_len', None) or kwarg.pop('mask', 0)
-        msg['src_len'] = kwarg.pop('src_len', 0)
-        msg['tos'] = kwarg.pop('tos', 0)
-        msg['flags'] = kwarg.pop('flags', 0)
-        msg['type'] = kwarg.pop('type', rt_type['unspec'])
-        msg['proto'] = kwarg.pop('proto', rt_proto['unspec'])
-        msg['attrs'] = []
-
-        if msg['family'] == AF_MPLS:
-            for key in tuple(kwarg):
-                if key not in ('dst', 'newdst', 'via', 'multipath', 'oif'):
-                    kwarg.pop(key)
-
-        for key in kwarg:
-            nla = rtmsg.name2nla(key)
-            if nla == 'RTA_DST' and not kwarg[key]:
-                continue
-            if kwarg[key] is not None:
-                msg['attrs'].append([nla, kwarg[key]])
-                # fix IP family, if needed
-                if msg['family'] in (AF_UNSPEC, 255):
-                    if key == 'multipath' and len(kwarg[key]) > 0:
-                        hop = kwarg[key][0]
-                        attrs = hop.get('attrs', [])
-                        for attr in attrs:
-                            if attr[0] == 'RTA_GATEWAY':
-                                msg['family'] = (
-                                    AF_INET6
-                                    if attr[1].find(':') >= 0
-                                    else AF_INET
-                                )
-                                break
-
-        ret = self.nlm_request(
-            msg, msg_type=command, msg_flags=flags, callback=callback
+        # end
+        dump_filter, kwarg = get_dump_filter('route', command, kwarg)
+        request_filter = get_request_filter('route', command, kwarg)
+        request = NetlinkRequest(
+            self, msg, command, command_map, dump_filter, request_filter
         )
-        if match:
-            if isinstance(match, dict):
-                match = (
-                    RequestProcessor(context=match, prime=match)
-                    .apply_filter(RouteFieldFilter(add_defaults=False))
-                    .apply_filter(RouteIPRouteFilter('dump'))
-                    .finalize()
-                )
-            ret = self.filter_messages(match, ret)
-
-        if (
-            self.status['nlm_generator']
-            and not flags & NLM_F_DUMP == NLM_F_DUMP
-        ):
-            ret = tuple(ret)
-
-        return ret
+        await request.send()
+        if command == 'dump':
+            return request.response()
+        return [x async for x in request.response()]
 
     def rule(self, command, **kwarg):
         '''

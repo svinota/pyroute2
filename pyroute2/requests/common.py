@@ -147,7 +147,7 @@ class IPRouteFilter:
 class NLAKeyTransform:
     _nla_prefix = ''
 
-    def _key_transform(self, key):
+    def key_transform(self, key):
         if isinstance(key, str) and key.startswith(self._nla_prefix):
             key = key[len(self._nla_prefix) :].lower()
         return key

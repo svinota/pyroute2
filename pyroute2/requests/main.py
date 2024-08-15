@@ -7,12 +7,14 @@ from collections import ChainMap
 
 
 class RequestProcessor(dict):
-    field_filter = None
+    field_filters = tuple()
+    mark = tuple()
     context = None
+    combined = None
 
-    def __init__(self, field_filter=None, context=None, prime=None):
-        if field_filter is not None:
-            self.field_filter = field_filter
+    def __init__(self, context=None, prime=None):
+        self.reset_filters()
+        self.reset_mark()
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
         )
@@ -26,42 +28,56 @@ class RequestProcessor(dict):
         if key in self:
             del self[key]
         for nkey, nvalue in self.filter(key, value).items():
-            super(RequestProcessor, self).__setitem__(nkey, nvalue)
+            super().__setitem__(nkey, nvalue)
+
+    def reset_filters(self):
+        self.field_filters = []
+
+    def reset_mark(self):
+        self.mark = []
+
+    def items(self):
+        for key, value in super().items():
+            if key not in self.mark:
+                yield key, value
+
+    def get_value(self, key, default=None, mode=None):
+        for field_filter in self.field_filters:
+            getter = getattr(field_filter, f'get_{key}', None)
+            if getter is not None:
+                return getter(self, mode)
+        self.mark.append(key)
+        return self.get(key, default)
 
     def filter(self, key, value):
-        if hasattr(self.field_filter, '_key_transform'):
-            key = self.field_filter._key_transform(key)
-        if (
-            hasattr(self.field_filter, '_allowed')
-            and key not in self.field_filter._allowed
-        ):
-            return {}
-        if hasattr(
-            self.field_filter, 'policy'
-        ) and not self.field_filter.policy(key):
-            return {}
-        return getattr(
-            self.field_filter, f'set_{key}', lambda *argv: {key: value}
-        )(self.combined, value)
+        for field_filter in self.field_filters:
+            if hasattr(field_filter, 'key_transform'):
+                key = field_filter.key_transform(key)
+            if (
+                hasattr(field_filter, 'allowed')
+                and key not in field_filter.allowed
+            ):
+                return {}
+            if hasattr(field_filter, 'policy') and not field_filter.policy(
+                key
+            ):
+                return {}
+            setter = getattr(field_filter, f'set_{key}', None)
+            if setter is not None:
+                return setter(self.combined, value)
+        return {key: value}
 
     def update(self, prime):
         for key, value in tuple(prime.items()):
             self[key] = value
 
-    def set_filter(self, field_filter):
-        self.field_filter = field_filter
+    def add_filter(self, field_filter):
+        self.field_filters.append(field_filter)
         return self
 
-    def apply_filter(self, field_filter):
-        self.field_filter = field_filter
+    def finalize(self):
         self.update(self)
-        return self
-
-    def finalize(self, cmd_context=None):
-        if hasattr(self.field_filter, 'finalize_for_iproute'):
-            # old interface
-            self.field_filter.finalize_for_iproute(self.combined, cmd_context)
-        if hasattr(self.field_filter, 'finalize'):
-            # new interface
-            self.field_filter.finalize(self.combined)
+        for field_filter in self.field_filters:
+            if hasattr(field_filter, 'finalize'):
+                field_filter.finalize(self.combined)
         return self
