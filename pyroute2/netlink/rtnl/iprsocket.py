@@ -76,10 +76,7 @@ class IPRSocket(NetlinkSocket):
     def __init__(self, *argv, **kwarg):
         if 'family' in kwarg:
             kwarg.pop('family')
-        super().__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
         self.marshal = MarshalRtnl()
-        if self.status['groups'] == 0:
-            self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
         self._s_channel = None
         if sys.platform.startswith('linux'):
             send_ns = Namespace(
@@ -92,6 +89,9 @@ class IPRSocket(NetlinkSocket):
                 rtnl.RTM_SETLINK: proxy_setlink,
                 rtnl.RTM_NEWPROBE: proxy_newprobe,
             }
+        super().__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
+        if self.status['groups'] == 0:
+            self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
 
     def bind(self, groups=None, **kwarg):
         super().bind(

@@ -119,6 +119,7 @@ class CoreSocket:
     endpoint = None
     event_loop = None
     __spec = None
+    __marshal = None
 
     def __init__(
         self,
@@ -174,9 +175,13 @@ class CoreSocket:
         self.event_loop = self.setup_event_loop()
         self.connection_lost = self.event_loop.create_future()
         if self.event_loop.is_running():
-            asyncio.ensure_future(self.setup_endpoint())
+            self.endpoint_started = asyncio.ensure_future(
+                self.setup_endpoint()
+            )
         else:
             self.event_loop.run_until_complete(self.setup_endpoint())
+            self.endpoint_started = self.event_loop.create_future()
+            self.endpoint_started.set_result(True)
 
     def get_loop(self):
         return self.event_loop
@@ -189,6 +194,15 @@ class CoreSocket:
     def spec(self, value):
         if self.__spec is None:
             self.__spec = value
+
+    @property
+    def marshal(self):
+        return self.__marshal
+
+    @marshal.setter
+    def marshal(self, value):
+        if self.__marshal is None:
+            self.__marshal = value
 
     async def setup_endpoint(self, loop=None):
         # Setup asyncio

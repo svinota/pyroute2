@@ -6,8 +6,8 @@ import struct
 from itertools import count
 
 from pyroute2.lab import LAB_API
-from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.core import Stats
+from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg

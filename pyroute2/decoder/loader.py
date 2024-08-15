@@ -283,6 +283,7 @@ class LoaderPcap:
             ll_header = self.decode_ll_header(self.raw, self.offset)
             self.offset += ll_header.header_len
             length = packet_header.incl_len - ll_header.header_len
+            off_length = length - self.data_offset
             if self.matcher.match(
                 packet_header, ll_header, self.raw, self.offset
             ):
@@ -292,7 +293,7 @@ class LoaderPcap:
                     ll_header,
                     self.cls,
                     self.key,
-                    self.raw[offset : offset + length],
+                    self.raw[offset : offset + off_length],
                 )
                 msg.decode()
                 yield msg

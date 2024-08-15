@@ -80,6 +80,7 @@ classes
 -------
 '''
 
+import asyncio
 import collections
 import errno
 import logging
@@ -87,7 +88,6 @@ import multiprocessing
 import os
 import random
 import struct
-import time
 from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET, socketpair
 
 from pyroute2 import config
@@ -123,7 +123,7 @@ from pyroute2.netlink.exceptions import (
     NetlinkError,
 )
 from pyroute2.netlink.marshal import Marshal
-from pyroute2.plan9.client import Plan9Client
+from pyroute2.plan9.client import Plan9ClientSocket
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +157,14 @@ sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 
 
 class NetlinkSocketSpecFilter:
+    def set_target(self, context, value):
+        if 'target' in context:
+            return {}
+        return {'target': value}
+
+    def set_netns(self, context, value):
+        return {'target': value, 'netns': value}
+
     def set_pid(self, context, value):
         if value is None:
             return {'pid': os.getpid() & 0x3FFFFF, 'port': context['port']}
@@ -174,7 +182,7 @@ class NetlinkSocketSpec(CoreSocketSpec):
     def __init__(self, spec=None):
         super().__init__(spec)
         default = {'pid': 0, 'epid': 0, 'port': 0, 'uname': config.uname}
-        self.status.set_filter(NetlinkSocketSpecFilter())
+        self.status.add_filter(NetlinkSocketSpecFilter())
         self.status.update(default)
         self.status.update(self)
 
@@ -341,62 +349,10 @@ class NetlinkSocket(CoreSocket):
     def drop_membership(self, group):
         self.socket.setsockopt(SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group)
 
-    def make_request_type(self, command, command_map):
-        if isinstance(command, basestring):
-            return (lambda x: (x[0], self.make_request_flags(x[1])))(
-                command_map[command]
-            )
-        elif isinstance(command, int):
-            return command, self.make_request_flags('create')
-        elif isinstance(command, (list, tuple)):
-            return command
-        else:
-            raise TypeError('allowed command types: int, str, list, tuple')
-
-    def make_request_flags(self, mode):
-        flags = {
-            'dump': NLM_F_REQUEST | NLM_F_DUMP,
-            'get': NLM_F_REQUEST | NLM_F_ACK,
-            'req': NLM_F_REQUEST | NLM_F_ACK,
-        }
-        flags['create'] = flags['req'] | NLM_F_CREATE | NLM_F_EXCL
-        flags['append'] = flags['req'] | NLM_F_CREATE | NLM_F_APPEND
-        flags['change'] = flags['req'] | NLM_F_REPLACE
-        flags['replace'] = flags['change'] | NLM_F_CREATE
-
-        return flags[mode] | (
-            NLM_F_ECHO
-            if (self.status['nlm_echo'] and mode not in ('get', 'dump'))
-            else 0
-        )
-
     def enqueue(self, data, addr):
         # calculate msg_seq
         tag = struct.unpack_from('I', data, 8)[0]
         return self.msg_queue.put_nowait(tag, data)
-
-    def put(
-        self,
-        msg,
-        msg_type=0,
-        msg_flags=NLM_F_REQUEST,
-        addr=(0, 0),
-        msg_seq=0,
-        msg_pid=None,
-    ):
-        if not isinstance(msg, nlmsg):
-            msg_class = self.marshal.msg_map[msg_type]
-            msg = msg_class(msg)
-        if msg_pid is None:
-            msg_pid = self.status['epid'] or os.getpid()
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
-        msg['header']['sequence_number'] = msg_seq
-        msg['header']['pid'] = msg_pid
-        msg.reset()
-        msg.encode()
-        self.msg_queue.ensure(msg_seq)
-        return self.send(msg.data)
 
     def compile(self):
         return CompileContext(self)
@@ -462,71 +418,132 @@ class NetlinkSocket(CoreSocket):
                         del self.backlog[seq]
                     self.addr_pool.free(seq, ban=0xFF)
 
-    def nlm_request(
+
+class NetlinkRequest:
+    # request flags
+    flags = {
+        'dump': NLM_F_REQUEST | NLM_F_DUMP,
+        'get': NLM_F_REQUEST | NLM_F_ACK,
+        'req': NLM_F_REQUEST | NLM_F_ACK,
+    }
+    flags['create'] = flags['req'] | NLM_F_CREATE | NLM_F_EXCL
+    flags['append'] = flags['req'] | NLM_F_CREATE | NLM_F_APPEND
+    flags['change'] = flags['req'] | NLM_F_REPLACE
+    flags['replace'] = flags['change'] | NLM_F_CREATE
+
+    def __init__(
         self,
+        sock,
         msg,
-        msg_type,
-        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        command,
+        command_map,
+        dump_filter,
+        request_filter,
         terminate=None,
         callback=None,
-        parser=None,
     ):
-        msg_seq = self.addr_pool.alloc()
-        defer = None
-        if callable(parser):
-            self.marshal.seq_map[msg_seq] = parser
-        retry_count = 0
-        try:
-            while True:
-                try:
-                    self.put(msg, msg_type, msg_flags, msg_seq=msg_seq)
-                    if self.compiled is not None:
-                        for data in self.compiled:
-                            yield data
-                    else:
-                        for msg in self.get(
-                            msg_seq=msg_seq,
-                            terminate=terminate,
-                            callback=callback,
-                        ):
-                            # analyze the response for effects to be
-                            # deferred
-                            if (
-                                defer is None
-                                and msg['header']['flags'] & NLM_F_DUMP_INTR
-                            ):
-                                defer = NetlinkDumpInterrupted()
-                            yield msg
-                    break
-                except NetlinkError as e:
-                    if e.code != errno.EBUSY:
-                        raise
-                    if retry_count >= 30:
-                        raise
-                    log.warning('Error 16, retry {}.'.format(retry_count))
-                    time.sleep(0.3)
-                    retry_count += 1
+        self.sock = sock
+        self.addr_pool = sock.addr_pool
+        self.status = sock.status
+        self.marshal = sock.marshal
+        # if not isinstance(msg, nlmsg):
+        #    msg_class = self.marshal.msg_map[msg_type]
+        #    msg = msg_class(msg)
+        msg_type, msg_flags = self.calculate_request_type(command, command_map)
+        self.msg_seq = self.addr_pool.alloc()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
+        msg['header']['sequence_number'] = self.msg_seq
+        msg['header']['pid'] = self.status['epid'] or os.getpid()
+        msg.reset()
+        # set fields
+        for field in msg.fields:
+            msg[field[0]] = request_filter.get_value(
+                field[0], default=0, mode='field'
+            )
+        # attach NLAs
+        for key, value in request_filter.items():
+            nla = type(msg).name2nla(key)
+            if msg.valid_nla(nla) and value is not None:
+                msg['attrs'].append([nla, value])
+        self.msg = msg
+        self.dump_filter = dump_filter
+        self.terminate = terminate
+        self.callback = callback
+        self.command = command
+
+    def calculate_request_type(self, command, command_map):
+        if isinstance(command, basestring):
+            return (lambda x: (x[0], self.calculate_request_flags(x[1])))(
+                command_map[command]
+            )
+        elif isinstance(command, int):
+            return command, self.calculate_request_flags('create')
+        elif isinstance(command, (list, tuple)):
+            return command
+        else:
+            raise TypeError('allowed command types: int, str, list, tuple')
+
+    def calculate_request_flags(self, mode):
+        return self.flags[mode] | (
+            NLM_F_ECHO
+            if (self.status['nlm_echo'] and mode not in ('get', 'dump'))
+            else 0
+        )
+
+    def match_one_message(self, msg):
+        if hasattr(self.dump_filter, '__call__'):
+            return self.dump_filter(msg)
+        elif isinstance(self.dump_filter, dict):
+            matches = []
+            for key in self.dump_filter:
+                # get the attribute
+                if isinstance(key, str):
+                    nkey = (key,)
+                elif isinstance(key, tuple):
+                    nkey = key
+                else:
                     continue
-                except Exception:
-                    raise
-        finally:
-            # Ban this msg_seq for 0xff rounds
-            #
-            # It's a long story. Modern kernels for RTM_SET.*
-            # operations always return NLMSG_ERROR(0) == success,
-            # even not setting NLM_F_MULTI flag on other response
-            # messages and thus w/o any NLMSG_DONE. So, how to detect
-            # the response end? One can not rely on NLMSG_ERROR on
-            # old kernels, but we have to support them too. Ty, we
-            # just ban msg_seq for several rounds, and NLMSG_ERROR,
-            # being received, will become orphaned and just dropped.
-            #
-            # Hack, but true.
-            self.addr_pool.free(msg_seq, ban=0xFF)
-            if msg_seq in self.marshal.seq_map:
-                self.marshal.seq_map.pop(msg_seq)
-        if defer is not None:
-            raise defer
+                value = msg.get(*nkey)
+                if value is not None and callable(self.dump_filter[key]):
+                    matches.append(self.dump_filter[key](value))
+                else:
+                    matches.append(self.dump_filter[key] == value)
+            return all(matches)
+
+    async def send(self):
+        print(" ??? ", self.msg)
+        self.msg.encode()
+        self.sock.msg_queue.ensure(self.msg_seq)
+        count = 0
+        e = None
+        for count in range(30):
+            try:
+                return self.sock.send(self.msg.data)
+            except NetlinkError as e:
+                if e.code != errno.EBUSY:
+                    break
+                log.warning(f'Error 16, retry {count}')
+                await asyncio.sleep(0.3)
+            except Exception:
+                break
+        self.addr_pool.free(self.msg_seq, ban=0xFF)
+        if self.msg_seq in self.marshal.seq_map:
+            self.marshal.seq_map.pop(self.msg_seq)
+        raise e
+
+    async def response(self):
+        async for msg in self.sock.async_get(
+            msg_seq=self.msg_seq,
+            terminate=self.terminate,
+            callback=self.callback,
+        ):
+            if self.dump_filter is not None and not self.match_one_message(
+                msg
+            ):
+                continue
+            yield msg
+        self.addr_pool.free(self.msg_seq, ban=0xFF)
 
 
 IPCSocketPair = collections.namedtuple('IPCSocketPair', ('server', 'client'))
@@ -543,7 +560,7 @@ class IPCSocket(NetlinkSocket):
         self.p9server.daemon = True
         self.p9server.start()
         # create and init the client
-        self.p9client = Plan9Client(use_socket=sp.client)
+        self.p9client = Plan9ClientSocket(use_socket=sp.client)
         self.p9client.init()
         return sp
 

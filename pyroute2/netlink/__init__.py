@@ -828,7 +828,7 @@ class nlmsg_base(dict):
 
     fields = ()
     header = ()
-    defaults = {'header': {}}
+    defaults = {}
     pack = None  # pack pragma
     cell_header = None
     align = 4
@@ -1232,7 +1232,7 @@ class nlmsg_base(dict):
             )
             offset = self.offset
             for name, fmt in self.header:
-                default = self.defaults['header'].get(name, 0)
+                default = self.defaults.get('header', {}).get(name, 0)
                 struct.pack_into(
                     fmt, self.data, offset, self['header'].get(name, default)
                 )
@@ -1755,9 +1755,7 @@ class nlmsg_encoder_generic(object):
             zs = 0
         for name, fmt in self.fields:
             default = self.defaults.get(name, 0)
-            value = self[name] if name in self else default
-            if value is None:
-                continue
+            value = self.get(name) or default
 
             if isinstance(fmt, str):
                 offset = self.encode_field(fmt, self.data, offset, value, zs)
@@ -1769,7 +1767,6 @@ class nlmsg_encoder_generic(object):
             diff = ((offset + self.align - 1) & ~(self.align - 1)) - offset
             offset += diff
             self.data.extend([0] * diff)
-
         return offset, diff
 
 
