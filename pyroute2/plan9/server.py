@@ -1,17 +1,23 @@
+import asyncio
 import json
 
+from pyroute2.netlink.core import CoreSocket, CoreSocketSpec
 from pyroute2.plan9 import (
+    Marshal9P,
     Stat,
     Tattach,
     Tauth,
     Tcall,
     Tclunk,
+    Tcreate,
     Topen,
     Tread,
+    Tremove,
     Tstat,
     Tversion,
     Twalk,
     Twrite,
+    Twstat,
     msg_rattach,
     msg_rcall,
     msg_rclunk,
@@ -22,9 +28,9 @@ from pyroute2.plan9 import (
     msg_rversion,
     msg_rwalk,
     msg_rwrite,
+    msg_rwstat,
 )
 from pyroute2.plan9.filesystem import Filesystem, Session
-from pyroute2.plan9.plan9socket import Plan9Socket
 
 data = str(dir())
 
@@ -45,13 +51,15 @@ def route(rtable, request, state):
     return decorator
 
 
-class Plan9ClientConnection:
+class Plan9ServerProtocol(asyncio.Protocol):
     rtable = {}
 
-    def __init__(self, session, socket, address):
-        self.socket = socket
-        self.address = address
-        self.session = session
+    def __init__(self, on_con_lost, marshal, filesystem):
+        self.transport = None
+        self.session = None
+        self.filesystem = filesystem
+        self.marshal = marshal
+        self.on_con_lost = on_con_lost
 
     @route(rtable, request=Tversion, state=(None,))
     def t_version(self, req):
@@ -98,7 +106,14 @@ class Plan9ClientConnection:
     @route(rtable, request=Tstat, state=(Twalk,))
     def t_stat(self, req):
         m = msg_rstat()
-        m['stat'] = self.session.get_fid(req['fid']).stat
+        inode = self.session.get_fid(req['fid'])
+        inode.sync()
+        m['stat'] = inode.stat
+        return m
+
+    @route(rtable, request=Twstat, state=(Twalk,))
+    def t_wstat(self, req):
+        m = msg_rwstat()
         return m
 
     @route(rtable, request=Topen, state=(Twalk, Tstat))
@@ -151,37 +166,79 @@ class Plan9ClientConnection:
     def t_clunk(self, req):
         return msg_rclunk()
 
-    def serve(self):
-        while True:
-            request = tuple(self.socket.get())
-            if len(request) != 1:
-                return
-            t_message = request[0]
+    @route(rtable, request=Tcreate, state=(Twalk,))
+    def t_create(self, req):
+        return self.permission_denied(req)
+
+    @route(rtable, request=Tremove, state=(Twalk,))
+    def t_remove(self, req):
+        return self.permission_denied(req)
+
+    def permission_denied(self, req):
+        r_message = msg_rerror()
+        r_message['ename'] = 'permission denied'
+        r_message['header']['tag'] = req['header']['tag']
+        return r_message
+
+    def error(self, e, tag=0):
+        r_message = msg_rerror()
+        spec = {
+            'class': e.__class__.__name__,
+            'argv': get_exception_args(e),
+            'str': str(e),
+        }
+        r_message['ename'] = json.dumps(spec)
+        r_message['header']['tag'] = tag
+        r_message.encode()
+        self.transport.write(r_message.data)
+
+    def data_received(self, data):
+        for t_message in self.marshal.parse(data):
+            tag = t_message['header']['tag']
             try:
                 r_message = self.rtable[t_message['header']['type']](
                     self, t_message
                 )
-                r_message['header']['tag'] = t_message['header']['tag']
+                r_message['header']['tag'] = tag
                 r_message.encode()
             except Exception as e:
-                r_message = msg_rerror()
-                spec = {
-                    'class': e.__class__.__name__,
-                    'argv': get_exception_args(e),
-                }
-                r_message['ename'] = json.dumps(spec)
-                r_message.encode()
-            self.socket.send(r_message.data)
+                return self.error(e, tag)
+            self.transport.write(r_message.data)
+
+    def connection_made(self, transport):
+        self.transport = transport
+        self.session = Session(self.filesystem)
 
 
-class Plan9Server:
+class Plan9ServerSocket(CoreSocket):
     def __init__(self, address=None, use_socket=None):
-        self.socket = Plan9Socket(use_socket=use_socket)
-        if use_socket is None:
-            self.socket.bind(address)
-            self.socket.listen(1)
+        self.spec = CoreSocketSpec(
+            {
+                'tag_field': 'tag',
+                'target': 'localhost',
+                'netns': None,
+                'address': address,
+                'use_socket': use_socket is not None,
+            }
+        )
         self.filesystem = Filesystem()
+        self.marshal = Marshal9P()
+        super().__init__(use_socket=use_socket)
 
-    def accept(self):
-        session = Session(self.filesystem)
-        return Plan9ClientConnection(session, *self.socket.accept())
+    async def setup_endpoint(self, loop=None):
+        if self.endpoint is not None:
+            return
+        self.endpoint = await self.event_loop.create_server(
+            lambda: Plan9ServerProtocol(
+                self.connection_lost, self.marshal, self.filesystem
+            ),
+            *self.status['address']
+        )
+
+    async def async_run(self):
+        await self.endpoint_started
+        await self.endpoint.serve_forever()
+
+    def run(self):
+        self.event_loop.create_task(self.async_run())
+        self.event_loop.run_forever()

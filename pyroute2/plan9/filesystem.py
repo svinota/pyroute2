@@ -1,10 +1,63 @@
 import grp
 import io
+import json
 import os
 import pwd
 import time
+from functools import partial
 
-from pyroute2.plan9 import Qid, Stat
+from pyroute2.plan9 import Qid, Stat, Tcall, Tread, Twrite
+
+
+def _publish_function_w(session, inode, request, response):
+    inode.metadata['dirty'] = True
+    inode.data.seek(0)
+    inode.data.truncate()
+    inode.data.write(request['data'])
+    response['count'] = len(request['data'])
+    return response
+
+
+def _publish_function_r(
+    func, loader, dumper, session, inode, request, response
+):
+    if request['offset'] == 0 and inode.metadata.get('dirty'):
+        try:
+            kwarg = loader(inode.data.getvalue())
+            ret = func(**kwarg)
+            inode.metadata['dirty'] = False
+        except Exception as e:
+            ret = e
+        inode.data.seek(0)
+        inode.data.truncate()
+        inode.data.write(str(ret).encode('utf-8'))
+
+    inode.data.seek(request['offset'])
+    response['data'] = dumper(inode.data.read(request['count']))
+    return response
+
+
+def _publish_function_c(
+    func, loader, dumper, session, inode, request, response
+):
+    spec = loader(request['text'])
+
+    if 'argv' not in spec:
+        spec['argv'] = []
+    if 'kwarg' not in spec:
+        spec['kwarg'] = {}
+    if 'name' not in spec:
+        spec['name'] = 'data'
+    data = request['data']
+    if data:
+        spec['kwarg'][spec['name']] = data
+    ret = func(*spec['argv'], **spec['kwarg'])
+
+    response['err'] = 0
+    response['text'] = ''
+    response['data'] = dumper(ret)
+
+    return response
 
 
 class Inode:
@@ -31,6 +84,7 @@ class Inode:
         self.parents = parents if parents is not None else set()
         self.children = children if children is not None else set()
         self.callbacks = {}
+        self.metadata = {}
         self.stat = Stat()
         self.qid = Qid(qtype, 0, path)
         self.stat['uid'] = (
@@ -49,8 +103,11 @@ class Inode:
         self.stat['dev'] = 0
         self.stat['mtime'] = int(time.time())
         self.stat['atime'] = int(time.time())
-        self.stat['length'] = len(self.data.getvalue())
         self.stat['name'] = name
+        self.sync()
+
+    def sync(self):
+        self.stat['length'] = len(self.data.getvalue())
 
     def get_parent(self, name=None):
         return tuple(self.parents)[0]
@@ -60,6 +117,20 @@ class Inode:
             if child.stat['name'] == name:
                 return child
         raise KeyError('file not found')
+
+    def publish_function(
+        self,
+        func,
+        loader=json.loads,
+        dumper=lambda x: x if isinstance(x, bytes) else str(x).encode('utf-8'),
+    ):
+        self.add_callback(Twrite, _publish_function_w)
+        self.add_callback(
+            Tread, partial(_publish_function_r, func, loader, dumper)
+        )
+        self.add_callback(
+            Tcall, partial(_publish_function_c, func, loader, dumper)
+        )
 
     def add_callback(self, call, f):
         self.callbacks[call] = f
@@ -93,7 +164,7 @@ class Filesystem:
         self.__path = 255
         # create the root inode
         path = 0
-        self.inodes[path] = root = Inode('/', path, qtype=0x80, mode=0o750)
+        self.inodes[path] = root = Inode('/', path, qtype=0x80, mode=0o755)
         root.add_parent(root)
 
     @property

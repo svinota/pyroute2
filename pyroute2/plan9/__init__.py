@@ -137,10 +137,10 @@ class Stat(dict):
                 struct.unpack_from('=HHIBIQIIIQ', data, offset),
             )
         )
-        offset += 42
+        offset += 41
         for key in ('name', 'uid', 'gid', 'muid'):
             ret[key], offset = String.decode_from(data, offset)
-        return ret
+        return ret, offset
 
     @staticmethod
     def encode_into(data, offset, value):
@@ -305,6 +305,15 @@ class msg_rstat(msg_base):
     fields = (('stat', WStat),)
 
 
+class msg_twstat(msg_base):
+    defaults = {'header': {'type': Twstat}}
+    fields = (('fid', 'I'), ('stat', WStat))
+
+
+class msg_rwstat(msg_base):
+    defaults = {'header': {'type': Rwstat}}
+
+
 class msg_tclunk(msg_base):
     defaults = {'header': {'type': Tclunk}}
     fields = (('fid', 'I'),)
@@ -376,10 +385,16 @@ class Marshal9P(Marshal):
         Rclunk: msg_rclunk,
         Tstat: msg_tstat,
         Rstat: msg_rstat,
+        Twstat: msg_twstat,
+        Rwstat: msg_rwstat,
         Twrite: msg_twrite,
         Rwrite: msg_rwrite,
         Tcall: msg_tcall,
         Rcall: msg_rcall,
+        Tcreate: msg_base,
+        Rcreate: msg_base,
+        Tremove: msg_base,
+        Rremove: msg_base,
     }
 
     def parse(self, data, seq=None, callback=None, skip_alien_seq=False):
