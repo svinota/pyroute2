@@ -2,8 +2,7 @@ import io
 import re
 
 import pytest
-from setuptools._vendor import packaging
-
+from packaging.version import Version, InvalidVersion
 
 @pytest.fixture
 def files():
@@ -29,6 +28,11 @@ def test_changelog(files):
     for line in files['CHANGELOG.rst'].readlines():
         if line[0] == '*':
             break
-    static_version = packaging.version.parse(files['VERSION'].getvalue())
-    last_changelog_version = packaging.version.parse(line.split()[1])
+
+    try:
+        static_version = Version(files['VERSION'].getvalue().strip())
+        last_changelog_version = Version(line.split()[1])
+    except InvalidVersion as e:
+        pytest.fail(f"Invalid version encountered: {e}")
+
     assert static_version >= last_changelog_version
