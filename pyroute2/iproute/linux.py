@@ -10,7 +10,6 @@ from socket import AF_INET, AF_UNSPEC
 from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.config import AF_BRIDGE
-from pyroute2.lab import LAB_API
 from pyroute2.netlink import (
     NLM_F_ACK,
     NLM_F_ATOMIC,
@@ -20,6 +19,7 @@ from pyroute2.netlink import (
     NLM_F_ROOT,
     NLMSG_ERROR,
 )
+from pyroute2.netlink.core import SyncMixin
 from pyroute2.netlink.exceptions import (
     NetlinkDumpInterrupted,
     NetlinkError,
@@ -104,6 +104,16 @@ from .parsers import default_routes
 
 DEFAULT_TABLE = 254
 log = logging.getLogger(__name__)
+
+
+def compat_get_dump_filter(kwarg):
+    if 'match' in kwarg:
+        return kwarg.pop('match'), kwarg
+    else:
+        new_kwarg = {}
+        if 'family' in kwarg:
+            new_kwarg['family'] = kwarg.pop('family')
+        return kwarg, new_kwarg
 
 
 def get_default_request_filters(mode, command):
@@ -1355,12 +1365,12 @@ class RTNL_API:
         dump_filter = None
         msg = ndmsg.ndmsg()
         if command == 'dump':
-            dump_filter, kwarg = get_dump_filter(kwarg)
+            dump_filter, kwarg = compat_get_dump_filter(kwarg)
 
         request = (
             RequestProcessor(context=kwarg, prime=kwarg)
-            .apply_filter(NeighbourFieldFilter())
-            .apply_filter(NeighbourIPRouteFilter(command))
+            .add_filter(NeighbourFieldFilter())
+            .add_filter(NeighbourIPRouteFilter(command))
             .finalize()
         )
         msg_type, msg_flags = self.make_request_type(command, command_map)
@@ -2492,12 +2502,54 @@ class IPBatch(RTNL_API, IPBatchSocket):
     pass
 
 
-class IPRoute(LAB_API, RTNL_API, IPRSocket):
+class AsyncIPRoute(RTNL_API, IPRSocket):
     '''
-    Regular ordinary utility class, see RTNL API for the list of methods.
+    Regular ordinary async utility class, provides RTNL API using
+    IPRSocket as the transport level.
     '''
 
     pass
+
+
+class IPRoute(SyncMixin, AsyncIPRoute):
+    '''
+    A synchronous version of AsyncIPRoute. All the same API, but
+    sync. Provides a legacy API for the old code that is not using
+    asyncio.
+    '''
+
+    def dump(self, groups=None):
+        groups_map = {
+            RTMGRP_LINK: [partial(self.link, 'dump')],
+            RTMGRP_IPV4_IFADDR: [partial(self.addr, 'dump', family=AF_INET)],
+            RTMGRP_IPV4_ROUTE: [partial(self.route, 'dump', family=AF_INET)],
+        }
+        for group, methods in groups_map.items():
+            if group & (groups if groups is not None else self.groups):
+                for method in methods:
+                    for msg in method():
+                        yield msg
+
+    def __getattribute__(self, name):
+        async_methods = ['addr', 'link', 'route']
+        symbol = super().__getattribute__(name)
+
+        def synchronize(*argv, **kwarg):
+            async def collect_dump():
+                return [i async for i in await symbol(*argv, **kwarg)]
+
+            async def collect_op():
+                return await symbol(*argv, **kwarg)
+
+            if argv[0] == 'dump':
+                task = collect_dump
+            else:
+                task = collect_op
+            return self.event_loop.run_until_complete(task())
+
+        if name in async_methods:
+            return synchronize
+        return symbol
 
 
 class NetNS(IPRoute):
@@ -2511,11 +2563,7 @@ class NetNS(IPRoute):
         groups=RTMGRP_DEFAULTS,
     ):
         super().__init__(
-            target=netns if netns is not None else target,
-            netns=netns,
-            flags=flags,
-            libc=libc,
-            groups=groups,
+            target=target, netns=netns, flags=flags, libc=libc, groups=groups
         )
 
 

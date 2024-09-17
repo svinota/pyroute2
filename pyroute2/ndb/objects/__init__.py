@@ -295,9 +295,8 @@ class RTNL_Object(dict):
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
-        self.object_data = RequestProcessor(
-            self.field_filter(), context=weakref.proxy(self)
-        )
+        self.object_data = RequestProcessor(context=weakref.proxy(self))
+        self.object_data.add_filter(self.field_filter())
         self.kspec = self.schema.compiled[self.table]['idx']
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
@@ -351,7 +350,8 @@ class RTNL_Object(dict):
     def new_spec(cls, spec, context=None, localhost=None):
         if isinstance(spec, Record):
             spec = spec._as_dict()
-        rp = RequestProcessor(cls.field_filter(), context=spec, prime=spec)
+        rp = RequestProcessor(context=spec, prime=spec)
+        rp.add_filter(cls.field_filter())
         if isinstance(context, dict):
             rp.update(context)
         if 'target' not in rp and localhost is not None:

@@ -104,24 +104,19 @@ from pyroute2.netlink import (
     NLM_F_APPEND,
     NLM_F_CREATE,
     NLM_F_DUMP,
-    NLM_F_DUMP_INTR,
     NLM_F_ECHO,
     NLM_F_EXCL,
     NLM_F_REPLACE,
     NLM_F_REQUEST,
     SOL_NETLINK,
-    nlmsg,
 )
 from pyroute2.netlink.core import (
+    AsyncCoreSocket,
     CoreDatagramProtocol,
-    CoreSocket,
     CoreSocketSpec,
+    SyncMixin,
 )
-from pyroute2.netlink.exceptions import (
-    ChaoticException,
-    NetlinkDumpInterrupted,
-    NetlinkError,
-)
+from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
 from pyroute2.plan9.client import Plan9ClientSocket
 
@@ -163,15 +158,17 @@ class NetlinkSocketSpecFilter:
         return {'target': value}
 
     def set_netns(self, context, value):
+        if 'target' in context:
+            return {'netns': 'value'}
         return {'target': value, 'netns': value}
 
     def set_pid(self, context, value):
         if value is None:
             return {'pid': os.getpid() & 0x3FFFFF, 'port': context['port']}
         elif value == 0:
-            return {'pid': os.getpid()}
+            return {'pid': os.getpid(), 'port': 0}
         else:
-            return {'pid': value}
+            return {'pid': value, 'port': 0}
 
     def set_port(self, context, value):
         if isinstance(value, int):
@@ -179,15 +176,11 @@ class NetlinkSocketSpecFilter:
 
 
 class NetlinkSocketSpec(CoreSocketSpec):
-    def __init__(self, spec=None):
-        super().__init__(spec)
-        default = {'pid': 0, 'epid': 0, 'port': 0, 'uname': config.uname}
-        self.status.add_filter(NetlinkSocketSpecFilter())
-        self.status.update(default)
-        self.status.update(self)
+    defaults = {'pid': 0, 'epid': 0, 'port': 0, 'uname': config.uname}
+    status_filters = [NetlinkSocketSpecFilter]
 
 
-class NetlinkSocket(CoreSocket):
+class AsyncNetlinkSocket(AsyncCoreSocket):
     '''
     Netlink socket
     '''
@@ -266,10 +259,6 @@ class NetlinkSocket(CoreSocket):
         return self.status['groups']
 
     @property
-    def port(self):
-        return self.status['port']
-
-    @property
     def pid(self):
         return self.status['pid']
 
@@ -277,7 +266,11 @@ class NetlinkSocket(CoreSocket):
     def target(self):
         return self.status['target']
 
-    def setup_socket(self, sock=None):
+    @property
+    def asyncore(self):
+        return self
+
+    async def setup_socket(self, sock=None):
         """Re-init a netlink socket."""
         if self.status['use_socket']:
             return self.use_socket
@@ -285,7 +278,10 @@ class NetlinkSocket(CoreSocket):
         if sock is not None:
             sock.close()
         sock = config.SocketBase(
-            AF_NETLINK, SOCK_DGRAM, self.spec['family'], self.spec['fileno']
+            AF_NETLINK,
+            SOCK_DGRAM,
+            self.spec['family'],
+            self.spec['fileno'] or self.local.fileno,
         )
         sock.setsockopt(SOL_SOCKET, SO_SNDBUF, self.status['sndbuf'])
         sock.setsockopt(SOL_SOCKET, SO_RCVBUF, self.status['rcvbuf'])
@@ -295,25 +291,9 @@ class NetlinkSocket(CoreSocket):
             sock.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
         if self.status['strict_check']:
             sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
+        return sock
 
-        class Bala:
-            def __init__(self, sock):
-                self._socket = sock
-
-            def ignore(self, *argv, **kwarg):
-                print("ignore close")
-                import traceback
-
-                traceback.print_stack()
-
-            def __getattr__(self, attr):
-                if attr == 'close':
-                    return self.ignore
-                return getattr(self._socket, attr)
-
-        return Bala(sock)
-
-    def bind(self, groups=0, pid=None, **kwarg):
+    async def bind(self, groups=0, pid=None, **kwarg):
         '''
         Bind the socket to given multicast groups, using
         given pid.
@@ -322,24 +302,19 @@ class NetlinkSocket(CoreSocket):
             - If pid == 0, use process' pid
             - If pid == <int>, use the value instead of pid
         '''
-
+        await self.ensure_socket()
         self.status['groups'] = groups
         # if we have pre-defined port, use it strictly
-        if self.status.get('port') is not None:
-            self.socket.bind((self.status['epid'], self.status['groups']))
-        else:
+        self.status['pid'] = pid
+        if pid is None:
             for port in range(1024):
                 try:
-                    self.status['port'] = port
-                    self.socket.bind(
-                        (self.status['epid'], self.status['groups'])
-                    )
+                    self.socket.bind((self.port, self.status['groups']))
                     break
                 except Exception as e:
                     # create a new underlying socket -- on kernel 4
                     # one failed bind() makes the socket useless
                     log.error(e)
-                    self.restart_base_socket()
             else:
                 raise KeyError('no free address available')
 
@@ -357,66 +332,51 @@ class NetlinkSocket(CoreSocket):
     def compile(self):
         return CompileContext(self)
 
-    def _send_batch(self, msgs, addr=(0, 0)):
-        with self.backlog_lock:
-            for msg in msgs:
-                self.backlog[msg['header']['sequence_number']] = []
-        # We have locked the message locks in the caller already.
-        data = bytearray()
-        for msg in msgs:
-            if not isinstance(msg, nlmsg):
-                msg_class = self.marshal.msg_map[msg['header']['type']]
-                msg = msg_class(msg)
-            msg.reset()
-            msg.encode()
-            data += msg.data
-        if self.compiled is not None:
-            return self.compiled.append(data)
-        self._sock.sendto(data, addr)
+    def make_request_type(self, command, command_map):
+        if isinstance(command, basestring):
+            return (lambda x: (x[0], self.make_request_flags(x[1])))(
+                command_map[command]
+            )
+        elif isinstance(command, int):
+            return command, self.make_request_flags('create')
+        elif isinstance(command, (list, tuple)):
+            return command
+        else:
+            raise TypeError('allowed command types: int, str, list, tuple')
 
-    def nlm_request_batch(self, msgs, noraise=False):
-        """
-        This function is for messages which are expected to have side effects.
-        Do not blindly retry in case of errors as this might duplicate them.
-        """
-        expected_responses = []
-        acquired = 0
-        seqs = self.addr_pool.alloc_multi(len(msgs))
-        try:
-            for seq in seqs:
-                self.lock[seq].acquire()
-                acquired += 1
-            for seq, msg in zip(seqs, msgs):
-                msg['header']['sequence_number'] = seq
-                if 'pid' not in msg['header']:
-                    msg['header']['pid'] = self.epid or os.getpid()
-                if (msg['header']['flags'] & NLM_F_ACK) or (
-                    msg['header']['flags'] & NLM_F_DUMP
-                ):
-                    expected_responses.append(seq)
-            self._send_batch(msgs)
-            if self.compiled is not None:
-                for data in self.compiled:
-                    yield data
-            else:
-                for seq in expected_responses:
-                    for msg in self.get(msg_seq=seq, noraise=noraise):
-                        if msg['header']['flags'] & NLM_F_DUMP_INTR:
-                            # Leave error handling to the caller
-                            raise NetlinkDumpInterrupted()
-                        yield msg
-        finally:
-            # Release locks in reverse order.
-            for seq in seqs[acquired - 1 :: -1]:
-                self.lock[seq].release()
+    def make_request_flags(self, mode):
+        flags = {
+            'dump': NLM_F_REQUEST | NLM_F_DUMP,
+            'get': NLM_F_REQUEST | NLM_F_ACK,
+            'req': NLM_F_REQUEST | NLM_F_ACK,
+        }
+        flags['create'] = flags['req'] | NLM_F_CREATE | NLM_F_EXCL
+        flags['append'] = flags['req'] | NLM_F_CREATE | NLM_F_APPEND
+        flags['change'] = flags['req'] | NLM_F_REPLACE
+        flags['replace'] = flags['change'] | NLM_F_CREATE
 
-            with self.backlog_lock:
-                for seq in seqs:
-                    # Clear the backlog. We may have raised an error
-                    # causing the backlog to not be consumed entirely.
-                    if seq in self.backlog:
-                        del self.backlog[seq]
-                    self.addr_pool.free(seq, ban=0xFF)
+        return flags[mode] | (
+            NLM_F_ECHO
+            if (self.status['nlm_echo'] and mode not in ('get', 'dump'))
+            else 0
+        )
+
+    async def nlm_request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+        callback=None,
+        parser=None,
+    ):
+        request = NetlinkRequest(
+            self, msg, terminate=terminate, callback=callback
+        )
+        request.msg['header']['type'] = msg_type
+        request.msg['header']['flags'] = msg_flags
+        await request.send()
+        return request.response()
 
 
 class NetlinkRequest:
@@ -435,37 +395,42 @@ class NetlinkRequest:
         self,
         sock,
         msg,
-        command,
-        command_map,
-        dump_filter,
-        request_filter,
+        command=None,
+        command_map=None,
+        dump_filter=None,
+        request_filter=None,
         terminate=None,
         callback=None,
     ):
         self.sock = sock
         self.addr_pool = sock.addr_pool
         self.status = sock.status
+        self.port = sock.port
         self.marshal = sock.marshal
         # if not isinstance(msg, nlmsg):
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
-        msg_type, msg_flags = self.calculate_request_type(command, command_map)
+        if command_map is not None:
+            msg_type, msg_flags = self.calculate_request_type(
+                command, command_map
+            )
+            msg['header']['type'] = msg_type
+            msg['header']['flags'] = msg_flags
         self.msg_seq = self.addr_pool.alloc()
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
         msg['header']['sequence_number'] = self.msg_seq
-        msg['header']['pid'] = self.status['epid'] or os.getpid()
+        msg['header']['pid'] = self.port or os.getpid()
         msg.reset()
         # set fields
-        for field in msg.fields:
-            msg[field[0]] = request_filter.get_value(
-                field[0], default=0, mode='field'
-            )
-        # attach NLAs
-        for key, value in request_filter.items():
-            nla = type(msg).name2nla(key)
-            if msg.valid_nla(nla) and value is not None:
-                msg['attrs'].append([nla, value])
+        if request_filter is not None:
+            for field in msg.fields:
+                msg[field[0]] = request_filter.get_value(
+                    field[0], default=0, mode='field'
+                )
+            # attach NLAs
+            for key, value in request_filter.items():
+                nla = type(msg).name2nla(key)
+                if msg.valid_nla(nla) and value is not None:
+                    msg['attrs'].append([nla, value])
         self.msg = msg
         self.dump_filter = dump_filter
         self.terminate = terminate
@@ -512,14 +477,14 @@ class NetlinkRequest:
             return all(matches)
 
     async def send(self):
-        print(" ??? ", self.msg)
+        await self.sock.ensure_socket()
         self.msg.encode()
         self.sock.msg_queue.ensure(self.msg_seq)
         count = 0
         e = None
         for count in range(30):
             try:
-                return self.sock.send(self.msg.data)
+                return self.sock.asyncore.send(self.msg.data)
             except NetlinkError as e:
                 if e.code != errno.EBUSY:
                     break
@@ -533,7 +498,7 @@ class NetlinkRequest:
         raise e
 
     async def response(self):
-        async for msg in self.sock.async_get(
+        async for msg in self.sock.asyncore.get(
             msg_seq=self.msg_seq,
             terminate=self.terminate,
             callback=self.callback,
@@ -547,6 +512,10 @@ class NetlinkRequest:
 
 
 IPCSocketPair = collections.namedtuple('IPCSocketPair', ('server', 'client'))
+
+
+class NetlinkSocket(AsyncCoreSocket, SyncMixin):
+    pass
 
 
 class IPCSocket(NetlinkSocket):

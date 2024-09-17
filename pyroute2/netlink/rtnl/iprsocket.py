@@ -3,9 +3,9 @@ import sys
 from pyroute2.common import AddrPool, Namespace
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
 from pyroute2.netlink.nlsocket import (
+    AsyncNetlinkSocket,
     BatchSocket,
     ChaoticNetlinkSocket,
-    NetlinkSocket,
 )
 from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -18,7 +18,7 @@ if sys.platform.startswith('linux'):
     from pyroute2.netlink.rtnl.probe_msg import proxy_newprobe
 
 
-class IPRSocket(NetlinkSocket):
+class IPRSocket(AsyncNetlinkSocket):
     '''
     The simplest class, that connects together the netlink parser and
     a generic Python socket implementation. Provides method get() to
@@ -90,11 +90,11 @@ class IPRSocket(NetlinkSocket):
                 rtnl.RTM_NEWPROBE: proxy_newprobe,
             }
         super().__init__(NETLINK_ROUTE, *argv[1:], **kwarg)
-        if self.status['groups'] == 0:
+        if self.spec['groups'] == 0:
             self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
 
-    def bind(self, groups=None, **kwarg):
-        super().bind(
+    async def bind(self, groups=None, **kwarg):
+        return await super().bind(
             groups if groups is not None else self.status['groups'], **kwarg
         )
 

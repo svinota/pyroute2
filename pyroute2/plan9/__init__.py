@@ -60,6 +60,8 @@ def array(kind, header='H'):
 
         @staticmethod
         def encode_into(data, offset, value):
+            if not isinstance(value, (tuple, list)):
+                value = []
             data.extend([0] * struct.calcsize(header))
             struct.pack_into(header, data, offset, len(value))
             offset += struct.calcsize(header)

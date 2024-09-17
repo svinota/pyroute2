@@ -5,25 +5,35 @@ import logging
 import multiprocessing
 import os
 import socket
+import struct
+import threading
 from urllib import parse
 
 from pyroute2 import config
 from pyroute2.common import AddrPool
-from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE
+from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST, NLMSG_DONE
 from pyroute2.netns import setns
 from pyroute2.requests.main import RequestProcessor
 
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
+CoreSocketResources = collections.namedtuple(
+    'CoreSocketResources',
+    ('socket', 'msg_queue', 'event_loop', 'transport', 'protocol'),
+)
 
 
 class CoreSocketSpec(dict):
+    defaults = {'closed': False, 'compiled': None, 'uname': config.uname}
+    status_filters = []
+
     def __init__(self, spec=None):
         super().__init__(spec)
         spec = {} if spec is None else spec
-        default = {'closed': False, 'compiled': None, 'uname': config.uname}
         self.status = RequestProcessor()
-        self.status.update(default)
+        for flt in self.status_filters:
+            self.status.add_filter(flt())
+        self.status.update(self.defaults)
         self.status.update(self)
 
     def __setitem__(self, key, value):
@@ -82,6 +92,9 @@ class CoreProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         self.on_con_lost.set_result(True)
+        self.enqueue(
+            struct.pack('IHHQIQQ', 28, 2, 0, 0, errno.ECONNRESET, 0, 0), None
+        )
 
 
 class CoreStreamProtocol(CoreProtocol):
@@ -98,26 +111,35 @@ class CoreDatagramProtocol(CoreProtocol):
         self.enqueue(data, addr)
 
 
-def netns_init(ctl, nsname, cls):
+async def netns_main(ctl, nsname, cls):
+    # A simple child process
+    #
+    # 1. set network namespace
     setns(nsname)
+    # 2. start the socket object
     s = cls()
-    print(" <<< ", s)
+    await s.ensure_socket()
+    # 3. send back the file descriptor
     socket.send_fds(ctl, [b'test'], [s.socket.fileno()], 1)
-    print(" done ")
+    # 4. exit
 
 
-class CoreSocket:
+def netns_init(ctl, nsname, cls):
+    asyncio.run(netns_main(ctl, nsname, cls))
+
+
+class AsyncCoreSocket:
     '''Pyroute2 core socket class.
 
     This class implements the core socket concept for all the pyroute2
     communications, both Netlink and internal RPC.
+
+    The asynchronous version is the most basic. All the sync classes
+    are built on top of it.
     '''
 
     libc = None
-    socket = None
     compiled = None
-    endpoint = None
-    event_loop = None
     __spec = None
     __marshal = None
 
@@ -142,46 +164,19 @@ class CoreSocket:
                 'groups': groups,
             }
         )
+        self.status = self.spec.status
+        self.local = threading.local()
         if libc is not None:
             self.libc = libc
-        self.status = self.spec.status
-        url = parse.urlparse(self.status['target'])
+        url = parse.urlparse(self.spec['target'])
         self.scheme = url.scheme if url.scheme else url.path
         self.use_socket = use_socket
-        # 8<-----------------------------------------
-        # Setup netns
-        if self.spec['netns'] is not None:
-            # inspect self.__init__ argument names
-            ctrl = socket.socketpair()
-            nsproc = multiprocessing.Process(
-                target=netns_init,
-                args=(ctrl[0], self.spec['netns'], type(self)),
-            )
-            nsproc.start()
-            (_, (self.spec['fileno'],), _, _) = socket.recv_fds(
-                ctrl[1], 1024, 1
-            )
-            nsproc.join()
-        # 8<-----------------------------------------
         self.callbacks = []  # [(predicate, callback, args), ...]
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.marshal = None
         self.buffer = []
         self.msg_reschedule = []
-        # 8<-----------------------------------------
-        # Setup the underlying socket
-        self.socket = self.setup_socket()
-        self.msg_queue = CoreMessageQueue()
-        self.event_loop = self.setup_event_loop()
-        self.connection_lost = self.event_loop.create_future()
-        if self.event_loop.is_running():
-            self.endpoint_started = asyncio.ensure_future(
-                self.setup_endpoint()
-            )
-        else:
-            self.event_loop.run_until_complete(self.setup_endpoint())
-            self.endpoint_started = self.event_loop.create_future()
-            self.endpoint_started.set_result(True)
+        self.__all_open_resources = set()
 
     def get_loop(self):
         return self.event_loop
@@ -204,6 +199,89 @@ class CoreSocket:
         if self.__marshal is None:
             self.__marshal = value
 
+    # 8<--------------------------------------------------------------
+    # Thread local section
+    @property
+    def msg_queue(self):
+        return self.local.msg_queue
+
+    @property
+    def port(self):
+        if not hasattr(self.local, 'port'):
+            import random
+
+            self.local.port = random.randint(20, 200)
+        return self.status['pid'] + (self.local.port << 22)
+
+    @property
+    def connection_lost(self):
+        return self.local.connection_lost
+
+    @property
+    def event_loop(self):
+        if not hasattr(self.local, 'event_loop'):
+            self.local.event_loop = self.setup_event_loop()
+            self.local.connection_lost = self.local.event_loop.create_future()
+        return self.local.event_loop
+
+    async def ensure_socket(self):
+        if not hasattr(self.local, 'socket'):
+            self.local.socket = None
+            self.local.fileno = None
+            self.local.msg_queue = CoreMessageQueue()
+            # 8<-----------------------------------------
+            # Setup netns
+            if self.spec['netns'] is not None:
+                # inspect self.__init__ argument names
+                ctrl = socket.socketpair()
+                nsproc = multiprocessing.Process(
+                    target=netns_init,
+                    args=(ctrl[0], self.spec['netns'], type(self)),
+                )
+                nsproc.start()
+                (_, (self.local.fileno,), _, _) = socket.recv_fds(
+                    ctrl[1], 1024, 1
+                )
+                nsproc.join()
+            # 8<-----------------------------------------
+            self.local.socket = await self.setup_socket()
+            self.endpoint_started = await self.setup_endpoint()
+            self.__all_open_resources.add(
+                CoreSocketResources(
+                    self.local.socket,
+                    self.local.msg_queue,
+                    self.local.event_loop,
+                    self.local.endpoint[0],
+                    self.local.endpoint[1],
+                )
+            )
+
+    @property
+    def socket(self):
+        return self.local.socket
+
+    @property
+    def endpoint_started(self):
+        if not hasattr(self.local, 'endpoint_started'):
+            self.local.endpoint_started = False
+        return self.local.endpoint_started
+
+    @property
+    def endpoint(self):
+        if not hasattr(self.local, 'endpoint'):
+            self.local.endpoint = None
+        return self.local.endpoint
+
+    @endpoint_started.setter
+    def endpoint_started(self, value):
+        self.local.endpoint_started = value
+
+    @endpoint.setter
+    def endpoint(self, value):
+        self.local.endpoint = value
+
+    # 8<--------------------------------------------------------------
+
     async def setup_endpoint(self, loop=None):
         # Setup asyncio
         if self.endpoint is not None:
@@ -223,7 +301,7 @@ class CoreSocket:
                 self.status['event_loop'] = 'new'
         return event_loop
 
-    def setup_socket(self, sock=None):
+    async def setup_socket(self, sock=None):
         if self.status['use_socket']:
             return self.use_socket
         sock = self.socket if sock is None else sock
@@ -255,13 +333,27 @@ class CoreSocket:
             return getattr(self.socket, attr.lstrip("_"))
         raise AttributeError(attr)
 
-    def bind(self, addr):
+    async def bind(self, addr):
         '''Bind the socket to the address.'''
+        await self.ensure_socket()
         return self.socket.bind(addr)
 
-    def close(self, code=errno.ECONNRESET):
-        '''Correctly close the socket and free all the resources.'''
-        self.socket.close()
+    async def close(self, code=errno.ECONNRESET):
+        '''Terminate the object.'''
+
+        def send_terminator(msg_queue):
+            msg_queue.put_nowait(0, b'')
+
+        for (
+            socket,
+            msg_queue,
+            event_loop,
+            transport,
+            protocol,
+        ) in self.__all_open_resources:
+            event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+            transport.close()
+            socket.close()
 
     def clone(self):
         '''Return a copy of itself with a new underlying socket.'''
@@ -293,41 +385,43 @@ class CoreSocket:
     def enqueue(self, data, addr):
         return self.msg_queue.put_nowait(0, data)
 
-    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-        '''Sync wrapper for async_get().'''
-
-        async def collect_data():
-            return [
-                i
-                async for i in self.async_get(
-                    msg_seq, terminate, callback, noraise
-                )
-            ]
-
-        return self.event_loop.run_until_complete(collect_data())
-
-    async def async_get(
+    async def get(
         self, msg_seq=0, terminate=None, callback=None, noraise=False
     ):
         '''Get a conversation answer from the socket.'''
+        await self.ensure_socket()
         log.debug(
             "get: %s / %s / %s / %s", msg_seq, terminate, callback, noraise
         )
         enough = False
         started = False
+        error = None
         while not enough:
+            log.debug('await data on %s', self.msg_queue)
             data = await self.msg_queue.get(msg_seq)
+            # try:
+            #    task = asyncio.wait_for(
+            #        self.msg_queue.get(msg_seq), timeout=None
+            #    )
+            #    data = await task
+            # except TimeoutError:
+            #    continue
             messages = tuple(self.marshal.parse(data, msg_seq, callback))
             if len(messages) == 0:
                 break
             for msg in messages:
-                if started and msg['header']['type'] == NLMSG_DONE:
-                    return
+                log.debug("message %s", msg)
+                if msg.get('header', {}).get('error') is not None:
+                    error = msg['header']['error']
+                    enough = True
+                    break
+                if msg['header']['type'] == NLMSG_DONE:
+                    enough = True
+                    break
                 msg['header']['target'] = self.status['target']
                 msg['header']['stats'] = Stats(0, 0, 0)
                 started = True
                 log.debug("yield %s", msg['header'])
-                log.debug("message %s", msg)
                 yield msg
 
             if started and (
@@ -335,7 +429,10 @@ class CoreSocket:
                 or (not msg['header'].get('flags', 0) & NLM_F_MULTI)
                 or (callable(terminate) and terminate(msg))
             ):
+                log.debug("D")
                 enough = True
+        if not noraise and error:
+            raise error
 
     def __enter__(self):
         return self
@@ -467,3 +564,58 @@ class CoreSocket:
             ret[key] = self.marshal.msg_map[key]
 
         return ret
+
+
+class SyncMixin:
+    '''
+    Synchronous API wrapper around asynchronous classes
+    '''
+
+    @property
+    def asyncore(self):
+        return super()
+
+    def bind(self, *argv, **kwarg):
+        return self.event_loop.run_until_complete(
+            self.asyncore.bind(*argv, **kwarg)
+        )
+
+    def close(self, code=errno.ECONNRESET):
+        '''Correctly close the socket and free all the resources.'''
+        return self.event_loop.run_until_complete(self.asyncore.close(code))
+
+    def nlm_request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+        callback=None,
+        parser=None,
+    ):
+        async def collect_data():
+            return [
+                x
+                async for x in self.asyncore.nlm_request(
+                    msg, msg_type, msg_flags, terminate, callback, parser
+                )
+            ]
+
+        return self.event_loop.run_until_complete(collect_data())
+
+    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
+        '''Sync wrapper for async_get().'''
+
+        async def collect_data():
+            return [
+                i
+                async for i in self.asyncore.get(
+                    msg_seq, terminate, callback, noraise
+                )
+            ]
+
+        return self.event_loop.run_until_complete(collect_data())
+
+
+class CoreSocket(AsyncCoreSocket, SyncMixin):
+    pass

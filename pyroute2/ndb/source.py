@@ -395,6 +395,7 @@ class Source(dict):
             while self.state.get() not in ('stop', 'restart'):
                 try:
                     msg = tuple(self.nl.get())
+                    self.log.debug(f'received message {msg}')
                 except Exception as e:
                     self.errors_counter += 1
                     self.log.error('source error: %s %s' % (type(e), e))
