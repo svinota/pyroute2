@@ -103,7 +103,7 @@ TCA_CAKE_MAX_TINS = 8
 
 
 def fix_msg(msg, kwarg):
-    if 'parent' not in kwarg:
+    if 'parent' not in msg or msg['parent'] == 0:
         msg['parent'] = TC_H_ROOT
 
 
