@@ -59,7 +59,7 @@ class proc_event_uid(proc_event_base):
         ('process_pid', 'I'),
         ('process_tgid', 'I'),
         ('ruid', 'I'),
-        ('rgid', 'I'),
+        ('euid', 'I'),
     )
 
 
@@ -67,7 +67,7 @@ class proc_event_gid(proc_event_base):
     fields = proc_event_base.fields + (
         ('process_pid', 'I'),
         ('process_tgid', 'I'),
-        ('euid', 'I'),
+        ('rgid', 'I'),
         ('egid', 'I'),
     )
 
