@@ -4,7 +4,6 @@ import os
 import time
 import warnings
 from functools import partial
-from itertools import chain
 from socket import AF_INET, AF_UNSPEC
 
 from pyroute2 import config
@@ -19,7 +18,7 @@ from pyroute2.netlink import (
     NLM_F_ROOT,
     NLMSG_ERROR,
 )
-from pyroute2.netlink.core import SyncMixin
+from pyroute2.netlink.core import SyncAPI
 from pyroute2.netlink.exceptions import (
     NetlinkDumpInterrupted,
     NetlinkError,
@@ -64,7 +63,6 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_IPV4_IFADDR,
     RTMGRP_IPV4_ROUTE,
     RTMGRP_LINK,
-    TC_H_ROOT,
     ndmsg,
 )
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
@@ -99,6 +97,7 @@ from pyroute2.requests.neighbour import (
 from pyroute2.requests.probe import ProbeFieldFilter
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
+from pyroute2.requests.tc import TcIPRouteFilter, TcRequestFilter
 
 from .parsers import default_routes
 
@@ -124,6 +123,7 @@ def get_default_request_filters(mode, command):
             RouteFieldFilter(add_defaults=(command != 'dump')),
             RouteIPRouteFilter(command),
         ],
+        'tc': [TcRequestFilter(), TcIPRouteFilter(command)],
     }
     return filters[mode]
 
@@ -153,7 +153,6 @@ def get_request_filter(mode, command, query):
     for rf in query.pop(
         'request_filter', get_default_request_filters(mode, command)
     ):
-        print("apply", rf)
         request_filter.add_filter(rf)
     request_filter.finalize()
     return request_filter
@@ -459,18 +458,21 @@ class RTNL_API:
     #
     # Listing methods
     #
-    def get_qdiscs(self, index=None):
+    async def get_qdiscs(self, index=None):
         '''
-        Get all queue disciplines for all interfaces or for specified
-        one.
+        Get all queue disciplines for all interfaces or for
+        the selected one.
         '''
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
-        ret = self.nlm_request(msg, RTM_GETQDISC)
-        if index is None:
-            return tuple(ret)
-        else:
-            return [x for x in ret if x['index'] == index]
+        dump_filter = None
+        if index is not None:
+            dump_filter = {'index': index}
+        request = NetlinkRequest(
+            self, msg, msg_type=RTM_GETQDISC, dump_filter=dump_filter
+        )
+        await request.send()
+        return request.response()
 
     def get_filters(self, index=0, handle=0, parent=0):
         '''
@@ -1838,10 +1840,10 @@ class RTNL_API:
             return request.response()
         return [x async for x in request.response()]
 
-    def tc(self, command, kind=None, index=0, handle=0, **kwarg):
+    def tc(self, command, kind, **kwarg):
         '''
         "Swiss knife" for traffic control. With the method you can
-        add, delete or modify qdiscs, classes and filters.
+        dump, add, delete or modify qdiscs, classes and filters.
 
         * command -- add or delete qdisc, class, filter.
         * kind -- a string identifier -- "sfq", "htb", "u32" and so on.
@@ -1913,6 +1915,8 @@ class RTNL_API:
                 return 'No help available'
 
         command_map = {
+            'dump': (RTM_GETQDISC, 'dump'),
+            'get': (RTM_GETQDISC, 'req'),
             'add': (RTM_NEWQDISC, 'create'),
             'del': (RTM_DELQDISC, 'req'),
             'remove': (RTM_DELQDISC, 'req'),
@@ -1928,46 +1932,18 @@ class RTNL_API:
             'change-filter': (RTM_NEWTFILTER, 'change'),
             'replace-filter': (RTM_NEWTFILTER, 'replace'),
         }
-        if command == 'del':
-            if index == 0:
-                index = [
-                    x['index'] for x in self.get_links() if x['index'] != 1
-                ]
-            if isinstance(index, (list, tuple, set)):
-                return list(chain(*(self.tc('del', index=x) for x in index)))
-        command, flags = self.make_request_type(command, command_map)
-        msg = tcmsg()
-        # transform handle, parent and target, if needed:
-        handle = transform_handle(handle)
-        for item in ('parent', 'target', 'default'):
-            if item in kwarg and kwarg[item] is not None:
-                kwarg[item] = transform_handle(kwarg[item])
-        msg['index'] = index
-        msg['handle'] = handle
-        if 'info' in kwarg:
-            msg['info'] = kwarg['info']
-        opts = kwarg.get('opts', None)
-        ##
-        #
-        #
-        if kind in tc_plugins:
-            p = tc_plugins[kind]
-            msg['parent'] = kwarg.pop('parent', getattr(p, 'parent', 0))
-            if hasattr(p, 'fix_msg'):
-                p.fix_msg(msg, kwarg)
-            if kwarg:
-                if command in (RTM_NEWTCLASS, RTM_DELTCLASS):
-                    opts = p.get_class_parameters(kwarg)
-                else:
-                    opts = p.get_parameters(kwarg)
-        else:
-            msg['parent'] = kwarg.get('parent', TC_H_ROOT)
 
-        if kind is not None:
-            msg['attrs'].append(['TCA_KIND', kind])
-        if opts is not None:
-            msg['attrs'].append(['TCA_OPTIONS', opts])
-        return tuple(self.nlm_request(msg, msg_type=command, msg_flags=flags))
+        kwarg['kind'] = kind
+        dump_filter, kwarg = get_dump_filter('tc', command, kwarg)
+        request_filter = get_request_filter('tc', command, kwarg)
+
+        request = NetlinkRequest(
+            self, tcmsg(), command, command_map, dump_filter, request_filter
+        )
+        await request.send()
+        if command == 'dump':
+            return request.response()
+        return [x async for x in request.response()]
 
     async def route(self, command, **kwarg):
         '''
@@ -2511,12 +2487,15 @@ class AsyncIPRoute(RTNL_API, IPRSocket):
     pass
 
 
-class IPRoute(SyncMixin, AsyncIPRoute):
+class IPRoute(SyncAPI):
     '''
     A synchronous version of AsyncIPRoute. All the same API, but
     sync. Provides a legacy API for the old code that is not using
     asyncio.
     '''
+
+    def __init__(self, *argv, **kwarg):
+        self.asyncore = AsyncIPRoute(*argv, **kwarg)
 
     def dump(self, groups=None):
         groups_map = {
@@ -2530,11 +2509,12 @@ class IPRoute(SyncMixin, AsyncIPRoute):
                     for msg in method():
                         yield msg
 
-    def __getattribute__(self, name):
-        async_methods = ['addr', 'link', 'route']
-        symbol = super().__getattribute__(name)
+    def __getattr__(self, name):
+        async_generic_methods = ['addr', 'link', 'route']
+        async_dump_methods = ['get_qdiscs']
+        symbol = getattr(self.asyncore, name)
 
-        def synchronize(*argv, **kwarg):
+        def synchronize_generic(*argv, **kwarg):
             async def collect_dump():
                 return [i async for i in await symbol(*argv, **kwarg)]
 
@@ -2547,8 +2527,16 @@ class IPRoute(SyncMixin, AsyncIPRoute):
                 task = collect_op
             return self.event_loop.run_until_complete(task())
 
-        if name in async_methods:
-            return synchronize
+        def synchronize_dump(*argv, **kwarg):
+            async def collect_dump():
+                return [i async for i in symbol(*argv, **kwarg)]
+
+            return self.event_loop.run_until_complete(collect_dump())
+
+        if name in async_generic_methods:
+            return synchronize_generic
+        elif name in async_dump_methods:
+            return synchronize_dump
         return symbol
 
 

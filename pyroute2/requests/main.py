@@ -25,10 +25,31 @@ class RequestProcessor(dict):
     def __setitem__(self, key, value):
         if value is None:
             return
-        if key in self:
-            del self[key]
-        for nkey, nvalue in self.filter(key, value).items():
-            super().__setitem__(nkey, nvalue)
+        new_data = self.filter(key, value)
+        op = 'set'
+        #
+        if isinstance(new_data, tuple):
+            op, new_data = new_data
+        elif not isinstance(new_data, dict):
+            raise ValueError('invalid new_data type')
+        #
+        if op == 'set':
+            if key in self:
+                super().__delitem__(key)
+            for nkey, nvalue in new_data.items():
+                if nkey in self:
+                    super().__delitem__(nkey)
+                super().__setitem__(nkey, nvalue)
+            return
+        #
+        if op == 'patch':
+            for nkey, nvalue in new_data.items():
+                if nkey not in self:
+                    self[nkey] = []
+                self[nkey].append(nvalue)
+            return
+        #
+        raise RuntimeError('error applying new values')
 
     def reset_filters(self):
         self.field_filters = []

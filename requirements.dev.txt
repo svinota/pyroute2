@@ -4,5 +4,6 @@ flake8
 netaddr
 pytest
 pytest-cov
+pytest-asyncio
 pre-commit
 findimports

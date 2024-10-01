@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from pyroute2.netlink.core import CoreSocket, CoreSocketSpec
+from pyroute2.netlink.core import AsyncCoreSocket, CoreSocketSpec
 from pyroute2.plan9 import (
     Marshal9P,
     Stat,
@@ -210,7 +210,7 @@ class Plan9ServerProtocol(asyncio.Protocol):
         self.session = Session(self.filesystem)
 
 
-class Plan9ServerSocket(CoreSocket):
+class Plan9ServerSocket(AsyncCoreSocket):
     def __init__(self, address=None, use_socket=None):
         self.spec = CoreSocketSpec(
             {
@@ -236,8 +236,8 @@ class Plan9ServerSocket(CoreSocket):
         )
 
     async def async_run(self):
-        await self.endpoint_started
-        await self.endpoint.serve_forever()
+        await self.setup_endpoint()
+        return asyncio.create_task(self.endpoint.serve_forever())
 
     def run(self):
         self.event_loop.create_task(self.async_run())

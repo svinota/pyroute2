@@ -434,11 +434,11 @@ class AsyncCoreSocket:
         if not noraise and error:
             raise error
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
 
     def register_callback(self, callback, predicate=lambda x: True, args=None):
         '''
@@ -566,23 +566,40 @@ class AsyncCoreSocket:
         return ret
 
 
-class SyncMixin:
+class SyncAPI:
     '''
     Synchronous API wrapper around asynchronous classes
     '''
 
     @property
-    def asyncore(self):
-        return super()
+    def marshal(self):
+        return self.asyncore.marshal
+
+    @marshal.setter
+    def marshal(self, value):
+        self.asyncore.marshal = value
 
     def bind(self, *argv, **kwarg):
-        return self.event_loop.run_until_complete(
+        return self.asyncore.event_loop.run_until_complete(
             self.asyncore.bind(*argv, **kwarg)
         )
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def __getattr__(self, key):
+        if key in ('pid', 'send', 'recv', 'sendto'):
+            return getattr(self.asyncore, key)
+        raise AttributeError(key)
+
     def close(self, code=errno.ECONNRESET):
         '''Correctly close the socket and free all the resources.'''
-        return self.event_loop.run_until_complete(self.asyncore.close(code))
+        return self.asyncore.event_loop.run_until_complete(
+            self.asyncore.close(code)
+        )
 
     def nlm_request(
         self,
@@ -593,15 +610,17 @@ class SyncMixin:
         callback=None,
         parser=None,
     ):
+        print("asyncore", self.asyncore)
+
         async def collect_data():
             return [
                 x
-                async for x in self.asyncore.nlm_request(
+                async for x in await self.asyncore.nlm_request(
                     msg, msg_type, msg_flags, terminate, callback, parser
                 )
             ]
 
-        return self.event_loop.run_until_complete(collect_data())
+        return self.asyncore.event_loop.run_until_complete(collect_data())
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
         '''Sync wrapper for async_get().'''
@@ -614,8 +633,20 @@ class SyncMixin:
                 )
             ]
 
-        return self.event_loop.run_until_complete(collect_data())
+        return self.asyncore.event_loop.run_until_complete(collect_data())
 
 
-class CoreSocket(AsyncCoreSocket, SyncMixin):
-    pass
+class CoreSocket(SyncAPI):
+    def __init__(
+        self,
+        target='localhost',
+        rcvsize=16384,
+        use_socket=None,
+        netns=None,
+        flags=os.O_CREAT,
+        libc=None,
+        groups=0,
+    ):
+        self.asyncore = AsyncCoreSocket(
+            target, rcvsize, use_socket, netns, flags, libc, groups
+        )

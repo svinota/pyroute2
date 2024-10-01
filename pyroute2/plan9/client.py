@@ -5,7 +5,7 @@ import struct
 
 from pyroute2.common import AddrPool
 from pyroute2.netlink.core import (
-    CoreSocket,
+    AsyncCoreSocket,
     CoreSocketSpec,
     CoreStreamProtocol,
 )
@@ -20,7 +20,7 @@ from pyroute2.plan9 import (
 )
 
 
-class Plan9ClientSocket(CoreSocket):
+class Plan9ClientSocket(AsyncCoreSocket):
     def __init__(self, address=None, use_socket=None):
         self.spec = CoreSocketSpec(
             {
@@ -41,7 +41,7 @@ class Plan9ClientSocket(CoreSocket):
         tag = struct.unpack_from('H', data, 5)[0]
         return self.msg_queue.put_nowait(tag, data)
 
-    def setup_socket(self, sock=None):
+    async def setup_socket(self, sock=None):
         return sock
 
     async def setup_endpoint(self, loop=None):
@@ -52,8 +52,9 @@ class Plan9ClientSocket(CoreSocket):
             *self.status['address'],
         )
 
-    async def init(self):
-        await self.endpoint_started
+    async def start_session(self):
+        await self.setup_endpoint()
+        await self.ensure_socket()
         await self.version()
         await self.auth()
         await self.attach()
@@ -67,7 +68,7 @@ class Plan9ClientSocket(CoreSocket):
             msg.encode()
             self.msg_queue.ensure(tag)
             self.endpoint[0].write(msg.data)
-            return [x async for x in self.async_get(msg_seq=tag)][0]
+            return [x async for x in self.get(msg_seq=tag)][0]
         finally:
             self.addr_pool.free(tag, ban=0xFF)
 

@@ -1755,7 +1755,7 @@ class nlmsg_encoder_generic(object):
             zs = 0
         for name, fmt in self.fields:
             default = self.defaults.get(name, 0)
-            value = self.get(name) or default
+            value = self[name] if name in self else default
 
             if isinstance(fmt, str):
                 offset = self.encode_field(fmt, self.data, offset, value, zs)

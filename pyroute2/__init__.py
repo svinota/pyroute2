@@ -19,6 +19,7 @@ from pyroute2.conntrack import Conntrack, ConntrackEntry
 from pyroute2.devlink import DL
 from pyroute2.ethtool.ethtool import Ethtool
 from pyroute2.iproute import (
+    AsyncIPRoute,
     ChaoticIPRoute,
     IPBatch,
     IPRoute,
@@ -57,6 +58,7 @@ from pyroute2.wiset import WiSet
 
 modules = [
     AcpiEventSocket,
+    AsyncIPRoute,
     ChaoticException,
     ChaoticIPRoute,
     Conntrack,

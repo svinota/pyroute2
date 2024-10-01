@@ -142,6 +142,7 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWLINK,
 )
 
+AsyncIPRoute = None
 if sys.platform.startswith('emscripten'):
     from pyroute2.iproute.ipmock import (
         ChaoticIPRoute,
@@ -160,13 +161,22 @@ elif config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import ChaoticIPRoute, IPRoute, NetNS, RawIPRoute
 else:
     from pyroute2.iproute.linux import (
+        AsyncIPRoute,
         ChaoticIPRoute,
         IPRoute,
         NetNS,
         RawIPRoute,
     )
 
-classes = [RTNL_API, IPBatch, IPRoute, RawIPRoute, ChaoticIPRoute, NetNS]
+classes = [
+    AsyncIPRoute,
+    RTNL_API,
+    IPBatch,
+    IPRoute,
+    RawIPRoute,
+    ChaoticIPRoute,
+    NetNS,
+]
 
 constants = [
     RTM_GETLINK,

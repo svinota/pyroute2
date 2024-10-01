@@ -114,7 +114,7 @@ from pyroute2.netlink.core import (
     AsyncCoreSocket,
     CoreDatagramProtocol,
     CoreSocketSpec,
-    SyncMixin,
+    SyncAPI,
 )
 from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
@@ -154,7 +154,7 @@ sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 class NetlinkSocketSpecFilter:
     def set_target(self, context, value):
         if 'target' in context:
-            return {}
+            return {'target': context['target']}
         return {'target': value}
 
     def set_netns(self, context, value):
@@ -266,10 +266,6 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
     def target(self):
         return self.status['target']
 
-    @property
-    def asyncore(self):
-        return self
-
     async def setup_socket(self, sock=None):
         """Re-init a netlink socket."""
         if self.status['use_socket']:
@@ -312,6 +308,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                     self.socket.bind((self.port, self.status['groups']))
                     break
                 except Exception as e:
+                    print("E", e)
                     # create a new underlying socket -- on kernel 4
                     # one failed bind() makes the socket useless
                     log.error(e)
@@ -401,6 +398,8 @@ class NetlinkRequest:
         request_filter=None,
         terminate=None,
         callback=None,
+        msg_type=0,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
     ):
         self.sock = sock
         self.addr_pool = sock.addr_pool
@@ -410,13 +409,13 @@ class NetlinkRequest:
         # if not isinstance(msg, nlmsg):
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
+        self.msg_seq = self.addr_pool.alloc()
         if command_map is not None:
             msg_type, msg_flags = self.calculate_request_type(
                 command, command_map
             )
-            msg['header']['type'] = msg_type
-            msg['header']['flags'] = msg_flags
-        self.msg_seq = self.addr_pool.alloc()
+        msg['header']['type'] = msg_type
+        msg['header']['flags'] = msg_flags
         msg['header']['sequence_number'] = self.msg_seq
         msg['header']['pid'] = self.port or os.getpid()
         msg.reset()
@@ -484,7 +483,7 @@ class NetlinkRequest:
         e = None
         for count in range(30):
             try:
-                return self.sock.asyncore.send(self.msg.data)
+                return self.sock.send(self.msg.data)
             except NetlinkError as e:
                 if e.code != errno.EBUSY:
                     break
@@ -498,7 +497,7 @@ class NetlinkRequest:
         raise e
 
     async def response(self):
-        async for msg in self.sock.asyncore.get(
+        async for msg in self.sock.get(
             msg_seq=self.msg_seq,
             terminate=self.terminate,
             callback=self.callback,
@@ -514,8 +513,50 @@ class NetlinkRequest:
 IPCSocketPair = collections.namedtuple('IPCSocketPair', ('server', 'client'))
 
 
-class NetlinkSocket(AsyncCoreSocket, SyncMixin):
-    pass
+class NetlinkSocket(SyncAPI):
+    def __init__(
+        self,
+        family=NETLINK_GENERIC,
+        port=None,
+        pid=None,
+        fileno=None,
+        sndbuf=1048576,
+        rcvbuf=1048576,
+        rcvsize=16384,
+        all_ns=False,
+        async_qsize=None,
+        nlm_generator=None,
+        target='localhost',
+        ext_ack=False,
+        strict_check=False,
+        groups=0,
+        nlm_echo=False,
+        use_socket=None,
+        netns=None,
+        flags=os.O_CREAT,
+        libc=None,
+    ):
+        self.asyncore = AsyncNetlinkSocket(
+            family,
+            port,
+            pid,
+            fileno,
+            sndbuf,
+            rcvbuf,
+            rcvsize,
+            all_ns,
+            async_qsize,
+            nlm_generator,
+            target,
+            ext_ack,
+            strict_check,
+            groups,
+            nlm_echo,
+            use_socket,
+            netns,
+            flags,
+            libc,
+        )
 
 
 class IPCSocket(NetlinkSocket):
