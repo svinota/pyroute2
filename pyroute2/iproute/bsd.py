@@ -43,6 +43,7 @@ On all the supported platforms, be it Linux or BSD, the
 `IPRoute.recv(...)` method returns valid netlink RTNL raw binary
 payload and `IPRoute.get(...)` returns parsed RTNL messages.
 '''
+
 import errno
 import os
 import select

@@ -191,6 +191,17 @@ class View(dict):
 
     @cli.change_pointer
     @check_auth('obj:modify')
+    def ensure(self, *argspec, **kwspec):
+        try:
+            obj = self.locate(**kwspec)
+        except KeyError:
+            obj = self.create(**kwspec)
+        for key, value in kwspec.items():
+            obj[key] = value
+        return obj
+
+    @cli.change_pointer
+    @check_auth('obj:modify')
     def add(self, *argspec, **kwspec):
         self.log.warning(
             '''\n
@@ -266,11 +277,17 @@ class View(dict):
         iclass = self.classes[table]
         spec = iclass.new_spec(spec)
         kspec = self.ndb.schema.compiled[table]['norm_idx']
+        lookup_fallbacks = self.ndb.schema.compiled[table]['lookup_fallbacks']
         request = {}
         for name in kspec:
             name = iclass.nla2name(name)
             if name in spec:
                 request[name] = spec[name]
+            elif name in lookup_fallbacks:
+                fallback = lookup_fallbacks[name]
+                if fallback in spec:
+                    request[fallback] = spec[fallback]
+
         if not request:
             raise KeyError('got an empty key')
         return self[request]
@@ -424,13 +441,27 @@ class View(dict):
     @check_auth('obj:list')
     def dump(self):
         iclass = self.classes[self.table]
-        return RecordSet(self._native(iclass.dump(self)))
+        return RecordSet(
+            self._native(iclass.dump(self)),
+            config={
+                'recordset_pipe': self.ndb.config.get(
+                    'recordset_pipe', 'false'
+                )
+            },
+        )
 
     @cli.show_result
     @check_auth('obj:list')
     def summary(self):
         iclass = self.classes[self.table]
-        return RecordSet(self._native(iclass.summary(self)))
+        return RecordSet(
+            self._native(iclass.summary(self)),
+            config={
+                'recordset_pipe': self.ndb.config.get(
+                    'recordset_pipe', 'false'
+                )
+            },
+        )
 
     def __repr__(self):
         if self.chain and 'ifname' in self.chain:

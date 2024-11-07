@@ -4,6 +4,8 @@ NL80211 module
 
 TODO
 '''
+
+import datetime
 import struct
 import datetime
 from pr2modules.common import map_namespace
@@ -217,15 +219,16 @@ NL80211_SCAN_FLAG_OCE_PROBE_REQ_DEFERRAL_SUPPRESSION = 1 << 7
 (SCAN_FLAGS_NAMES, SCAN_FLAGS_VALUES) = map_namespace('NL80211_SCAN_FLAG_',
                                                       globals())
 
-NL80211_STA_FLAG_AUTHORIZED = 1
-NL80211_STA_FLAG_SHORT_PREAMBLE = 2
-NL80211_STA_FLAG_WME = 3
-NL80211_STA_FLAG_MFP = 4
-NL80211_STA_FLAG_AUTHENTICATED = 5
-NL80211_STA_FLAG_TDLS_PEER = 6
-NL80211_STA_FLAG_ASSOCIATED = 7
-(STA_FLAG_NAMES, STA_FLAG_VALUES) = map_namespace('NL80211_STA_FLAG_',
-                                                  globals())
+NL80211_STA_FLAG_AUTHORIZED = 1 << 1
+NL80211_STA_FLAG_SHORT_PREAMBLE = 1 << 2
+NL80211_STA_FLAG_WME = 1 << 3
+NL80211_STA_FLAG_MFP = 1 << 4
+NL80211_STA_FLAG_AUTHENTICATED = 1 << 5
+NL80211_STA_FLAG_TDLS_PEER = 1 << 6
+NL80211_STA_FLAG_ASSOCIATED = 1 << 7
+(STA_FLAG_NAMES, STA_FLAG_VALUES) = map_namespace(
+    'NL80211_STA_FLAG_', globals()
+)
 
 # Cipher suites
 WLAN_CIPHER_SUITE_USE_GROUP = 0x00FAC00
@@ -970,9 +973,9 @@ class nl80211cmd(genlmsg):
                         data = data[16:]
 
                 if len(data) >= 4:
-                    rsn_values[
-                        "group_mgmt_cipher_suite"
-                    ] = self._get_cipher_list(data)
+                    rsn_values["group_mgmt_cipher_suite"] = (
+                        self._get_cipher_list(data)
+                    )
                     data = data[4:]
 
                 return rsn_values
@@ -1091,9 +1094,9 @@ class nl80211cmd(genlmsg):
                         )
 
                     if msg_type == NL80211_BSS_ELEMENTS_VHT_OPERATION:
-                        self.value[
-                            "VHT_OPERATION"
-                        ] = self.binary_vht_operation(offset + 2, length)
+                        self.value["VHT_OPERATION"] = (
+                            self.binary_vht_operation(offset + 2, length)
+                        )
 
                     offset += length + 2
 
@@ -1247,35 +1250,92 @@ class nl80211cmd(genlmsg):
                                                     self.data,
                                                     offset + 2)
 
-                    if mask & NL80211_STA_FLAG_AUTHORIZED:
-                        if set_ & NL80211_STA_FLAG_AUTHORIZED:
-                            self.value["AUTHORIZED"] = True
+                if mask & NL80211_STA_FLAG_AUTHORIZED:
+                    if set_ & NL80211_STA_FLAG_AUTHORIZED:
+                        self.value["AUTHORIZED"] = True
 
-                    if mask & NL80211_STA_FLAG_SHORT_PREAMBLE:
-                        if set_ & NL80211_STA_FLAG_SHORT_PREAMBLE:
-                            self.value["SHORT_PREAMBLE"] = True
+                if mask & NL80211_STA_FLAG_SHORT_PREAMBLE:
+                    if set_ & NL80211_STA_FLAG_SHORT_PREAMBLE:
+                        self.value["SHORT_PREAMBLE"] = True
 
-                    if mask & NL80211_STA_FLAG_WME:
-                        if set_ & NL80211_STA_FLAG_WME:
-                            self.value["WME"] = True
+                if mask & NL80211_STA_FLAG_WME:
+                    if set_ & NL80211_STA_FLAG_WME:
+                        self.value["WME"] = True
 
-                    if mask & NL80211_STA_FLAG_MFP:
-                        if set_ & NL80211_STA_FLAG_MFP:
-                            self.value["MFP"] = True
+                if mask & NL80211_STA_FLAG_MFP:
+                    if set_ & NL80211_STA_FLAG_MFP:
+                        self.value["MFP"] = True
 
-                    if mask & NL80211_STA_FLAG_AUTHENTICATED:
-                        if set_ & NL80211_STA_FLAG_AUTHENTICATED:
-                            self.value["AUTHENTICATED"] = True
+                if mask & NL80211_STA_FLAG_AUTHENTICATED:
+                    if set_ & NL80211_STA_FLAG_AUTHENTICATED:
+                        self.value["AUTHENTICATED"] = True
 
-                    if mask & NL80211_STA_FLAG_TDLS_PEER:
-                        if set_ & NL80211_STA_FLAG_TDLS_PEER:
-                            self.value["TDLS_PEER"] = True
+                if mask & NL80211_STA_FLAG_TDLS_PEER:
+                    if set_ & NL80211_STA_FLAG_TDLS_PEER:
+                        self.value["TDLS_PEER"] = True
 
-                    if mask & NL80211_STA_FLAG_ASSOCIATED:
-                        if set_ & NL80211_STA_FLAG_ASSOCIATED:
-                            self.value["ASSOCIATED"] = True
+                if mask & NL80211_STA_FLAG_ASSOCIATED:
+                    if set_ & NL80211_STA_FLAG_ASSOCIATED:
+                        self.value["ASSOCIATED"] = True
 
-                    offset += length + 2
+        class rate_info(nla):
+            '''
+            Decode the data rate information
+            See nl80211.h: enum nl80211_sta_info,
+            NL80211_STA_INFO_TX_BITRATE
+            NL80211_STA_INFO_RX_BITRATE
+            '''
+
+            prefix = "NL80211_RATE_INFO_"
+            nla_map = (
+                ('__NL80211_RATE_INFO_INVALID', 'hex'),
+                ('NL80211_RATE_INFO_BITRATE', 'uint16'),
+                ('NL80211_RATE_INFO_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_40_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_SHORT_GI', 'flag'),
+                ('NL80211_RATE_INFO_BITRATE32', 'uint32'),
+                ('NL80211_RATE_INFO_VHT_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_VHT_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_80_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_80P80_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_160_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_10_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_5_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_HE_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_HE_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_HE_GI', 'uint8'),
+                ('NL80211_RATE_INFO_HE_DCM', 'uint8'),
+                ('NL80211_RATE_INFO_HE_RU_ALLOC', 'uint8'),
+                ('NL80211_RATE_INFO_320_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_EHT_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_EHT_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_EHT_GI', 'uint8'),
+                ('NL80211_RATE_INFO_EHT_RU_ALLOC', 'uint8'),
+                ('NL80211_RATE_INFO_S1G_MCS', 'uint8'),
+                ('NL80211_RATE_INFO_S1G_NSS', 'uint8'),
+                ('NL80211_RATE_INFO_1_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_2_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_4_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_8_MHZ_WIDTH', 'flag'),
+                ('NL80211_RATE_INFO_16_MHZ_WIDTH', 'flag'),
+            )
+
+        class bss_param(nla):
+            '''
+            Decode the BSS information
+            See nl80211.h: enum nl80211_sta_bss_param,
+            NL80211_STA_INFO_BSS_PARAM
+            '''
+
+            prefix = "NL80211_STA_BSS_PARAM_"
+            nla_map = (
+                ('__NL80211_STA_BSS_PARAM_INVALID', 'hex'),
+                ('NL80211_STA_BSS_PARAM_CTS_PROT', 'flag'),
+                ('NL80211_STA_BSS_PARAM_SHORT_PREAMBLE', 'flag'),
+                ('NL80211_STA_BSS_PARAM_SHORT_SLOT_TIME', 'flag'),
+                ('NL80211_STA_BSS_PARAM_DTIM_PERIOD', 'uint8'),
+                ('NL80211_STA_BSS_PARAM_BEACON_INTERVAL', 'uint16'),
+            )
 
         prefix = 'NL80211_STA_INFO_'
         nla_map = (('__NL80211_STA_INFO_INVALID', 'hex'),
@@ -1553,8 +1613,8 @@ class MarshalNl80211(Marshal):
 
 class NL80211(GenericNetlinkSocket):
 
-    def __init__(self):
-        GenericNetlinkSocket.__init__(self)
+    def __init__(self, *args, **kwargs):
+        GenericNetlinkSocket.__init__(self, *args, **kwargs)
         self.marshal = MarshalNl80211()
 
     def bind(self, groups=0, **kwarg):

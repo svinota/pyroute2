@@ -6,6 +6,7 @@ info from the system we have to use ioctl or external utilities.
 
 Maybe some day it will be ioctl. For now it's ifconfig and netstat.
 '''
+
 import re
 import socket
 import subprocess

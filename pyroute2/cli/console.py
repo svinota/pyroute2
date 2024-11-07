@@ -6,19 +6,13 @@ import sys
 from pyroute2.cli.session import Session
 from pyroute2.ndb.main import NDB
 
-try:
-    import readline
-
-    HAS_READLINE = True
-except ImportError:
-    HAS_READLINE = False
-
 
 class Console(code.InteractiveConsole):
     def __init__(self, stdout=None, log=None, sources=None):
-        global HAS_READLINE
         self.db = NDB(log=log, sources=sources)
-        self.db.config = {'show_format': 'json'}
+        self.db.config.update(
+            {'show_format': 'json', 'recordset_pipe': 'true'}
+        )
         self.stdout = stdout or sys.stdout
         self.session = Session(self.db, self.stdout, self.set_prompt)
         self.matches = []
@@ -26,10 +20,6 @@ class Console(code.InteractiveConsole):
         self.prompt = ''
         self.set_prompt()
         code.InteractiveConsole.__init__(self)
-        if HAS_READLINE:
-            readline.parse_and_bind('tab: complete')
-            readline.set_completer(self.completer)
-            readline.set_completion_display_matches_hook(self.display)
 
     def close(self):
         self.db.close()
@@ -89,6 +79,11 @@ class Console(code.InteractiveConsole):
             except:
                 self.showtraceback()
                 continue
+
+    def set_completer(self, readline):
+        readline.parse_and_bind('tab: complete')
+        readline.set_completer(self.completer)
+        readline.set_completion_display_matches_hook(self.display)
 
     def completer(self, text, state):
         if state == 0:

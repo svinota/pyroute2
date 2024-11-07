@@ -1,4 +1,10 @@
-from pyroute2.netlink import NLA_F_NESTED, NLM_F_REQUEST, genlmsg, nla
+from pyroute2.netlink import (
+    NLA_F_NESTED,
+    NLM_F_ACK,
+    NLM_F_REQUEST,
+    genlmsg,
+    nla,
+)
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.generic import GenericNetlinkSocket
 
@@ -16,6 +22,12 @@ ETHTOOL_MSG_DEBUG_GET = 7
 ETHTOOL_MSG_DEBUG_SET = 8
 ETHTOOL_MSG_WOL_GET = 9
 ETHTOOL_MSG_WOL_SET = 10
+ETHTOOL_MSG_FEATURES_GET = 11
+ETHTOOL_MSG_FEATURES_SET = 12
+ETHTOOL_MSG_PRIVFLAGS_GET = 13
+ETHTOOL_MSG_PRIVFLAGS_SET = 14
+ETHTOOL_MSG_RINGS_GET = 15
+ETHTOOL_MSG_RINGS_SET = 16
 
 
 class ethtoolheader(nla):
@@ -149,6 +161,30 @@ class ethtool_wol_msg(genlmsg):
     ethtoolbitset = ethtoolbitset
 
 
+class ethtool_rings_msg(genlmsg):
+    nla_map = (
+        ('ETHTOOL_A_RINGS_UNSPEC', 'none'),
+        ('ETHTOOL_A_RINGS_HEADER', 'ethtoolheader'),
+        ('ETHTOOL_A_RINGS_RX_MAX', 'uint32'),
+        ('ETHTOOL_A_RINGS_RX_MINI_MAX', 'uint32'),
+        ('ETHTOOL_A_RINGS_RX_JUMBO_MAX', 'uint32'),
+        ('ETHTOOL_A_RINGS_TX_MAX', 'uint32'),
+        ('ETHTOOL_A_RINGS_RX', 'uint32'),
+        ('ETHTOOL_A_RINGS_RX_MINI', 'uint32'),
+        ('ETHTOOL_A_RINGS_RX_JUMBO', 'uint32'),
+        ('ETHTOOL_A_RINGS_TX', 'uint32'),
+        ('ETHTOOL_A_RINGS_RX_BUF_LEN', 'uint32'),
+        ('ETHTOOL_A_RINGS_TCP_DATA_SPLIT', 'uint8'),
+        ('ETHTOOL_A_RINGS_CQE_SIZE', 'uint32'),
+        ('ETHTOOL_A_RINGS_TX_PUSH', 'uint8'),
+        ('ETHTOOL_A_RINGS_RX_PUSH', 'uint8'),
+        ('ETHTOOL_A_RINGS_TX_PUSH_BUF_LEN', 'uint32'),
+        ('ETHTOOL_A_RINGS_TX_PUSH_BUF_LEN_MAX', 'uint32'),
+    )
+
+    ethtoolheader = ethtoolheader
+
+
 class NlEthtool(GenericNetlinkSocket):
     def _do_request(self, msg, msg_flags=NLM_F_REQUEST):
         return self.nlm_request(msg, msg_type=self.prid, msg_flags=msg_flags)
@@ -231,3 +267,24 @@ class NlEthtool(GenericNetlinkSocket):
 
         self.bind(ETHTOOL_GENL_NAME, ethtool_wol_msg)
         return self._do_request(msg)
+
+    def get_rings(self, ifname=None, ifindex=None):
+        msg = ethtool_rings_msg()
+        msg["cmd"] = ETHTOOL_MSG_RINGS_GET
+        msg["version"] = ETHTOOL_GENL_VERSION
+        msg["attrs"].append(
+            ('ETHTOOL_A_RINGS_HEADER', self._get_dev_header(ifname, ifindex))
+        )
+
+        self.bind(ETHTOOL_GENL_NAME, ethtool_rings_msg)
+        return self._do_request(msg)
+
+    def set_rings(self, rings, ifname=None, ifindex=None):
+        rings["cmd"] = ETHTOOL_MSG_RINGS_SET
+        rings["version"] = ETHTOOL_GENL_VERSION
+        rings["attrs"].append(
+            ('ETHTOOL_A_RINGS_HEADER', self._get_dev_header(ifname, ifindex))
+        )
+
+        self.bind(ETHTOOL_GENL_NAME, ethtool_rings_msg)
+        return self._do_request(rings, msg_flags=NLM_F_REQUEST | NLM_F_ACK)

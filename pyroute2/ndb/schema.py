@@ -116,6 +116,7 @@ If you're using a PostgreSQL DB or a file based SQLite, simply drop
 all the tables from the DB, and NDB will create them from scratch
 on startup.
 '''
+
 import enum
 import json
 import random
@@ -460,6 +461,7 @@ class DBSchema:
             'fset': ','.join(f_set),
             'knames': ','.join(f_idx),
             'fidx': ' AND '.join(f_idx_match),
+            'lookup_fallbacks': iclass.lookup_fallbacks,
         }
 
     @publish

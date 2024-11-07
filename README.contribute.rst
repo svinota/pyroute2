@@ -16,21 +16,13 @@ Linux
    #   git
    #   python
    #   GNU make, sed, awk
-   #
-   # then clone the repo
+
+   # clone the repo
    git clone ${pyroute2_git_url}
    cd pyroute2
 
-   # create and activate virtualenv
-   python -m venv venv
-   . venv/bin/activate
-
-   # update pip and install nox
-   pip install --upgrade pip
-   pip install nox
-
-   # run the test cycle
-   nox
+   # run the test suite
+   make test
 
 OpenBSD
 +++++++
@@ -38,33 +30,31 @@ OpenBSD
 .. code-block:: sh
 
    # install required tools
-   pkg_add bash git gmake gsed python
+   pkg_add bash git gmake gsed python rust
 
    # clone the repo
    git clone ${pyroute_git_url}
    cd pyroute2
 
-   # create and activate virtualenv
-   python3.10 -m venv venv
-   . venv/bin/activate
+   # run the test suite
+   gmake test
 
-   # update pip and install nox
-   pip install --upgrade pip
-   pip install nox
+Step 2: plan and implement the change
+-------------------------------------
 
-   # run the platform specific environment
-   nox -e openbsd
-
-Step 2: make a change
----------------------
+The best practice is that any change should be covered by tests.
+The test suite is in the `/tests/` folder and is run by `nox`. You
+can add your tests to an existing tests module, or create your
+own module, if it requires some specific environment that is not
+covered yet. In the latter case add a new session to `noxfile.py`.
 
 The project is designed to work on the bare standard library.
 But some embedded environments strip even the stdlib, removing
 modules like sqlite3.
 
-So to run pyroute2 even in such environments, the project provdes
+So to run pyroute2 even in such environments, the project provides
 two packages, `pyroute2` and `pyroute2.minimal`, with the latter
-providing a minimal distribution, but using no sqlite3 or pickle.
+providing a minimal distribution, with no sqlite3 or pickle.
 
 Modules `pyroute2` and `pyroute2.minimal` are mutually exclusive.
 
@@ -74,18 +64,15 @@ More details: https://github.com/svinota/pyroute2/discussions/786
 Step 3: test the change
 -----------------------
 
-Assume the environment is already set up on the step 1. Thus:
+Assume the environment is already set up on the step 1:
 
 .. code-block:: sh
 
-   # run code checks
-   nox -e linter
+   # run code linter
+   make format
 
-   # run unit tests
-   nox -e unit
-
-   # run functional test, some require root
-   nox -e linux-3.10
+   # run test suite, some tests may require root
+   make test
 
 Step 4: submit a PR
 -------------------
@@ -98,7 +85,7 @@ Requirements to a PR
 
 The code must comply some requirements:
 
-* the library must work on Python >= 3.6.
-* the code must pass `nox -e linter`
-* the code must not break existing unit and functional tests
-* the `ctypes` usage must not break the library on SELinux
+* the library **must** work on Python >= 3.9
+* the code **must** pass `make format`
+* the code **must** not break existing unit and functional tests (`make test`)
+* the `ctypes` usage **must not** break the library on SELinux

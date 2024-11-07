@@ -145,8 +145,8 @@ class l2tpmsg(genlmsg):
 
 
 class L2tp(GenericNetlinkSocket):
-    def __init__(self):
-        GenericNetlinkSocket.__init__(self)
+    def __init__(self, *args, **kwargs):
+        GenericNetlinkSocket.__init__(self, *args, **kwargs)
         self.bind(L2TP_GENL_NAME, l2tpmsg)
 
     def _do_request(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_ACK):
@@ -537,35 +537,50 @@ class L2tp(GenericNetlinkSocket):
 
         return self._do_request(msg)
 
-    def get_tunnel(self, tunnel_id=None):
+    def get_tunnel(self, tunnel_id):
         """
-        Get one or more tunnels
-        :param tunnel_id: tunnel id of the tunnel to show, if not set all
-                          tunnels will be returned
+        Get one tunnel
+        :param tunnel_id: tunnel id of the tunnel to show
         :return: netlink response
         """
         msg = l2tpmsg()
         msg["cmd"] = L2TP_CMD_TUNNEL_GET
         msg["version"] = L2TP_GENL_VERSION
-        if tunnel_id:
-            msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
+        msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
+        return self._do_request(msg, msg_flags=NLM_F_REQUEST)[0]
+
+    def dump_tunnels(self, tunnel_id):
+        """
+        Dump all tunnels
+        :return: netlink response
+        """
+        msg = l2tpmsg()
+        msg["cmd"] = L2TP_CMD_TUNNEL_GET
+        msg["version"] = L2TP_GENL_VERSION
         return self._do_request(msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
-    def get_session(self, tunnel_id=None, session_id=None):
+    def get_session(self, tunnel_id, session_id):
         """
-        Get one or more sessions
-        :param tunnel_id: tunnel id of the tunnel for which to show the
-                          session(s)
-        :param session_id: session id of the session to show, if not set all
-                           sessions will be returned
+        Get one session
+        :param tunnel_id: tunnel id of the session
+        :param session_id: session id of the session
         :return: netlink response
         """
         msg = l2tpmsg()
         msg["cmd"] = L2TP_CMD_SESSION_GET
         msg["version"] = L2TP_GENL_VERSION
-        if tunnel_id:
-            msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
-        if session_id:
-            msg["attrs"].append(["L2TP_ATTR_SESSION_ID", session_id])
+        msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
+        msg["attrs"].append(["L2TP_ATTR_SESSION_ID", session_id])
+
+        return self._do_request(msg, msg_flags=NLM_F_REQUEST)[0]
+
+    def dump_sessions(self):
+        """
+        Dump all sessions
+        :return: netlink response
+        """
+        msg = l2tpmsg()
+        msg["cmd"] = L2TP_CMD_SESSION_GET
+        msg["version"] = L2TP_GENL_VERSION
 
         return self._do_request(msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)

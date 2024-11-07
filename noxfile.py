@@ -15,8 +15,11 @@ nox.options.sessions = [
     'lab',
     'neutron',
     'integration',
-    'linux-3.6',
-    'linux-3.10',
+    'linux-python3.8',
+    'linux-python3.9',
+    'linux-python3.10',
+    'linux-python3.11',
+    'linux-python3.12',
     'minimal',
 ]
 
@@ -75,6 +78,9 @@ def options(module, config):
         '--verbose',
         '--junitxml=junit.xml',
     ]
+    if config.get('fail_on_warnings'):
+        ret.insert(1, 'error')
+        ret.insert(1, '-W')
     if config.get('pdb'):
         ret.append('--pdb')
     if config.get('coverage'):
@@ -240,7 +246,9 @@ def integration(session, config):
     session.run(*options('test_integration', config))
 
 
-@nox.session(python=['3.6', '3.10'])
+@nox.session(
+    python=['python3.8', 'python3.9', 'python3.10', 'python3.11', 'python3.12']
+)
 @add_session_config
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
@@ -328,3 +336,11 @@ def build(session):
 def build_minimal(session, config):
     '''Build the minimal package'''
     setup_venv_minimal(session, config)
+
+
+@nox.session
+@add_session_config
+def upload(session, config):
+    '''Upload built packages'''
+    session.install('twine')
+    session.run('python', '-m', 'twine', 'upload', 'dist/*')

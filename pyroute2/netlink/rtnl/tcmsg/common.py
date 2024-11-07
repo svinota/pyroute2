@@ -263,7 +263,7 @@ def get_tca_ops(kwarg, attrs):
             attrs.append(['TCA_FLOW_RSHIFT', rshift_value])
         elif op == 'addend':
             # Check if an IP was specified
-            if type(num) == str and len(num.split('.')) == 4:
+            if isinstance(num, str) and len(num.split('.')) == 4:
                 if num.startswith('-'):
                     inverse = True
                 else:

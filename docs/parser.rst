@@ -198,8 +198,8 @@ Mandatory message fields, expected by NetlinkSocketBase methods:
 Per-request parsers
 -------------------
 
-Sometimes it may be reasonable to handle a particular response with a
-spcific parser, rather than a generic one. An example is
+Sometimes, it may be reasonable to handle a particular response with a
+specific parser rather than a generic one. An example is
 `IPRoute.get_default_routes()`, which could be slow on systems with
 huge amounts of routes.
 

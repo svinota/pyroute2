@@ -3,88 +3,19 @@
 #   The pyroute2 project is dual licensed, see README.license.md for details
 #
 #
+python ?= $(shell util/find_python.sh)
+platform := $(shell uname -s)
 
-##
-# Python-related configuration
-#
-python ?= python
-nosetests ?= nosetests
-flake8 ?= flake8
-pytest ?= pytest
-##
-# Python -W flags:
-#
-#  ignore  -- completely ignore
-#  default -- default action
-#  all     -- print all warnings
-#  module  -- print the first warning occurence for a module
-#  once    -- print each warning only once
-#  error   -- fail on any warning
-#
-#  Would you like to know more? See man 1 python
-#
-wlevel ?= once
-
-##
-# Other options
-#
-# prefix      -- install prefix (default: platform default)
-# lib       -- lib installation target (default: platform default)
-# coverage  -- whether to produce html coverage (default: false)
-# pdb       -- whether to run pdb on errors (default: false)
-# module    -- run only the specified test module (default: run all)
-#
-ifdef prefix
-	override prefix := "--prefix=${prefix}"
-endif
-
-ifdef lib
-	override lib := "--install-lib=${lib}"
-endif
-
-define list_modules
-	`ls -1 | sed -n '/egg-info/n; /pyroute2/p'`
-endef
-
-define make_modules
-	for module in $(call list_modules); do make -C $$module $(1) python=${python}; done
-endef
-
-define fetch_modules_dist
-	for module in $(call list_modules); do cp $$module/dist/* dist; done
-endef
-
-define clean_module
-	if [ -f $$module/setup.json ]; then \
-		for i in `ls -1 templates`; do rm -f $$module/$$i; done; \
-	fi; \
-	rm -f $$module/LICENSE.*; \
-	rm -f $$module/README.license.md; \
-	rm -f $$module/CHANGELOG.md; \
-	rm -f $$module/VERSION; \
-	rm -rf $$module/build; \
-	rm -rf $$module/dist; \
-	rm -rf $$module/*egg-info
-endef
-
-define process_templates
-	for module in $(call list_modules); do \
-		if [ -f $$module/setup.json ]; then \
-			for template in `ls -1 templates`; do \
-				${python} \
-					util/process_template.py \
-					templates/$$template \
-					$$module/setup.json \
-					$$module/$$template; \
-			done; \
-		fi; \
-	done
-endef
-
-define deploy_license
-	cp LICENSE.* $$module/ ; \
-	cp README.license.md $$module/ ; \
-	cp CHANGELOG.md $$module/
+define nox
+        {\
+		which nox 2>/dev/null || {\
+			python -m venv ~/.venv-boot/;\
+			. ~/.venv-boot/bin/activate;\
+			pip install --upgrade pip;\
+			pip install nox;\
+		};\
+		nox $(1) -- '${noxconfig}';\
+	}
 endef
 
 all:
@@ -156,37 +87,15 @@ check_parameters:
 	@if [ ! -z "${skip_tests}" ]; then \
 		echo "'skip_tests' is deprecated, use 'skip=...' instead"; false; fi
 
-test: check_parameters
-	@export PYTHON=${python}; \
-		export NOSE=${nosetests}; \
-		export FLAKE8=${flake8}; \
-		export WLEVEL=${wlevel}; \
-		export SKIP_TESTS=${skip}; \
-		export PDB=${pdb}; \
-		export COVERAGE=${coverage}; \
-		export MODULE=${module}; \
-		export LOOP=${loop}; \
-		export REPORT=${report}; \
-		export WORKER=${worker}; \
-		export WORKSPACE=${workspace}; \
-		./tests/run.sh
-
-pytest: check_parameters
-	@export PYTHON=${python}; \
-		export PYTEST=${pytest}; \
-		export FLAKE8=${flake8}; \
-		export WLEVEL=${wlevel}; \
-		export SKIP_TESTS=${skip}; \
-		export PDB=${pdb}; \
-		export COVERAGE=${coverage}; \
-		export MODULE=${module}; \
-		export LOOP=${loop}; \
-		export REPORT=${report}; \
-		export WORKER=${worker}; \
-		export WORKSPACE=${workspace}; \
-		export PYROUTE2_TEST_DBNAME=${dbname}; \
-		export SKIPDB=${skipdb}; \
-		./tests/run_pytest.sh
+.PHONY: test
+test:
+ifeq ($(platform), Linux)
+	$(call nox,)
+else ifeq ($(platform), OpenBSD)
+	$(call nox,-e openbsd)
+else
+	$(info >> Platform not supported)
+endif
 
 test-platform:
 	@${python} -c "\
@@ -197,8 +106,7 @@ from pprint import pprint;\
 pprint(TestCapsRtnl().collect())"
 
 upload: dist
-	${python} -m twine check dist/*
-	${python} -m twine upload dist/*
+	$(call nox,-e upload)
 
 setup:
 	$(call process_templates)

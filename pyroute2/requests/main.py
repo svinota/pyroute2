@@ -1,6 +1,7 @@
 '''
 General request and RTNL object data filters.
 '''
+
 import weakref
 from collections import ChainMap
 

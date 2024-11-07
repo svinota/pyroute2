@@ -28,6 +28,12 @@ class NeighbourFieldFilter(Index):
     def set_state(self, context, value):
         return self._state(value)
 
+    def set_dst(self, context, value):
+        if value:
+            return {'dst': value}
+        else:
+            return {}
+
 
 class NeighbourIPRouteFilter(IPRouteFilter):
     def set_dst(self, context, value):

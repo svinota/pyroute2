@@ -74,7 +74,7 @@ match responses, and the pair `put()/get()` does it.
 cache thread
 ------------
 
-Sometimes it is preferrable to get incoming messages asap
+Sometimes it is preferable to get incoming messages asap
 and parse them only when there is time for that. For that
 case the `NetlinkSocketBase` provides a possibility to start a
 dedicated cache thread, that will collect and queue incoming

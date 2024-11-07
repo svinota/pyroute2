@@ -81,7 +81,7 @@ sources
     2020-03-24 18:01:48,537    DEBUG pyroute2.ndb.139900805197264.sources.test02: running
 
 
-The RTNL sources documenation: :ref:`ndbsources`
+The RTNL sources documentation: :ref:`ndbsources`
 
 db_provider, db_spec
 ~~~~~~~~~~~~~~~~~~~~

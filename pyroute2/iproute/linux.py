@@ -55,6 +55,7 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWLINKPROP,
     RTM_NEWNEIGH,
     RTM_NEWNETNS,
+    RTM_NEWNSID,
     RTM_NEWQDISC,
     RTM_NEWROUTE,
     RTM_NEWRULE,
@@ -68,6 +69,7 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_IPV6_ROUTE,
     RTMGRP_IPV6_RULE,
     RTMGRP_LINK,
+    RTMGRP_MPLS_ROUTE,
     RTMGRP_NEIGH,
     TC_H_ROOT,
     ndmsg,
@@ -328,6 +330,7 @@ class RTNL_API:
                 RTMGRP_NEIGH: [self.get_neighbours],
                 RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
                 RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
+                RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
                 RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
                 RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
             }
@@ -738,6 +741,27 @@ class RTNL_API:
                     yield item
             except OSError:
                 pass
+
+    def set_netnsid(self, nsid=None, pid=None, fd=None):
+        '''Assigns an id to a peer netns using RTM_NEWNSID query.
+        The kernel chooses an unique id if nsid is omitted.
+        This corresponds to the "ip netns set" command.
+        '''
+        msg = nsidmsg()
+
+        if nsid is None or nsid < 0:
+            # kernel auto select
+            msg['attrs'].append(('NETNSA_NSID', 4294967295))
+        else:
+            msg['attrs'].append(('NETNSA_NSID', nsid))
+
+        if pid is not None:
+            msg['attrs'].append(('NETNSA_PID', pid))
+
+        if fd is not None:
+            msg['attrs'].append(('NETNSA_FD', fd))
+
+        return self.nlm_request(msg, RTM_NEWNSID, NLM_F_REQUEST | NLM_F_ACK)
 
     # 8<---------------------------------------------------------------
 
