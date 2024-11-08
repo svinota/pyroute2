@@ -679,13 +679,13 @@ class IPRoute(LAB_API, NetlinkSocketBase):
 
         return self._get_dump([route], rtmsg)
 
-    def get_addr(self):
+    def get_addr(self, **kwarg):
         return self._get_dump(self.preset['addr'], ifaddrmsg)
 
-    def get_links(self):
+    def get_links(self, **kwarg):
         return self._get_dump(self.preset['links'], ifinfmsg)
 
-    def get_routes(self):
+    def get_routes(self, **kwarg):
         return self._get_dump(self.preset['routes'], rtmsg)
 
 
