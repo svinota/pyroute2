@@ -11,10 +11,12 @@ class RequestProcessor(dict):
     mark = tuple()
     context = None
     combined = None
+    parameters = None
 
     def __init__(self, context=None, prime=None):
         self.reset_filters()
         self.reset_mark()
+        self.parameters = {}
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
         )
@@ -46,13 +48,16 @@ class RequestProcessor(dict):
             for nkey, nvalue in new_data.items():
                 if nkey not in self:
                     self[nkey] = []
-                self[nkey].append(nvalue)
+                self[nkey].extend(nvalue)
             return
         #
         raise RuntimeError('error applying new values')
 
     def reset_filters(self):
         self.field_filters = []
+
+    def set_parameter(self, name, value):
+        self.parameters[name] = value
 
     def reset_mark(self):
         self.mark = []
@@ -71,22 +76,31 @@ class RequestProcessor(dict):
         return self.get(key, default)
 
     def filter(self, key, value):
+        job = {key: value}
+        ret = None
+
         for field_filter in self.field_filters:
-            if hasattr(field_filter, 'key_transform'):
-                key = field_filter.key_transform(key)
-            if (
-                hasattr(field_filter, 'allowed')
-                and key not in field_filter.allowed
-            ):
-                return {}
-            if hasattr(field_filter, 'policy') and not field_filter.policy(
-                key
-            ):
-                return {}
-            setter = getattr(field_filter, f'set_{key}', None)
-            if setter is not None:
-                return setter(self.combined, value)
-        return {key: value}
+            for k, v in tuple(job.items()):
+                if hasattr(field_filter, 'key_transform'):
+                    k = field_filter.key_transform(k)
+                if (
+                    hasattr(field_filter, 'allowed')
+                    and k not in field_filter.allowed
+                ):
+                    return {}
+                if hasattr(field_filter, 'policy') and not field_filter.policy(
+                    k
+                ):
+                    return {}
+                setter = getattr(field_filter, f'set_{key}', None)
+                if setter is not None:
+                    if ret is None:
+                        ret = {}
+                    ret.update(setter(self.combined, value))
+            if ret is not None:
+                job = ret
+
+        return ret if ret is not None else {key: value}
 
     def update(self, prime):
         for key, value in tuple(prime.items()):

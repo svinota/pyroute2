@@ -1,3 +1,4 @@
+from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg, protinfo_bridge
 
 from .common import Index, IPRouteFilter, NLAKeyTransform
@@ -124,11 +125,14 @@ class BridgePortFieldFilter(IPRouteFilter):
     _nla_prefix = ifinfmsg.prefix
     allowed = [x[0] for x in protinfo_bridge.nla_map]
     allowed.append('attrs')
+    allowed.append('family')
 
     def finalize(self, context):
+        context['family'] = AF_BRIDGE
+        if self.command == 'dump':
+            return
         keys = tuple(context.keys())
-        context['attrs'] = []
+        attrs = []
         for key in keys:
-            context['attrs'].append(
-                (protinfo_bridge.name2nla(key), context[key])
-            )
+            attrs.append((protinfo_bridge.name2nla(key), context[key]))
+        context['attrs'] = [('IFLA_PROTINFO', {'attrs': attrs}, 0x8000)]

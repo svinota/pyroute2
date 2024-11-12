@@ -228,16 +228,27 @@ class Plan9ServerSocket(AsyncCoreSocket):
     async def setup_endpoint(self, loop=None):
         if self.endpoint is not None:
             return
-        self.endpoint = await self.event_loop.create_server(
-            lambda: Plan9ServerProtocol(
-                self.connection_lost, self.marshal, self.filesystem
-            ),
-            *self.status['address']
-        )
+        if self.status['use_socket']:
+            self.endpoint = await self.event_loop.create_connection(
+                lambda: Plan9ServerProtocol(
+                    self.connection_lost, self.marshal, self.filesystem
+                ),
+                sock=self.use_socket,
+            )
+        else:
+            self.endpoint = await self.event_loop.create_server(
+                lambda: Plan9ServerProtocol(
+                    self.connection_lost, self.marshal, self.filesystem
+                ),
+                *self.status['address']
+            )
 
     async def async_run(self):
         await self.setup_endpoint()
-        return asyncio.create_task(self.endpoint.serve_forever())
+        if self.status['use_socket']:
+            return self.endpoint[1].on_con_lost
+        else:
+            return asyncio.create_task(self.endpoint.serve_forever())
 
     def run(self):
         self.event_loop.create_task(self.async_run())

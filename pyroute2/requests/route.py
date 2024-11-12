@@ -98,6 +98,15 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
 
 
 class RouteIPRouteFilter(IPRouteFilter):
+
+    def get_table(self, context, mode):
+        table = context.get('table', 0)
+        if mode == 'field':
+            if context.parameters['strict_check']:
+                return 0
+            return table if 0 < table < 255 else 254
+        return table
+
     def set_metrics(self, context, value):
         if value and 'attrs' not in value:
             metrics = {'attrs': []}
@@ -110,11 +119,12 @@ class RouteIPRouteFilter(IPRouteFilter):
         return {}
 
     def set_multipath(self, context, value):
+        ret = {}
         if value:
-            ret = []
+            hops = []
             for v in value:
                 if 'attrs' in v:
-                    ret.append(v)
+                    hops.append(v)
                     continue
                 nh = {'attrs': []}
                 nh_fields = [x[0] for x in nh_header.fields]
@@ -147,9 +157,9 @@ class RouteIPRouteFilter(IPRouteFilter):
                     else:
                         rta = rtmsg.name2nla(name)
                         nh['attrs'].append([rta, v[name]])
-                ret.append(nh)
-            if ret:
-                ret = {'multipath': ret}
+                hops.append(nh)
+            if hops:
+                ret = {'multipath': hops}
                 if context.get('family') is None:
                     # autodetect and propagate family
                     hop = ret[0]
@@ -160,7 +170,7 @@ class RouteIPRouteFilter(IPRouteFilter):
                                 AF_INET6 if attr[1].find(':') >= 0 else AF_INET
                             )
                             break
-        return {}
+        return ret
 
     def set_encap(self, context, value):
         if (
@@ -259,7 +269,16 @@ class RouteIPRouteFilter(IPRouteFilter):
         # cleanup extra NLA for AF_MPLS
         if context.get('family') == AF_MPLS:
             for key in tuple(context.keys()):
-                if key not in ('dst', 'newdst', 'via', 'multipath', 'oif'):
+                if key not in (
+                    'family',
+                    'proto',
+                    'type',
+                    'dst',
+                    'newdst',
+                    'via',
+                    'multipath',
+                    'oif',
+                ):
                     context.pop(key)
         # cleanup empty strings
         for key in context:

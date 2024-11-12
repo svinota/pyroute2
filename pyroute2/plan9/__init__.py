@@ -415,7 +415,9 @@ class Marshal9P(Marshal):
                     cls = getattr(builtins, spec['class'])
                 else:
                     cls = Exception
-                raise cls(spec['argv'])
+                if not spec.get('argv'):
+                    spec['argv'] = [spec['str']]
+                raise cls(*spec['argv'])
             offset += length
             if msg is None:
                 continue

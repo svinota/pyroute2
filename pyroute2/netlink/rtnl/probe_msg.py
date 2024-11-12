@@ -5,6 +5,7 @@ import socket
 import ssl
 import subprocess
 
+from pyroute2 import netns
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.exceptions import NetlinkError
 
@@ -39,7 +40,7 @@ class probe_msg(nlmsg):
     )
 
 
-def probe_ping(msg, nl):
+def probe_ping(msg):
     num = msg.get('num')
     timeout = msg.get('timeout')
     dst = msg.get('dst')
@@ -68,7 +69,7 @@ def probe_ping(msg, nl):
         raise NetlinkError(errno.EHOSTUNREACH, 'probe failed')
 
 
-def probe_tcp(msg, nl, close=True):
+def probe_tcp(msg, close=True):
     timeout = msg.get('timeout')
     dst = msg.get('dst')
     port = msg.get('port')
@@ -87,11 +88,11 @@ def probe_tcp(msg, nl, close=True):
     return connection
 
 
-def probe_ssl(msg, nl):
+def probe_ssl(msg):
     hostname = msg.get('hostname') or msg.get('dst')
     context = ssl.create_default_context()
     context.verify_mode = msg.get('ssl_verify', ssl.CERT_REQUIRED)
-    with probe_tcp(msg, nl, close=False) as connection:
+    with probe_tcp(msg, close=False) as connection:
         try:
             with context.wrap_socket(
                 connection, server_hostname=hostname
@@ -118,18 +119,25 @@ def probe_ssl(msg, nl):
             raise NetlinkError(errno.ECOMM, 'probe failed')
 
 
-def proxy_newprobe(msg, nl):
+def proxy_newprobe(msg, nsname, channel):
     kind = msg.get('kind')
-
-    if kind.endswith('ping'):
-        probe_ping(msg, nl)
-    elif kind == 'tcp':
-        probe_tcp(msg, nl)
-    elif kind == 'ssl':
-        probe_ssl(msg, nl)
-    else:
-        raise NetlinkError(errno.ENOTSUP, 'probe type not supported')
-
-    msg.reset()
-    msg.encode()
-    return {'verdict': 'return', 'data': msg.data}
+    ret = None
+    try:
+        if nsname is not None:
+            netns.setns(nsname)
+        if kind.startswith('ping'):
+            probe_ping(msg)
+        elif kind == 'tcp':
+            probe_tcp(msg)
+        elif kind == 'ssl':
+            probe_ssl(msg)
+        else:
+            raise NetlinkError(errno.ENOTSUP, 'probe type not supported')
+        msg.reset()
+        msg.encode()
+        ret = msg.data
+    except Exception as e:
+        print(" E ", e)
+        ret = e
+    finally:
+        channel.put(ret)

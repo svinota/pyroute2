@@ -167,6 +167,13 @@ def fix_msg(msg, kwarg):
         msg['attrs'].append(['TCA_OPTIONS', opts])
 
 
+def fix_request(request):
+    if 'options' not in request:
+        request['options'] = get_parameters({})
+    if 'rate' in request:
+        del request['rate']
+
+
 # The tokens and ctokens are badly defined in the kernel structure
 # as unsigned int instead of signed int. (cf net/sched/sch_htb.c
 # in linux source)

@@ -47,26 +47,33 @@ class Plan9ClientSocket(AsyncCoreSocket):
     async def setup_endpoint(self, loop=None):
         if self.endpoint is not None:
             return
+        if self.status['use_socket']:
+            address = {'sock': self.use_socket}
+        else:
+            address = {
+                'host': self.status['address'][0],
+                'port': self.status['address'][1],
+            }
         self.endpoint = await self.event_loop.create_connection(
             lambda: CoreStreamProtocol(self.connection_lost, self.enqueue),
-            *self.status['address'],
+            **address,
         )
 
     async def start_session(self):
-        await self.setup_endpoint()
         await self.ensure_socket()
         await self.version()
         await self.auth()
         await self.attach()
 
     async def request(self, msg, tag=0):
+        await self.ensure_socket()
         if tag == 0:
             tag = self.addr_pool.alloc()
         try:
             msg['header']['tag'] = tag
             msg.reset()
             msg.encode()
-            self.msg_queue.ensure(tag)
+            self.msg_queue.ensure_tag(tag)
             self.endpoint[0].write(msg.data)
             return [x async for x in self.get(msg_seq=tag)][0]
         finally:
@@ -126,7 +133,7 @@ class Plan9ClientSocket(AsyncCoreSocket):
             'call': fname,
             'argv': argv if argv is not None else [],
             'kwarg': kwarg if kwarg is not None else {},
-            'name': data_arg,
+            'data_arg': data_arg,
         }
         m = msg_tcall()
         m['fid'] = fid

@@ -71,9 +71,12 @@ class CoreMessageQueue:
             tag = 0
         return await self.queues[tag].put(message)
 
-    def ensure(self, tag):
+    def ensure_tag(self, tag):
         if tag not in self.queues:
             self.queues[tag] = asyncio.Queue()
+
+    def free_tag(self, tag):
+        del self.queues[tag]
 
     def put_nowait(self, tag, message):
         if tag not in self.queues:
@@ -147,7 +150,7 @@ class AsyncCoreSocket:
         self,
         target='localhost',
         rcvsize=16384,
-        use_socket=None,
+        use_socket=False,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
@@ -157,7 +160,7 @@ class AsyncCoreSocket:
         self.spec = CoreSocketSpec(
             {
                 'target': target,
-                'use_socket': use_socket is not None,
+                'use_socket': use_socket,
                 'rcvsize': rcvsize,
                 'netns': netns,
                 'flags': flags,
@@ -165,6 +168,7 @@ class AsyncCoreSocket:
             }
         )
         self.status = self.spec.status
+        self.request_proxy = None
         self.local = threading.local()
         if libc is not None:
             self.libc = libc
@@ -345,7 +349,7 @@ class AsyncCoreSocket:
             msg_queue.put_nowait(0, b'')
 
         for (
-            socket,
+            sock,
             msg_queue,
             event_loop,
             transport,
@@ -353,7 +357,9 @@ class AsyncCoreSocket:
         ) in self.__all_open_resources:
             event_loop.call_soon_threadsafe(send_terminator, msg_queue)
             transport.close()
-            socket.close()
+            if sock is not None:
+                sock.close()
+        self.__all_open_resources = tuple()
 
     def clone(self):
         '''Return a copy of itself with a new underlying socket.'''
@@ -610,7 +616,6 @@ class SyncAPI:
         callback=None,
         parser=None,
     ):
-        print("asyncore", self.asyncore)
 
         async def collect_data():
             return [
@@ -641,7 +646,7 @@ class CoreSocket(SyncAPI):
         self,
         target='localhost',
         rcvsize=16384,
-        use_socket=None,
+        use_socket=False,
         netns=None,
         flags=os.O_CREAT,
         libc=None,

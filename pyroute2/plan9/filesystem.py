@@ -46,11 +46,11 @@ def _publish_function_c(
         spec['argv'] = []
     if 'kwarg' not in spec:
         spec['kwarg'] = {}
-    if 'name' not in spec:
-        spec['name'] = 'data'
+    if 'data_arg' not in spec:
+        spec['data_arg'] = 'data'
     data = request['data']
     if data:
-        spec['kwarg'][spec['name']] = data
+        spec['kwarg'][spec['data_arg']] = data
     ret = func(*spec['argv'], **spec['kwarg'])
 
     response['err'] = 0

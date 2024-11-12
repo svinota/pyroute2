@@ -91,7 +91,7 @@ import struct
 from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET, socketpair
 
 from pyroute2 import config
-from pyroute2.common import AddrPool, basestring
+from pyroute2.common import AddrPool, basestring, msg_done
 from pyroute2.config import AF_NETLINK
 from pyroute2.netlink import (
     NETLINK_ADD_MEMBERSHIP,
@@ -159,7 +159,7 @@ class NetlinkSocketSpecFilter:
 
     def set_netns(self, context, value):
         if 'target' in context:
-            return {'netns': 'value'}
+            return {'netns': value}
         return {'target': value, 'netns': value}
 
     def set_pid(self, context, value):
@@ -176,7 +176,13 @@ class NetlinkSocketSpecFilter:
 
 
 class NetlinkSocketSpec(CoreSocketSpec):
-    defaults = {'pid': 0, 'epid': 0, 'port': 0, 'uname': config.uname}
+    defaults = {
+        'pid': 0,
+        'epid': 0,
+        'port': 0,
+        'uname': config.uname,
+        'use_socket': False,
+    }
     status_filters = [NetlinkSocketSpecFilter]
 
 
@@ -202,7 +208,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
+        use_socket=False,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
@@ -225,7 +231,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                 'strict_check': strict_check,
                 'groups': groups,
                 'nlm_echo': nlm_echo,
-                'use_socket': use_socket is not None,
+                'use_socket': use_socket,
                 'tag_field': 'sequence_number',
                 'netns': netns,
                 'flags': flags,
@@ -240,6 +246,8 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         }
         super().__init__(libc=libc)
         self.marshal = Marshal()
+        self.request_proxy = None
+        self.batch = None
 
     async def setup_endpoint(self, loop=None):
         # Setup asyncio
@@ -308,7 +316,6 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                     self.socket.bind((self.port, self.status['groups']))
                     break
                 except Exception as e:
-                    print("E", e)
                     # create a new underlying socket -- on kernel 4
                     # one failed bind() makes the socket useless
                     log.error(e)
@@ -346,6 +353,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             'dump': NLM_F_REQUEST | NLM_F_DUMP,
             'get': NLM_F_REQUEST | NLM_F_ACK,
             'req': NLM_F_REQUEST | NLM_F_ACK,
+            'put': NLM_F_REQUEST | NLM_F_CREATE,
         }
         flags['create'] = flags['req'] | NLM_F_CREATE | NLM_F_EXCL
         flags['append'] = flags['req'] | NLM_F_CREATE | NLM_F_APPEND
@@ -430,6 +438,9 @@ class NetlinkRequest:
                 nla = type(msg).name2nla(key)
                 if msg.valid_nla(nla) and value is not None:
                     msg['attrs'].append([nla, value])
+            # extend with custom NLAs
+            if 'attrs' in request_filter:
+                msg['attrs'].extend(request_filter['attrs'])
         self.msg = msg
         self.dump_filter = dump_filter
         self.terminate = terminate
@@ -475,26 +486,47 @@ class NetlinkRequest:
                     matches.append(self.dump_filter[key] == value)
             return all(matches)
 
+    def cleanup(self):
+        self.addr_pool.free(self.msg_seq, ban=0xFF)
+        self.sock.msg_queue.free_tag(self.msg_seq)
+        if self.msg_seq in self.marshal.seq_map:
+            self.marshal.seq_map.pop(self.msg_seq)
+
+    async def proxy(self):
+        if self.sock.batch is not None:
+            self.sock.batch += self.msg.data
+            await self.sock.msg_queue.put(self.msg_seq, msg_done(self.msg))
+            return True
+        if self.sock.request_proxy is None:
+            return False
+        ret = self.sock.request_proxy.handle(self.msg)
+        if ret == b'':
+            return False
+        await self.sock.msg_queue.put(self.msg_seq, ret)
+        return True
+
     async def send(self):
         await self.sock.ensure_socket()
         self.msg.encode()
-        self.sock.msg_queue.ensure(self.msg_seq)
+        self.sock.msg_queue.ensure_tag(self.msg_seq)
+        if await self.proxy():
+            return len(self.msg.data)
         count = 0
-        e = None
+        exc = RuntimeError('Max attempts sending message')
         for count in range(30):
             try:
                 return self.sock.send(self.msg.data)
             except NetlinkError as e:
                 if e.code != errno.EBUSY:
+                    exc = e
                     break
                 log.warning(f'Error 16, retry {count}')
                 await asyncio.sleep(0.3)
-            except Exception:
+            except Exception as e:
+                exc = e
                 break
-        self.addr_pool.free(self.msg_seq, ban=0xFF)
-        if self.msg_seq in self.marshal.seq_map:
-            self.marshal.seq_map.pop(self.msg_seq)
-        raise e
+        self.cleanup()
+        raise exc
 
     async def response(self):
         async for msg in self.sock.get(
@@ -506,8 +538,14 @@ class NetlinkRequest:
                 msg
             ):
                 continue
+            for cr in self.sock.callbacks:
+                try:
+                    if cr[0](msg):
+                        cr[1](msg, *cr[2])
+                except Exception:
+                    log.warning("Callback fail: %{cr}")
             yield msg
-        self.addr_pool.free(self.msg_seq, ban=0xFF)
+        self.cleanup()
 
 
 IPCSocketPair = collections.namedtuple('IPCSocketPair', ('server', 'client'))
@@ -531,7 +569,7 @@ class NetlinkSocket(SyncAPI):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
+        use_socket=False,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
@@ -600,67 +638,6 @@ class IPCSocket(NetlinkSocket):
         self.socket.client.close()
         self.socket.server.close()
         self.p9server.wait()
-
-
-class BatchAddrPool:
-    def alloc(self, *argv, **kwarg):
-        return 0
-
-    def free(self, *argv, **kwarg):
-        pass
-
-
-class BatchBacklogQueue(list):
-    def append(self, *argv, **kwarg):
-        pass
-
-    def pop(self, *argv, **kwarg):
-        pass
-
-
-class BatchBacklog(dict):
-    def __getitem__(self, key):
-        return BatchBacklogQueue()
-
-    def __setitem__(self, key, value):
-        pass
-
-    def __delitem__(self, key):
-        pass
-
-
-class BatchSocket(NetlinkSocket):
-    def post_init(self):
-        self.backlog = BatchBacklog()
-        self.addr_pool = BatchAddrPool()
-        self._sock = None
-        self.reset()
-
-    def reset(self):
-        self.batch = bytearray()
-
-    def nlm_request(
-        self,
-        msg,
-        msg_type,
-        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-        terminate=None,
-        callback=None,
-    ):
-        msg_seq = self.addr_pool.alloc()
-        msg_pid = self.epid or os.getpid()
-
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
-        msg['header']['sequence_number'] = msg_seq
-        msg['header']['pid'] = msg_pid
-        msg.data = self.batch
-        msg.offset = len(self.batch)
-        msg.encode()
-        return []
-
-    def get(self, *argv, **kwarg):
-        pass
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):

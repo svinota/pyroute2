@@ -27,32 +27,27 @@ class TcRequestFilter:
 
 class TcIPRouteFilter(IPRouteFilter):
 
-    def set_kind(self, context, value):
-        if value is None:
-            return {}
-        return ('patch', {'attrs': [['TCA_KIND', value]]})
-
-    def set_opts(self, context, value):
-        if value is None:
-            return {}
-        return ('patch', {'attrs': [['TCA_OPTIONS', value]]})
-
     def finalize(self, context):
+
+        if self.command.startswith('dump'):
+            context.pop('kind', None)
+            return
+
         if 'index' not in context:
             context['index'] = 0
         if 'handle' not in context:
             context['handle'] = 0
 
         # get & run the plugin
-        if context['kind'] in tc_plugins:
+        if 'kind' in context and context['kind'] in tc_plugins:
             plugin = tc_plugins[context['kind']]
             context['parent'] = context.get(
                 'parent', getattr(plugin, 'parent', 0)
             )
-            if hasattr(plugin, 'fix_msg'):
-                plugin.fix_msg(context, context)
             if set(context.keys()) > set(('kind', 'index', 'handle')):
                 if self.command[-5:] == 'class':
-                    context['opts'] = plugin.get_class_parameters(context)
+                    context['options'] = plugin.get_class_parameters(context)
                 else:
-                    context['opts'] = plugin.get_parameters(context)
+                    context['options'] = plugin.get_parameters(context)
+            if hasattr(plugin, 'fix_request'):
+                plugin.fix_request(context)

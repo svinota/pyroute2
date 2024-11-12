@@ -1349,6 +1349,10 @@ class nlmsg_base(dict):
             return self.chain[key]
         if key == 'value' and key not in self:
             return NotInitialized
+        if key not in self:
+            fields = dict(self.fields)
+            if key in fields:
+                return 0
         return dict.__getitem__(self, key)
 
     def __delitem__(self, key):
@@ -1755,7 +1759,7 @@ class nlmsg_encoder_generic(object):
             zs = 0
         for name, fmt in self.fields:
             default = self.defaults.get(name, 0)
-            value = self[name] if name in self else default
+            value = self[name] if self.get(name) is not None else default
 
             if isinstance(fmt, str):
                 offset = self.encode_field(fmt, self.data, offset, value, zs)
