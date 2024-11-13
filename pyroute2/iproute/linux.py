@@ -2529,6 +2529,12 @@ class IPBatch(IPRoute):
         self.asyncore.batch = bytearray()
 
 
+class RawIPRoute(IPRoute):
+    def __init__(self):
+        super().__init__()
+        self.asyncore.request_proxy = None
+
+
 class NetNS(IPRoute):
 
     def __init__(

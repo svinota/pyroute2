@@ -5,7 +5,6 @@ from pyroute2 import config
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
 from pyroute2.netlink.nlsocket import (
     AsyncNetlinkSocket,
-    BatchSocket,
     ChaoticNetlinkSocket,
 )
 from pyroute2.netlink.proxy import NetlinkProxy
@@ -131,10 +130,6 @@ class IPRSocket(AsyncNetlinkSocket):
         return await super().bind(
             groups if groups is not None else self.status['groups'], **kwarg
         )
-
-
-class IPBatchSocket(IPRSocket, BatchSocket):
-    pass
 
 
 class ChaoticIPRSocket(IPRSocket, ChaoticNetlinkSocket):

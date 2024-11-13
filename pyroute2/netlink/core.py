@@ -405,13 +405,6 @@ class AsyncCoreSocket:
         while not enough:
             log.debug('await data on %s', self.msg_queue)
             data = await self.msg_queue.get(msg_seq)
-            # try:
-            #    task = asyncio.wait_for(
-            #        self.msg_queue.get(msg_seq), timeout=None
-            #    )
-            #    data = await task
-            # except TimeoutError:
-            #    continue
             messages = tuple(self.marshal.parse(data, msg_seq, callback))
             if len(messages) == 0:
                 break
