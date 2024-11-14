@@ -3,10 +3,7 @@ import sys
 
 from pyroute2 import config
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
-from pyroute2.netlink.nlsocket import (
-    AsyncNetlinkSocket,
-    ChaoticNetlinkSocket,
-)
+from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, ChaoticNetlinkSocket
 from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 

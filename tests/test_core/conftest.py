@@ -1,10 +1,7 @@
 import errno
-import sys
 
 import pytest
 import pytest_asyncio
-
-print(sys.path)
 from pr2test.plan9 import AsyncPlan9Context
 
 from pyroute2 import AsyncIPRoute, IPRoute, NetlinkError
