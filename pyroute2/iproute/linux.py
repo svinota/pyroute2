@@ -2367,7 +2367,11 @@ class AsyncIPRoute(IPRSocket, RTNL_API):
     IPRSocket as the transport level.
     '''
 
-    pass
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return await self.close()
 
 
 class IPRoute(SyncAPI):
