@@ -30,7 +30,7 @@ def _publish_function_r(
             ret = e
         inode.data.seek(0)
         inode.data.truncate()
-        inode.data.write(str(ret).encode('utf-8'))
+        inode.data.write(dumper(ret))
 
     inode.data.seek(request['offset'])
     response['data'] = dumper(inode.data.read(request['count']))
