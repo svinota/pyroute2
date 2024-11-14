@@ -1,5 +1,12 @@
 import pytest
-from pr2test.tools import class_exists, interface_exists, qdisc_exists
+from pr2test.tools import (
+    class_exists,
+    filter_exists,
+    interface_exists,
+    qdisc_exists,
+)
+
+from pyroute2 import protocols
 
 
 async def util_link_add(async_ipr):
@@ -36,7 +43,7 @@ async def test_tc_htb(async_ipr):
         rate='256kbit',
         burst=1024 * 6,
     )
-    assert class_exists(ifname=ifname, handle='1:1', root=True)
+    assert class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
 
     await async_ipr.tc(
         'add-class',
@@ -48,7 +55,7 @@ async def test_tc_htb(async_ipr):
         burst=1024 * 6,
         prio=1,
     )
-    assert class_exists(ifname=ifname, handle='1:10', parent='1:1')
+    assert class_exists(ifname=ifname, kind='htb', handle='1:10', parent='1:1')
 
     await async_ipr.tc(
         'add-class',
@@ -60,9 +67,8 @@ async def test_tc_htb(async_ipr):
         burst=1024 * 6,
         prio=2,
     )
-    assert class_exists(ifname=ifname, handle='1:20', parent='1:1')
+    assert class_exists(ifname=ifname, kind='htb', handle='1:20', parent='1:1')
 
-    raise Exception
     await async_ipr.tc(
         'add-filter',
         'u32',
@@ -74,6 +80,15 @@ async def test_tc_htb(async_ipr):
         target='1:10',
         keys=['0x0006/0x00ff+8', '0x0000/0xffc0+2'],
     )
+    assert filter_exists(
+        ifname=ifname,
+        kind='u32',
+        parent='1:',
+        protocol='ip',
+        match_value="6000000",
+        match_mask="ff000000",
+    )
+
     await async_ipr.tc(
         'add-filter',
         'u32',
@@ -84,4 +99,12 @@ async def test_tc_htb(async_ipr):
         protocol=protocols.ETH_P_IP,
         target=0x10020,
         keys=['0x5/0xf+0', '0x10/0xff+33'],
+    )
+    assert filter_exists(
+        ifname=ifname,
+        kind='u32',
+        parent='1:',
+        protocol='ip',
+        match_value='10000000',
+        match_mask='ff000000',
     )

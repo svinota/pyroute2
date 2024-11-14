@@ -67,6 +67,64 @@ def interface_exists(ifname, netns=None, timeout=1, retry=0.2):
     )
 
 
+def class_exists(
+    ifname,
+    handle,
+    kind,
+    parent=None,
+    root=None,
+    netns=None,
+    timeout=1,
+    retry=0.2,
+):
+    filters = [
+        ip_object_filter(query='.class', value=kind),
+        ip_object_filter(query='.handle', value=handle),
+    ]
+    if root is not None:
+        filters.append(ip_object_filter(query='.root', value=root))
+    if parent is not None:
+        filters.append(ip_object_filter(query='.parent', value=parent))
+    return wait_for_ip_object(
+        ['tc', '-json', 'class', 'show', 'dev', ifname],
+        filters,
+        timeout,
+        retry,
+    )
+
+
+def filter_exists(
+    ifname,
+    kind,
+    parent=None,
+    protocol=None,
+    match_value=None,
+    match_mask=None,
+    netns=None,
+    timeout=1,
+    retry=0.2,
+):
+    filters = [ip_object_filter(query='.kind', value=kind)]
+    if parent is not None:
+        filters.append(ip_object_filter(query='.parent', value=parent))
+    if protocol is not None:
+        filters.append(ip_object_filter(query='.protocol', value=protocol))
+    if match_value is not None:
+        filters.append(
+            ip_object_filter(query='.options.match.value', value=match_value)
+        )
+    if match_mask is not None:
+        filters.append(
+            ip_object_filter(query='.options.match.mask', value=match_mask)
+        )
+    return wait_for_ip_object(
+        ['tc', '-json', 'filter', 'show', 'dev', ifname],
+        filters,
+        timeout,
+        retry,
+    )
+
+
 def qdisc_exists(
     ifname, handle, default=None, netns=None, timeout=1, retry=0.2
 ):
