@@ -406,6 +406,7 @@ class NetlinkRequest:
         request_filter=None,
         terminate=None,
         callback=None,
+        parser=None,
         msg_type=0,
         msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
     ):
@@ -414,6 +415,7 @@ class NetlinkRequest:
         self.status = sock.status
         self.port = sock.port
         self.marshal = sock.marshal
+        self.parser = parser
         # if not isinstance(msg, nlmsg):
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
@@ -509,6 +511,8 @@ class NetlinkRequest:
         await self.sock.ensure_socket()
         self.msg.encode()
         self.sock.msg_queue.ensure_tag(self.msg_seq)
+        if self.parser is not None:
+            self.marshal.seq_map[self.msg_seq] = self.parser
         if await self.proxy():
             return len(self.msg.data)
         count = 0

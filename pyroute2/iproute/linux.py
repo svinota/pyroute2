@@ -814,24 +814,22 @@ class RTNL_API:
     #
     # Shortcuts
     #
-    def get_default_routes(self, family=AF_UNSPEC, table=DEFAULT_TABLE):
+    async def get_default_routes(self, family=AF_UNSPEC, table=DEFAULT_TABLE):
         '''
         Get default routes
         '''
         msg = rtmsg()
         msg['family'] = family
-
-        routes = self.nlm_request(
+        dump_filter, _ = get_dump_filter('route', 'dump', {'table': table} if table is not None else {})
+        request = NetlinkRequest(
+            self,
             msg,
             msg_type=RTM_GETROUTE,
             msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
             parser=default_routes,
         )
-
-        if table is None:
-            return routes
-        else:
-            return self.filter_messages({'table': table}, routes)
+        await request.send()
+        return request.response()
 
     async def link_lookup(self, match=None, **kwarg):
         '''
@@ -2470,6 +2468,7 @@ class IPRoute(SyncAPI):
             'get_rules',
             'get_netns_info',
             'get_vlans',
+            'get_default_routes',
         ]
         symbol = getattr(self.asyncore, name)
 
