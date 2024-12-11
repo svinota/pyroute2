@@ -4,9 +4,9 @@ import os
 import time
 import warnings
 from functools import partial
-from socket import AF_INET, AF_UNSPEC
+from socket import AF_INET, AF_INET6, AF_UNSPEC
 
-from pyroute2.common import basestring
+from pyroute2.common import AF_MPLS, basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_ERROR
 from pyroute2.netlink.core import SyncAPI
@@ -53,7 +53,13 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_DEFAULTS,
     RTMGRP_IPV4_IFADDR,
     RTMGRP_IPV4_ROUTE,
+    RTMGRP_IPV4_RULE,
+    RTMGRP_IPV6_IFADDR,
+    RTMGRP_IPV6_ROUTE,
+    RTMGRP_IPV6_RULE,
     RTMGRP_LINK,
+    RTMGRP_MPLS_ROUTE,
+    RTMGRP_NEIGH,
     ndmsg,
 )
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
@@ -115,18 +121,19 @@ def get_dump_filter(mode, command, query):
     if command != 'dump':
         return RequestProcessor(), query
     if 'match' in query:
-        return query.pop('match'), query
-    else:
-        new_query = {}
-        if 'family' in query:
-            new_query['family'] = query.pop('family')
-        dump_filter = RequestProcessor(context=query, prime=query)
-        for rf in query.pop(
-            'dump_filter', get_default_request_filters(mode, command)
-        ):
-            dump_filter.add_filter(rf)
-        dump_filter.finalize()
-        return dump_filter, new_query
+        query = query['match']
+    if callable(query):
+        return query, {}
+    new_query = {}
+    if 'family' in query:
+        new_query['family'] = query.pop('family')
+    dump_filter = RequestProcessor(context=query, prime=query)
+    for rf in query.pop(
+        'dump_filter', get_default_request_filters(mode, command)
+    ):
+        dump_filter.add_filter(rf)
+    dump_filter.finalize()
+    return dump_filter, new_query
 
 
 def get_arguments_processor(mode, command, query, parameters=None):
@@ -188,26 +195,6 @@ class RTNL_API:
         # bring it up
         ipr.link('set', index=dev, state='up')
     '''
-
-    def match_one_message(self, dump_filter, msg):
-        if hasattr(dump_filter, '__call__'):
-            return dump_filter(msg)
-        elif isinstance(dump_filter, dict):
-            matches = []
-            for key in dump_filter:
-                # get the attribute
-                if isinstance(key, str):
-                    nkey = (key,)
-                elif isinstance(key, tuple):
-                    nkey = key
-                else:
-                    continue
-                value = msg.get_nested(*nkey)
-                if value is not None and callable(dump_filter[key]):
-                    matches.append(dump_filter[key](value))
-                else:
-                    matches.append(dump_filter[key] == value)
-            return all(matches)
 
     def filter_messages(self, dump_filter, msgs):
         '''
@@ -288,36 +275,31 @@ class RTNL_API:
         # and the code may be run on BSD systems as well, though
         # BSD systems have only subset of the API
         #
-        # if self.uname[0] == 'OpenBSD':
-        #    groups_map = {
-        #        1: [
-        #            self.get_links,
-        #            self.get_addr,
-        #            self.get_neighbours,
-        #            self.get_routes,
-        #        ]
-        #    }
-        # else:
-        #    groups_map = {
-        #        RTMGRP_LINK: [
-        #            self.get_links,
-        #            self.get_vlans,
-        #            partial(self.fdb, 'dump'),
-        #        ],
-        #        RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
-        #        RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
-        #        RTMGRP_NEIGH: [self.get_neighbours],
-        #        RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
-        #       RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
-        #        RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
-        #        RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
-        #        RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
-        #    }
-        groups_map = {
-            RTMGRP_LINK: [partial(self.link, 'dump')],
-            RTMGRP_IPV4_IFADDR: [partial(self.addr, 'dump', family=AF_INET)],
-            RTMGRP_IPV4_ROUTE: [partial(self.route, 'dump', family=AF_INET)],
-        }
+        if self.uname[0] == 'OpenBSD':
+            groups_map = {
+                1: [
+                    self.get_links,
+                    self.get_addr,
+                    self.get_neighbours,
+                    self.get_routes,
+                ]
+            }
+        else:
+            groups_map = {
+                RTMGRP_LINK: [
+                    self.get_links,
+                    self.get_vlans,
+                    partial(self.fdb, 'dump'),
+                ],
+                RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
+                RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
+                RTMGRP_NEIGH: [self.get_neighbours],
+                RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
+                RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
+                RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
+                RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
+                RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
+            }
         for group, methods in groups_map.items():
             if group & (groups if groups is not None else self.groups):
                 for method in methods:
@@ -430,7 +412,7 @@ class RTNL_API:
         '''
         return await self.tc('dump')
 
-    def get_filters(self, index=0, handle=0, parent=0):
+    async def get_filters(self, index=0, handle=0, parent=0):
         '''
         Get filters for specified interface, handle and parent.
         '''
@@ -439,16 +421,20 @@ class RTNL_API:
         msg['index'] = index
         msg['handle'] = transform_handle(handle)
         msg['parent'] = transform_handle(parent)
-        return tuple(self.nlm_request(msg, RTM_GETTFILTER))
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETTFILTER)
+        await request.send()
+        return request.response()
 
-    def get_classes(self, index=0):
+    async def get_classes(self, index=0):
         '''
         Get classes for specified interface.
         '''
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
         msg['index'] = index
-        return tuple(self.nlm_request(msg, RTM_GETTCLASS))
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETTCLASS)
+        await request.send()
+        return request.response()
 
     async def get_vlans(self, **kwarg):
         '''
@@ -820,7 +806,9 @@ class RTNL_API:
         '''
         msg = rtmsg()
         msg['family'] = family
-        dump_filter, _ = get_dump_filter('route', 'dump', {'table': table} if table is not None else {})
+        dump_filter, _ = get_dump_filter(
+            'route', 'dump', {'table': table} if table is not None else {}
+        )
         request = NetlinkRequest(
             self,
             msg,
@@ -2461,6 +2449,8 @@ class IPRoute(SyncAPI):
         ]
         async_dump_methods = [
             'get_qdiscs',
+            'get_filters',
+            'get_classes',
             'get_links',
             'get_addr',
             'get_neighbours',
@@ -2479,7 +2469,11 @@ class IPRoute(SyncAPI):
             async def collect_op():
                 return await symbol(*argv, **kwarg)
 
-            if len(argv) > 0 and argv[0].startswith('dump'):
+            if (
+                len(argv) > 0
+                and isinstance(argv[0], str)
+                and argv[0].startswith('dump')
+            ):
                 task = collect_dump
             else:
                 task = collect_op

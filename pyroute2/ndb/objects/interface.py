@@ -879,7 +879,7 @@ class Interface(RTNL_Object):
             super(Interface, self).__setitem__(key, value)
 
     @classmethod
-    def spec_normalize(cls, processed, spec):
+    def spec_normalize(cls, spec):
         '''
         Interface key normalization::
 
@@ -889,10 +889,10 @@ class Interface(RTNL_Object):
 
         '''
         if isinstance(spec, basestring):
-            processed['ifname'] = spec
+            return {'ifname': spec}
         elif isinstance(spec, int):
-            processed['index'] = spec
-        return processed
+            return {'index': spec}
+        return spec
 
     def complete_key(self, key):
         if isinstance(key, dict):

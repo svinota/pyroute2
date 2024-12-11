@@ -17,6 +17,7 @@ class RequestProcessor(dict):
         self.reset_filters()
         self.reset_mark()
         self.parameters = {}
+        prime = {} if prime is None else prime
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
         )

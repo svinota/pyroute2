@@ -45,9 +45,14 @@ class TcIPRouteFilter(IPRouteFilter):
                 'parent', getattr(plugin, 'parent', 0)
             )
             if set(context.keys()) > set(('kind', 'index', 'handle')):
+                get_parameters = None
                 if self.command[-5:] == 'class':
-                    context['options'] = plugin.get_class_parameters(context)
+                    get_parameters = getattr(
+                        plugin, 'get_class_parameters', None
+                    )
                 else:
-                    context['options'] = plugin.get_parameters(context)
+                    get_parameters = getattr(plugin, 'get_parameters', None)
+                if get_parameters is not None:
+                    context['options'] = get_parameters(dict(context))
             if hasattr(plugin, 'fix_request'):
                 plugin.fix_request(context)

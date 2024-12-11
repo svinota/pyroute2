@@ -590,7 +590,14 @@ class SyncAPI:
         self.close()
 
     def __getattr__(self, key):
-        if key in ('pid', 'send', 'recv', 'sendto'):
+        if key in (
+            'pid',
+            'send',
+            'recv',
+            'sendto',
+            'register_policy',
+            'unregister_policy',
+        ):
             return getattr(self.asyncore, key)
         raise AttributeError(key)
 

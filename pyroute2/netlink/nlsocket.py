@@ -475,13 +475,9 @@ class NetlinkRequest:
             matches = []
             for key in self.dump_filter:
                 # get the attribute
-                if isinstance(key, str):
-                    nkey = (key,)
-                elif isinstance(key, tuple):
-                    nkey = key
-                else:
+                if not isinstance(key, (str, tuple)):
                     continue
-                value = msg.get(*nkey)
+                value = msg.get(key)
                 if value is not None and callable(self.dump_filter[key]):
                     matches.append(self.dump_filter[key](value))
                 else:
