@@ -120,13 +120,15 @@ def get_dump_filter(mode, command, query):
         return query.pop('dump_filter'), query
     if command != 'dump':
         return RequestProcessor(), query
+    new_query = {}
+    if 'family' in query:
+        new_query['family'] = query.pop('family')
+    if 'ext_mask' in query:
+        new_query['ext_mask'] = query.pop('ext_mask')
     if 'match' in query:
         query = query['match']
     if callable(query):
         return query, {}
-    new_query = {}
-    if 'family' in query:
-        new_query['family'] = query.pop('family')
     dump_filter = RequestProcessor(context=query, prime=query)
     for rf in query.pop(
         'dump_filter', get_default_request_filters(mode, command)
