@@ -302,11 +302,13 @@ class RTNL_API:
                 RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
                 RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
             }
-        for group, methods in groups_map.items():
-            if group & (groups if groups is not None else self.groups):
-                for method in methods:
-                    async for msg in await method():
-                        yield msg
+        async def ret():
+            for group, methods in groups_map.items():
+                if group & (groups if groups is not None else self.groups):
+                    for method in methods:
+                        async for msg in await method():
+                            yield msg
+        return ret()
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
         '''
@@ -694,7 +696,7 @@ class RTNL_API:
             except SkipInode:
                 pass
 
-    def get_netnsid(self, nsid=None, pid=None, fd=None, target_nsid=None):
+    async def get_netnsid(self, nsid=None, pid=None, fd=None, target_nsid=None):
         '''Return a dict containing the result of a RTM_GETNSID query.
         This loosely corresponds to the "ip netns list-id" command.
         '''
@@ -712,8 +714,9 @@ class RTNL_API:
         if target_nsid is not None:
             msg['attrs'].append(('NETNSA_TARGET_NSID', target_nsid))
 
-        response = self.nlm_request(msg, RTM_GETNSID, NLM_F_REQUEST)
-        for r in response:
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETNSID, msg_flags=NLM_F_REQUEST)
+        await request.send()
+        async for r in request.response():
             return {
                 'nsid': r.get_attr('NETNSA_NSID'),
                 'current_nsid': r.get_attr('NETNSA_CURRENT_NSID'),
@@ -2420,18 +2423,6 @@ class IPRoute(SyncAPI):
         ret.asyncore = iproute
         return ret
 
-    def dump(self, groups=None):
-        groups_map = {
-            RTMGRP_LINK: [partial(self.link, 'dump')],
-            RTMGRP_IPV4_IFADDR: [partial(self.addr, 'dump', family=AF_INET)],
-            RTMGRP_IPV4_ROUTE: [partial(self.route, 'dump', family=AF_INET)],
-        }
-        for group, methods in groups_map.items():
-            if group & (groups if groups is not None else self.groups):
-                for method in methods:
-                    for msg in method():
-                        yield msg
-
     def __getattr__(self, name):
         async_generic_methods = [
             'addr',
@@ -2448,8 +2439,10 @@ class IPRoute(SyncAPI):
             'flush_addr',
             'flush_rules',
             'flush_routes',
+            'get_netnsid',
         ]
         async_dump_methods = [
+            'dump',
             'get_qdiscs',
             'get_filters',
             'get_classes',

@@ -279,7 +279,7 @@ class RouteIPRouteFilter(IPRouteFilter):
                     'multipath',
                     'oif',
                 ):
-                    context.pop(key)
+                    context.pop(key, None)
         # cleanup empty strings
         for key in context:
             if context[key] in ('', None):

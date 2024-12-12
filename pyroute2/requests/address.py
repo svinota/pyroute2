@@ -11,7 +11,7 @@ class AddressFieldFilter(Index, NLAKeyTransform):
 
     def get_flags(self, context, mode):
         if mode == 'field':
-            return None
+            return 0
         return context['flags']
 
     def set_prefixlen(self, context, value):
