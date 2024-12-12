@@ -77,10 +77,12 @@ def options(module, config):
         'pytest',
         '--basetemp',
         './log',
-        '--exitfirst',
-        '--verbose',
         '--junitxml=junit.xml',
     ]
+    if config.get('exitfirst', True):
+        ret.append('--exitfirst')
+    if config.get('verbose', True):
+        ret.append('--verbose')
     if config.get('fail_on_warnings'):
         ret.insert(1, 'error')
         ret.insert(1, '-W')
