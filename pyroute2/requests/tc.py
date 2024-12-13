@@ -1,3 +1,4 @@
+from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
 
 from .common import IPRouteFilter
@@ -39,20 +40,25 @@ class TcIPRouteFilter(IPRouteFilter):
             context['handle'] = 0
 
         # get & run the plugin
-        if 'kind' in context and context['kind'] in tc_plugins:
-            plugin = tc_plugins[context['kind']]
-            context['parent'] = context.get(
-                'parent', getattr(plugin, 'parent', 0)
-            )
-            if set(context.keys()) > set(('kind', 'index', 'handle')):
-                get_parameters = None
-                if self.command[-5:] == 'class':
-                    get_parameters = getattr(
-                        plugin, 'get_class_parameters', None
-                    )
-                else:
-                    get_parameters = getattr(plugin, 'get_parameters', None)
-                if get_parameters is not None:
-                    context['options'] = get_parameters(dict(context))
-            if hasattr(plugin, 'fix_request'):
-                plugin.fix_request(context)
+        if 'kind' in context:
+            if context['kind'] in tc_plugins:
+                plugin = tc_plugins[context['kind']]
+                context['parent'] = context.get(
+                    'parent', getattr(plugin, 'parent', 0)
+                )
+                if set(context.keys()) > set(('kind', 'index', 'handle')):
+                    get_parameters = None
+                    if self.command[-5:] == 'class':
+                        get_parameters = getattr(
+                            plugin, 'get_class_parameters', None
+                        )
+                    else:
+                        get_parameters = getattr(
+                            plugin, 'get_parameters', None
+                        )
+                    if get_parameters is not None:
+                        context['options'] = get_parameters(dict(context))
+                if hasattr(plugin, 'fix_request'):
+                    plugin.fix_request(context)
+            else:
+                context['parent'] = TC_H_ROOT
