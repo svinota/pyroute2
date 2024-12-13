@@ -429,20 +429,22 @@ class NetlinkRequest:
         parser=None,
         msg_type=0,
         msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        msg_seq=None,
+        msg_pid=None,
     ):
         self.sock = sock
         self.addr_pool = sock.addr_pool
         self.status = sock.status
-        self.port = sock.port
+        self.port = sock.port if msg_pid is None else msg_pid
         self.marshal = sock.marshal
         self.parser = parser
         # if not isinstance(msg, nlmsg):
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
-        self.msg_seq = self.addr_pool.alloc()
+        self.msg_seq = self.addr_pool.alloc() if msg_seq is None else msg_seq
         if command_map is not None:
             msg_type, msg_flags = self.calculate_request_type(
-                command, command_map
+                command, command_map, self.status['nlm_echo']
             )
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
@@ -469,23 +471,23 @@ class NetlinkRequest:
         self.callback = callback
         self.command = command
 
-    def calculate_request_type(self, command, command_map):
+    @classmethod
+    def calculate_request_type(cls, command, command_map, echo=False):
         if isinstance(command, basestring):
-            return (lambda x: (x[0], self.calculate_request_flags(x[1])))(
+            return (lambda x: (x[0], cls.calculate_request_flags(x[1], echo)))(
                 command_map[command]
             )
         elif isinstance(command, int):
-            return command, self.calculate_request_flags('create')
+            return command, cls.calculate_request_flags('create', echo)
         elif isinstance(command, (list, tuple)):
             return command
         else:
             raise TypeError('allowed command types: int, str, list, tuple')
 
-    def calculate_request_flags(self, mode):
-        return self.flags[mode] | (
-            NLM_F_ECHO
-            if (self.status['nlm_echo'] and mode not in ('get', 'dump'))
-            else 0
+    @classmethod
+    def calculate_request_flags(cls, mode, echo):
+        return cls.flags[mode] | (
+            NLM_F_ECHO if (echo and mode not in ('get', 'dump')) else 0
         )
 
     def match_one_message(self, msg):
