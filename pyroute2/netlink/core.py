@@ -628,6 +628,19 @@ class SyncAPI:
             self.asyncore.close(code)
         )
 
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        return self.asyncore.event_loop.run_until_complete(
+            self.asyncore.put(msg, msg_type, msg_flags, addr, msg_seq, msg_pid)
+        )
+
     def nlm_request(
         self,
         msg,

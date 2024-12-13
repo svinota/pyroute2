@@ -366,6 +366,26 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             else 0
         )
 
+    async def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        request = NetlinkRequest(
+            self,
+            msg,
+            msg_type=msg_type,
+            msg_flags=msg_flags,
+            msg_seq=msg_seq,
+            msg_pid=msg_pid,
+        )
+        await request.send()
+        return request
+
     async def nlm_request(
         self,
         msg,
