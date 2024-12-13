@@ -302,12 +302,14 @@ class RTNL_API:
                 RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
                 RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
             }
+
         async def ret():
             for group, methods in groups_map.items():
                 if group & (groups if groups is not None else self.groups):
                     for method in methods:
                         async for msg in await method():
                             yield msg
+
         return ret()
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
@@ -696,7 +698,9 @@ class RTNL_API:
             except SkipInode:
                 pass
 
-    async def get_netnsid(self, nsid=None, pid=None, fd=None, target_nsid=None):
+    async def get_netnsid(
+        self, nsid=None, pid=None, fd=None, target_nsid=None
+    ):
         '''Return a dict containing the result of a RTM_GETNSID query.
         This loosely corresponds to the "ip netns list-id" command.
         '''
@@ -714,7 +718,9 @@ class RTNL_API:
         if target_nsid is not None:
             msg['attrs'].append(('NETNSA_TARGET_NSID', target_nsid))
 
-        request = NetlinkRequest(self, msg, msg_type=RTM_GETNSID, msg_flags=NLM_F_REQUEST)
+        request = NetlinkRequest(
+            self, msg, msg_type=RTM_GETNSID, msg_flags=NLM_F_REQUEST
+        )
         await request.send()
         async for r in request.response():
             return {
