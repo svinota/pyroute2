@@ -985,11 +985,11 @@ class nlmsg_base(dict):
         lvalue = self.getvalue()
         res = self.__class__()
         for key, _ in res.fields:
-            del res[key]
+            res.pop(key, None)
         if 'header' in res:
-            del res['header']
+            res.pop('header', None)
         if 'value' in res:
-            del res['value']
+            res.pop('value', None)
         for key in lvalue:
             if key not in ('header', 'attrs', '__align'):
                 if op0 == '__sub__':
