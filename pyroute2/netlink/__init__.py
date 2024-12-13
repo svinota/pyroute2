@@ -1742,6 +1742,8 @@ class nlmsg_encoder_generic(object):
                 struct.pack_into(efmt, data, offset)
             elif type(value) in (list, tuple, set):
                 struct.pack_into(efmt, data, offset, *value)
+            elif len(fmt) > 1 and fmt[-1] == 'B' and value == 0:
+                struct.pack_into(fmt[:-1] + 'x', data, offset)
             else:
                 struct.pack_into(efmt, data, offset, value)
         except struct.error:
