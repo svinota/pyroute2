@@ -127,5 +127,8 @@ class Marshal:
             self.fix_message(msg)
             yield msg
 
+    def is_enough(self, msg):
+        return msg['header']['type'] == NLMSG_DONE
+
     def fix_message(self, msg):
         pass

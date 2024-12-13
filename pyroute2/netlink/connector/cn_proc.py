@@ -141,6 +141,9 @@ class ProcEventMarshal(Marshal):
         PROC_EVENT_EXIT: proc_event_exit,
     }
 
+    def is_enough(self, msg):
+        return False
+
 
 class ProcEventSocket(ConnectorSocket):
     def __init__(self, fileno=None):
