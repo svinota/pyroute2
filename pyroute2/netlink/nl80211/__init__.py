@@ -1587,7 +1587,7 @@ class MarshalNl80211(Marshal):
 class NL80211(GenericNetlinkSocket):
     def __init__(self, *args, **kwargs):
         GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.marshal = MarshalNl80211()
+        self.set_marshal(MarshalNl80211())
 
     def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(

@@ -148,7 +148,7 @@ class ProcEventMarshal(Marshal):
 class ProcEventSocket(ConnectorSocket):
     def __init__(self, fileno=None):
         super().__init__(fileno=fileno)
-        self.marshal = ProcEventMarshal()
+        self.set_marshal(ProcEventMarshal())
 
     def bind(self):
         return super().bind(groups=CN_IDX_PROC)

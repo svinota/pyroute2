@@ -11,7 +11,7 @@ from urllib import parse
 
 from pyroute2 import config
 from pyroute2.common import AddrPool
-from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST, NLMSG_DONE
+from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST
 from pyroute2.netns import setns
 from pyroute2.requests.main import RequestProcessor
 
@@ -202,6 +202,15 @@ class AsyncCoreSocket:
     def marshal(self, value):
         if self.__marshal is None:
             self.__marshal = value
+        else:
+            log.debug(
+                'preventing override of marshal %s with %s',
+                self.__marshal,
+                value,
+            )
+
+    def set_marshal(self, value):
+        self.__marshal = value
 
     # 8<--------------------------------------------------------------
     # Thread local section
@@ -369,6 +378,12 @@ class AsyncCoreSocket:
                 new_spec[key] = value
         return type(self)(**new_spec)
 
+    def setsockopt(self, level, optname, value):
+        return self.socket.setsockopt(level, optname, value)
+
+    def getsockopt(self, level, optname):
+        return self.socket.getsockopt(level, optname)
+
     def recv(self, buffersize, flags=0):
         '''Get one buffer from the socket.'''
         return self.socket.recv(buffersize, flags)
@@ -399,6 +414,8 @@ class AsyncCoreSocket:
         log.debug(
             "get: %s / %s / %s / %s", msg_seq, terminate, callback, noraise
         )
+        if msg_seq == -1:
+            msg_seq = 0
         enough = False
         started = False
         error = None
@@ -414,7 +431,7 @@ class AsyncCoreSocket:
                     error = msg['header']['error']
                     enough = True
                     break
-                if msg['header']['type'] == NLMSG_DONE:
+                if self.marshal.is_enough(msg):
                     enough = True
                     break
                 msg['header']['target'] = self.status['target']
@@ -428,7 +445,6 @@ class AsyncCoreSocket:
                 or (not msg['header'].get('flags', 0) & NLM_F_MULTI)
                 or (callable(terminate) and terminate(msg))
             ):
-                log.debug("D")
                 enough = True
         if not noraise and error:
             raise error
@@ -578,6 +594,9 @@ class SyncAPI:
     def marshal(self, value):
         self.asyncore.marshal = value
 
+    def set_marshal(self, value):
+        return self.asyncore.set_marshal(value)
+
     def bind(self, *argv, **kwarg):
         return self.asyncore.event_loop.run_until_complete(
             self.asyncore.bind(*argv, **kwarg)
@@ -595,6 +614,8 @@ class SyncAPI:
             'send',
             'recv',
             'sendto',
+            'setsockopt',
+            'getsockopt',
             'register_policy',
             'unregister_policy',
         ):

@@ -495,7 +495,7 @@ class MarshalDevlink(Marshal):
 class DevlinkSocket(GenericNetlinkSocket):
     def __init__(self, *args, **kwargs):
         GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.marshal = MarshalDevlink()
+        self.set_marshal(MarshalDevlink())
 
     def bind(self, groups=0, **kwarg):
         GenericNetlinkSocket.bind(
