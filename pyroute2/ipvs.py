@@ -65,6 +65,7 @@ from socket import AF_INET
 
 from pyroute2.common import get_address_family
 from pyroute2.netlink.generic import ipvs
+from pyroute2.netlink.nlsocket import NetlinkRequest
 from pyroute2.requests.common import NLAKeyTransform
 from pyroute2.requests.main import RequestProcessor
 
@@ -96,13 +97,19 @@ class DestFieldFilter(NLAKeyTransform):
 class NLAFilter(RequestProcessor):
     msg = None
     keys = tuple()
-    field_filter = None
+    field_filters = None
     nla = None
     default_values = {}
 
     def __init__(self, **kwarg):
         dict.update(self, self.default_values)
+        # save field filters
+        flt = self.field_filters
+        # init resets the filters, not fixed yet
         super().__init__(prime=kwarg)
+        # restore filters
+        for f in flt:
+            self.add_filter(f)
 
     @classmethod
     def from_message(cls, msg):
@@ -131,7 +138,7 @@ class NLAFilter(RequestProcessor):
 
 
 class IPVSService(NLAFilter):
-    field_filter = ServiceFieldFilter()
+    field_filters = [ServiceFieldFilter()]
     msg = ipvs.ipvsmsg.service
     key_fields = ("af", "protocol", "addr", "port")
     nla = "IPVS_CMD_ATTR_SERVICE"
@@ -143,7 +150,7 @@ class IPVSService(NLAFilter):
 
 
 class IPVSDest(NLAFilter):
-    field_filter = DestFieldFilter()
+    field_filters = [DestFieldFilter()]
     msg = ipvs.ipvsmsg.dest
     nla = "IPVS_CMD_ATTR_DEST"
     default_values = {
@@ -168,7 +175,9 @@ class IPVS(ipvs.IPVSSocket):
             "get": (ipvs.IPVS_CMD_GET_SERVICE, "get"),
             "dump": (ipvs.IPVS_CMD_GET_SERVICE, "dump"),
         }
-        cmd, flags = self.make_request_type(command, command_map)
+        cmd, flags = NetlinkRequest.calculate_request_type(
+            command, command_map
+        )
         msg = ipvs.ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = ipvs.GENL_VERSION
