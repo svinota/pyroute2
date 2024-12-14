@@ -161,13 +161,10 @@ def get_parameters(kwarg):
     }
 
 
-def fix_msg(msg, kwarg):
-    if not kwarg:
-        opts = get_parameters({})
-        msg['attrs'].append(['TCA_OPTIONS', opts])
-
-
 def fix_request(request):
+    if not request:
+        opts = get_parameters({})
+        request['attrs'].append(['TCA_OPTIONS', opts])
     if 'options' not in request:
         request['options'] = get_parameters({})
     if 'rate' in request:

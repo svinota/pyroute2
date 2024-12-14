@@ -77,10 +77,12 @@ from pyroute2.netlink.rtnl.tcmsg.common import (
 from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action, tca_act_prio
 
 
-def fix_msg(msg, kwarg):
-    msg['info'] = htons(
-        kwarg.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
-    ) | ((kwarg.get('prio', 0) << 16) & 0xFFFF0000)
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+    request['info'] = htons(
+        request.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
+    ) | ((request.get('prio', 0) << 16) & 0xFFFF0000)
 
 
 def get_parameters(kwarg):

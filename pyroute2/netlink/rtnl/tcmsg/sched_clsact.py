@@ -29,5 +29,7 @@ from pyroute2.netlink.rtnl import TC_H_CLSACT
 parent = TC_H_CLSACT
 
 
-def fix_msg(msg, kwarg):
-    msg['handle'] = 0xFFFF0000
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+    request['handle'] = 0xFFFF0000
