@@ -271,6 +271,14 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         return self.status['pid']
 
     @property
+    def port(self):
+        return self.status['port']
+
+    @property
+    def epid(self):
+        return self.status['epid']
+
+    @property
     def target(self):
         return self.status['target']
 
@@ -307,13 +315,16 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             - If pid == <int>, use the value instead of pid
         '''
         await self.ensure_socket()
-        self.status['groups'] = groups
+        self.spec['groups'] = groups
         # if we have pre-defined port, use it strictly
-        self.status['pid'] = pid
+        self.spec['pid'] = pid
         if pid is None:
-            for port in range(1024):
+            for port in range(20, 200):
                 try:
-                    self.socket.bind((self.port, self.status['groups']))
+                    self.spec['port'] = port
+                    self.socket.bind(
+                        (self.status['epid'], self.status['groups'])
+                    )
                     break
                 except Exception as e:
                     # create a new underlying socket -- on kernel 4
@@ -435,7 +446,7 @@ class NetlinkRequest:
         self.sock = sock
         self.addr_pool = sock.addr_pool
         self.status = sock.status
-        self.port = sock.port if msg_pid is None else msg_pid
+        self.epid = sock.epid if msg_pid is None else msg_pid
         self.marshal = sock.marshal
         self.parser = parser
         # if not isinstance(msg, nlmsg):
@@ -449,7 +460,7 @@ class NetlinkRequest:
         msg['header']['type'] = msg_type
         msg['header']['flags'] = msg_flags
         msg['header']['sequence_number'] = self.msg_seq
-        msg['header']['pid'] = self.port or os.getpid()
+        msg['header']['pid'] = self.epid or os.getpid()
         msg.reset()
         # set fields
         if request_filter is not None:

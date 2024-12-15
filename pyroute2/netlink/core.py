@@ -219,14 +219,6 @@ class AsyncCoreSocket:
         return self.local.msg_queue
 
     @property
-    def port(self):
-        if not hasattr(self.local, 'port'):
-            import random
-
-            self.local.port = random.randint(20, 200)
-        return self.status['pid'] + (self.local.port << 22)
-
-    @property
     def connection_lost(self):
         return self.local.connection_lost
 
