@@ -252,6 +252,7 @@ class nfct_msg(nfgen_msg):
         ('CTA_LABELS_MASK', 'cta_labels'),
         ('CTA_SYNPROXY', 'cta_synproxy'),
         ('CTA_FILTER', 'cta_filter'),
+        ('CTA_STATUS_MASK', 'be32'),
     )
 
     @classmethod
