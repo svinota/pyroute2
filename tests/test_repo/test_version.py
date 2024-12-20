@@ -1,8 +1,8 @@
 import io
 import re
 
+import packaging
 import pytest
-from setuptools._vendor import packaging
 
 
 @pytest.fixture
