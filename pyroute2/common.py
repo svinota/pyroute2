@@ -674,3 +674,12 @@ def failed_class(message):
             raise ret
 
     return FailedClass
+
+
+def msg_done(msg):
+    newmsg = struct.pack('IHH', 40, 2, 0)
+    newmsg += msg.data[8:16]
+    newmsg += struct.pack('I', 0)
+    # nlmsgerr struct alignment
+    newmsg += b'\0' * 20
+    return newmsg

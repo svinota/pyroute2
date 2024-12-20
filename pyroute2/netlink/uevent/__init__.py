@@ -32,7 +32,7 @@ class MarshalUevent(Marshal):
 class UeventSocket(NetlinkSocket):
     def __init__(self):
         super(UeventSocket, self).__init__(NETLINK_KOBJECT_UEVENT)
-        self.marshal = MarshalUevent()
+        self.set_marshal(MarshalUevent())
 
     def bind(self):
         return super(UeventSocket, self).bind(groups=-1)

@@ -556,10 +556,10 @@ class Route(RTNL_Object):
             yield record
 
     @classmethod
-    def spec_normalize(cls, processed, spec):
+    def spec_normalize(cls, spec):
         if isinstance(spec, basestring):
-            processed['dst'] = spec
-        return processed
+            return {'dst': spec}
+        return spec
 
     @classmethod
     def compare_record(self, left, right):

@@ -12,6 +12,6 @@ class Result(dict):
 def run_test(config, spec, result):
     processor = RequestProcessor(context=spec, prime=spec)
     for fspec in config['filters']:
-        processor.apply_filter(fspec['class'](*fspec['argv']))
+        processor.add_filter(fspec['class'](*fspec['argv']))
     processor.finalize()
     assert Result(processor) == result

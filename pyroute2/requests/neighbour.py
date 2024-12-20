@@ -1,5 +1,3 @@
-from socket import AF_INET
-
 from pyroute2.common import get_address_family
 from pyroute2.netlink.rtnl import ndmsg
 
@@ -36,15 +34,10 @@ class NeighbourFieldFilter(Index):
 
 
 class NeighbourIPRouteFilter(IPRouteFilter):
-    def set_dst(self, context, value):
-        ret = {'dst': value}
-        if 'family' not in context:
-            ret['family'] = get_address_family(value)
-        return ret
 
     def finalize(self, context):
         if self.command not in ('dump', 'get'):
             if 'state' not in context:
                 context['state'] = ndmsg.NUD_PERMANENT
-        if 'family' not in context:
-            context['family'] = AF_INET
+        if 'dst' in context and 'family' not in context:
+            context['family'] = get_address_family(context['dst'])

@@ -328,7 +328,7 @@ class DiagSocket(NetlinkSocket):
 
     def __init__(self, fileno=None):
         super(DiagSocket, self).__init__(NETLINK_SOCK_DIAG)
-        self.marshal = MarshalDiag()
+        self.set_marshal(MarshalDiag())
 
     def get_sock_stats(
         self,

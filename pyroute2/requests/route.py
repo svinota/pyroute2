@@ -1,4 +1,4 @@
-from socket import AF_INET6
+from socket import AF_INET, AF_INET6
 
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
@@ -98,6 +98,15 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
 
 
 class RouteIPRouteFilter(IPRouteFilter):
+
+    def get_table(self, context, mode):
+        table = context.get('table', 0)
+        if mode == 'field':
+            if context.parameters['strict_check']:
+                return 0
+            return table if 0 < table < 255 else 254
+        return table
+
     def set_metrics(self, context, value):
         if value and 'attrs' not in value:
             metrics = {'attrs': []}
@@ -110,11 +119,12 @@ class RouteIPRouteFilter(IPRouteFilter):
         return {}
 
     def set_multipath(self, context, value):
+        ret = {}
         if value:
-            ret = []
+            hops = []
             for v in value:
                 if 'attrs' in v:
-                    ret.append(v)
+                    hops.append(v)
                     continue
                 nh = {'attrs': []}
                 nh_fields = [x[0] for x in nh_header.fields]
@@ -147,10 +157,20 @@ class RouteIPRouteFilter(IPRouteFilter):
                     else:
                         rta = rtmsg.name2nla(name)
                         nh['attrs'].append([rta, v[name]])
-                ret.append(nh)
-            if ret:
-                return {'multipath': ret}
-        return {}
+                hops.append(nh)
+            if hops:
+                ret = {'multipath': hops}
+                if context.get('family') is None:
+                    # autodetect and propagate family
+                    hop = ret[0]
+                    attrs = hop.get('attrs', [])
+                    for attr in attrs:
+                        if attr[0] == 'RTA_GATEWAY':
+                            ret['family'] = (
+                                AF_INET6 if attr[1].find(':') >= 0 else AF_INET
+                            )
+                            break
+        return ret
 
     def set_encap(self, context, value):
         if (
@@ -246,6 +266,21 @@ class RouteIPRouteFilter(IPRouteFilter):
         return {}
 
     def finalize(self, context):
+        # cleanup extra NLA for AF_MPLS
+        if context.get('family') == AF_MPLS:
+            for key in tuple(context.keys()):
+                if key not in (
+                    'family',
+                    'proto',
+                    'type',
+                    'dst',
+                    'newdst',
+                    'via',
+                    'multipath',
+                    'oif',
+                ):
+                    context.pop(key, None)
+        # cleanup empty strings
         for key in context:
             if context[key] in ('', None):
                 try:

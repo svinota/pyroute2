@@ -7,6 +7,11 @@ from pyroute2.netlink.rtnl.tcmsg.common import (
 parent = TC_H_ROOT
 
 
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+
+
 def get_parameters(kwarg):
     parms = get_rate_parameters(kwarg)
     # fill parameters

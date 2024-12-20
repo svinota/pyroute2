@@ -2,6 +2,11 @@ from pyroute2.netlink import nla
 from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
 
 
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+
+
 class options(nla):
     nla_map = (
         ('TCA_ACT_BPF_UNSPEC', 'none'),

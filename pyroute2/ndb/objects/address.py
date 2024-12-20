@@ -319,7 +319,7 @@ class Address(RTNL_Object):
             )
 
     @classmethod
-    def spec_normalize(cls, processed, spec):
+    def spec_normalize(cls, spec):
         '''
         Address key normalization::
 
@@ -328,8 +328,8 @@ class Address(RTNL_Object):
                                 "prefixlen": 24}
         '''
         if isinstance(spec, str):
-            processed['address'] = spec
-        return processed
+            return {'address': spec}
+        return spec
 
     def key_repr(self):
         return '%s/%s %s/%s' % (

@@ -16,10 +16,10 @@ from pyroute2.netlink.rtnl.tcmsg import common
 parent = TC_H_ROOT
 
 
-def fix_msg(kwarg, msg):
+def fix_request(request):
     '''
     This method it called for all types -- classes,
-    qdiscs and filters. Can be used to fix some `msg`
+    qdiscs and filters. Can be used to fix some request
     fields.
     '''
     pass

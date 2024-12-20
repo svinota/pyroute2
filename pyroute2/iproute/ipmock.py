@@ -6,8 +6,9 @@ import struct
 from itertools import count
 
 from pyroute2.lab import LAB_API
+from pyroute2.netlink.core import Stats
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import NetlinkSocketBase, Stats
+from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -489,7 +490,7 @@ presets = {
 }
 
 
-class IPRoute(LAB_API, NetlinkSocketBase):
+class IPRoute(LAB_API, NetlinkSocket):
     def __init__(self, *argv, **kwarg):
         super().__init__()
         self.marshal = MarshalRtnl()
@@ -695,5 +696,10 @@ class ChaoticIPRoute:
 
 
 class RawIPRoute:
+    def __init__(self, *argv, **kwarg):
+        raise NotImplementedError()
+
+
+class NetNS:
     def __init__(self, *argv, **kwarg):
         raise NotImplementedError()

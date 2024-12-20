@@ -93,17 +93,16 @@ import uuid
 from pyroute2.common import basestring
 from pyroute2.iproute import IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import NetlinkSocketBase
+from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.remote import RemoteIPRoute
 
 from .events import ShutdownException, State
 from .messages import cmsg_event, cmsg_failed, cmsg_sstart
 
 if sys.platform.startswith('linux'):
     from pyroute2 import netns
+    from pyroute2.iproute.linux import NetNS
     from pyroute2.netns.manager import NetNSManager
-    from pyroute2.nslink.nslink import NetNS
 else:
     NetNS = None
     NetNSManager = None
@@ -156,12 +155,7 @@ class Source(dict):
     summary_header = None
     view = None
     table = 'sources'
-    vmap = {
-        'local': IPRoute,
-        'netns': NetNS,
-        'remote': RemoteIPRoute,
-        'nsmanager': NetNSManager,
-    }
+    vmap = {'local': IPRoute, 'netns': NetNS, 'nsmanager': NetNSManager}
 
     def __init__(self, ndb, **spec):
         self.th = None
@@ -248,7 +242,7 @@ class Source(dict):
         return ret
 
     def __repr__(self):
-        if isinstance(self.nl_prime, NetlinkSocketBase):
+        if isinstance(self.nl_prime, NetlinkSocket):
             name = self.nl_prime.__class__.__name__
         elif isinstance(self.nl_prime, type):
             name = self.nl_prime.__name__
@@ -313,6 +307,7 @@ class Source(dict):
         zero_if['index'] = 0
         zero_if['state'] = 'up'
         zero_if['flags'] = 1
+        zero_if['family'] = 0
         zero_if['header']['flags'] = 2
         zero_if['header']['type'] = 16
         zero_if['header']['target'] = self.target
@@ -361,7 +356,7 @@ class Source(dict):
                         self.ndb.task_manager.db_flush(self.target)
                         if self.kind in ('local', 'netns', 'remote'):
                             self.fake_zero_if()
-                        self.evq.put(self.nl.dump(), source=self.target)
+                        self.evq.put(tuple(self.nl.dump()), source=self.target)
                     finally:
                         pass
                     self.errors_counter = 0
@@ -400,6 +395,7 @@ class Source(dict):
             while self.state.get() not in ('stop', 'restart'):
                 try:
                     msg = tuple(self.nl.get())
+                    self.log.debug(f'received message {msg}')
                 except Exception as e:
                     self.errors_counter += 1
                     self.log.error('source error: %s %s' % (type(e), e))

@@ -18,20 +18,19 @@ from pyroute2.cli.server import Server
 from pyroute2.conntrack import Conntrack, ConntrackEntry
 from pyroute2.devlink import DL
 from pyroute2.ethtool.ethtool import Ethtool
-from pyroute2.ipdb.exceptions import (
-    CommitException,
-    CreateException,
-    DeprecationException,
-    PartialCommitException,
+from pyroute2.iproute import (
+    AsyncIPRoute,
+    ChaoticIPRoute,
+    IPBatch,
+    IPRoute,
+    NetNS,
+    RawIPRoute,
 )
-from pyroute2.ipdb.main import IPDB
-from pyroute2.iproute import ChaoticIPRoute, IPBatch, IPRoute, RawIPRoute
 from pyroute2.iproute.ipmock import IPRoute as IPMock
 from pyroute2.ipset import IPSet
 from pyroute2.ipvs import IPVS, IPVSDest, IPVSService
 from pyroute2.iwutil import IW
 from pyroute2.ndb.main import NDB
-from pyroute2.ndb.noipdb import NoIPDB
 from pyroute2.netlink.connector.cn_proc import ProcEventSocket
 from pyroute2.netlink.devlink import DevlinkSocket
 from pyroute2.netlink.diag import DiagSocket, ss2
@@ -54,29 +53,23 @@ from pyroute2.netlink.nl80211 import NL80211
 from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.taskstats import TaskStats
 from pyroute2.netlink.uevent import UeventSocket
-from pyroute2.nslink.nslink import NetNS
 from pyroute2.nslink.nspopen import NSPopen
-from pyroute2.remote import RemoteIPRoute
-from pyroute2.remote.transport import RemoteSocket
 from pyroute2.wiset import WiSet
 
 modules = [
     AcpiEventSocket,
+    AsyncIPRoute,
     ChaoticException,
     ChaoticIPRoute,
-    CommitException,
     Conntrack,
     ConntrackEntry,
     Console,
-    CreateException,
-    DeprecationException,
     DevlinkSocket,
     DiagSocket,
     DL,
     DQuotSocket,
     Ethtool,
     IPBatch,
-    IPDB,
     IPMock,
     IPQSocket,
     IPRoute,
@@ -97,13 +90,9 @@ modules = [
     NFCTSocket,
     NFTSocket,
     NL80211,
-    NoIPDB,
     NSPopen,
-    PartialCommitException,
     ProcEventSocket,
     RawIPRoute,
-    RemoteIPRoute,
-    RemoteSocket,
     Server,
     ss2,
     TaskStats,

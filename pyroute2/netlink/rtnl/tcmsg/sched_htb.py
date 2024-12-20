@@ -161,10 +161,14 @@ def get_parameters(kwarg):
     }
 
 
-def fix_msg(msg, kwarg):
-    if not kwarg:
+def fix_request(request):
+    if not request:
         opts = get_parameters({})
-        msg['attrs'].append(['TCA_OPTIONS', opts])
+        request['attrs'].append(['TCA_OPTIONS', opts])
+    if 'options' not in request:
+        request['options'] = get_parameters({})
+    if 'rate' in request:
+        del request['rate']
 
 
 # The tokens and ctokens are badly defined in the kernel structure

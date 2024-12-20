@@ -14,7 +14,6 @@ from pyroute2.netlink.rtnl.ifinfmsg import (
     IFT_VNET_HDR,
     RTM_NEWLINK,
 )
-from pyroute2.netlink.rtnl.ifinfmsg.sync import sync
 
 IFNAMSIZ = 16
 
@@ -43,7 +42,6 @@ else:
     TUNSETIFF = None
 
 
-@sync
 def manage_tun(msg):
     if TUNSETIFF is None:
         raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
@@ -92,7 +90,6 @@ def manage_tun(msg):
         os.close(fd)
 
 
-@sync
 def manage_tuntap(msg):
     if TUNSETIFF is None:
         raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')

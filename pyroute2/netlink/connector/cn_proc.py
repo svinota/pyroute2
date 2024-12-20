@@ -141,11 +141,14 @@ class ProcEventMarshal(Marshal):
         PROC_EVENT_EXIT: proc_event_exit,
     }
 
+    def is_enough(self, msg):
+        return False
+
 
 class ProcEventSocket(ConnectorSocket):
     def __init__(self, fileno=None):
         super().__init__(fileno=fileno)
-        self.marshal = ProcEventMarshal()
+        self.set_marshal(ProcEventMarshal())
 
     def bind(self, **kwarg):
         return super().bind(groups=CN_IDX_PROC, **kwarg)

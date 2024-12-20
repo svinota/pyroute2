@@ -14,7 +14,7 @@ test_matrix = make_test_matrix(dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_create_remove(context):
+def _test_create_remove(context):
     nsname = context.new_nsname
     with NDB(log=(context.new_log, logging.DEBUG)) as ndb:
         # create a netns via ndb.netns

@@ -158,10 +158,12 @@ from pyroute2.netlink.rtnl.tcmsg.common_ematch import (
 )
 
 
-def fix_msg(msg, kwarg):
-    msg['info'] = htons(
-        kwarg.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
-    ) | ((kwarg.get('prio', 0) << 16) & 0xFFFF0000)
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+    request['info'] = htons(
+        request.get('protocol', protocols.ETH_P_ALL) & 0xFFFF
+    ) | ((request.get('prio', 0) << 16) & 0xFFFF0000)
 
 
 def get_parameters(kwarg):

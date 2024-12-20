@@ -184,7 +184,7 @@ class TaskManager:
             )
             self.register_api(self.ndb.schema, 'db_')
             self.register_api(self.ndb.schema.config, 'config_')
-            self.ndb.bonfig = NDBConfig(self)
+            self.ndb.config = NDBConfig(self)
 
         except Exception as e:
             self.ndb._dbm_error = e

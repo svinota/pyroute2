@@ -45,17 +45,17 @@ class NetNS(RTNL_Object):
         super(NetNS, self).__init__(*argv, **kwarg)
 
     @classmethod
-    def spec_normalize(cls, processed, spec):
+    def spec_normalize(cls, spec):
         if isinstance(spec, basestring):
-            processed['path'] = spec
-        path = netns._get_netnspath(processed['path'])
+            spec = {'path': spec}
+        path = netns._get_netnspath(spec['path'])
         # on Python3 _get_netnspath() returns bytes, not str, so
         # we have to decode it here in order to avoid issues with
         # cache keys and DB inserts
         if hasattr(path, 'decode'):
             path = path.decode('utf-8')
-        processed['path'] = path
-        return processed
+        spec['path'] = path
+        return spec
 
     def __setitem__(self, key, value):
         if self.state == 'system':

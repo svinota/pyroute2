@@ -8,7 +8,7 @@ class EventSocket(GenericNetlinkSocket):
 
     def __init__(self, *args, **kwargs):
         GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.marshal = self.marshal_class()
+        self.set_marshal(self.marshal_class())
         if kernel[0] <= 2:
             self.bind(groups=0xFFFFFF)
         else:

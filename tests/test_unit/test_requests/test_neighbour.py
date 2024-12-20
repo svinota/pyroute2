@@ -17,7 +17,7 @@ config = {
 }
 
 
-result = Result({'ifindex': 1, 'family': AF_INET, 'state': NUD_PERMANENT})
+result = Result({'ifindex': 1, 'state': NUD_PERMANENT})
 
 
 @pytest.mark.parametrize(
@@ -73,27 +73,27 @@ def test_family(spec, result):
     (
         (
             Request({'ifindex': 1, 'state': 'permanent'}),
-            Result({'ifindex': 1, 'state': NUD_PERMANENT, 'family': AF_INET}),
+            Result({'ifindex': 1, 'state': NUD_PERMANENT}),
         ),
         (
             Request({'ifindex': 1, 'state': 'failed'}),
-            Result({'ifindex': 1, 'state': NUD_FAILED, 'family': AF_INET}),
+            Result({'ifindex': 1, 'state': NUD_FAILED}),
         ),
         (
             Request({'ifindex': 1, 'nud': 'permanent'}),
-            Result({'ifindex': 1, 'state': NUD_PERMANENT, 'family': AF_INET}),
+            Result({'ifindex': 1, 'state': NUD_PERMANENT}),
         ),
         (
             Request({'ifindex': 1, 'nud': 'failed'}),
-            Result({'ifindex': 1, 'state': NUD_FAILED, 'family': AF_INET}),
+            Result({'ifindex': 1, 'state': NUD_FAILED}),
         ),
         (
             Request({'ifindex': 1, 'nud': NUD_PERMANENT}),
-            Result({'ifindex': 1, 'state': NUD_PERMANENT, 'family': AF_INET}),
+            Result({'ifindex': 1, 'state': NUD_PERMANENT}),
         ),
         (
             Request({'ifindex': 1, 'nud': NUD_FAILED}),
-            Result({'ifindex': 1, 'state': NUD_FAILED, 'family': AF_INET}),
+            Result({'ifindex': 1, 'state': NUD_FAILED}),
         ),
     ),
     ids=[

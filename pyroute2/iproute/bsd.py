@@ -327,3 +327,8 @@ class RawIPRoute(IPRoute):
 class ChaoticIPRoute:
     def __init__(self, *argv, **kwarg):
         raise NotImplementedError()
+
+
+class NetNS:
+    def __init__(self, *argv, **kwarg):
+        raise NotImplementedError()

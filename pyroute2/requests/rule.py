@@ -12,6 +12,13 @@ class RuleFieldFilter(IPTargets, Index, NLAKeyTransform):
 
 
 class RuleIPRouteFilter(IPRouteFilter):
+
+    def get_table(self, context, mode):
+        table = context.get('table', 0)
+        if mode == 'field':
+            return table if 0 < table < 255 else 254
+        return table
+
     def set_action(self, context, value):
         if isinstance(value, str):
             return {

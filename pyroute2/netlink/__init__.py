@@ -828,6 +828,7 @@ class nlmsg_base(dict):
 
     fields = ()
     header = ()
+    defaults = {}
     pack = None  # pack pragma
     cell_header = None
     align = 4
@@ -842,6 +843,8 @@ class nlmsg_base(dict):
     prefix = None
     own_parent = False
     header_type = None
+    header_fmt = None
+    decode_as = None
     # caches
     __compiled_nla = False
     __compiled_ft = False
@@ -874,8 +877,6 @@ class nlmsg_base(dict):
     ):
         global cache_jit
         dict.__init__(self)
-        for i in self.fields:
-            self[i[0]] = 0  # FIXME: only for number values
         self._buf = None
         self.data = data or bytearray()
         self.offset = offset
@@ -984,11 +985,11 @@ class nlmsg_base(dict):
         lvalue = self.getvalue()
         res = self.__class__()
         for key, _ in res.fields:
-            del res[key]
+            res.pop(key, None)
         if 'header' in res:
-            del res['header']
+            res.pop('header', None)
         if 'value' in res:
-            del res['value']
+            res.pop('value', None)
         for key in lvalue:
             if key not in ('header', 'attrs', '__align'):
                 if op0 == '__sub__':
@@ -1003,12 +1004,10 @@ class nlmsg_base(dict):
             res['attrs'] = []
             for attr in lvalue['attrs']:
                 if isinstance(attr[1], nlmsg_base):
-                    print("recursion")
                     diff = getattr(attr[1], op0)(rvalue.get_attr(attr[0]))
                     if diff is not None:
                         res['attrs'].append([attr[0], diff])
                 else:
-                    print("fail", type(attr[1]))
                     if op0 == '__sub__':
                         # operator -, complement
                         if rvalue.get_attr(attr[0]) != attr[1]:
@@ -1021,7 +1020,6 @@ class nlmsg_base(dict):
             del res['attrs']
         if not res:
             return None
-        print(res)
         return res
 
     def __bool__(self):
@@ -1234,8 +1232,9 @@ class nlmsg_base(dict):
             )
             offset = self.offset
             for name, fmt in self.header:
+                default = self.defaults.get('header', {}).get(name, 0)
                 struct.pack_into(
-                    fmt, self.data, offset, self['header'].get(name, 0)
+                    fmt, self.data, offset, self['header'].get(name, default)
                 )
                 offset += struct.calcsize(fmt)
 
@@ -1350,6 +1349,10 @@ class nlmsg_base(dict):
             return self.chain[key]
         if key == 'value' and key not in self:
             return NotInitialized
+        if key not in self:
+            fields = dict(self.fields)
+            if key in fields:
+                return 0
         return dict.__getitem__(self, key)
 
     def __delitem__(self, key):
@@ -1635,27 +1638,35 @@ class nlmsg_base(dict):
 # NLMSG fields codecs, mixin classes
 #
 class nlmsg_decoder_generic(object):
-    def ft_decode(self, offset):
+
+    @staticmethod
+    def decode_field(fmt, data, offset):
         global cache_fmt
+        ##
+        # ~~ size = struct.calcsize(efmt)
+        #
+        # The use of the cache gives here a tiny performance
+        # improvement, but it is an improvement anyways
+        #
+        size = (
+            cache_fmt.get(fmt, None)
+            or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
+            or cache_fmt[fmt]
+        )
+        ##
+        value = struct.unpack_from(fmt, data, offset)
+        offset += size
+        if len(value) == 1:
+            return value[0], offset
+        else:
+            return value, offset
+
+    def ft_decode(self, offset):
         for name, fmt in self.fields:
-            ##
-            # ~~ size = struct.calcsize(efmt)
-            #
-            # The use of the cache gives here a tiny performance
-            # improvement, but it is an improvement anyways
-            #
-            size = (
-                cache_fmt.get(fmt, None)
-                or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
-                or cache_fmt[fmt]
-            )
-            ##
-            value = struct.unpack_from(fmt, self.data, offset)
-            offset += size
-            if len(value) == 1:
-                self[name] = value[0]
-            else:
-                self[name] = value
+            if isinstance(fmt, str):
+                self[name], offset = self.decode_field(fmt, self.data, offset)
+            elif isinstance(fmt, type):
+                self[name], offset = fmt.decode_from(self.data, offset)
         # read NLA chain
         if self.nla_map:
             offset = (offset + 4 - 1) & ~(4 - 1)
@@ -1708,48 +1719,60 @@ class nlmsg_decoder_struct(object):
 
 
 class nlmsg_encoder_generic(object):
-    def ft_encode(self, offset):
-        for name, fmt in self.fields:
-            value = self[name]
 
-            if fmt == 's':
-                length = len(value or '') + self.zstring
-                efmt = '%is' % (length)
+    @staticmethod
+    def encode_field(fmt, data, offset, value, zstring=0):
+        if fmt == 's':
+            length = len(value or '') + zstring
+            efmt = '%is' % (length)
+        else:
+            length = struct.calcsize(fmt)
+            efmt = fmt
+
+        data.extend([0] * length)
+
+        # in python3 we should force it
+        if isinstance(value, str):
+            value = bytes(value, 'utf-8')
+        elif isinstance(value, float):
+            value = int(value)
+
+        try:
+            if fmt[-1] == 'x':
+                struct.pack_into(efmt, data, offset)
+            elif type(value) in (list, tuple, set):
+                struct.pack_into(efmt, data, offset, *value)
+            elif len(fmt) > 1 and fmt[-1] == 'B' and value == 0:
+                struct.pack_into(fmt[:-1] + 'x', data, offset)
             else:
-                length = struct.calcsize(fmt)
-                efmt = fmt
+                struct.pack_into(efmt, data, offset, value)
+        except struct.error:
+            log.error(''.join(traceback.format_stack()))
+            log.error(traceback.format_exc())
+            log.error("error pack: %s %s %s" % (efmt, value, type(value)))
+            raise
 
-            self.data.extend([0] * length)
+        return offset + length
 
-            # in python3 we should force it
-            if sys.version[0] == '3':
-                if isinstance(value, str):
-                    value = bytes(value, 'utf-8')
-                elif isinstance(value, float):
-                    value = int(value)
-            elif sys.version[0] == '2':
-                if isinstance(value, unicode):
-                    value = value.encode('utf-8')
+    def ft_encode(self, offset):
+        if hasattr(self, 'zstring'):
+            zs = self.zstring
+        else:
+            zs = 0
+        for name, fmt in self.fields:
+            default = self.defaults.get(name, 0)
+            value = self[name] if self.get(name) is not None else default
 
-            try:
-                if fmt[-1] == 'x':
-                    struct.pack_into(efmt, self.data, offset)
-                elif type(value) in (list, tuple, set):
-                    struct.pack_into(efmt, self.data, offset, *value)
-                else:
-                    struct.pack_into(efmt, self.data, offset, value)
-            except struct.error:
-                log.error(''.join(traceback.format_stack()))
-                log.error(traceback.format_exc())
-                log.error("error pack: %s %s %s" % (efmt, value, type(value)))
-                raise
+            if isinstance(fmt, str):
+                offset = self.encode_field(fmt, self.data, offset, value, zs)
+            elif isinstance(fmt, type):
+                offset = fmt.encode_into(self.data, offset, value)
 
-            offset += length
-
-        diff = ((offset + 4 - 1) & ~(4 - 1)) - offset
-        offset += diff
-        self.data.extend([0] * diff)
-
+        diff = 0
+        if self.align > 0:
+            diff = ((offset + self.align - 1) & ~(self.align - 1)) - offset
+            offset += diff
+            self.data.extend([0] * diff)
         return offset, diff
 
 

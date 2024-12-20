@@ -284,7 +284,6 @@ import ctypes
 import ctypes.util
 import logging
 import logging.handlers
-import sys
 import threading
 
 from pyroute2 import config
@@ -511,10 +510,6 @@ class NDB:
                         'nlm_generator': 1,
                     }
                 ]
-                if sys.platform.startswith('linux'):
-                    sources.append(
-                        {'target': self.nsmanager, 'kind': 'nsmanager'}
-                    )
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 

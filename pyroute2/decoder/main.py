@@ -172,6 +172,7 @@ Having the family ID you can filter out relevant messages. The filters:
 
 import json
 
+from pyroute2.common import hexdump
 from pyroute2.decoder.args import parse_args
 from pyroute2.decoder.loader import get_loader
 
@@ -181,7 +182,7 @@ def run():
     ret = []
     for message in loader.data:
         ret.append(message.dump())
-    print(json.dumps(ret, indent=4))
+    print(json.dumps(ret, indent=4, default=lambda x: hexdump(x)))
 
 
 if __name__ == "__main__":

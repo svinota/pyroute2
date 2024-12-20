@@ -20,6 +20,9 @@ nox.options.sessions = [
     'linux-python3.10',
     'linux-python3.11',
     'linux-python3.12',
+    'core-python3.10',
+    'core-python3.11',
+    'core-python3.12',
     'minimal',
 ]
 
@@ -74,10 +77,12 @@ def options(module, config):
         'pytest',
         '--basetemp',
         './log',
-        '--exitfirst',
-        '--verbose',
         '--junitxml=junit.xml',
     ]
+    if config.get('exitfirst', True):
+        ret.append('--exitfirst')
+    if config.get('verbose', True):
+        ret.append('--verbose')
     if config.get('fail_on_warnings'):
         ret.insert(1, 'error')
         ret.insert(1, '-W')
@@ -264,6 +269,22 @@ def linux(session, config):
     workspace = setup_venv_dev(session)
     session.run(
         *options('test_linux', config),
+        env={
+            'WORKSPACE': workspace,
+            'SKIPDB': 'postgres',
+            'PYTHONPATH': f'{workspace}/tests/mocklib',
+        },
+    )
+
+
+@nox.session(python=['python3.10', 'python3.11', 'python3.12'])
+@add_session_config
+def core(session, config):
+    '''Run Linux tests in asyncio.'''
+    setup_linux(session)
+    workspace = setup_venv_dev(session)
+    session.run(
+        *options('test_core', config),
         env={
             'WORKSPACE': workspace,
             'SKIPDB': 'postgres',

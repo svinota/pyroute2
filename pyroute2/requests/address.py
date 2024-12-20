@@ -9,6 +9,11 @@ from .common import Index, IPRouteFilter, NLAKeyTransform
 class AddressFieldFilter(Index, NLAKeyTransform):
     _nla_prefix = 'IFA_'
 
+    def get_flags(self, context, mode):
+        if mode == 'field':
+            return 0
+        return context['flags']
+
     def set_prefixlen(self, context, value):
         if isinstance(value, str):
             if '.' in value:

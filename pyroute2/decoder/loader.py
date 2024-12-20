@@ -31,18 +31,20 @@ PcapLLHeader = namedtuple(
 
 class Message:
 
-    def __init__(self, packet_header, ll_header, met, data):
+    def __init__(self, packet_header, ll_header, met, key, data):
         self.packet_header = packet_header
         self.ll_header = ll_header
         self.cls = None
         self.met = met
+        self.key = key
+        self.kl = struct.calcsize(self.key)
         self.data = data
         self.exception = None
         self.msg = None
 
     def get_message_class(self):
         if hasattr(self.met, 'msg_map'):
-            (msg_type,) = struct.unpack('H', self.data[4:6])
+            (msg_type,) = struct.unpack(self.key, self.data[4 : 4 + self.kl])
             return self.met.msg_map[msg_type]
         return self.met
 
@@ -231,17 +233,20 @@ class Matcher:
 
 class LoaderHex:
 
-    def __init__(self, data, cls, script):
+    def __init__(self, data, cls, key, data_offset, script):
         with open(data, 'r') as f:
             self.raw = load_dump(f)
         self.cls = cls
+        self.key = key
         self.offset = 0
         self.matcher = Matcher(script)
 
     @property
     def data(self):
         while self.offset < len(self.raw):
-            msg = Message(None, None, self.cls, self.raw[self.offset :])
+            msg = Message(
+                None, None, self.cls, self.key, self.raw[self.offset :]
+            )
             msg.decode()
             if self.matcher.match(None, None, self.raw, self.offset):
                 yield msg
@@ -250,11 +255,13 @@ class LoaderHex:
 
 class LoaderPcap:
 
-    def __init__(self, data, cls, script):
+    def __init__(self, data, cls, key, data_offset, script):
         with open(data, 'rb') as f:
             self.raw = f.read()
         self.metadata = PcapMetaData(*struct.unpack("IHHiIII", self.raw[:24]))
         self.offset = 24
+        self.key = key
+        self.data_offset = data_offset
         self.cls = cls
         self.matcher = Matcher(script)
 
@@ -276,14 +283,17 @@ class LoaderPcap:
             ll_header = self.decode_ll_header(self.raw, self.offset)
             self.offset += ll_header.header_len
             length = packet_header.incl_len - ll_header.header_len
+            off_length = length - self.data_offset
             if self.matcher.match(
                 packet_header, ll_header, self.raw, self.offset
             ):
+                offset = self.offset + self.data_offset
                 msg = Message(
                     packet_header,
                     ll_header,
                     self.cls,
-                    self.raw[self.offset : self.offset + length],
+                    self.key,
+                    self.raw[offset : offset + off_length],
                 )
                 msg.decode()
                 yield msg
@@ -299,8 +309,8 @@ def get_loader(args):
         cls = getattr(module, cls_name)
 
     if args.format == 'pcap':
-        return LoaderPcap(args.data, cls, args.match)
+        return LoaderPcap(args.data, cls, args.key, args.offset, args.match)
     elif args.format == 'hex':
-        return LoaderHex(args.data, cls, args.match)
+        return LoaderHex(args.data, cls, args.key, args.offset, args.match)
     else:
         raise ValueError('data format not supported')

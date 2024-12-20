@@ -802,7 +802,7 @@ class ifinfbase(object):
     @staticmethod
     def protinfo(self, *argv, **kwarg):
         proto_map = {AF_BRIDGE: protinfo_bridge}
-        return proto_map.get(self['family'], self.hex)
+        return proto_map[self['family']]
 
     class ifinfo(nla):
         prefix = 'IFLA_INFO_'
