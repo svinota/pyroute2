@@ -501,20 +501,21 @@ class NetlinkRequest:
             NLM_F_ECHO if (echo and mode not in ('get', 'dump')) else 0
         )
 
-    def match_one_message(self, msg):
-        if hasattr(self.dump_filter, '__call__'):
-            return self.dump_filter(msg)
-        elif isinstance(self.dump_filter, dict):
+    @staticmethod
+    def match_one_message(dump_filter, msg):
+        if hasattr(dump_filter, '__call__'):
+            return dump_filter(msg)
+        elif isinstance(dump_filter, dict):
             matches = []
-            for key in self.dump_filter:
+            for key in dump_filter:
                 # get the attribute
                 if not isinstance(key, (str, tuple)):
                     continue
                 value = msg.get(key)
-                if value is not None and callable(self.dump_filter[key]):
-                    matches.append(self.dump_filter[key](value))
+                if value is not None and callable(dump_filter[key]):
+                    matches.append(dump_filter[key](value))
                 else:
-                    matches.append(self.dump_filter[key] == value)
+                    matches.append(dump_filter[key] == value)
             return all(matches)
 
     def cleanup(self):
@@ -568,7 +569,7 @@ class NetlinkRequest:
             callback=self.callback,
         ):
             if self.dump_filter is not None and not self.match_one_message(
-                msg
+                self.dump_filter, msg
             ):
                 continue
             for cr in self.sock.callbacks:

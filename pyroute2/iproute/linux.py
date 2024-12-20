@@ -245,7 +245,7 @@ class RTNL_API:
         '''
         # filtered results, the generator version
         for msg in msgs:
-            if self.match_one_message(dump_filter, msg):
+            if NetlinkRequest.match_one_message(dump_filter, msg):
                 yield msg
 
     # 8<---------------------------------------------------------------
