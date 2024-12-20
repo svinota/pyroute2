@@ -252,6 +252,7 @@ class nfct_msg(nfgen_msg):
         ('CTA_LABELS_MASK', 'cta_labels'),
         ('CTA_SYNPROXY', 'cta_synproxy'),
         ('CTA_FILTER', 'cta_filter'),
+        ('CTA_STATUS_MASK', 'be32'),
     )
 
     @classmethod
@@ -739,6 +740,8 @@ class NFCTSocket(NetlinkSocket):
         mark_mask=0xFFFFFFFF,
         tuple_orig=None,
         tuple_reply=None,
+        status=None,
+        status_mask=None,
     ):
         """Dump conntrack entries
 
@@ -746,6 +749,7 @@ class NFCTSocket(NetlinkSocket):
           * mark and mark_mask, for almost all kernel
           * tuple_orig and tuple_reply, since kernel 5.8 and newer.
             Warning: tuple_reply has a bug in kernel, fixed only recently.
+          * status and status_mask, available since kernel 5.15
 
         tuple_orig and tuple_reply are type NFCTAttrTuple.
         You can give only some attribute for filtering.
@@ -758,6 +762,9 @@ class NFCTSocket(NetlinkSocket):
             # Get HTTPS connections
             filter = NFCTAttrTuple(proto=socket.IPPROTO_TCP, dport=443)
             ct.dump_entries(tuple_orig=filter)
+
+            # Get only one way connection (no reply)
+            ct.dump_entries(status=0, status_mask=IPS_SEEN_REPLY)
 
         Note that NFCTAttrTuple attributes are working like one AND operator.
 
@@ -784,10 +791,16 @@ class NFCTSocket(NetlinkSocket):
             msg = nfct_msg.create_from(
                 tuple_reply=tuple_reply, cta_filter=cta_filter
             )
-        elif mark:
-            msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
         else:
-            msg = nfct_msg.create_from()
+            kwargs = {}
+            if mark:
+                kwargs['mark'] = mark
+                kwargs['mark_mask'] = mark_mask
+            if status is not None:
+                kwargs['status'] = status
+            if status_mask is not None:
+                kwargs['status_mask'] = status_mask
+            msg = nfct_msg.create_from(**kwargs)
         return self.request(
             msg, IPCTNL_MSG_CT_GET, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
         )
