@@ -15,7 +15,6 @@ nox.options.sessions = [
     'lab',
     'neutron',
     'integration',
-    'linux-python3.8',
     'linux-python3.9',
     'linux-python3.10',
     'linux-python3.11',
@@ -79,6 +78,7 @@ def options(module, config):
         './log',
         '--junitxml=junit.xml',
     ]
+    timeout = 60
     if config.get('exitfirst', True):
         ret.append('--exitfirst')
     if config.get('verbose', True):
@@ -86,6 +86,9 @@ def options(module, config):
     if config.get('fail_on_warnings'):
         ret.insert(1, 'error')
         ret.insert(1, '-W')
+    if config.get('timeout'):
+        timeout = config["timeout"]
+    ret.append(f'--timeout={timeout}')
     if config.get('pdb'):
         ret.append('--pdb')
     if config.get('coverage'):
@@ -259,9 +262,7 @@ def integration(session, config):
     session.run(*options('test_integration', config))
 
 
-@nox.session(
-    python=['python3.8', 'python3.9', 'python3.10', 'python3.11', 'python3.12']
-)
+@nox.session(python=['python3.9', 'python3.10', 'python3.11', 'python3.12'])
 @add_session_config
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
