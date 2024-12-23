@@ -102,12 +102,14 @@ from pyroute2.netlink import (
     NETLINK_LISTEN_ALL_NSID,
     NLM_F_ACK,
     NLM_F_APPEND,
+    NLM_F_ATOMIC,
     NLM_F_CREATE,
     NLM_F_DUMP,
     NLM_F_ECHO,
     NLM_F_EXCL,
     NLM_F_REPLACE,
     NLM_F_REQUEST,
+    NLM_F_ROOT,
     SOL_NETLINK,
 )
 from pyroute2.netlink.core import (
@@ -419,6 +421,7 @@ class NetlinkRequest:
     # request flags
     flags = {
         'dump': NLM_F_REQUEST | NLM_F_DUMP,
+        'root': NLM_F_REQUEST | NLM_F_ROOT | NLM_F_ATOMIC,
         'get': NLM_F_REQUEST | NLM_F_ACK,
         'req': NLM_F_REQUEST | NLM_F_ACK,
     }

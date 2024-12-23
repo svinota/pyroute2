@@ -2308,7 +2308,7 @@ class RTNL_API:
             'del': (RTM_DELRULE, 'req'),
             'remove': (RTM_DELRULE, 'req'),
             'delete': (RTM_DELRULE, 'req'),
-            'dump': (RTM_GETRULE, 'dump'),
+            'dump': (RTM_GETRULE, 'root'),
         }
         if isinstance(kwarg.get('match'), str):
             kwarg['match'] = {'ifname': kwarg['match']}
