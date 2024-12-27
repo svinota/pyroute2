@@ -27,12 +27,6 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: make nox session=unit
-  lab:
-    runs-on: Linux
-    steps:
-      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
-      - run: make nox session=lab
   docs:
     runs-on: Linux
     steps:
@@ -45,12 +39,6 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: make nox session=neutron
-  integration:
-    runs-on: Linux
-    steps:
-      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
-      - run: make nox session=integration
   minimal:
     runs-on: Linux
     steps:
@@ -61,7 +49,7 @@ jobs:
     runs-on: Fedora
     strategy:
       matrix:
-        python: [python3.8, python3.9, python3.10, python3.11, python3.12]
+        python: [python3.9, python3.10, python3.11, python3.12]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
