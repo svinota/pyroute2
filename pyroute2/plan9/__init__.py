@@ -41,6 +41,10 @@ Tcall = 80
 Rcall = 81
 
 
+class Plan9Exit(Exception):
+    pass
+
+
 def array(kind, header='H'):
     class CustomArray:
 

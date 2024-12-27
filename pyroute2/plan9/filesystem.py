@@ -6,7 +6,7 @@ import pwd
 import time
 from functools import partial
 
-from pyroute2.plan9 import Qid, Stat, Tcall, Tread, Twrite
+from pyroute2.plan9 import Plan9Exit, Qid, Stat, Tcall, Tread, Twrite
 
 
 def _publish_function_w(session, inode, request, response):
@@ -26,6 +26,8 @@ def _publish_function_r(
             kwarg = loader(inode.data.getvalue())
             ret = func(**kwarg)
             inode.metadata['dirty'] = False
+        except Plan9Exit:
+            raise
         except Exception as e:
             ret = e
         inode.data.seek(0)

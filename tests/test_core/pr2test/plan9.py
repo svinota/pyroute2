@@ -1,7 +1,9 @@
 import asyncio
+import json
 import threading
 from functools import partial
 
+from pyroute2.plan9 import Plan9Exit
 from pyroute2.plan9.client import Plan9ClientSocket
 from pyroute2.plan9.server import Plan9ServerSocket
 
@@ -11,7 +13,9 @@ address = ('127.0.0.1', 8149)
 def stop_server(context):
     if 'task' in context:
         context['task'].cancel()
-        return '{"status": 200, "message": "shutting down the server"}'
+        raise Plan9Exit(
+            '{"status": 200, "message": "shutting down the server"}'
+        )
     return '{"status": 503, "message": "server is not ready, try again later"}'
 
 
@@ -60,5 +64,9 @@ class AsyncPlan9Context:
     async def close(self):
         shutdown_file = await self.client.fid('stop')
         await self.client.write(shutdown_file, '')
-        self.shutdown_response = await self.client.read(shutdown_file)
+        try:
+            await self.client.read(shutdown_file)
+        except Exception as e:
+            assert json.loads(e.args[0])['status'] == 200
+            self.shutdown_response = e.args[0]
         self.server.join()

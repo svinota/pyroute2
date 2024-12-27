@@ -4,6 +4,7 @@ import json
 from pyroute2.netlink.core import AsyncCoreSocket, CoreSocketSpec
 from pyroute2.plan9 import (
     Marshal9P,
+    Plan9Exit,
     Stat,
     Tattach,
     Tauth,
@@ -201,8 +202,14 @@ class Plan9ServerProtocol(asyncio.Protocol):
                 )
                 r_message['header']['tag'] = tag
                 r_message.encode()
+            except Plan9Exit as e:
+                self.error(e, tag)
+                self.transport.abort()
+                self.transport.close()
+                return
             except Exception as e:
-                return self.error(e, tag)
+                self.error(e, tag)
+                return
             self.transport.write(r_message.data)
 
     def connection_made(self, transport):
