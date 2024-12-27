@@ -410,7 +410,7 @@ class Source(dict):
                 if msg and msg[0]['header']['error']:
                     code = msg[0]['header']['error'].code
 
-                if msg is None or code == errno.ECONNRESET:
+                if not msg or code == errno.ECONNRESET:
                     self.state.set('stop')
                     break
 
