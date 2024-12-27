@@ -81,14 +81,12 @@ classes
 '''
 
 import asyncio
-import collections
 import errno
 import logging
-import multiprocessing
 import os
 import random
 import struct
-from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET, socketpair
+from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
 from pyroute2 import config
 from pyroute2.common import AddrPool, basestring, msg_done
@@ -120,7 +118,6 @@ from pyroute2.netlink.core import (
 )
 from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
-from pyroute2.plan9.client import Plan9ClientSocket
 
 log = logging.getLogger(__name__)
 
@@ -585,9 +582,6 @@ class NetlinkRequest:
         self.cleanup()
 
 
-IPCSocketPair = collections.namedtuple('IPCSocketPair', ('server', 'client'))
-
-
 class NetlinkSocket(SyncAPI):
     def __init__(
         self,
@@ -632,49 +626,6 @@ class NetlinkSocket(SyncAPI):
             flags,
             libc,
         )
-
-
-class IPCSocket(NetlinkSocket):
-
-    def setup_socket(self):
-        # create socket pair
-        sp = IPCSocketPair(*socketpair())
-        # start the server
-        self.socket = sp
-        self.p9server = multiprocessing.Process(target=self.ipc_server)
-        self.p9server.daemon = True
-        self.p9server.start()
-        # create and init the client
-        self.p9client = Plan9ClientSocket(use_socket=sp.client)
-        self.p9client.init()
-        return sp
-
-    def ipc_server(self):
-        raise NotImplementedError()
-
-    def recv(self, buffersize, flags=0):
-        ret = self.p9client.call(
-            fid=self.p9client.fid('call'),
-            fname='recv',
-            kwarg={'buffersize': buffersize, 'flags': flags},
-        )
-        return ret['data']
-
-    def send(self, data, flags=0):
-        return self.p9client.call(
-            fid=self.p9client.fid('call'),
-            fname='send',
-            kwarg={'flags': flags},
-            data=data,
-        )
-
-    def bind(self):
-        return self.p9client.call(fid=self.p9client.fid('call'), fname='bind')
-
-    def close(self):
-        self.socket.client.close()
-        self.socket.server.close()
-        self.p9server.wait()
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):
