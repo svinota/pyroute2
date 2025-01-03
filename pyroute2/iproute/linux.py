@@ -1613,8 +1613,8 @@ class RTNL_API:
         Keyword "state" is reserved. State can be "up" or "down",
         it is a shortcut::
 
-            state="up":   flags=1, mask=1
-            state="down": flags=0, mask=0
+            state="up":   flags=1, change=1
+            state="down": flags=0, change=1
 
         SR-IOV virtual function setup::
 
