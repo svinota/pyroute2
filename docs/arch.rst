@@ -22,10 +22,11 @@ There is an inheritance diagram of Linux netlink sockets, provided
 by the library:
 
 .. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
-    pyroute2.iproute.linux.IPBatch
+    pyroute2.iproute.linux.AsyncIPRoute
     pyroute2.iproute.linux.RawIPRoute
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
+    pyroute2.ipvs.IPVS
     pyroute2.netlink.uevent.UeventSocket
     pyroute2.netlink.taskstats.TaskStats
     pyroute2.netlink.generic.wireguard.WireGuard
@@ -39,10 +40,6 @@ by the library:
     pyroute2.netlink.event.thermal.ThermalEventSocket
     pyroute2.netlink.devlink.DevlinkSocket
     pyroute2.netlink.diag.DiagSocket
-    pyroute2.remote.RemoteIPRoute
-    pyroute2.remote.transport.RemoteSocket
-    pyroute2.remote.shell.ShellIPR
-    pyroute2.nslink.nslink.NetNS
     :parts: 1
 
 under the hood
@@ -70,24 +67,6 @@ netlink protocol, where the response can come whenever --
 the time and packet order are not guaranteed. But one can
 use the `sequence_number` field of a netlink message to
 match responses, and the pair `put()/get()` does it.
-
-cache thread
-------------
-
-Sometimes it is preferable to get incoming messages asap
-and parse them only when there is time for that. For that
-case the `NetlinkSocketBase` provides a possibility to start a
-dedicated cache thread, that will collect and queue incoming
-messages as they arrive. The thread doesn't affect the
-socket behaviour: it will behave exactly in the same way,
-the only difference is that `recv()` will return already
-cached in the userspace message. To start the thread,
-one should call `bind()` with `async_cache=True`::
-
-    ipr = IPRoute()
-    ipr.bind(async_cache=True)
-    ...  # do some stuff
-    ipr.close()
 
 message mangling
 ----------------
@@ -209,42 +188,6 @@ kernel. The PF_ROUTE messages:
     pyroute2.bsd.pf_route.rt_msg
     pyroute2.bsd.pf_route.ifa_msg
     pyroute2.bsd.pf_route.ifma_msg
-    :parts: 1
-
-IPDB
-====
-
-The `IPDB` module implements high-level logic to manage
-some of the system network settings. It is completely
-agnostic to the netlink object's nature, the only requirement
-is that the netlink transport must provide RTNL API.
-
-So, using proper mixin classes one can create a custom
-RTNL-compatible transport. E.g., this way `IPDB` can work
-over `NetNS` objects, providing the network management
-within some network namespace — while itself it runs in the
-main namespace.
-
-The `IPDB` architecture is not too complicated, but it
-implements some useful transaction magic, see `commit()`
-methods of the `Transactional` objects.
-
-.. inheritance-diagram:: pyroute2.ipdb.main.IPDB
-    pyroute2.ipdb.interfaces.Interface
-    pyroute2.ipdb.linkedset.LinkedSet
-    pyroute2.ipdb.linkedset.IPaddrSet
-    pyroute2.ipdb.routes.NextHopSet
-    pyroute2.ipdb.routes.Via
-    pyroute2.ipdb.routes.Encap
-    pyroute2.ipdb.routes.Metrics
-    pyroute2.ipdb.routes.BaseRoute
-    pyroute2.ipdb.routes.Route
-    pyroute2.ipdb.routes.MPLSRoute
-    pyroute2.ipdb.routes.RoutingTable
-    pyroute2.ipdb.routes.MPLSTable
-    pyroute2.ipdb.routes.RoutingTableSet
-    pyroute2.ipdb.rules.Rule
-    pyroute2.ipdb.rules.RulesDict
     :parts: 1
 
 Internet protocols
