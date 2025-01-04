@@ -66,14 +66,6 @@ Experimental
 
    remote
 
-Deprecated
-----------
-
-.. toctree::
-   :maxdepth: 1
-
-   ipdb_toc
-
 Indices and tables
 ==================
 

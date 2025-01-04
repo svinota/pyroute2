@@ -614,6 +614,11 @@ class SyncAPI:
             return getattr(self.asyncore, key)
         raise AttributeError(key)
 
+    def mock_data(self, data):
+        if getattr(self.asyncore.local, 'msg_queue', None) is None:
+            self.asyncore.local.msg_queue = CoreMessageQueue()
+        self.asyncore.msg_queue.put_nowait(0, data)
+
     def close(self, code=errno.ECONNRESET):
         '''Correctly close the socket and free all the resources.'''
         return self.asyncore.event_loop.run_until_complete(

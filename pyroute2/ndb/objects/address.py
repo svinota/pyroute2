@@ -140,7 +140,7 @@ Accessing one address details
 
 Access an address as a separate RTNL object:
 
-.. testcode:: x3
+.. code::
 
     print(ndb.addresses['192.168.122.28/24'])
 
