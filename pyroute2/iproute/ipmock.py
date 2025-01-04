@@ -493,7 +493,7 @@ presets = {
 class IPRoute(LAB_API, NetlinkSocket):
     def __init__(self, *argv, **kwarg):
         super().__init__()
-        self.marshal = MarshalRtnl()
+        self.set_marshal(MarshalRtnl())
         self.target = kwarg.get('target')
         self.preset = copy.deepcopy(
             presets[kwarg['preset'] if 'preset' in kwarg else 'default']
@@ -503,6 +503,18 @@ class IPRoute(LAB_API, NetlinkSocket):
 
     def bind(self, async_cache=True, clone_socket=True):
         pass
+
+    def close(self, code=errno.ECONNRESET):
+        self.buffer_queue.put(b'')
+        return super().close(code)
+
+    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
+        data = self.buffer_queue.get()
+        ret = []
+        for msg in self.marshal.parse(data, msg_seq, callback):
+            msg['header']['target'] = self.target
+            ret.append(msg)
+        return ret
 
     def dump(self, groups=None):
         for method in (self.get_links, self.get_addr, self.get_routes):
@@ -541,8 +553,8 @@ class IPRoute(LAB_API, NetlinkSocket):
         if command == 'dump':
             return self.get_addr()
         request = RequestProcessor(context=spec, prime=spec)
-        request.apply_filter(AddressFieldFilter())
-        request.apply_filter(AddressIPRouteFilter(command))
+        request.add_filter(AddressFieldFilter())
+        request.add_filter(AddressIPRouteFilter(command))
         request.finalize()
         address = None
 
@@ -583,7 +595,7 @@ class IPRoute(LAB_API, NetlinkSocket):
         if 'state' in spec:
             spec['flags'] = 1 if spec.pop('state') == 'up' else 0
         request = RequestProcessor(context=spec, prime=spec)
-        request.apply_filter(LinkFieldFilter())
+        request.add_filter(LinkFieldFilter())
         request.finalize()
 
         for interface in self.preset['links']:
@@ -622,7 +634,7 @@ class IPRoute(LAB_API, NetlinkSocket):
         if command == 'dump':
             return self.get_routes()
         request = RequestProcessor(context=spec, prime=spec)
-        request.apply_filter(RouteFieldFilter())
+        request.add_filter(RouteFieldFilter())
         request.finalize()
 
         for route in self.preset['routes']:
