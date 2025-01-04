@@ -346,6 +346,14 @@ class protinfo_bridge(nla):
         ('IFLA_BRPORT_BACKUP_PORT', 'uint32'),
         ('IFLA_BRPORT_MRP_RING_OPEN', 'uint8'),
         ('IFLA_BRPORT_MRP_IN_OPEN', 'uint8'),
+        ('IFLA_BRPORT_MCAST_EHT_HOSTS_LIMIT', 'uint32'),
+        ('IFLA_BRPORT_MCAST_EHT_HOSTS_CNT', 'uint32'),
+        ('IFLA_BRPORT_LOCKED', 'uint8'),
+        ('IFLA_BRPORT_MAB', 'uint8'),
+        ('IFLA_BRPORT_MCAST_N_GROUPS', 'uint32'),
+        ('IFLA_BRPORT_MCAST_MAX_GROUPS', 'uint32'),
+        ('IFLA_BRPORT_NEIGH_VLAN_SUPPRESS', 'uint8'),
+        ('IFLA_BRPORT_BACKUP_NHID', 'uint32'),
     )
 
     class br_id(ifla_bridge_id):
