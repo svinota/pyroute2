@@ -1,4 +1,4 @@
-from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP, ifinfmsg
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_UP, IFF_NOARP, ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
 
 from .common import Index, IPRouteFilter, NLAKeyTransform
@@ -75,22 +75,22 @@ class LinkIPRouteFilter(IPRouteFilter):
         if self.command == 'dump':
             return {'state': value}
         if value == 'up':
-            ret['flags'] = context.get('flags', 0) or 0 | 1
-        ret['change'] = context.get('change', 0) or 0 | 1
+            ret['flags'] = (context.get('flags', 0) or 0) | IFF_UP
+        ret['change'] = (context.get('change', 0) or 0) | IFF_UP
         return ret
 
     def set_arp(self, context, value):
         ret = {}
         if not value:
-            ret['flags'] = context.get('flags', 0) or 0 | IFF_NOARP
-        ret['change'] = context.get('change', 0) or 0 | IFF_NOARP
+            ret['flags'] = (context.get('flags', 0) or 0) | IFF_NOARP
+        ret['change'] = (context.get('change', 0) or 0) | IFF_NOARP
         return ret
 
     def set_noarp(self, context, value):
         ret = {}
         if value:
-            ret['flags'] = context.get('flags', 0) or 0 | IFF_NOARP
-        ret['change'] = context.get('change', 0) or 0 | IFF_NOARP
+            ret['flags'] = (context.get('flags', 0) or 0) | IFF_NOARP
+        ret['change'] = (context.get('change', 0) or 0) | IFF_NOARP
         return ret
 
     def finalize(self, context):
