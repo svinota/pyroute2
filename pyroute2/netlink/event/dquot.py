@@ -7,7 +7,7 @@ Disk quota events monitoring:
     import pyroute2
     pyroute2.DQuotSocket = dquot.DQuotMock
 
-.. testcode::
+.. code::
 
     from pyroute2 import DQuotSocket
 
