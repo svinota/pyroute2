@@ -1,6 +1,7 @@
 import pytest
 from common import Request, Result, run_test
 
+from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP, IFF_UP
 from pyroute2.requests.link import LinkFieldFilter, LinkIPRouteFilter
 
 config_add = {
@@ -89,3 +90,35 @@ def test_index(config, spec, result):
 )
 def test_dump_specific(spec, result):
     return run_test(config_dump, spec, result)
+
+
+@pytest.mark.parametrize(
+    'spec,result',
+    (
+        (
+            Request({'kind': 'bridge', 'state': 'up'}),
+            Result(
+                {
+                    'flags': IFF_UP,
+                    'change': IFF_UP,
+                    'index': 0,
+                    'IFLA_LINKINFO': {'attrs': [['IFLA_INFO_KIND', 'bridge']]},
+                }
+            ),
+        ),
+        (
+            Request({'kind': 'bridge', 'state': 'up', 'noarp': True}),
+            Result(
+                {
+                    'flags': IFF_UP | IFF_NOARP,
+                    'change': IFF_UP | IFF_NOARP,
+                    'index': 0,
+                    'IFLA_LINKINFO': {'attrs': [['IFLA_INFO_KIND', 'bridge']]},
+                }
+            ),
+        ),
+    ),
+    ids=['flags1', 'flags2'],
+)
+def test_add_filter(spec, result):
+    return run_test(config_add, spec, result)
