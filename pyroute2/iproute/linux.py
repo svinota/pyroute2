@@ -1771,7 +1771,7 @@ class RTNL_API:
             return request.response()
         return [x async for x in request.response()]
 
-    async def tc(self, command, kind=None, **kwarg):
+    async def tc(self, command, kind=None, index=None, handle=None, **kwarg):
         '''
         "Swiss knife" for traffic control. With the method you can
         dump, add, delete or modify qdiscs, classes and filters.
@@ -1872,6 +1872,13 @@ class RTNL_API:
             if kind is None:
                 raise ValueError('must specify kind for non-dump commands')
             kwarg['kind'] = kind
+        # 8<-----------------------------------------------
+        # compatibility section, to be cleaned up?
+        if index is not None:
+            kwarg['index'] = index
+        if handle is not None:
+            kwarg['handle'] = handle
+        # 8<-----------------------------------------------
         dump_filter, kwarg = get_dump_filter('tc', command, kwarg)
         arguments = get_arguments_processor('tc', command, kwarg)
 

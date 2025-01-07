@@ -66,6 +66,22 @@ def test_sfq(context):
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_compat_args4(context):
+    # get a free link index
+    idx = max([x.get('index') for x in context.ipr.link('dump')]) + 42
+    with pytest.raises(NetlinkError) as e:
+        context.ipr.tc('add', 'sfq', idx, ':1')
+    assert e.value.code == errno.ENODEV
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_compat_args5(context):
+    idx = max([x.get('index') for x in context.ipr.link('dump')]) + 42
+    with pytest.raises(TypeError):
+        context.ipr.tc('add', 'sfq', idx, ':1', 42)
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
 def test_tbf(context):
     index, ifname = context.default_interface
     context.ipr.tc(
