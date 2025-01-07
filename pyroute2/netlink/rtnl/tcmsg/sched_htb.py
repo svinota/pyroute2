@@ -106,10 +106,10 @@ def get_class_parameters(kwarg):
             cburst = ceil / get_hz() + mtu
         cburst = calc_xmittime(ceil, cburst)
 
-    if rate >= 1 << 32:
+    if rate is not None and rate >= 1 << 32:
         rate64 = rate
         rate = (1 << 32) - 1
-    if ceil >= 1 << 32:
+    if ceil is not None and ceil >= 1 << 32:
         ceil64 = ceil
         ceil = (1 << 32) - 1
     ret = {
