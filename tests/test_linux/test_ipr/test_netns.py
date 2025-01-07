@@ -1,4 +1,5 @@
 import errno
+import os
 
 import pytest
 from pr2test.marks import require_root
@@ -14,7 +15,7 @@ def test_flags(context):
         NetNS(nsname, flags=0)
     assert e.value.args[0] == errno.ENOENT
     # 8<-----------------------------------------------------
-    ns = NetNS(nsname, flags=64)
+    ns = NetNS(nsname, flags=os.O_CREAT)
     assert len([x.get('index') for x in ns.link('dump')]) > 0
     ns.close()
     # 8<-----------------------------------------------------
