@@ -39,6 +39,9 @@ class TcIPRouteFilter(IPRouteFilter):
         if 'handle' not in context:
             context['handle'] = 0
 
+        if self.command == "del-class":
+            return
+
         # get & run the plugin
         if 'kind' in context:
             if context['kind'] in tc_plugins:
