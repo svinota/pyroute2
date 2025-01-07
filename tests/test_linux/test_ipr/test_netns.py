@@ -1,8 +1,26 @@
+import errno
+
+import pytest
 from pr2test.marks import require_root
 
 from pyroute2 import NetNS
 
 pytestmark = [require_root()]
+
+
+def test_flags(context):
+    nsname = context.new_nsname
+    with pytest.raises(FileNotFoundError) as e:
+        NetNS(nsname, flags=0)
+    assert e.value.args[0] == errno.ENOENT
+    # 8<-----------------------------------------------------
+    ns = NetNS(nsname, flags=64)
+    assert len([x.get('index') for x in ns.link('dump')]) > 0
+    ns.close()
+    # 8<-----------------------------------------------------
+    ns = NetNS(nsname, flags=0)
+    assert len([x.get('index') for x in ns.link('dump')]) > 0
+    ns.close()
 
 
 def test_get_netns_info(context):
