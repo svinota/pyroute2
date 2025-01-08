@@ -906,7 +906,11 @@ class RTNL_API:
                 }
             )
         for addr in work:
-            ret.extend(await self.addr('del', **addr))
+            try:
+                ret.extend(await self.addr('del', **addr))
+            except NetlinkError:
+                if not ret:
+                    raise
         return ret
 
     async def flush_rules(self, *argv, **kwarg):
