@@ -103,7 +103,7 @@ def get_default_request_filters(mode, command):
         'addr': [AddressFieldFilter(), AddressIPRouteFilter(command)],
         'neigh': [NeighbourFieldFilter(), NeighbourIPRouteFilter(command)],
         'route': [
-            RouteFieldFilter(add_defaults=(command != 'dump')),
+            RouteFieldFilter(add_defaults=(command not in ('dump', 'show'))),
             RouteIPRouteFilter(command),
         ],
         'rule': [RuleFieldFilter(), RuleIPRouteFilter(command)],
@@ -118,7 +118,7 @@ def get_default_request_filters(mode, command):
 def get_dump_filter(mode, command, query):
     if 'dump_filter' in query:
         return query.pop('dump_filter'), query
-    if command != 'dump':
+    if command not in ('dump', 'show'):
         return RequestProcessor(), query
     new_query = {}
     if 'family' in query:
@@ -906,7 +906,11 @@ class RTNL_API:
                 }
             )
         for addr in work:
-            ret.extend(await self.addr('del', **addr))
+            try:
+                ret.extend(await self.addr('del', **addr))
+            except NetlinkError:
+                if not ret:
+                    raise
         return ret
 
     async def flush_rules(self, *argv, **kwarg):
@@ -2233,7 +2237,7 @@ class RTNL_API:
             self, msg, command, command_map, dump_filter, arguments
         )
         await request.send()
-        if command == 'dump':
+        if command in ('dump', 'show'):
             return request.response()
         return [x async for x in request.response()]
 
@@ -2480,7 +2484,7 @@ class IPRoute(SyncAPI):
             if (
                 len(argv) > 0
                 and isinstance(argv[0], str)
-                and argv[0].startswith('dump')
+                and (argv[0].startswith('dump') or argv[0].startswith('show'))
             ):
                 task = collect_dump
             else:
