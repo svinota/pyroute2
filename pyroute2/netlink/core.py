@@ -116,14 +116,14 @@ class CoreDatagramProtocol(CoreProtocol):
         self.enqueue(data, addr)
 
 
-async def netns_main(ctl, nsname, flags, cls):
+async def netns_main(ctl, nsname, flags, libc, cls):
     # A simple child process
     #
     payload = None
     fds = None
     try:
         # 1. set network namespace
-        setns(nsname, flags)
+        setns(nsname, flags=flags, libc=libc)
         # 2. start the socket object
         s = cls()
         await s.ensure_socket()
@@ -139,8 +139,8 @@ async def netns_main(ctl, nsname, flags, cls):
     # 4. exit
 
 
-def netns_init(ctl, nsname, flags, cls):
-    asyncio.run(netns_main(ctl, nsname, flags, cls))
+def netns_init(ctl, nsname, flags, libc, cls):
+    asyncio.run(netns_main(ctl, nsname, flags, libc, cls))
 
 
 class AsyncCoreSocket:
@@ -257,6 +257,7 @@ class AsyncCoreSocket:
                         ctrl[0],
                         self.spec['netns'],
                         self.spec['flags'],
+                        self.libc,
                         type(self),
                     ),
                 )
