@@ -1,6 +1,8 @@
 import asyncio
+import builtins
 import collections
 import errno
+import json
 import logging
 import multiprocessing
 import os
@@ -114,21 +116,31 @@ class CoreDatagramProtocol(CoreProtocol):
         self.enqueue(data, addr)
 
 
-async def netns_main(ctl, nsname, cls):
+async def netns_main(ctl, nsname, flags, libc, cls):
     # A simple child process
     #
-    # 1. set network namespace
-    setns(nsname)
-    # 2. start the socket object
-    s = cls()
-    await s.ensure_socket()
-    # 3. send back the file descriptor
-    socket.send_fds(ctl, [b'test'], [s.socket.fileno()], 1)
+    payload = None
+    fds = None
+    try:
+        # 1. set network namespace
+        setns(nsname, flags=flags, libc=libc)
+        # 2. start the socket object
+        s = cls()
+        await s.ensure_socket()
+        payload = {}
+        fds = [s.socket.fileno()]
+    except Exception as e:
+        # get class name
+        payload = {'name': e.__class__.__name__, 'args': e.args}
+        fds = []
+    finally:
+        # 3. send the feedback
+        socket.send_fds(ctl, [json.dumps(payload).encode('utf-8')], fds, 1)
     # 4. exit
 
 
-def netns_init(ctl, nsname, cls):
-    asyncio.run(netns_main(ctl, nsname, cls))
+def netns_init(ctl, nsname, flags, libc, cls):
+    asyncio.run(netns_main(ctl, nsname, flags, libc, cls))
 
 
 class AsyncCoreSocket:
@@ -241,12 +253,26 @@ class AsyncCoreSocket:
                 ctrl = socket.socketpair()
                 nsproc = multiprocessing.Process(
                     target=netns_init,
-                    args=(ctrl[0], self.spec['netns'], type(self)),
+                    args=(
+                        ctrl[0],
+                        self.spec['netns'],
+                        self.spec['flags'],
+                        self.libc,
+                        type(self),
+                    ),
                 )
                 nsproc.start()
-                (_, (self.local.fileno,), _, _) = socket.recv_fds(
-                    ctrl[1], 1024, 1
-                )
+                (data, fds, _, _) = socket.recv_fds(ctrl[1], 1024, 1)
+                # load the feedback
+                payload = json.loads(data.decode('utf-8'))
+                if payload:
+                    if set(payload.keys()) != set(('name', 'args')):
+                        raise TypeError('error loading netns feedback')
+                    error_class = getattr(builtins, payload['name'])
+                    if not issubclass(error_class, Exception):
+                        raise TypeError('error loading netns error')
+                    raise error_class(*payload['args'])
+                self.local.fileno = fds[0]
                 nsproc.join()
             # 8<-----------------------------------------
             self.local.socket = await self.setup_socket()
