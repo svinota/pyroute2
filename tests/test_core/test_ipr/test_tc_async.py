@@ -108,3 +108,35 @@ async def test_tc_htb(async_ipr):
         match_value='10000000',
         match_mask='ff000000',
     )
+
+    # complementary delete commands
+    await async_ipr.tc('del-filter', index=index, handle='0:0', parent='1:0')
+    assert not filter_exists(ifname=ifname, kind='u32', parent='1:0')
+
+    await async_ipr.tc('del-class', index=index, handle='1:20', parent='1:1')
+    assert not class_exists(
+        ifname=ifname, kind='htb', handle='1:20', parent='1:1'
+    )
+    assert class_exists(ifname=ifname, kind='htb', handle='1:10', parent='1:1')
+    assert class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
+
+    await async_ipr.tc('del-class', index=index, handle='1:10', parent='1:1')
+    assert not class_exists(
+        ifname=ifname, kind='htb', handle='1:20', parent='1:1'
+    )
+    assert not class_exists(
+        ifname=ifname, kind='htb', handle='1:10', parent='1:1'
+    )
+    assert class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
+
+    await async_ipr.tc('del-class', index=index, handle='1:1', parent='1:0')
+    assert not class_exists(
+        ifname=ifname, kind='htb', handle='1:20', parent='1:1'
+    )
+    assert not class_exists(
+        ifname=ifname, kind='htb', handle='1:10', parent='1:1'
+    )
+    assert not class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
+
+    await async_ipr.tc('del', index=index, handle=root_handle, root=True)
+    assert not qdisc_exists(ifname=ifname, handle=root_handle)

@@ -1872,9 +1872,10 @@ class RTNL_API:
             'replace-filter': (RTM_NEWTFILTER, 'replace'),
         }
 
-        if command[:3] not in ('dum', 'get'):
+        if command[:3] in ('add', 'cha'):
             if kind is None:
-                raise ValueError('must specify kind for non-dump commands')
+                raise ValueError('must specify kind for add/change commands')
+        if kind is not None:
             kwarg['kind'] = kind
         # 8<-----------------------------------------------
         # compatibility section, to be cleaned up?
