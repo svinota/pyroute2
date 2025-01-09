@@ -58,8 +58,26 @@ jobs:
     runs-on: Ubuntu
     strategy:
       matrix:
-        python: [python3.10, python3.11]
+        python: [python3.10, python3.11, python3.12]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: sudo make nox session=linux-${{ matrix.python }}
+  fedora-core:
+    runs-on: Fedora
+    strategy:
+      matrix:
+        python: [python3.10, python3.11, python3.12]
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v4
+      - run: sudo make nox session=core-${{ matrix.python }}
+  ubuntu-core:
+    runs-on: Ubuntu
+    strategy:
+      matrix:
+        python: [python3.10, python3.11, python3.12]
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v4
+      - run: sudo make nox session=core-${{ matrix.python }}
