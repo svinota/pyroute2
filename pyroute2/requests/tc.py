@@ -16,6 +16,14 @@ class TcRequestFilter:
     def set_handle(self, context, value):
         return self.transform_handle('handle', context, value)
 
+    def set_root(self, context, value):
+        ret = {}
+        if value:
+            ret['parent'] = 0xFFFFFFFF
+            if 'handle' not in context:
+                ret['handle'] = 0x10000
+        return ret
+
     def set_target(self, context, value):
         return self.transform_handle('target', context, value)
 
