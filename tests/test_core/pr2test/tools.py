@@ -126,13 +126,15 @@ def filter_exists(
 
 
 def qdisc_exists(
-    ifname, handle, default=None, netns=None, timeout=1, retry=0.2
+    ifname, handle, default=None, rate=None, netns=None, timeout=1, retry=0.2
 ):
     filters = [ip_object_filter(query='.handle', value=handle)]
     if default is not None:
         filters.append(
             ip_object_filter(query='.options.default', value=default)
         )
+    if rate is not None:
+        filters.append(ip_object_filter(query='.options.rate', value=rate))
     return wait_for_ip_object(
         ['tc', '-json', 'qdisc', 'show', 'dev', ifname],
         filters,
