@@ -1,11 +1,16 @@
 from inspect import signature
 
+import eventlet
 import pytest
 
 import pyroute2
 from pyroute2 import netlink, netns
+from pyroute2.config.eventlet import eventlet_config
 from pyroute2.netlink import exceptions, rtnl
 from pyroute2.netlink.rtnl import ifinfmsg, ndmsg
+
+eventlet.monkey_patch()
+eventlet_config()
 
 
 def parameters(func):
@@ -40,3 +45,9 @@ def test_imports():
         64: 'noarp',
         128: 'permanent',
     }
+
+
+def test_dump():
+    with pyroute2.IPRoute() as ipr:
+        assert len(tuple(ipr.route('dump'))) > 0
+        assert len(tuple(ipr.link('dump'))) > 0

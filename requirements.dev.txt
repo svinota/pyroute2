@@ -1,6 +1,7 @@
 build
 twine
 flake8
+eventlet
 netaddr
 pytest
 pytest-cov
