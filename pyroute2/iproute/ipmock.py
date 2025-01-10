@@ -5,10 +5,13 @@ import socket
 import struct
 from itertools import count
 
+from pyroute2.config import AF_NETLINK
 from pyroute2.lab import LAB_API
+from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE, nlmsg
 from pyroute2.netlink.core import Stats
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.rtnl import RTM_GETLINK
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -490,7 +493,124 @@ presets = {
 }
 
 
+class IPEngine:
+    '''Mock network objects database with the socket API.
+
+    WIP: work in progress.
+
+    A drop-in replacement to use instead of a low level RTNL socket.
+    Implements all the required socket properties and provides a
+    network objects database with RTNL protocol.
+
+    Example::
+
+        >>> ipe = IPEngine()
+        >>> ipr = IPRoute(use_socket=ipe)
+        >>> [ x.get('ifname') for x in ipr.link('dump') ]
+        ['lo', 'eth0']
+
+    '''
+
+    def __init__(self, sfamily=AF_NETLINK, stype=socket.SOCK_DGRAM, sproto=0):
+        self.marshal = MarshalRtnl()
+        self.database = copy.deepcopy(presets['default'])
+        self.loopback_r, self.loopback_w = socket.socketpair()
+        self._stype = stype
+        self._sfamily = sfamily
+        self._sproto = sproto
+        self.processors = {RTM_GETLINK: self.RTM_GETLINK}
+
+    def close(self):
+        self.loopback_r.close()
+        self.loopback_w.close()
+
+    def fileno(self):
+        return self.loopback_r.fileno()
+
+    def recv(self, bufsize, flags=0):
+        return self.loopback_r.recv(bufsize, flags)
+
+    def recvfrom(self, bufsize, flags=0):
+        return self.loopback_r.recvfrom(bufsize, flags)
+
+    def recvmsg(self, bufsize, ancbufsize=0, flags=0):
+        return self.loopback_r.recvmsg(bufsize, ancbufsize, flags)
+
+    def recv_into(self, buffer, nbytes=0, flags=0):
+        return self.loopback_r.recv_into(buffer, nbytes, flags)
+
+    def recvfrom_into(self, buffer, nbytes=0, flags=0):
+        return self.loopback_r.recvfrom_into(buffer, nbytes, flags)
+
+    def recvmsg_into(self, buffers, ancbufsize=0, flags=0):
+        return self.loopback_r.recvmsg_into(buffers, ancbufsize, flags)
+
+    def send(self, data, flags=0):
+        return self.nl_handle(data)
+
+    def sendall(self, data, flags=0):
+        return self.nl_handle(data)
+
+    def sendto(self, data, flags, address=0):
+        return self.nl_handle(data)
+
+    def sendmsg(self, buffers, ancdata=None, flags=None, address=None):
+        raise NotImplementedError()
+
+    def setblocking(self, flag):
+        return self.loopback_r.setblocking(flag)
+
+    def getblocking(self):
+        return self.loopback_r.getblocking()
+
+    def getsockname(self):
+        return self.loopback_r.getsockname()
+
+    def getpeername(self):
+        return self.loopback_r.getpeername()
+
+    @property
+    def type(self):
+        return self._stype
+
+    @property
+    def family(self):
+        return self._sfamily
+
+    @property
+    def proto(self):
+        return self._sproto
+
+    def nl_handle(self, data):
+        for msg in self.marshal.parse(data):
+            key = msg['header']['type']
+            if key in self.processors:
+                self.processors[key](msg)
+        return len(data)
+
+    def nl_dump(self, registry, msg_class, tag):
+        for item in registry:
+            msg = msg_class()
+            msg.load(item.export())
+            msg['header']['flags'] = NLM_F_MULTI
+            msg['header']['sequence_number'] = tag
+            msg.encode()
+            yield msg
+
+    def RTM_GETLINK(self, msg_in):
+        tag = msg_in['header']['sequence_number']
+        for msg_out in self.nl_dump(self.database['links'], ifinfmsg, tag):
+            self.loopback_w.send(msg_out.data)
+        msg = nlmsg()
+        msg['header']['type'] = NLMSG_DONE
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
+
+
 class IPRoute(LAB_API, NetlinkSocket):
+    '''To be deprecated.'''
+
     def __init__(self, *argv, **kwarg):
         super().__init__()
         self.set_marshal(MarshalRtnl())
