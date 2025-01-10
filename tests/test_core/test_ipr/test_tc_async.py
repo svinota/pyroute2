@@ -13,16 +13,35 @@ async def util_link_add(async_ipr):
     ifname = async_ipr.register_temporary_ifname()
     await async_ipr.link('add', ifname=ifname, kind='dummy', state='up')
     assert interface_exists(ifname)
-    return ifname
+    (link,) = await async_ipr.link('get', ifname=ifname)
+    index = link['index']
+    return ifname, index
+
+
+@pytest.mark.asyncio
+async def test_tc_get_qdiscs(async_ipr):
+    root_handle = '1:'
+    ifname, index = await util_link_add(async_ipr)
+    await async_ipr.tc(
+        'add',
+        'tbf',
+        index=index,
+        handle=root_handle,
+        rate=256,
+        burst=256,
+        latency=1,
+    )
+    assert qdisc_exists(ifname=ifname, handle=root_handle, rate=256)
+    assert len([x async for x in await async_ipr.get_qdiscs(index=index)]) == 1
+    await async_ipr.tc('del', index=index, handle=root_handle, root=True)
+    assert not qdisc_exists(ifname=ifname, handle=root_handle, rate=256)
 
 
 @pytest.mark.asyncio
 async def test_tc_htb(async_ipr):
     root_handle = '1:'
     root_options_default = '0x200000'
-    ifname = await util_link_add(async_ipr)
-    (link,) = await async_ipr.link('get', ifname=ifname)
-    index = link['index']
+    ifname, index = await util_link_add(async_ipr)
     await async_ipr.tc(
         'add',
         'htb',

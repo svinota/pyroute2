@@ -416,7 +416,7 @@ class RTNL_API:
 
         A compatibility method, == .tc("dump")
         '''
-        return await self.tc('dump')
+        return await self.tc('dump', index=index)
 
     async def get_filters(self, index=0, handle=0, parent=0):
         '''
