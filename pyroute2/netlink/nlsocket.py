@@ -243,7 +243,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             'create_dummy': True,
             'provide_master': config.kernel[0] > 2,
         }
-        super().__init__(libc=libc)
+        super().__init__(libc=libc, use_socket=use_socket)
         self.marshal = Marshal()
         self.request_proxy = None
         self.batch = None
