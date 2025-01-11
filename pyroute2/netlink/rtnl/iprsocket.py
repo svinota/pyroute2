@@ -2,11 +2,11 @@ import os
 import sys
 
 from pyroute2 import config
+from pyroute2.iproute.ipmock import IPEngine
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
 from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, ChaoticNetlinkSocket
 from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
-from pyroute2.iproute.ipmock import IPEngine
 
 if sys.platform.startswith('linux'):
     from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_newlink

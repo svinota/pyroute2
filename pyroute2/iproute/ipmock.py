@@ -11,7 +11,7 @@ from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE, nlmsg
 from pyroute2.netlink.core import Stats
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.rtnl import RTM_GETLINK
+from pyroute2.netlink.rtnl import RTM_GETADDR, RTM_GETLINK
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -518,11 +518,20 @@ class IPEngine:
         self._stype = stype
         self._sfamily = sfamily
         self._sproto = sproto
-        self.processors = {RTM_GETLINK: self.RTM_GETLINK}
+        self.processors = {
+            RTM_GETADDR: self.RTM_GETADDR,
+            RTM_GETLINK: self.RTM_GETLINK,
+        }
 
     def close(self):
         self.loopback_r.close()
         self.loopback_w.close()
+
+    def bind(self, address=None):
+        msg = ifinfmsg()
+        msg.load(self.database['links'][0])
+        msg.encode()
+        self.loopback_w.send(msg.data)
 
     def fileno(self):
         return self.loopback_r.fileno()
@@ -596,6 +605,16 @@ class IPEngine:
             msg['header']['sequence_number'] = tag
             msg.encode()
             yield msg
+
+    def RTM_GETADDR(self, msg_in):
+        tag = msg_in['header']['sequence_number']
+        for msg_out in self.nl_dump(self.database['addr'], ifaddrmsg, tag):
+            self.loopback_w.send(msg_out.data)
+        msg = nlmsg()
+        msg['header']['type'] = NLMSG_DONE
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
 
     def RTM_GETLINK(self, msg_in):
         tag = msg_in['header']['sequence_number']
