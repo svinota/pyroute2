@@ -1,19 +1,54 @@
 .. usage:
 
+.. testsetup:: *
+
+    from pyroute2 import config
+    config.mock_iproute = True
+
 Quickstart
 ==========
 
-Hello, world::
+"Hello world", sync API:
 
-    $ pip install pyroute2
+.. testcode::
 
-    $ cat example.py
     from pyroute2 import IPRoute
-    with IPRoute() as ipr:
-        print([x.get_attr('IFLA_IFNAME') for x in ipr.get_links()])
 
-    $ python example.py
-    ['lo', 'p6p1', 'wlan0', 'virbr0', 'virbr0-nic']
+    def main():
+        ipr = IPRoute()
+        for link in ipr.link("dump"):
+            print(link.get("ifname"), link.get("state"), link.get("address"))
+        ipr.close()
+
+    main()
+
+
+.. testoutput::
+
+    lo up 00:00:00:00:00:00
+    eth0 up 52:54:00:72:58:b2
+
+"Hello world", async API:
+
+.. testcode::
+
+    import asyncio
+
+    from pyroute2 import AsyncIPRoute
+
+    async def main():
+        ipr = AsyncIPRoute()
+        async for link in await ipr.link("dump"):
+            print(link.get("ifname"), link.get("state"), link.get("address"))
+        await ipr.close()
+
+    asyncio.run(main())
+
+
+.. testoutput::
+
+    lo up 00:00:00:00:00:00
+    eth0 up 52:54:00:72:58:b2
 
 Sockets
 -------

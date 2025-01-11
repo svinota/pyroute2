@@ -232,15 +232,16 @@ pre {
     color: #333333;
     line-height: 120%;
     border: 1px solid #ac9;
-    border-left: none;
-    border-right: none;
     border-radius: 10px;
 }
 
-div.highlight-none > div.highlight > pre {
-    border: none;
-    margin-top: -1.5em;
-    padding-top: 1.5em;
+div.highlight-python > div.highlight > pre {
+    padding-bottom: 2em;
+}
+
+div.highlight-python + div.highlight-none {
+    margin-top: -2em;
+    padding-left: 1em;
 }
 
 tt {
