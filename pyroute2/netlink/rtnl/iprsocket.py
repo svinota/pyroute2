@@ -92,6 +92,7 @@ class IPRSocket(AsyncNetlinkSocket):
     ):
         if config.mock_iproute:
             use_socket = IPEngine()
+            netns = None
         self.marshal = MarshalRtnl()
         super().__init__(
             family=NETLINK_ROUTE,
