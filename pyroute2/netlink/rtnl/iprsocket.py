@@ -2,6 +2,7 @@ import os
 import sys
 
 from pyroute2 import config
+from pyroute2.iproute.ipmock import IPEngine
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
 from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, ChaoticNetlinkSocket
 from pyroute2.netlink.proxy import NetlinkProxy
@@ -89,6 +90,9 @@ class IPRSocket(AsyncNetlinkSocket):
         flags=os.O_CREAT,
         libc=None,
     ):
+        if config.mock_iproute:
+            use_socket = IPEngine()
+            netns = None
         self.marshal = MarshalRtnl()
         super().__init__(
             family=NETLINK_ROUTE,
