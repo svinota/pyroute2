@@ -239,6 +239,10 @@ div.highlight-python > div.highlight > pre {
     padding-bottom: 2em;
 }
 
+div.highlight-none > div.highlight > pre {
+    background-color: #fffeed;
+}
+
 div.highlight-python + div.highlight-none {
     margin-top: -2em;
     padding-left: 1em;

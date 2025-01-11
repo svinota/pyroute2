@@ -50,12 +50,22 @@ Quickstart
     lo up 00:00:00:00:00:00
     eth0 up 52:54:00:72:58:b2
 
-Sockets
--------
+Netlink sockets
+---------------
 
-In the runtime pyroute2 socket objects behave as normal
-sockets. One can use them in the poll/select, one can
-call `recv()` and `sendmsg()`::
+Netlink sockets created with pyroute2 behave similarly to ordinary
+socket objects, but there are some key differences in how they
+handle data reception.
+
+At a low level, these sockets are monitored by the asyncio event
+loop, which means that direct use of `recv()` or `recvmsg()` is not
+supported. If you require such low-level functionality, you would
+need to modify the protocol class associated with the socket object.
+
+By default, the lowest-level API available for receiving data with
+pyroute2 sockets is the `get()` method.
+
+.. testcode::
 
     from pyroute2 import IPRoute
 
@@ -65,33 +75,28 @@ call `recv()` and `sendmsg()`::
     # subscribe to broadcast messages
     ipr.bind()
 
-    # wait for data (do not parse it)
-    data = ipr.recv(65535)
-
-    # parse received data
-    messages = ipr.marshal.parse(data)
-
-    # shortcut: recv() + parse()
-    #
-    # (under the hood is much more, but for
-    # simplicity it's enough to say so)
-    #
-    messages = ipr.get()
+    # wait for parsed data
+    data = ipr.get()
 
 
-But pyroute2 objects have a lot of methods, written to
-handle specific tasks::
+... but pyroute2 objects have additional high level methods:
+
+.. testcode::
 
     from pyroute2 import IPRoute
 
     # RTNL interface
     with IPRoute() as ipr:
+        # get IP addresses
+        for msg in ipr.addr("dump"):
+            addr = msg.get("address")
+            mask = msg.get("prefixlen")
+            print(f"{addr}/{mask}")
 
-        # get devices list
-        ipr.get_links()
+.. testoutput::
 
-        # get addresses
-        ipr.get_addr()
+    127.0.0.1/8
+    192.168.122.28/24
 
 Resource release
 ----------------
@@ -115,13 +120,15 @@ import signature.
     All other objects are also available for import, but they
     may change signatures in the next versions.
 
-E.g.::
+E.g.:
+
+.. testcode::
 
     # Import a pyroute2 class directly. In the next versions
     # the import signature can be changed, e.g., NetNS from
     # pyroute2.netns.nslink it can be moved somewhere else.
     #
-    from pyroute2.netns.nslink import NetNS
+    from pyroute2.iproute.linux import NetNS
     ns = NetNS('test')
 
     # Import the same class from root module. This signature
@@ -130,30 +137,3 @@ E.g.::
     #
     from pyroute2 import NetNS
     ns = NetNS('test')
-
-Special cases
-=============
-
-eventlet
---------
-
-The eventlet environment conflicts in some way with socket
-objects, and pyroute2 provides some workaround for that::
-
-    # import symbols
-    #
-    import eventlet
-    from pyroute2 import NetNS
-    from pyroute2.config.eventlet import eventlet_config
-
-    # setup the environment
-    eventlet.monkey_patch()
-    eventlet_config()
-
-    # run the code
-    ns = NetNS('nsname')
-    ns.get_routes()
-    ...
-
-This may help, but not always. In general, the pyroute2 library
-is not eventlet-friendly.
