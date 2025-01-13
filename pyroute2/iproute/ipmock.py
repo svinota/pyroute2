@@ -654,7 +654,10 @@ class IPEngine:
 
     def RTM_GETLINK(self, msg_in):
         tag = msg_in['header']['sequence_number']
-        for msg_out in self.nl_dump(self.database['links'], ifinfmsg, tag):
+        database = self.database['links']
+        if msg_in.get('index') > 0:
+            database = [self.database['links'][msg_in.get('index') - 1]]
+        for msg_out in self.nl_dump(database, ifinfmsg, tag):
             self.loopback_w.send(msg_out.data)
         msg = nlmsg()
         msg['header']['type'] = NLMSG_DONE
