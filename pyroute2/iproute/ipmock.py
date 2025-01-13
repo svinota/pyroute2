@@ -1,5 +1,6 @@
 import copy
 import errno
+import os
 import queue
 import socket
 import struct
@@ -11,7 +12,7 @@ from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE, nlmsg
 from pyroute2.netlink.core import Stats
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.rtnl import RTM_GETADDR, RTM_GETLINK
+from pyroute2.netlink.rtnl import RTM_GETADDR, RTM_GETLINK, RTM_NEWLINK
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -66,6 +67,24 @@ class MockLink:
         self.br_max_age = br_max_age
         self.br_forward_delay = br_forward_delay
         self.alt_ifname_list = alt_ifname_list or []
+
+    @classmethod
+    def load_from_msg(cls, msg):
+        return cls(
+            **{
+                x: msg.get(x)
+                for x in [
+                    'index',
+                    'address',
+                    'broadcast',
+                    'flags',
+                    'mtu',
+                    'ifname',
+                    'kind',
+                ]
+                if msg.get(x) is not None
+            }
+        )
 
     def export(self):
         ret = {
@@ -511,9 +530,17 @@ class IPEngine:
 
     '''
 
-    def __init__(self, sfamily=AF_NETLINK, stype=socket.SOCK_DGRAM, sproto=0):
+    def __init__(
+        self,
+        sfamily=AF_NETLINK,
+        stype=socket.SOCK_DGRAM,
+        sproto=0,
+        netns='default',
+        flags=os.O_CREAT,
+    ):
         self.marshal = MarshalRtnl()
-        self.database = copy.deepcopy(presets['default'])
+        self.netns = netns
+        self.flags = flags
         self.loopback_r, self.loopback_w = socket.socketpair()
         self._stype = stype
         self._sfamily = sfamily
@@ -521,7 +548,16 @@ class IPEngine:
         self.processors = {
             RTM_GETADDR: self.RTM_GETADDR,
             RTM_GETLINK: self.RTM_GETLINK,
+            RTM_NEWLINK: self.RTM_NEWLINK,
         }
+        self.initdb()
+
+    def initdb(self):
+        if self.netns not in presets:
+            if not self.flags & os.O_CREAT:
+                raise FileNotFoundError()
+            presets[self.netns] = copy.deepcopy(presets['netns'])
+        self.database = copy.deepcopy(presets[self.netns])
 
     def close(self):
         self.loopback_r.close()
@@ -620,6 +656,23 @@ class IPEngine:
         tag = msg_in['header']['sequence_number']
         for msg_out in self.nl_dump(self.database['links'], ifinfmsg, tag):
             self.loopback_w.send(msg_out.data)
+        msg = nlmsg()
+        msg['header']['type'] = NLMSG_DONE
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
+
+    def RTM_NEWLINK(self, req):
+        if req.get('ifname') in self.database['links']:
+            raise NetlinkError(errno.EEXIST, 'interface exists')
+        link = MockLink.load_from_msg(req)
+        self.database['links'].append(link)
+        tag = req['header']['sequence_number']
+        msg = ifinfmsg()
+        msg.load(link.export())
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
         msg = nlmsg()
         msg['header']['type'] = NLMSG_DONE
         msg['header']['sequence_number'] = tag

@@ -3,7 +3,7 @@
 .. testsetup:: *
 
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
 
 Quickstart
 ==========
@@ -35,6 +35,7 @@ Quickstart
     import asyncio
 
     from pyroute2 import AsyncIPRoute
+
 
     async def main():
         ipr = AsyncIPRoute()
