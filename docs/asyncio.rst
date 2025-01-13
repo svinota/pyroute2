@@ -50,6 +50,7 @@ AsyncCoreSocket
 .. aafig::
    :scale: 80
    :textual:
+   :rounded:
 
                                                      \
     +------------------+                              |
@@ -99,19 +100,30 @@ instead of inheritance. The asynchronous API is available then as
 .. aafig::
    :scale: 80
    :textual:
+   :rounded:
 
                            \
     +------------------+    |
     | AsyncCoreSocket  +    |
-    +--------+---------+     \ class CoreSocket
-             |               /
+    +--------+---------+    |
+             |               \ class CoreSocket
+             v               /
     +--------+---------+    | 
-    | SyncAPI wrappers |    |
-    +------------------+    |
-                           /
+    | SyncAPI          |    |
+    +--------+---------+    |
+             |             /
+             v
 
 
 An example of a synchronous wrapper method:
+
+..
+    The working directory to build the docs is
+    {git_root}/.nox-{user}/{nox_target}/tmp/{docs_sources}
+    
+    In order to include sources from the git, one should
+    step back all the way until {git_root}, thus
+    ../../../../
 
 .. literalinclude:: ../../../../pyroute2/netlink/core.py
    :caption: pyroute2.netlink.core: class SyncAPI
