@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+import io
 import logging
 import os
+import struct
 import time
 import warnings
 from functools import partial
@@ -91,9 +93,10 @@ from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 from pyroute2.requests.tc import TcIPRouteFilter, TcRequestFilter
 
-from .parsers import default_routes
+from .parsers import default_routes, export_routes
 
 DEFAULT_TABLE = 254
+IPROUTE2_DUMP_MAGIC = 0x45311224
 log = logging.getLogger(__name__)
 
 
@@ -404,6 +407,30 @@ class RTNL_API:
         )
         await request.send()
         return [x async for x in request.response()]
+
+    # 8<---------------------------------------------------------------
+    #
+    # Binary streams methods
+    #
+    async def route_dump(self, fd, family=AF_UNSPEC, fmt='iproute2'):
+        if fmt == 'iproute2':
+            fd.write(struct.pack('I', IPROUTE2_DUMP_MAGIC))
+        msg = rtmsg()
+        msg['family'] = family
+        request = NetlinkRequest(
+            self,
+            msg,
+            msg_type=RTM_GETROUTE,
+            msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
+            parser=export_routes(fd),
+        )
+        await request.send()
+        return [x async for x in request.response()]
+
+    async def route_dumps(self, family=AF_UNSPEC, fmt='iproute2'):
+        fd = io.BytesIO()
+        await self.route_dump(fd, family, fmt)
+        return fd.getvalue()
 
     # 8<---------------------------------------------------------------
     #
@@ -2458,6 +2485,8 @@ class IPRoute(SyncAPI):
             'flush_rules',
             'flush_routes',
             'get_netnsid',
+            'route_dump',
+            'route_dumps',
         ]
         async_dump_methods = [
             'dump',
