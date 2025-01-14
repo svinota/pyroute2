@@ -208,7 +208,7 @@ def test_platform(session):
     session.run('pyroute2-test-platform')
 
 
-@nox.session
+@nox.session(python='python3.10')
 def docs(session):
     '''Generate project docs.'''
     tmpdir = setup_venv_docs(session)

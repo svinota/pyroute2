@@ -90,9 +90,8 @@ class IPRSocket(AsyncNetlinkSocket):
         flags=os.O_CREAT,
         libc=None,
     ):
-        if config.mock_iproute:
+        if config.mock_netlink:
             use_socket = IPEngine()
-            netns = None
         self.marshal = MarshalRtnl()
         super().__init__(
             family=NETLINK_ROUTE,

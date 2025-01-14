@@ -3,8 +3,17 @@
 IPRoute module
 ==============
 
-.. automodule:: pyroute2.iproute
-    :members:
+.. toctree::
+    :maxdepth: 2
+
+    iproute_intro
+    iproute_netns
+
+..
+    iproute_platforms
+    iproute_reference
+    iproute_tc
+
 
 BSD systems
 -----------

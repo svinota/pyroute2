@@ -20,6 +20,7 @@ Usage
     :maxdepth: 2
 
     usage
+    asyncio
     iproute
     ndb
     wiset
