@@ -432,6 +432,38 @@ class RTNL_API:
         await self.route_dump(fd, family, fmt)
         return fd.getvalue()
 
+    async def route_load(self, fd, fmt='iproute2'):
+        if fmt == 'iproute2':
+            if (
+                not struct.unpack('I', fd.read(struct.calcsize('I')))[0]
+                == IPROUTE2_DUMP_MAGIC
+            ):
+                raise TypeError('wrong dump magic')
+        ret = []
+        for msg in self.marshal.parse(fd.read()):
+            request = NetlinkRequest(
+                self,
+                msg,
+                command='replace',
+                command_map={'replace': (RTM_NEWROUTE, 'replace')},
+            )
+            await request.send()
+            ret.extend(
+                [
+                    x['header']['error'] is None
+                    async for x in request.response()
+                ]
+            )
+        if not all(ret):
+            raise NetlinkError('error loading route dump')
+        return []
+
+    async def route_loads(self, data, fmt='iproute2'):
+        fd = io.BytesIO()
+        fd.write(data)
+        fd.seek(0)
+        return await self.route_load(fd, fmt)
+
     # 8<---------------------------------------------------------------
     #
     # Listing methods
@@ -2487,6 +2519,8 @@ class IPRoute(SyncAPI):
             'get_netnsid',
             'route_dump',
             'route_dumps',
+            'route_load',
+            'route_loads',
         ]
         async_dump_methods = [
             'dump',
