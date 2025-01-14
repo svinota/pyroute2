@@ -12,18 +12,19 @@ AsyncIPRoute
 ~~~~~~~~~~~~
 
 .. warning::
-    The project core is being refactored right now, thus some
-    methods may provide the old synchronous API. This will be
-    fixed.
+    The project core is currently undergoing refactoring, so
+    some methods may still use the old synchronous API. This
+    will be addressed in future updates.
 
-The main RTNL API class. Built upon the asyncio core. All
-the methods that send netlink requests, are `async` and
-return awaitables. The dump requests return async generators,
-while other requests return iterables like tuples or lists.
+The main RTNL API class is built on an asyncio core. All methods
+that send netlink requests are asynchronous and return awaitables.
+Dump requests return asynchronous generators, while other requests
+return iterables, such as tuples or lists.
 
-The reason behind that is that RTNL dumps like routes or
-neighbours may return so huge numbers of objects, so buffering
-the whole response in the memory might be a bad idea.
+This design choice addresses the fact that RTNL dumps, such as
+routes or neighbors, can return an extremely large number of objects.
+Buffering the entire response in memory could lead to performance
+issues.
 
 .. testcode::
 
@@ -52,8 +53,8 @@ the whole response in the memory might be a bad idea.
 IPRoute
 ~~~~~~~
 
-This API is planned be compatible with the old synchronous `IPRoute` from
-versions 0.8.x and before:
+This API is designed to be compatible with the old synchronous `IPRoute`
+from version 0.8.x and earlier:
 
 .. testcode::
 
@@ -90,10 +91,11 @@ versions 0.8.x and before:
 NetNS
 ~~~~~
 
-NetNS class prior to 0.9.1 was used to run RTNL API in a network namespace.
-Since pyroute2 0.9.1 the netns functionality is integrated in the library
-core, so to run an `IPRoute` or `AsyncIPRoute` in a network namespace, simply
-use `netns` argument:
+The `NetNS` class, prior to version 0.9.1, was used to run the RTNL API
+in a network namespace. Starting with pyroute2 version 0.9.1, the network
+namespace functionality has been integrated into the library core. To run
+an `IPRoute` or `AsyncIPRoute` instance in a network namespace, simply use
+the `netns` argument:
 
 .. testcode::
 
@@ -102,10 +104,10 @@ use `netns` argument:
     with IPRoute(netns="test") as ipr:
         assert ipr.status["netns"] == "test"
 
-The current netns name is available as `.status["netns"]`.
+After initialization, the netns name is available as `.status["netns"]`.
 
-The old synchronous `NetNS` class still is provided for compatibility,
-but now it is but a wrapper around `IPRoute`.
+The old synchronous `NetNS` class is still available for compatibility
+but now serves as a wrapper around `IPRoute`.
 
 .. testcode::
 
@@ -117,26 +119,26 @@ but now it is but a wrapper around `IPRoute`.
 NLMSG_ERROR responses
 ---------------------
 
-Some kernel subsystems return `NLMSG_ERROR` in response to
-any request. It is OK as long as `nlmsg["header"]["error"] is None`.
-Otherwise an exception will be raised by the parser.
+Some kernel subsystems return `NLMSG_ERROR` in response to any request.
+This is acceptable as long as `nlmsg["header"]["error"]` is `None`.
+If it is not `None`, an exception will be raised by the parser.
 
-So if instead of an exception you get a `NLMSG_ERROR` message,
-it means `error == 0`, the same as `$? == 0` in bash.
+If you receive an `NLMSG_ERROR` message instead of an exception,
+it means `error == 0`, which is equivalent to `$? == 0` in bash.
 
 How to work with messages
 -------------------------
 
-Every netlink message contains header, fields and NLAs
-(netlink attributes). Every NLA is a netlink message...
+Every netlink message contains a header, fields, and NLAs
+(netlink attributes). Each NLA is itself a netlink message
 (see "recursion").
 
-And the library provides parsed messages according to
-this scheme. Every RTNL message contains:
+The library parses messages according to this structure.
+Each RTNL message includes the following:
 
 * `nlmsg['header']` -- parsed header
 * `nlmsg['attrs']` -- NLA chain (parsed on demand)
-* 0 .. k data fields, e.g. `nlmsg['flags']` etc.
+* data fields, e.g. `nlmsg['flags']` etc.
 * `nlmsg.header` -- the header fields spec
 * `nlmsg.fields` -- the data fields spec
 * `nlmsg.nla_map` -- NLA spec
@@ -162,13 +164,13 @@ this scheme. Every RTNL message contains:
         assert len(msg.fields) > 0
         assert len(msg.nla_map) > 0
 
-An important parser feature is that NLAs are parsed
-on demand, when someone tries to access them. Otherwise
-the parser doesn't waste CPU cycles.
+One key feature of the parser is that NLAs are parsed
+only on demand, i.e., when accessed. This prevents
+unnecessary CPU usage.
 
-The NLA chain is a list-like structure, not a dictionary.
-The netlink standard doesn't require NLAs to be unique
-within one message::
+The NLA chain is a list-like structure rather than a
+dictionary because the netlink standard does not require
+NLAs to be unique within a single message::
 
     {'attrs': [('IFLA_IFNAME', 'lo'),    # [1]
                ('IFLA_TXQLEN', 1),
@@ -200,8 +202,9 @@ within one message::
      # [4] more details in the netlink description
      # [5] 16 == RTM_NEWLINK
 
-To access fields or NLA, one can use `.get()`. To get nested NLA,
-simply pass a tuple of NLA names to descend to the `.get()` call:
+To access fields or NLAs, use the `.get()` method. To retrieve
+nested NLAs, pass a tuple of NLA names to the `.get()` call to
+navigate through the hierarchy:
 
 .. testcode::
 
@@ -216,11 +219,12 @@ simply pass a tuple of NLA names to descend to the `.get()` call:
         # get a nested NLA
         assert lo.get(("stats64", "rx_bytes")) == 43309665
 
-When an NLA with the specified name is not present in the
-chain, `get()` returns `None`. To get the list of all
-NLAs of that name, use `get_attrs()`. A real example with
-NLA hierarchy, take notice of `get()` and
-`get_attrs()` usage::
+If an NLA with the specified name is not present in the chain,
+`.get()` returns None. To retrieve a list of all NLAs with the
+specified name, use `.get_attrs()`.
+
+Below is an example demonstrating the usage of `.get()` and
+`.get_attrs()` with an NLA hierarchy::
 
     # for macvlan interfaces there may be several
     # IFLA_MACVLAN_MACADDR NLA provided, so use
@@ -235,9 +239,9 @@ NLA hierarchy, take notice of `get()` and
 ..
     FIXME! test the example above
 
-The protocol itself has no limit for number of NLAs of the
-same type in one message, that's why we can not make a dictionary
-from them -- unlike PF_ROUTE messages.
+The protocol itself does not impose a limit on the number of NLAs
+of the same type within a single message. This is why we cannot
+represent them as a dictionary, unlike with `PF_ROUTE` messages.
 
 '''
 import sys
