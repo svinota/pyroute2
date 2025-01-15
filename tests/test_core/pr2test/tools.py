@@ -52,18 +52,31 @@ def wait_for_ip_object(cmd, filters, timeout, retry):
     return found
 
 
-def address_exists(address, ifname=None, timeout=1, retry=0.2):
+def address_exists(address, ifname=None, netns=None, timeout=1, retry=0.2):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
     filters = [ip_object_filter(query='.addr_info.local', value=address)]
     ifspec = ['dev', ifname] if ifname is not None else []
     return wait_for_ip_object(
-        ['ip', '-json', 'addr', 'show'] + ifspec, filters, timeout, retry
+        ns + ['ip', '-json', 'addr', 'show'] + ifspec, filters, timeout, retry
     )
 
 
 def interface_exists(ifname, netns=None, timeout=1, retry=0.2):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
     filters = [ip_object_filter(query='.ifname', value=ifname)]
     return wait_for_ip_object(
-        ['ip', '-json', 'link', 'show'], filters, timeout, retry
+        ns + ['ip', '-json', 'link', 'show'], filters, timeout, retry
+    )
+
+
+def route_exists(dst, table='main', netns=None, timeout=1, retry=0.2):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
+    filters = [ip_object_filter(query='.dst', value=dst)]
+    return wait_for_ip_object(
+        ns + ['ip', '-json', 'route', 'show', 'table', str(table)],
+        filters,
+        timeout,
+        retry,
     )
 
 

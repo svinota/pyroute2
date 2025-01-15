@@ -1,7 +1,47 @@
 import struct
+from functools import partial
 
 from pyroute2.netlink import NLMSG_DONE, nlmsg
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.rtnl import RTM_NEWROUTE
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
+
+
+def get_header(data, offset):
+    # get message header
+    header = dict(
+        zip(
+            ('length', 'type', 'flags', 'sequence_number'),
+            struct.unpack_from('IHHI', data, offset),
+        )
+    )
+    header['error'] = None
+    return header
+
+
+def msg_done(header):
+    msg = nlmsg()
+    msg['header'] = header
+    msg.length = msg['header']['length']
+    return msg
+
+
+def _export_routes(fd, data, offset, length):
+    '''Export RTM_NEWROUTE messages binary data.
+
+    Otherwise return NLMSG_DONE.
+    '''
+    header = get_header(data, offset)
+    if header['type'] == NLMSG_DONE:
+        return msg_done(header)
+    elif header['type'] == RTM_NEWROUTE:
+        fd.write(data[offset : offset + length])
+        return
+    raise NetlinkError()
+
+
+def export_routes(fd):
+    return partial(_export_routes, fd)
 
 
 def default_routes(data, offset, length):
@@ -14,19 +54,9 @@ def default_routes(data, offset, length):
     * nlmsg() -- NLMSG_DONE
     * None for any other messages
     '''
-    # get message header
-    header = dict(
-        zip(
-            ('length', 'type', 'flags', 'sequence_number'),
-            struct.unpack_from('IHHI', data, offset),
-        )
-    )
-    header['error'] = None
+    header = get_header(data, offset)
     if header['type'] == NLMSG_DONE:
-        msg = nlmsg()
-        msg['header'] = header
-        msg.length = msg['header']['length']
-        return msg
+        return msg_done(header)
 
     # skip to NLA: offset + nlmsg header + rtmsg data
     cursor = offset + 28

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+import io
 import logging
 import os
+import struct
 import time
 import warnings
 from functools import partial
@@ -91,9 +93,10 @@ from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 from pyroute2.requests.tc import TcIPRouteFilter, TcRequestFilter
 
-from .parsers import default_routes
+from .parsers import default_routes, export_routes
 
 DEFAULT_TABLE = 254
+IPROUTE2_DUMP_MAGIC = 0x45311224
 log = logging.getLogger(__name__)
 
 
@@ -404,6 +407,101 @@ class RTNL_API:
         )
         await request.send()
         return [x async for x in request.response()]
+
+    # 8<---------------------------------------------------------------
+    #
+    # Binary streams methods
+    #
+    async def route_dump(self, fd, family=AF_UNSPEC, fmt='iproute2'):
+        '''Save routes as a binary dump into a file object.
+
+        fd -- an open file object, must support `write()`
+        family -- AF_UNSPEC, AF_INET, etc. -- filter routes by family
+        fmt -- dump format, "iproute2" (default) or "raw"
+
+        The binary dump is just a set of unparsed netlink messages.
+        The `iproute2` prepends the dump with a magic uint32, so
+        `IPRoute` does the same for compatibility. If you want a raw
+        dump without any additional magic data, use `fmt="raw"`.
+
+        This routine neither close the file object, nor uses `seek()`
+        to rewind, it's up to the user.
+        '''
+
+        if fmt == 'iproute2':
+            fd.write(struct.pack('I', IPROUTE2_DUMP_MAGIC))
+        elif fmt != 'raw':
+            raise TypeError('dump format not supported')
+        msg = rtmsg()
+        msg['family'] = family
+        request = NetlinkRequest(
+            self,
+            msg,
+            msg_type=RTM_GETROUTE,
+            msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
+            parser=export_routes(fd),
+        )
+        await request.send()
+        return [x async for x in request.response()]
+
+    async def route_dumps(self, family=AF_UNSPEC, fmt='iproute2'):
+        '''Save routes and returns as a `bytes` object.
+
+        The same as `.route_dump()`, but returns `bytes`.
+        '''
+        fd = io.BytesIO()
+        await self.route_dump(fd, family, fmt)
+        return fd.getvalue()
+
+    async def route_load(self, fd, fmt='iproute2'):
+        '''Load routes from a binary dump.
+
+        fd -- an open file object, must support `read()`
+        fmt -- dump format, "iproute2" (default) or "raw"
+
+        The current version parses the dump and loads routes one
+        by one. This behavior will be changed in the future to
+        optimize the performance, but the result will be the same.
+
+        If `fmt == "iproute2"`, then the loader checks the magic iproute2
+        prefix in the dump. Otherwise it parses the data from byte 0.
+        '''
+        if fmt == 'iproute2':
+            if (
+                not struct.unpack('I', fd.read(struct.calcsize('I')))[0]
+                == IPROUTE2_DUMP_MAGIC
+            ):
+                raise TypeError('wrong dump magic')
+        elif fmt != 'raw':
+            raise TypeError('dump format not supported')
+        ret = []
+        for msg in self.marshal.parse(fd.read()):
+            request = NetlinkRequest(
+                self,
+                msg,
+                command='replace',
+                command_map={'replace': (RTM_NEWROUTE, 'replace')},
+            )
+            await request.send()
+            ret.extend(
+                [
+                    x['header']['error'] is None
+                    async for x in request.response()
+                ]
+            )
+        if not all(ret):
+            raise NetlinkError('error loading route dump')
+        return []
+
+    async def route_loads(self, data, fmt='iproute2'):
+        '''Load routes from a `bytes` object.
+
+        Like `.route_load()`, but accepts `bytes` instead of an file file.
+        '''
+        fd = io.BytesIO()
+        fd.write(data)
+        fd.seek(0)
+        return await self.route_load(fd, fmt)
 
     # 8<---------------------------------------------------------------
     #
@@ -2458,6 +2556,10 @@ class IPRoute(SyncAPI):
             'flush_rules',
             'flush_routes',
             'get_netnsid',
+            'route_dump',
+            'route_dumps',
+            'route_load',
+            'route_loads',
         ]
         async_dump_methods = [
             'dump',
