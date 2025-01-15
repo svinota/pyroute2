@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from shutil import which
-from typing import AsyncGenerator, ClassVar, Literal
+from typing import AsyncGenerator, ClassVar, Literal, Optional
 
 import pytest
 import pytest_asyncio
@@ -31,7 +31,7 @@ class DnsmasqOptions:
 class DnsmasqFixture:
     '''Runs the dnsmasq server as an async context manager.'''
 
-    DNSMASQ_PATH: ClassVar[str | None] = which('dnsmasq')
+    DNSMASQ_PATH: ClassVar[Optional[str]] = which('dnsmasq')
 
     def __init__(self, options: DnsmasqOptions) -> None:
         self.options = options

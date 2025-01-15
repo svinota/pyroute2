@@ -34,7 +34,7 @@ class sock_fprog(Structure):
     _fields_ = [('len', c_ushort), ('filter', c_void_p)]
 
 
-def compile_bpf(code: list[int]):
+def compile_bpf(code: list[list[int]]):
     ProgramType = sock_filter * len(code)
     program = ProgramType(*[sock_filter(*line) for line in code])
     sfp = sock_fprog(len(code), addressof(program[0]))
