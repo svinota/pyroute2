@@ -187,26 +187,26 @@ class AsyncDHCPClient:
 
         depending on whether we're initializing or rebooting.
         '''
-        match self.state:
-            case fsm.State.INIT:
-                # send discover
-                await self.transition(
-                    to=fsm.State.SELECTING,
-                    send=messages.discover(
-                        parameter_list=self.requested_parameters
-                    ),
-                )
-            case fsm.State.INIT_REBOOT:
-                assert self.lease, 'cannot init_reboot without a lease'
-                # send request for lease
-                await self.transition(
-                    to=fsm.State.REBOOTING,
-                    send=messages.request(
-                        requested_ip=self.lease.ip,
-                        server_id=self.lease.server_id,
-                        parameter_list=self.requested_parameters,
-                    ),
-                )
+        if self.state is fsm.State.INIT:
+            # send discover
+            await self.transition(
+                to=fsm.State.SELECTING,
+                send=messages.discover(
+                    parameter_list=self.requested_parameters
+                ),
+            )
+        elif self.state is fsm.State.INIT_REBOOT:
+            assert self.lease, 'cannot init_reboot without a lease'
+            # send request for lease
+            await self.transition(
+                to=fsm.State.REBOOTING,
+                send=messages.request(
+                    requested_ip=self.lease.ip,
+                    server_id=self.lease.server_id,
+                    parameter_list=self.requested_parameters,
+                ),
+            )
+        # the decorator prevents the needs for an else
 
     @fsm.state_guard(
         fsm.State.REQUESTING,
