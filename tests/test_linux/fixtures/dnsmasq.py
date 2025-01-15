@@ -37,8 +37,8 @@ class DnsmasqFixture:
         self.options = options
         self.stdout: list[bytes] = []
         self.stderr: list[bytes] = []
-        self.process: asyncio.subprocess.Process | None = None
-        self.output_poller: asyncio.Task | None = None
+        self.process: Optional[asyncio.subprocess.Process] = None
+        self.output_poller: Optional[asyncio.Task] = None
 
     async def _read_output(self, name: Literal['stdout', 'stderr']):
         '''Read stdout or stderr until the process exits.'''

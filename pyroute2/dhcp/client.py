@@ -1,6 +1,6 @@
 import asyncio
 from logging import getLogger
-from typing import ClassVar, Iterable
+from typing import ClassVar, Iterable, Optional
 
 from pyroute2.dhcp import fsm, messages
 from pyroute2.dhcp.constants import dhcp
@@ -34,17 +34,17 @@ class AsyncDHCPClient:
         self.lease_type = lease_type
         self.hooks = hooks
         self._sock: AsyncDHCP4Socket = AsyncDHCP4Socket(self.interface)
-        self._state: fsm.State | None = None
-        self._lease: Lease | None = None
+        self._state: Optional[fsm.State] = None
+        self._lease: Optional[Lease] = None
         self.requested_parameters = list(
             requested_parameters
             if requested_parameters
             else self.DEFAULT_PARAMETERS
         )
         self._stopped = asyncio.Event()
-        self._sendq: asyncio.Queue[dhcp4msg | None] = asyncio.Queue()
-        self._sender_task: asyncio.Task | None = None
-        self._receiver_task: asyncio.Task | None = None
+        self._sendq: asyncio.Queue[Optional[dhcp4msg]] = asyncio.Queue()
+        self._sender_task: Optional[asyncio.Task] = None
+        self._receiver_task: Optional[asyncio.Task] = None
         self.bound = asyncio.Event()
         self.timers = Timers()
 
@@ -87,7 +87,7 @@ class AsyncDHCPClient:
         await self.bootstrap()
 
     @property
-    def lease(self) -> Lease | None:
+    def lease(self) -> Optional[Lease]:
         return self._lease
 
     @lease.setter
@@ -104,11 +104,11 @@ class AsyncDHCPClient:
         self._lease.dump()
 
     @property
-    def state(self) -> fsm.State | None:
+    def state(self) -> Optional[fsm.State]:
         return self._state
 
     @state.setter
-    def state(self, value: fsm.State | None):
+    def state(self, value: Optional[fsm.State]):
         if value and self._state and value not in fsm.TRANSITIONS[self._state]:
             raise ValueError(
                 f'Cannot transition from {self._state} to {value}'
@@ -177,7 +177,7 @@ class AsyncDHCPClient:
             elif wait_for_received_packet in pending:
                 wait_for_received_packet.cancel()
 
-    async def transition(self, to: fsm.State, send: dhcp4msg | None = None):
+    async def transition(self, to: fsm.State, send: Optional[dhcp4msg] = None):
         self.state = to
         await self._sendq.put(send)
 

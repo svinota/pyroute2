@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from logging import getLogger
 from pathlib import Path
+from typing import Optional
 
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 
@@ -28,7 +29,7 @@ class Lease(abc.ABC):
     # Timestamp of when this lease was obtained
     obtained: float = field(default_factory=_now)
 
-    def _seconds_til_timer(self, timer_name: str) -> float | None:
+    def _seconds_til_timer(self, timer_name: str) -> Optional[float]:
         '''The number of seconds to wait until the given timer expires.
 
         The value is fetched from options as `{timer_name}_time`.
@@ -41,11 +42,11 @@ class Lease(abc.ABC):
             return None
 
     @property
-    def expiration_in(self) -> float | None:
+    def expiration_in(self) -> Optional[float]:
         return self._seconds_til_timer('lease')
 
     @property
-    def renewal_in(self) -> float | None:
+    def renewal_in(self) -> Optional[float]:
         '''The amount of seconds before we have to renew the lease.
 
         Can be negative if it's past due,
@@ -54,7 +55,7 @@ class Lease(abc.ABC):
         return self._seconds_til_timer('renewal')
 
     @property
-    def rebinding_in(self) -> float | None:
+    def rebinding_in(self) -> Optional[float]:
         '''The amount of seconds before we have to rebind the lease.
 
         Can be negative if it's past due,
@@ -92,7 +93,7 @@ class Lease(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def load(cls, interface: str) -> 'Lease | None':
+    def load(cls, interface: str) -> 'Optional[Lease]':
         '''Load an existing lease for an interface, if it exists.'''
         pass
 
@@ -137,7 +138,7 @@ class JSONFileLease(Lease):
             json.dump(asdict(self), lf, indent=2)
 
     @classmethod
-    def load(cls, interface: str) -> 'JSONFileLease | None':
+    def load(cls, interface: str) -> 'Optional[JSONFileLease]':
         '''Load the lease from a file.
 
         The lease file is named after the interface

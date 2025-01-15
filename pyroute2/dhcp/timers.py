@@ -3,7 +3,7 @@
 import asyncio
 import dataclasses
 from logging import getLogger
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Optional
 
 from pyroute2.dhcp.leases import Lease
 
@@ -14,9 +14,9 @@ LOG = getLogger(__name__)
 class Timers:
     '''Manage callbacks associated with DHCP leases.'''
 
-    renewal: asyncio.TimerHandle | None = None
-    rebinding: asyncio.TimerHandle | None = None
-    expiration: asyncio.TimerHandle | None = None
+    renewal: Optional[asyncio.TimerHandle] = None
+    rebinding: Optional[asyncio.TimerHandle] = None
+    expiration: Optional[asyncio.TimerHandle] = None
 
     def cancel(self):
         '''Cancel all current timers.'''

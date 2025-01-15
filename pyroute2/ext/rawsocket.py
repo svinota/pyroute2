@@ -10,6 +10,7 @@ from ctypes import (
     string_at,
 )
 from socket import AF_PACKET, SOCK_RAW, SOL_SOCKET, errno, error, htons, socket
+from typing import Optional
 
 from pyroute2.iproute.linux import AsyncIPRoute
 
@@ -81,7 +82,7 @@ class AsyncRawSocket(socket):
             self.clear_buffer(remove_total_filter=True)
         return self
 
-    def __init__(self, ifname: str, bpf: list[list[int]] | None = None):
+    def __init__(self, ifname: str, bpf: Optional[list[list[int]]] = None):
         self.ifname = ifname
         self.bpf = bpf
 
