@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from logging import getLogger
 from pathlib import Path
-from typing import Self
 
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 
@@ -93,7 +92,7 @@ class Lease(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def load(cls, interface: str) -> 'Self | None':
+    def load(cls, interface: str) -> 'Lease | None':
         '''Load an existing lease for an interface, if it exists.'''
         pass
 
