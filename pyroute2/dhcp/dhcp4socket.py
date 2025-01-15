@@ -150,7 +150,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         only MAC/IPv4/UDP headers are stripped out, and the
         rest is interpreted as DHCP.
         '''
-        data, _ = await self.aio_loop.sock_recvfrom(self, 4096)
+        data = await self.aio_loop.sock_recv(self, 4096)
         eth = ethmsg(buf=data).decode()
         ip4 = ip4msg(buf=data, offset=eth.offset).decode()
         udp = udpmsg(buf=data, offset=ip4.offset).decode()

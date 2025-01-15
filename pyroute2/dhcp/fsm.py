@@ -1,8 +1,10 @@
 '''DHCP client state machine helpers.'''
 
-from enum import StrEnum, auto
+from enum import auto
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
+
+from pyroute2.compat import StrEnum
 
 if TYPE_CHECKING:
     from .client import AsyncDHCPClient
