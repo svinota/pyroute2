@@ -77,6 +77,7 @@ class DnsmasqFixture:
             *self.get_cmdline_options(),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env={'LANG': 'C'},
         )
         self.output_poller = asyncio.Task(self._read_outputs())
         return self
