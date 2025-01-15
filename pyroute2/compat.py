@@ -11,4 +11,11 @@ except ImportError:
         '''Same as enum, but members are also strings.'''
 
 
+try:
+    from socket import ETHERTYPE_IP
+except ImportError:
+    # ETHERTYPE_* are new in python 3.12
+    ETHERTYPE_IP = 0x800
+
+
 __all__ = ('StrEnum',)

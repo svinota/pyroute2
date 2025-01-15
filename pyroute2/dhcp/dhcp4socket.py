@@ -9,6 +9,7 @@ import logging
 import socket
 
 from pyroute2.common import AddrPool
+from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.ext.rawsocket import AsyncRawSocket
 from pyroute2.protocols import ethmsg, ip4msg, udp4_pseudo_header, udpmsg
@@ -135,7 +136,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
 
         # MAC layer
         eth = ethmsg(
-            {'dst': eth_dst, 'src': self.l2addr, 'type': socket.ETHERTYPE_IP}
+            {'dst': eth_dst, 'src': self.l2addr, 'type': ETHERTYPE_IP}
         )
 
         data = eth.encode().buf + ip4.encode().buf + udp.encode().buf + data
