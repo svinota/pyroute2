@@ -134,7 +134,7 @@ class JSONFileLease(Lease):
         lease_path = self._get_path(self.interface)
         LOG.info('Writing lease for %s to %s', self.interface, lease_path)
         with lease_path.open('wt') as lf:
-            json.dump(asdict(self), lf)
+            json.dump(asdict(self), lf, indent=2)
 
     @classmethod
     def load(cls, interface: str) -> 'JSONFileLease | None':
