@@ -16,12 +16,12 @@ LOG = getLogger(__name__)
 class AsyncDHCPClient:
     '''A simple async DHCP client based on pyroute2.'''
 
-    DEFAULT_PARAMETERS: ClassVar[tuple[dhcp.Parameter]] = [
+    DEFAULT_PARAMETERS: ClassVar[tuple[dhcp.Parameter, ...]] = (
         dhcp.Parameter.SUBNET_MASK,
         dhcp.Parameter.ROUTER,
         dhcp.Parameter.DOMAIN_NAME_SERVER,
         dhcp.Parameter.DOMAIN_NAME,
-    ]
+    )
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class AsyncDHCPClient:
         self.lease_type = lease_type
         self.hooks = hooks
         self._sock: AsyncDHCP4Socket = AsyncDHCP4Socket(self.interface)
-        self._state: fsm.fsm.State | None = None
+        self._state: fsm.State | None = None
         self._lease: Lease | None = None
         self.requested_parameters = list(
             requested_parameters
@@ -43,7 +43,8 @@ class AsyncDHCPClient:
         )
         self._stopped = asyncio.Event()
         self._sendq: asyncio.Queue[dhcp4msg | None] = asyncio.Queue()
-        self._send_task: asyncio.Task | None = None
+        self._sender_task: asyncio.Task | None = None
+        self._receiver_task: asyncio.Task | None = None
         self.bound = asyncio.Event()
         self.timers = Timers()
 
@@ -92,14 +93,15 @@ class AsyncDHCPClient:
     @lease.setter
     def lease(self, value: Lease):
         '''Set a fresh lease; only call this when a server grants one.'''
+
         self._lease = value
         self.timers.arm(
-            lease=self.lease,
+            lease=self._lease,
             renewal=self._renew,
             rebinding=self._rebind,
             expiration=self._expire_lease,
         )
-        self.lease.dump()
+        self._lease.dump()
 
     @property
     def state(self) -> fsm.State | None:
@@ -114,34 +116,47 @@ class AsyncDHCPClient:
         LOG.info('%s -> %s', self.state, value)
         self._state = value
 
-    async def _run(self):
-        packet_to_send: dhcp4msg | None = None
-        # TODO: refactor, this is even more awkward than select()
-        while True:
-            wait_for_stopped = asyncio.Task(
-                self._stopped.wait(), name='wait until stopped'
-            )
-            wait_for_received_packet = asyncio.Task(
-                self._sock.get(), name='wait for received packet'
-            )
+    def _make_wait_stopped_task(self) -> asyncio.Task:
+        return asyncio.Task(self._stopped.wait(), name='wait until stopped')
+
+    async def _send_forever(self):
+        packet_to_send = None
+        wait_til_stopped = self._make_wait_stopped_task()
+        interval = 5  # TODO make dynamic ?
+        while not wait_til_stopped.done():
             wait_for_packet_to_send = asyncio.Task(
                 self._sendq.get(), name='wait for packet to send'
             )
-            tasks = (
-                wait_for_stopped,
-                wait_for_received_packet,
-                wait_for_packet_to_send,
+            done, pending = await asyncio.wait(
+                (wait_til_stopped, wait_for_packet_to_send),
+                return_when=asyncio.FIRST_COMPLETED,
+                timeout=interval,
+            )
+            if wait_for_packet_to_send in done:
+                if packet_to_send := wait_for_packet_to_send.result():
+                    packet_to_send['xid'] = self.xid
+            elif wait_for_packet_to_send in pending:
+                wait_for_packet_to_send.cancel()
+
+            if packet_to_send:
+                LOG.debug(
+                    'Sending %s',
+                    packet_to_send['options']['message_type'].name,
+                )
+                await self._sock.put(packet_to_send)
+
+    async def _recv_forever(self) -> None:
+        wait_til_stopped = self._make_wait_stopped_task()
+
+        while not wait_til_stopped.done():
+            wait_for_received_packet = asyncio.Task(
+                coro=self._sock.get(),
+                name=f'wait for DHCP packet on {self.interface}',
             )
             done, pending = await asyncio.wait(
-                tasks,
-                timeout=5,  # TODO interval
+                (wait_til_stopped, wait_for_received_packet),
                 return_when=asyncio.FIRST_COMPLETED,
             )
-            for i in pending:
-                i.cancel()
-
-            if wait_for_packet_to_send in done:
-                packet_to_send = wait_for_packet_to_send.result()
 
             if wait_for_received_packet in done:
                 received_packet = wait_for_received_packet.result()
@@ -157,19 +172,10 @@ class AsyncDHCPClient:
                     if not handler:
                         LOG.debug('%r messages are not handled', msg_type.name)
                     else:
-                        if await handler(received_packet):
-                            packet_to_send = None
+                        await handler(received_packet)
 
-            if packet_to_send:
-                packet_to_send['xid'] = self.xid
-                LOG.debug(
-                    'Sending %s',
-                    packet_to_send['options']['message_type'].name,
-                )
-                await self._sock.put(packet_to_send)
-
-            if wait_for_stopped in done and wait_for_stopped.result() is True:
-                return
+            elif wait_for_received_packet in pending:
+                wait_for_received_packet.cancel()
 
     async def transition(self, to: fsm.State, send: dhcp4msg | None = None):
         self.state = to
@@ -241,7 +247,15 @@ class AsyncDHCPClient:
             LOG.debug('No current lease')
             self.state = fsm.State.INIT
         await self._sock.__aenter__()
-        self._send_task = asyncio.Task(self._run())
+
+        self._receiver_task = asyncio.Task(
+            self._recv_forever(),
+            name=f'Listen for incoming DHCP packets on {self.interface}',
+        )
+        self._sender_task = asyncio.Task(
+            self._send_forever(),
+            name=f'Send outgoing DHCP packets on {self.interface}',
+        )
         self.xid = self._sock.xid_pool.alloc()
         return self
 
@@ -254,7 +268,8 @@ class AsyncDHCPClient:
                 )
             )
         self._stopped.set()
-        await self._send_task
+        await self._sender_task
+        await self._receiver_task
         await self._sock.__aexit__()
         self.xid = None
         self.state = None
