@@ -251,7 +251,7 @@ class AsyncDHCPClient:
 
     async def __aenter__(self):
         loaded_lease = self.lease_type.load(self.interface)
-        if loaded_lease.expired:
+        if loaded_lease and loaded_lease.expired:
             LOG.info("Discarding stale lease")
             loaded_lease = None
         if loaded_lease:

@@ -105,7 +105,11 @@ class Lease(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def load(cls, interface: str) -> 'Optional[Lease]':
-        '''Load an existing lease for an interface, if it exists.'''
+        '''Load an existing lease for an interface, if it exists.
+
+        The lease is not checked for freshness, and will be None if no lease
+        could be loaded.
+        '''
         pass
 
 
