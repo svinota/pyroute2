@@ -35,8 +35,8 @@ class DnsmasqFixture:
 
     def __init__(self, options: DnsmasqOptions) -> None:
         self.options = options
-        self.stdout: list[bytes] = []
-        self.stderr: list[bytes] = []
+        self.stdout: list[str] = []
+        self.stderr: list[str] = []
         self.process: Optional[asyncio.subprocess.Process] = None
         self.output_poller: Optional[asyncio.Task] = None
 
@@ -45,7 +45,7 @@ class DnsmasqFixture:
         stream = getattr(self.process, name)
         output = getattr(self, name)
         while line := await stream.readline():
-            output.append(line)
+            output.append(line.decode().strip())
 
     async def _read_outputs(self):
         '''Read stdout & stderr until the process exits.'''
@@ -147,7 +147,7 @@ async def main():
         while True:
             if len(dnsm.stderr) > read_lines:
                 read_lines += len(lines := dnsm.stderr[read_lines:])
-                print(*(i.decode().strip() for i in lines), sep='\n')
+                print(*lines, sep='\n')
             else:
                 await asyncio.sleep(0.2)
 
