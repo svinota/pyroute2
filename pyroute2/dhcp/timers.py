@@ -52,12 +52,15 @@ class Timers:
                 LOG.debug('Lease %s is in the past', timer_name)
                 continue
             LOG.info('Scheduling lease %s in %.2fs', timer_name, lease_time)
-            '''FIXME: calling async_callback() causes a
-            "coroutine was never awaited" warning.
-            But deferring its call in a lambda causes the callback to be
-            the same for all timers, since we're in a loop.
-            '''
+            # Since call_later doesn't support async callbacks, we wrap the
+            # callback in a lambda that will schedule it when it's time
             timer = loop.call_later(
-                lease_time, asyncio.create_task, async_callback()
+                lease_time,
+                # since lambdas are evaluated when they're run, we have to
+                # bind variables as argument defaults or they'll have the
+                # value from the last loop iteration
+                lambda cb=async_callback, name=lease_time: asyncio.create_task(
+                    cb(), name=f"{name} timer callback"
+                ),
             )
             setattr(self, timer_name, timer)
