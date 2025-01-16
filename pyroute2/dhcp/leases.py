@@ -42,6 +42,17 @@ class Lease(abc.ABC):
             return None
 
     @property
+    def expired(self) -> bool:
+        '''Whether this lease has expired (its expiration is in the past).
+
+        When loading a persisted lease, this won't be correct if the clock
+        has been adjusted since the lease was written.
+        However the worst case scenario is that we send a REQUEST for it,
+        get a NAK and restart from scratch.
+        '''
+        return self.expiration_in < 0
+
+    @property
     def expiration_in(self) -> Optional[float]:
         return self._seconds_til_timer('lease')
 

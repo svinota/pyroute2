@@ -250,9 +250,13 @@ class AsyncDHCPClient:
         )
 
     async def __aenter__(self):
-        self._lease = self.lease_type.load(self.interface)
-        if self.lease:
+        loaded_lease = self.lease_type.load(self.interface)
+        if loaded_lease.expired:
+            LOG.info("Discarding stale lease")
+            loaded_lease = None
+        if loaded_lease:
             # TODO check lease is not expired
+            self._lease = loaded_lease
             self.state = fsm.State.INIT_REBOOT
         else:
             LOG.debug('No current lease')
@@ -272,7 +276,7 @@ class AsyncDHCPClient:
 
     async def __aexit__(self, *_):
         self.timers.cancel()
-        if self.lease:
+        if self.lease and not self.lease.expired:
             await self._sendq.put(
                 messages.release(
                     requested_ip=self.lease.ip, server_id=self.lease.server_id
