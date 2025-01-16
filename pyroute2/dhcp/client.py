@@ -224,7 +224,19 @@ class AsyncDHCPClient:
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
         for i in self.hooks:
             await i.bound(self.lease)
-        return True
+
+    @fsm.state_guard(
+        fsm.State.REQUESTING,
+        fsm.State.REBOOTING,
+        fsm.State.RENEWING,
+        fsm.State.REBINDING,
+    )
+    async def nak_received(self, pkt: dhcp4msg):
+        await self.transition(to=fsm.State.INIT)
+        # Reset lease & timers and start again
+        self._lease = None
+        self.timers.cancel()
+        await self.bootstrap()
 
     @fsm.state_guard(fsm.State.SELECTING)
     async def offer_received(self, pkt: dhcp4msg):
@@ -236,7 +248,6 @@ class AsyncDHCPClient:
                 parameter_list=self.requested_parameters,
             ),
         )
-        return True
 
     async def __aenter__(self):
         self._lease = self.lease_type.load(self.interface)
