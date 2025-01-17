@@ -12,7 +12,12 @@ from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE, nlmsg
 from pyroute2.netlink.core import Stats
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import NetlinkSocket
-from pyroute2.netlink.rtnl import RTM_GETADDR, RTM_GETLINK, RTM_NEWLINK
+from pyroute2.netlink.rtnl import (
+    RTM_GETADDR,
+    RTM_GETLINK,
+    RTM_NEWADDR,
+    RTM_NEWLINK,
+)
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
@@ -28,7 +33,7 @@ interface_counter = count(3)
 class MockLink:
     def __init__(
         self,
-        index,
+        index=0,
         ifname='',
         address='00:00:00:00:00:00',
         broadcast='ff:ff:ff:ff:ff:ff',
@@ -48,7 +53,7 @@ class MockLink:
         br_forward_delay=0,
         alt_ifname_list=None,
     ):
-        self.index = index
+        self.index = index if index > 0 else next(interface_counter)
         self.ifname = ifname
         self.flags = flags
         self.address = address
@@ -68,23 +73,20 @@ class MockLink:
         self.br_forward_delay = br_forward_delay
         self.alt_ifname_list = alt_ifname_list or []
 
+    def update_from_msg(self, msg):
+        [
+            setattr(self, x, msg.get(x))
+            for x in ['address', 'broadcast', 'mtu', 'ifname', 'kind']
+            if msg.get(x) is not None
+        ]
+        if msg.get('change') != 0:
+            self.flags = msg.get('flags')
+
     @classmethod
     def load_from_msg(cls, msg):
-        return cls(
-            **{
-                x: msg.get(x)
-                for x in [
-                    'index',
-                    'address',
-                    'broadcast',
-                    'flags',
-                    'mtu',
-                    'ifname',
-                    'kind',
-                ]
-                if msg.get(x) is not None
-            }
-        )
+        ret = cls()
+        ret.update_from_msg(msg)
+        return ret
 
     def export(self):
         ret = {
@@ -265,9 +267,9 @@ class MockLink:
 class MockAddress:
     def __init__(
         self,
-        index,
-        address,
-        prefixlen,
+        index=0,
+        address=None,
+        prefixlen=None,
         broadcast=None,
         label=None,
         family=2,
@@ -281,6 +283,19 @@ class MockAddress:
         self.index = index
         self.label = label
         self.family = family
+
+    def update_from_msg(self, msg):
+        [
+            setattr(self, x, msg.get(x))
+            for x in ['index', 'address', 'broadcast', 'prefixlen']
+            if msg.get(x) is not None
+        ]
+
+    @classmethod
+    def load_from_msg(cls, msg):
+        ret = cls()
+        ret.update_from_msg(msg)
+        return ret
 
     def export(self):
         ret = {
@@ -548,6 +563,7 @@ class IPEngine:
         self.processors = {
             RTM_GETADDR: self.RTM_GETADDR,
             RTM_GETLINK: self.RTM_GETLINK,
+            RTM_NEWADDR: self.RTM_NEWADDR,
             RTM_NEWLINK: self.RTM_NEWLINK,
         }
         self.initdb()
@@ -656,7 +672,17 @@ class IPEngine:
         tag = msg_in['header']['sequence_number']
         database = self.database['links']
         if msg_in.get('index') > 0:
-            database = [self.database['links'][msg_in.get('index') - 1]]
+            database = [
+                x
+                for x in self.database['links']
+                if x.index == msg_in.get('index')
+            ]
+        elif msg_in.get('ifname'):
+            database = [
+                x
+                for x in self.database['links']
+                if x.ifname == msg_in.get('ifname')
+            ]
         for msg_out in self.nl_dump(database, ifinfmsg, tag):
             self.loopback_w.send(msg_out.data)
         msg = nlmsg()
@@ -665,11 +691,39 @@ class IPEngine:
         msg.encode()
         self.loopback_w.send(msg.data)
 
+    def RTM_NEWADDR(self, req):
+        idx = {
+            (x.index, x.address, x.prefixlen) for x in self.database['addr']
+        }
+        req_index = (
+            req.get("index"),
+            req.get("address"),
+            req.get("prefixlen"),
+        )
+        if req_index in idx:
+            raise NetlinkError(errno.EEXIST, "address exists")
+        addr = MockAddress.load_from_msg(req)
+        self.database['addr'].append(addr)
+        tag = req['header']['sequence_number']
+        msg = ifaddrmsg()
+        msg.load(addr.export())
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
+        msg = nlmsg()
+        msg['header']['type'] = NLMSG_DONE
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
+
     def RTM_NEWLINK(self, req):
-        if req.get('ifname') in self.database['links']:
-            raise NetlinkError(errno.EEXIST, 'interface exists')
-        link = MockLink.load_from_msg(req)
-        self.database['links'].append(link)
+        idx = {x.index: x for x in self.database['links']}
+        if req.get('index') in idx:
+            link = idx[req.get('index')]
+            link.update_from_msg(req)
+        else:
+            link = MockLink.load_from_msg(req)
+            self.database['links'].append(link)
         tag = req['header']['sequence_number']
         msg = ifinfmsg()
         msg.load(link.export())
