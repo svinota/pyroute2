@@ -1,6 +1,6 @@
 import asyncio
 import random
-from ipaddress import IPv4Address, IPv4Interface
+from ipaddress import IPv4Address
 from typing import AsyncGenerator, NamedTuple
 
 import pytest
@@ -8,9 +8,10 @@ import pytest_asyncio
 
 
 class DHCPRangeConfig(NamedTuple):
-    range_start: IPv4Address
-    range_end: IPv4Address
-    gw: IPv4Interface
+    start: IPv4Address
+    end: IPv4Address
+    router: IPv4Address
+    netmask: IPv4Address
 
 
 async def ip(*args: str):
@@ -23,12 +24,13 @@ async def ip(*args: str):
 
 @pytest.fixture
 def dhcp_range() -> DHCPRangeConfig:
-    ''' 'An IPv4 DHCP range configuration.'''
+    '''An IPv4 DHCP range configuration.'''
     rangeidx = random.randint(1, 254)
     return DHCPRangeConfig(
-        range_start=IPv4Address(f'10.{rangeidx}.0.10'),
-        range_end=IPv4Address(f'10.{rangeidx}.0.20'),
-        gw=IPv4Interface(f'10.{rangeidx}.0.1/16'),
+        start=IPv4Address(f'10.{rangeidx}.0.10'),
+        end=IPv4Address(f'10.{rangeidx}.0.20'),
+        router=IPv4Address(f'10.{rangeidx}.0.1'),
+        netmask=IPv4Address('255.255.255.0'),
     )
 
 
@@ -60,7 +62,13 @@ async def veth_pair(
             'name',
             client_ifname,
         )
-        await ip('addr', 'add', str(dhcp_range.gw), 'dev', server_ifname)
+        await ip(
+            'addr',
+            'add',
+            f"{dhcp_range.router}/{dhcp_range.netmask}",
+            'dev',
+            server_ifname,
+        )
         await ip('link', 'set', server_ifname, 'up')
         await ip('link', 'set', client_ifname, 'up')
         yield VethPair(server_ifname, client_ifname)

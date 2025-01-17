@@ -2,7 +2,8 @@ import errno
 from uuid import uuid4
 
 import pytest
-from fixtures.dnsmasq import dnsmasq, dnsmasq_options  # noqa: F401
+from fixtures.dhcp_servers.dnsmasq import dnsmasq, dnsmasq_config  # noqa: F401
+from fixtures.dhcp_servers.udhcpd import udhcpd, udhcpd_config  # noqa: F401
 from fixtures.interfaces import dhcp_range, veth_pair  # noqa: F401
 from pr2test.context_manager import NDBContextManager, SpecContextManager
 from utils import require_user

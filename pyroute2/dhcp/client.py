@@ -59,13 +59,21 @@ class AsyncDHCPClient:
 
     # "public api"
 
-    async def wait_for_state(self, state: Optional[fsm.State]) -> None:
+    async def wait_for_state(
+        self, state: Optional[fsm.State], timeout: Optional[float] = None
+    ) -> None:
         '''Waits until the client is in the target state.
 
         Since the state is set to None upon exit,
         you can also pass None to wait for the client to stop.
         '''
-        await self._states[state].wait()
+        try:
+            await asyncio.wait_for(self._states[state].wait(), timeout=timeout)
+        except TimeoutError as err:
+            raise TimeoutError(
+                f"Timed out waiting for the {state} state. "
+                f"Current state: {self.state}"
+            ) from err
 
     @fsm.state_guard(fsm.State.INIT, fsm.State.INIT_REBOOT)
     async def bootstrap(self):
