@@ -114,7 +114,9 @@ class AsyncRawSocket(socket):
                 self, SOL_SOCKET, SO_DETACH_FILTER, total_fstring
             )
 
-    def csum(self, data):
+    @staticmethod
+    def csum(data: bytes) -> int:
+        '''Compute the "Internet checksum" for the given bytes.'''
         if len(data) % 2:
             data += b'\x00'
         csum = sum(

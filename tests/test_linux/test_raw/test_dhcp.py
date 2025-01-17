@@ -32,7 +32,9 @@ async def test_get_lease(
     async with client.AsyncDHCPClient(veth_pair.client) as cli:
         await cli.bootstrap()
         try:
-            await asyncio.wait_for(cli.bound.wait(), timeout=5)
+            await asyncio.wait_for(
+                cli.wait_for_state(fsm.State.BOUND), timeout=5
+            )
         except TimeoutError:
             raise AssertionError(
                 f'Timed out. dnsmasq output: {dnsmasq.stderr}'

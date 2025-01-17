@@ -5,6 +5,7 @@ from importlib import import_module
 from typing import Any
 
 from pyroute2.dhcp.client import AsyncDHCPClient
+from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.hooks import ConfigureIP, Hook
 from pyroute2.dhcp.leases import Lease
 
@@ -87,10 +88,10 @@ async def main():
         await acli.bootstrap()
         if args.exit_on_lease:
             # Wait until we're bound once, then exit
-            await acli.bound.wait()
+            await acli.wait_for_state(State.BOUND)
         else:
             # Wait until the client is stopped otherwise
-            await acli._stopped.wait()
+            await acli.wait_for_state(None)
 
 
 def run():
