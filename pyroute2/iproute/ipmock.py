@@ -76,9 +76,10 @@ class MockLink:
     def update_from_msg(self, msg):
         [
             setattr(self, x, msg.get(x))
-            for x in ['address', 'broadcast', 'mtu', 'ifname', 'kind']
+            for x in ['address', 'broadcast', 'mtu', 'ifname']
             if msg.get(x) is not None
         ]
+        self.kind = msg.get(('linkinfo', 'kind'))
         if msg.get('change') != 0:
             self.flags = msg.get('flags')
 
