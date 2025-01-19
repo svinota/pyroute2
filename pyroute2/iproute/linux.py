@@ -349,7 +349,8 @@ class RTNL_API:
         return ret()
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
-        '''
+        '''Synchronously wait for a method to succeed.
+
         Run `method` with a positional argument `command` and keyword
         arguments `**spec` every `interval` seconds, but not more than
         `timeout`, until it returns a result which doesn't evaluate to
@@ -357,7 +358,7 @@ class RTNL_API:
 
         Example:
 
-        .. code-block:: python
+        .. testcode:: p0
 
             # create a bridge interface and wait for it:
             #
@@ -365,20 +366,28 @@ class RTNL_API:
                 'ifname': 'br0',
                 'kind': 'bridge',
                 'state': 'up',
-                'br_stp_state': 1,
             }
             ipr.link('add', **spec)
             ret = ipr.poll(ipr.link, 'dump', **spec)
 
             assert ret[0].get('ifname') == 'br0'
+            assert ret[0].get('flags') & 1
             assert ret[0].get('state') == 'up'
-            assert ret[0].get(('linkinfo', 'data', 'br_stp_state')) == 1
+            assert ret[0].get(('linkinfo', 'kind')) == 'bridge'
+
+        .. testcode:: p1
+            :hide:
+
+            try:
+                ipr.poll(ipr.link, 'dump', ifname='br1')
+            except TimeoutError:
+                pass
         '''
         ctime = time.time()
         ret = tuple()
         while ctime + timeout > time.time():
             try:
-                ret = method(command, **spec)
+                ret = [x for x in method(command, **spec)]
                 if ret:
                     return ret
                 time.sleep(interval)
