@@ -73,8 +73,8 @@ AsyncCoreSocket
 
 Important `AsyncCoreSocket` components:
 
-* `AsyncCoreSocket.socket` -- thread-local `socket.socket` object,
-  managed by `.endpoint`
+* `AsyncCoreSocket.socket` -- thread-local socket-like object managed
+  by `.endpoint`
 * `AsyncCoreSocket.endpoint` -- thread-local `asyncio` endpoint
   `(transport, protocol)`
 * `AsyncCoreSocket.msg_queue` -- thread-local `asyncio` queue for data
@@ -86,12 +86,63 @@ Important `AsyncCoreSocket` components:
 * `AsyncCoreSocket.marshal` -- a protocol-specific marshal for parsing
   binary data into netlink messages
 
+.. testcode::
+    :hide:
+
+    import asyncio
+    import inspect
+
+    from pyroute2 import IPRoute
+    from pyroute2.netlink.core import CoreMessageQueue
+    from pyroute2.netlink.marshal import Marshal
+
+    with IPRoute() as ipr:
+        # AsyncCoreSocket.socket, compatibility, management
+        assert callable(ipr.asyncore.socket.recv)
+        assert callable(ipr.asyncore.socket.send)
+        assert callable(ipr.asyncore.socket.recvmsg)
+        assert callable(ipr.asyncore.socket.sendmsg)
+        assert callable(ipr.asyncore.socket.bind)
+        assert ipr.asyncore.endpoint[0]._sock == ipr.asyncore.socket
+
+        # AsyncCoreSocket.endpoint
+        assert isinstance(ipr.asyncore.endpoint, tuple)
+        assert isinstance(ipr.asyncore.endpoint[0], asyncio.Transport)
+        assert isinstance(ipr.asyncore.endpoint[1], asyncio.Protocol)
+
+        # msg_queue
+        assert isinstance(ipr.asyncore.msg_queue, CoreMessageQueue)
+
+        # enqueue()
+        e_flags = ipr.asyncore.enqueue.__code__.co_flags
+        assert callable(ipr.asyncore.enqueue)
+        assert not e_flags & inspect.CO_ASYNC_GENERATOR
+
+        # get()
+        g_flags = ipr.asyncore.get.__code__.co_flags
+        assert callable(ipr.asyncore.get)
+        assert g_flags & inspect.CO_ASYNC_GENERATOR
+
+        # marshal
+        assert isinstance(ipr.asyncore.marshal, Marshal)
+
+
 Synchronous code
 ----------------
 
 `CoreSocket` is the synchronous version of `AsyncCoreSocket` implemented
 using wrappers. Since it is merely a wrapper, it also operates on the
 `asyncio` event loop.
+
+.. testcode::
+    :hide:
+
+    from pyroute2.netlink.core import AsyncCoreSocket, CoreSocket
+
+    with CoreSocket() as cs:
+        assert isinstance(cs.asyncore, AsyncCoreSocket)
+        assert not isinstance(cs, AsyncCoreSocket)
+        assert not issubclass(CoreSocket, AsyncCoreSocket)
 
 `CoreSocket`, as well as other synchronous API classes, uses composition
 instead of inheritance. The asynchronous API is available then as
