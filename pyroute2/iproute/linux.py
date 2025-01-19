@@ -400,8 +400,7 @@ class RTNL_API:
     # Diagnostics
     #
     async def probe(self, command, **kwarg):
-        '''
-        Run a network probe.
+        '''Run a network probe.
 
         The API will trigger a network probe from the environment it
         works in. For NetNS it will be the network namespace, for
@@ -1030,7 +1029,9 @@ class RTNL_API:
         Vlan filters is another approach to support vlans in Linux.
         Before vlan filters were introduced, there was only one way
         to bridge vlans: one had to create vlan interfaces and
-        then add them as ports::
+        then add them as ports:
+
+        .. aafig::
 
                     +------+      +----------+
             net --> | eth0 | <--> | eth0.500 | <---+
@@ -1046,7 +1047,9 @@ class RTNL_API:
 
         It means that one has to create as many bridges, as there were
         vlans. Vlan filters allow to bridge together underlying interfaces
-        and create vlans already on the bridge::
+        and create vlans already on the bridge:
+
+        .. aafig::
 
             # v500 label shows which interfaces have vlan filter
 
