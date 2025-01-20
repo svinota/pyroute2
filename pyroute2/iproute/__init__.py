@@ -1,72 +1,176 @@
 # -*- coding: utf-8 -*-
 '''
-Classes
--------
+.. testsetup:: *
 
-The RTNL API is provided by the class `RTNL_API`. It is a
-mixin class that works on top of any RTNL-compatible socket,
-so several classes with almost the same API are available:
+    from pyroute2 import config
+    config.mock_netlink = True
 
-* `IPRoute` -- simple RTNL API
-* `NetNS` -- RTNL API in a network namespace
-* `IPBatch` -- RTNL packet compiler
-* `RemoteIPRoute` -- run RTNL remotely (no deployment required)
+API classes
+-----------
 
-Responses as lists
-------------------
+AsyncIPRoute
+~~~~~~~~~~~~
 
-The netlink socket implementation in the pyroute2 is
-agnostic to particular netlink protocols, and always returns
-a list of messages as the response to a request sent to the
-kernel::
+.. warning::
+    The project core is currently undergoing refactoring, so
+    some methods may still use the old synchronous API. This
+    will be addressed in future updates.
+
+The main RTNL API class is built on an asyncio core. All methods
+that send netlink requests are asynchronous and return awaitables.
+Dump requests return asynchronous generators, while other requests
+return iterables, such as tuples or lists.
+
+This design choice addresses the fact that RTNL dumps, such as
+routes or neighbors, can return an extremely large number of objects.
+Buffering the entire response in memory could lead to performance
+issues.
+
+.. testcode::
+
+    import asyncio
+
+    from pyroute2 import AsyncIPRoute
+
+
+    async def main():
+        async with AsyncIPRoute() as ipr:
+            # create a link: immediate evaluation
+            await ipr.link("add", ifname="test0", kind="dummy")
+
+            # dump links: lazy evaluation
+            async for link in await ipr.link("dump"):
+                print(link.get("ifname"))
+
+    asyncio.run(main())
+
+.. testoutput::
+
+    lo
+    eth0
+    test0
+
+IPRoute
+~~~~~~~
+
+This API is designed to be compatible with the old synchronous `IPRoute`
+from version 0.8.x and earlier:
+
+.. testcode::
+
+    from pyroute2 import IPRoute
+
+    with IPRoute() as ipr:
+        for msg in ipr.addr("dump"):
+            addr = msg.get("address")
+            mask = msg.get("prefixlen")
+            print(f"{addr}/{mask}")
+
+.. testoutput::
+
+    127.0.0.1/8
+    192.168.122.28/24
+
+.. testcode::
+
+    from pyroute2 import IPRoute
 
     with IPRoute() as ipr:
 
-        # this request returns one match
-        eth0 = ipr.link_lookup(ifname='eth0')
-        len(eth0)  # -> 1, if exists, else 0
+        # this request returns one match, one interface index
+        eth0 = ipr.link_lookup(ifname="eth0")
+        assert len(eth0) == 1  # 1 if exists else 0
 
-        # but that one returns a set of
-        up = ipr.link_lookup(operstate='UP')
-        len(up)  # -> k, where 0 <= k <= [interface count]
+        # this requests uses a lambda to filter interfaces
+        # and returns all interfaces that are up
+        nics_up = set(ipr.link_lookup(lambda x: x.get("flags") & 1))
+        assert len(nics_up) == 2
+        assert nics_up == {1, 2}
 
-Thus, always expect a list in the response, running any
-`IPRoute()` netlink request.
+
+NetNS
+~~~~~
+
+The `NetNS` class, prior to version 0.9.1, was used to run the RTNL API
+in a network namespace. Starting with pyroute2 version 0.9.1, the network
+namespace functionality has been integrated into the library core. To run
+an `IPRoute` or `AsyncIPRoute` instance in a network namespace, simply use
+the `netns` argument:
+
+.. testcode::
+
+    from pyroute2 import IPRoute
+
+    with IPRoute(netns="test") as ipr:
+        assert ipr.status["netns"] == "test"
+
+After initialization, the netns name is available as `.status["netns"]`.
+
+The old synchronous `NetNS` class is still available for compatibility
+but now serves as a wrapper around `IPRoute`.
+
+.. testcode::
+
+    from pyroute2 import NetNS
+
+    with NetNS("test") as ns:
+        assert ns.status["netns"] == "test"
 
 NLMSG_ERROR responses
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
-Some kernel subsystems return `NLMSG_ERROR` in response to
-any request. It is OK as long as `nlmsg["header"]["error"] is None`.
-Otherwise an exception will be raised by the parser.
+Some kernel subsystems return `NLMSG_ERROR` in response to any request.
+This is acceptable as long as `nlmsg["header"]["error"]` is `None`.
+If it is not `None`, an exception will be raised by the parser.
 
-So if instead of an exception you get a `NLMSG_ERROR` message,
-it means `error == 0`, the same as `$? == 0` in bash.
+If you receive an `NLMSG_ERROR` message instead of an exception,
+it means `error == 0`, which is equivalent to `$? == 0` in bash.
 
 How to work with messages
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
-Every netlink message contains header, fields and NLAs
-(netlink attributes). Every NLA is a netlink message...
+Every netlink message contains a header, fields, and NLAs
+(netlink attributes). Each NLA is itself a netlink message
 (see "recursion").
 
-And the library provides parsed messages according to
-this scheme. Every RTNL message contains:
+The library parses messages according to this structure.
+Each RTNL message includes the following:
 
 * `nlmsg['header']` -- parsed header
 * `nlmsg['attrs']` -- NLA chain (parsed on demand)
-* 0 .. k data fields, e.g. `nlmsg['flags']` etc.
+* data fields, e.g. `nlmsg['flags']` etc.
 * `nlmsg.header` -- the header fields spec
 * `nlmsg.fields` -- the data fields spec
 * `nlmsg.nla_map` -- NLA spec
 
-An important parser feature is that NLAs are parsed
-on demand, when someone tries to access them. Otherwise
-the parser doesn't waste CPU cycles.
+..
+    Test the attributes above:
 
-The NLA chain is a list-like structure, not a dictionary.
-The netlink standard doesn't require NLAs to be unique
-within one message::
+.. testcode::
+    :hide:
+
+    from pyroute2 import IPRoute
+
+    with IPRoute() as ipr:
+        msg = tuple(ipr.link('dump'))[0]
+        assert isinstance(msg['header'], dict)
+        assert msg['header']['sequence_number'] > 0
+        assert isinstance(msg['attrs'], list)
+        assert isinstance(msg.header, tuple)
+        assert isinstance(msg.fields, tuple)
+        assert isinstance(msg.nla_map, tuple)
+        assert len(msg['attrs']) > 0
+        assert len(msg.header) == 5
+        assert len(msg.fields) > 0
+        assert len(msg.nla_map) > 0
+
+One key feature of the parser is that NLAs are parsed
+only on demand, i.e., when accessed. This prevents
+unnecessary CPU usage.
+
+The NLA chain is a list-like structure rather than a
+dictionary because the netlink standard does not require
+NLAs to be unique within a single message::
 
     {'attrs': [('IFLA_IFNAME', 'lo'),    # [1]
                ('IFLA_TXQLEN', 1),
@@ -98,19 +202,29 @@ within one message::
      # [4] more details in the netlink description
      # [5] 16 == RTM_NEWLINK
 
-To access fields::
+To access fields or NLAs, use the `.get()` method. To retrieve
+nested NLAs, pass a tuple of NLA names to the `.get()` call to
+navigate through the hierarchy:
 
-    msg['index'] == 1
+.. testcode::
 
-To access one NLA::
+    from pyroute2 import IPRoute
 
-    msg.get_attr('IFLA_CARRIER') == 1
+    with IPRoute() as ipr:
+        lo = tuple(ipr.link("get", index=1))[0]
+        # get a field
+        assert lo.get("index") == 1
+        # get an NLA
+        assert lo.get("ifname") == "lo"
+        # get a nested NLA
+        assert lo.get(("stats64", "rx_bytes")) == 43309665
 
-When an NLA with the specified name is not present in the
-chain, `get_attr()` returns `None`. To get the list of all
-NLAs of that name, use `get_attrs()`. A real example with
-NLA hierarchy, take notice of `get_attr()` and
-`get_attrs()` usage::
+If an NLA with the specified name is not present in the chain,
+`.get()` returns None. To retrieve a list of all NLAs with the
+specified name, use `.get_attrs()`.
+
+Below is an example demonstrating the usage of `.get()` and
+`.get_attrs()` with an NLA hierarchy::
 
     # for macvlan interfaces there may be several
     # IFLA_MACVLAN_MACADDR NLA provided, so use
@@ -118,13 +232,16 @@ NLA hierarchy, take notice of `get_attr()` and
     # the first one
 
     (msg
-     .get_attr('IFLA_LINKINFO')           # one NLA
-     .get_attr('IFLA_INFO_DATA')          # one NLA
+     .get('IFLA_LINKINFO')                # one NLA
+     .get('IFLA_INFO_DATA')               # one NLA
      .get_attrs('IFLA_MACVLAN_MACADDR'))  # a list of
 
-The protocol itself has no limit for number of NLAs of the
-same type in one message, that's why we can not make a dictionary
-from them -- unlike PF_ROUTE messages.
+..
+    FIXME! test the example above
+
+The protocol itself does not impose a limit on the number of NLAs
+of the same type within a single message. This is why we cannot
+represent them as a dictionary, unlike with `PF_ROUTE` messages.
 
 '''
 import sys

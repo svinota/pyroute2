@@ -164,41 +164,80 @@ def transform_handle(handle):
 
 
 class RTNL_API:
-    '''
-    `RTNL_API` should not be instantiated by itself. It is intended
+    '''A mixin RTNL API class.
+
+    `RTNL_API` should not be instantiated by itself, it is intended
     to be used as a mixin class. Following classes use `RTNL_API`:
 
-    * `IPRoute` -- RTNL API to the current network namespace
-    * `NetNS` -- RTNL API to another network namespace
-    * `IPBatch` -- RTNL compiler
-    * `ShellIPR` -- RTNL via standard I/O, runs IPRoute in a shell
+    * `AsyncIPRoute` -- Asynchronous RTNL API
+    * `IPRoute` -- Synchronous RTNL API
+    * `NetNS` -- Legace netns-enabled RTNL API
 
+    This class was started as iproute2 ip/tc equivalent, but as a
+    Python API. It does not provide any complicated logic, but instead
+    runs simple RTNL queries:
     It is an old-school API, that provides access to rtnetlink as is.
     It helps you to retrieve and change almost all the data, available
-    through rtnetlink::
+    through rtnetlink:
+
+    .. testcode:: cls01
 
         from pyroute2 import IPRoute
+
         ipr = IPRoute()
+
         # create an interface
-        ipr.link('add', ifname='brx', kind='bridge')
+        ipr.link("add", ifname="brx", kind="bridge")
+
         # lookup the index
-        dev = ipr.link_lookup(ifname='brx')[0]
-        # bring it down
-        ipr.link('set', index=dev, state='down')
-        # change the interface MAC address and rename it just for fun
-        ipr.link('set', index=dev,
-                 address='00:11:22:33:44:55',
-                 ifname='br-ctrl')
-        # add primary IP address
-        ipr.addr('add', index=dev,
-                 address='10.0.0.1', mask=24,
-                 broadcast='10.0.0.255')
-        # add secondary IP address
-        ipr.addr('add', index=dev,
-                 address='10.0.0.2', mask=24,
-                 broadcast='10.0.0.255')
+        dev = ipr.link_lookup(ifname="brx")[0]
+
         # bring it up
-        ipr.link('set', index=dev, state='up')
+        ipr.link("set", index=dev, state="up")
+
+        # change the interface MAC address and rename it just for fun
+        ipr.link(
+            "set",
+            index=dev,
+            address="00:11:22:33:44:55",
+            ifname="br-ctrl",
+        )
+
+        # add primary IP address
+        ipr.addr(
+            "add",
+            index=dev,
+            address="10.0.0.1",
+            prefixlen=24,
+            broadcast="10.0.0.255",
+        )
+        # add secondary IP address
+        ipr.addr(
+            "add",
+            index=dev,
+            address="10.0.0.2",
+            prefixlen=24,
+            broadcast="10.0.0.255",
+        )
+
+    .. testcode:: cls01
+        :hide:
+
+        br = ipr.link("get", index=dev)[0]
+        assert br.get("flags") & 1
+        try:
+            assert br.get("flags") & 2
+        except AssertionError:
+            pass
+        assert br.get("ifname") == "br-ctrl"
+        assert br.get("address") == "00:11:22:33:44:55"
+        addr1, addr2 = ipr.addr("dump", index=dev)
+        assert addr1.get("address") == "10.0.0.1"
+        assert addr2.get("address") == "10.0.0.2"
+        assert addr1.get("broadcast") == "10.0.0.255"
+        assert addr2.get("broadcast") == "10.0.0.255"
+        assert addr1.get("prefixlen") == 24
+        assert addr2.get("prefixlen") == 24
     '''
 
     def filter_messages(self, dump_filter, msgs):
@@ -214,37 +253,60 @@ class RTNL_API:
 
         A callable `dump_filter` must return True or False:
 
-        .. code-block:: python
+
+        .. testcode:: fm01
 
             # get all links with names starting with eth:
             #
-            ipr.filter_messages(
-                lambda x: x.get_attr('IFLA_IFNAME').startswith('eth'),
-                ipr.link('dump')
-            )
+            for link in ipr.filter_messages(
+                lambda x: x.get("ifname").startswith("eth"),
+                ipr.link("dump"),
+            ):
+                print(link.get("ifname"))
+
+        .. testoutput:: fm01
+
+            eth0
 
         A dict `dump_filter` can have callables as values:
 
-        .. code-block:: python
+        .. testcode:: fm02
 
             # get all links with names starting with eth, and
             # MAC address in a database:
             #
-            ipr.filter_messages(
+            database = [
+                "52:54:00:72:58:b2",
+            ]
+
+            for link in ipr.filter_messages(
                 {
-                    'ifname': lambda x: x.startswith('eth'),
-                    'address': lambda x: x in database,
+                    "ifname": lambda x: x.startswith("eth"),
+                    "address": lambda x: x in database,
                 },
-                ipr.link('dump')
-            )
+                ipr.link("dump"),
+            ):
+                print(link.get("ifname"))
+
+        .. testoutput:: fm02
+
+            eth0
 
         ... or constants to compare with:
 
-        .. code-block:: python
+        .. testcode:: fm03
 
             # get all links in state up:
             #
-            ipr.filter_message({'state': 'up'}, ipr.link('dump'))
+            for link in ipr.filter_messages(
+                {"state": "up"}, ipr.link("dump"),
+            ):
+                print(link.get("ifname"))
+
+        .. testoutput:: fm03
+
+            lo
+            eth0
         '''
         # filtered results, the generator version
         for msg in msgs:
@@ -257,15 +319,6 @@ class RTNL_API:
         '''
         Dump network objects.
 
-        On OpenBSD:
-
-        * get_links()
-        * get_addr()
-        * get_neighbours()
-        * get_routes()
-
-        On Linux:
-
         * get_links()
         * get_addr()
         * get_neighbours()
@@ -273,38 +326,21 @@ class RTNL_API:
         * dump FDB
         * IPv4 and IPv6 rules
         '''
-        ##
-        # Well, it's the Linux API, why OpenBSD / FreeBSD here?
-        #
-        # 'Cause when you run RemoteIPRoute, it uses this class,
-        # and the code may be run on BSD systems as well, though
-        # BSD systems have only subset of the API
-        #
-        if self.uname[0] == 'OpenBSD':
-            groups_map = {
-                1: [
-                    self.get_links,
-                    self.get_addr,
-                    self.get_neighbours,
-                    self.get_routes,
-                ]
-            }
-        else:
-            groups_map = {
-                RTMGRP_LINK: [
-                    self.get_links,
-                    self.get_vlans,
-                    partial(self.fdb, 'dump'),
-                ],
-                RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
-                RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
-                RTMGRP_NEIGH: [self.get_neighbours],
-                RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
-                RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
-                RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
-                RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
-                RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
-            }
+        groups_map = {
+            RTMGRP_LINK: [
+                self.get_links,
+                self.get_vlans,
+                partial(self.fdb, 'dump'),
+            ],
+            RTMGRP_IPV4_IFADDR: [partial(self.get_addr, family=AF_INET)],
+            RTMGRP_IPV6_IFADDR: [partial(self.get_addr, family=AF_INET6)],
+            RTMGRP_NEIGH: [self.get_neighbours],
+            RTMGRP_IPV4_ROUTE: [partial(self.get_routes, family=AF_INET)],
+            RTMGRP_IPV6_ROUTE: [partial(self.get_routes, family=AF_INET6)],
+            RTMGRP_MPLS_ROUTE: [partial(self.get_routes, family=AF_MPLS)],
+            RTMGRP_IPV4_RULE: [partial(self.get_rules, family=AF_INET)],
+            RTMGRP_IPV6_RULE: [partial(self.get_rules, family=AF_INET6)],
+        }
 
         async def ret():
             for group, methods in groups_map.items():
@@ -316,7 +352,8 @@ class RTNL_API:
         return ret()
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
-        '''
+        '''Synchronously wait for a method to succeed.
+
         Run `method` with a positional argument `command` and keyword
         arguments `**spec` every `interval` seconds, but not more than
         `timeout`, until it returns a result which doesn't evaluate to
@@ -324,7 +361,7 @@ class RTNL_API:
 
         Example:
 
-        .. code-block:: python
+        .. testcode:: p0
 
             # create a bridge interface and wait for it:
             #
@@ -332,20 +369,28 @@ class RTNL_API:
                 'ifname': 'br0',
                 'kind': 'bridge',
                 'state': 'up',
-                'br_stp_state': 1,
             }
             ipr.link('add', **spec)
             ret = ipr.poll(ipr.link, 'dump', **spec)
 
             assert ret[0].get('ifname') == 'br0'
+            assert ret[0].get('flags') & 1
             assert ret[0].get('state') == 'up'
-            assert ret[0].get(('linkinfo', 'data', 'br_stp_state')) == 1
+            assert ret[0].get(('linkinfo', 'kind')) == 'bridge'
+
+        .. testcode:: p1
+            :hide:
+
+            try:
+                ipr.poll(ipr.link, 'dump', ifname='br1')
+            except TimeoutError:
+                pass
         '''
         ctime = time.time()
         ret = tuple()
         while ctime + timeout > time.time():
             try:
-                ret = method(command, **spec)
+                ret = [x for x in method(command, **spec)]
                 if ret:
                     return ret
                 time.sleep(interval)
@@ -358,8 +403,7 @@ class RTNL_API:
     # Diagnostics
     #
     async def probe(self, command, **kwarg):
-        '''
-        Run a network probe.
+        '''Run a network probe.
 
         The API will trigger a network probe from the environment it
         works in. For NetNS it will be the network namespace, for
@@ -1083,7 +1127,9 @@ class RTNL_API:
         Vlan filters is another approach to support vlans in Linux.
         Before vlan filters were introduced, there was only one way
         to bridge vlans: one had to create vlan interfaces and
-        then add them as ports::
+        then add them as ports:
+
+        .. aafig::
 
                     +------+      +----------+
             net --> | eth0 | <--> | eth0.500 | <---+
@@ -1099,7 +1145,9 @@ class RTNL_API:
 
         It means that one has to create as many bridges, as there were
         vlans. Vlan filters allow to bridge together underlying interfaces
-        and create vlans already on the bridge::
+        and create vlans already on the bridge:
+
+        .. aafig::
 
             # v500 label shows which interfaces have vlan filter
 

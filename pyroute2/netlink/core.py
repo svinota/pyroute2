@@ -248,7 +248,7 @@ class AsyncCoreSocket:
             self.local.msg_queue = CoreMessageQueue()
             # 8<-----------------------------------------
             # Setup netns
-            if self.spec['netns'] is not None:
+            if self.spec['netns'] is not None and not config.mock_netlink:
                 # inspect self.__init__ argument names
                 ctrl = socket.socketpair()
                 nsproc = multiprocessing.Process(
@@ -276,6 +276,11 @@ class AsyncCoreSocket:
                 nsproc.join()
             # 8<-----------------------------------------
             self.local.socket = await self.setup_socket()
+            if self.spec['netns'] is not None and config.mock_netlink:
+                self.local.socket.netns = self.spec['netns']
+                self.local.socket.flags = self.spec['flags']
+                self.local.socket.initdb()
+
             self.endpoint_started = await self.setup_endpoint()
             self.__all_open_resources.add(
                 CoreSocketResources(
