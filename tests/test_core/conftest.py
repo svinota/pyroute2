@@ -70,7 +70,7 @@ class SyncIPRouteContext(IPRoute):
 @pytest_asyncio.fixture
 async def p9(request, tmpdir):
     ctx = AsyncPlan9Context()
-    await ctx.ensure_client()
+    await ctx.ensure_session()
     yield ctx
     await ctx.close()
 
