@@ -417,6 +417,8 @@ class Marshal9P(Marshal):
                 spec = json.loads(msg['ename'])
                 if spec['class'] in dir(builtins):
                     cls = getattr(builtins, spec['class'])
+                elif spec['class'] == 'Plan9Exit':
+                    cls = Plan9Exit
                 else:
                     cls = Exception
                 if not spec.get('argv'):

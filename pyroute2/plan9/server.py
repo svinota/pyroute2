@@ -218,6 +218,37 @@ class Plan9ServerProtocol(asyncio.Protocol):
 
 
 class Plan9ServerSocket(AsyncCoreSocket):
+    '''9p2000 server.
+
+    Requires either an IP address to listen on, or an open
+    `SOCK_STREAM` socket to operate. An IP example, suitable
+    to establish IPC between processes in one network:
+
+    .. testcode::
+
+        from pyroute2 import Plan9ClientSocket, Plan9ServerSocket
+
+        address = ('localhost', 8149)
+        p9server = Plan9ServerSocket(address=address)
+        p9client = Plan9ClientSocket(address=address)
+
+    Server/client running on a `socketpair()` suitable
+    for internal API within one process, or between
+    parent/child processes:
+
+    .. testcode::
+
+        from socket import socketpair
+
+        from pyroute2 import Plan9ClientSocket, Plan9ServerSocket
+
+        server, client = socketpair()
+        p9server = Plan9ServerSocket(use_socket=server)
+        p9client = Plan9ClientSocket(use_socket=client)
+
+
+    '''
+
     def __init__(self, address=None, use_socket=None):
         self.spec = CoreSocketSpec(
             {
@@ -231,6 +262,101 @@ class Plan9ServerSocket(AsyncCoreSocket):
         self.filesystem = Filesystem()
         self.marshal = Marshal9P()
         super().__init__(use_socket=use_socket)
+
+    def register_function(
+        self,
+        func,
+        inode,
+        loader=json.loads,
+        dumper=lambda x: json.dumps(x).encode('utf-8'),
+    ):
+        '''Register a function to an file.
+
+        The file usage:
+
+        * `write()`: write arguments for the call as a json dictionary of
+          keyword arguments to the file data.
+        * `read()`:
+            1. if the arguments were written to the data, call the function
+               and write the result to the file data
+            2. read the file data and return to the client
+        * `call()`: protocol extension, `Tcall` = 80, `Rcall` = 81, make
+          this in one turn.
+
+        .. testcode::
+            :hide:
+
+            from pyroute2.plan9 import Tcall, Rcall
+
+            assert Tcall == 80
+            assert Rcall == 81
+
+        Registering a function:
+
+        .. testcode::
+
+            def communicate(a, b):
+                return a + b
+
+
+            def example_register():
+                fd = p9server.filesystem.create('test_func')
+                p9server.register_function(communicate, fd)
+
+        Communication using Twrite/Tread:
+
+        .. testcode::
+
+            import json
+
+
+            async def example_write():
+                fid = await p9client.fid('test_func')
+                await p9client.write(
+                    fid,
+                    json.dumps({"a": 17, "b": 25})
+                )
+                msg = await p9client.read(fid)
+                response = json.loads(msg['data'])
+                assert response == 42
+
+        Same, using a command line 9p client from plan9port::
+
+            $ echo '{"a": 17, "b": 25}' | 9p -a localhost:8149 write test_func
+            $ 9p -a localhost:8149 read test_func
+            42
+
+        And using a mounted file system via FUSE client from plan9port::
+
+            $ 9pfuse localhost:8149 mnt
+            $ echo '{"a": 17, "b": 25}' >mnt/test_func
+            $ cat mnt/test_func
+            42
+
+        And the same, but using Tcall:
+
+        .. testcode::
+
+            async def example_call():
+                fid = await p9client.fid('test_func')
+                response = await p9client.call(fid, argv=(17, 25))
+                assert response == 42
+
+        And finnaly run this code:
+
+        .. testcode::
+
+            async def main():
+                server_task = await p9server.async_run()
+                example_register()
+                await p9client.start_session()
+                await example_write()
+                await example_call()
+                server_task.cancel()
+
+            asyncio.run(main())
+        '''
+        return inode.register_function(func, loader, dumper)
 
     async def setup_endpoint(self, loop=None):
         if self.endpoint is not None:
@@ -251,6 +377,77 @@ class Plan9ServerSocket(AsyncCoreSocket):
             )
 
     async def async_run(self):
+        '''Return the server asyncio task.
+
+        Using this task one can stop the server:
+
+        .. testcode::
+
+            async def main():
+                server = Plan9ServerSocket(address=('localhost', 8149))
+                server_task = await server.async_run()
+                # ... server is running here
+                server_task.cancel()
+                # ... server is stopped
+
+            asyncio.run(main())
+
+        To forcefully close all client connections and stop the server
+        immediately from a registered function, one can pass this task
+        to the function, cancel it, and raise `Plan9Exit()` exception:
+
+        .. testcode::
+
+            import functools
+
+            from pyroute2.plan9 import Plan9Exit
+
+            server_sock, client_sock = socketpair()
+
+
+            def test_exit_func(context):
+                if 'server_task' in context:
+                    context['server_task'].cancel()
+                    raise Plan9Exit('server stopped upon client request')
+                return 'server starting, please wait'
+
+
+            async def server():
+                p9server = Plan9ServerSocket(use_socket=server_sock)
+                context = {}
+
+                inode = p9server.filesystem.create('stop')
+                p9server.register_function(
+                    functools.partial(test_exit_func, context),
+                    inode
+                )
+                context['server_task'] = await p9server.async_run()
+
+                try:
+                    await context['server_task']
+                except asyncio.exceptions.CancelledError:
+                    pass
+
+                assert context['server_task'].cancelled()
+
+        .. testcode::
+            :hide:
+
+            async def client():
+                p9client = Plan9ClientSocket(use_socket=client_sock)
+                await p9client.start_session()
+                fid = await p9client.fid('stop')
+                try:
+                    await p9client.call(fid)
+                except Plan9Exit:
+                    pass
+
+
+            async def main():
+                await asyncio.gather(server(), client())
+
+            asyncio.run(main())
+        '''
         await self.setup_endpoint()
         if self.status['use_socket']:
             return self.endpoint[1].on_con_lost
@@ -258,5 +455,9 @@ class Plan9ServerSocket(AsyncCoreSocket):
             return asyncio.create_task(self.endpoint.serve_forever())
 
     def run(self):
+        '''A simple synchronous runner.
+
+        Uses `event_loop.run_forever()`.
+        '''
         self.event_loop.create_task(self.async_run())
         self.event_loop.run_forever()

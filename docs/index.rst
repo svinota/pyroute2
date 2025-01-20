@@ -23,6 +23,7 @@ Usage
     asyncio
     iproute
     ndb
+    plan9
     wiset
     ipset
     netns
