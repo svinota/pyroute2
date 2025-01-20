@@ -54,6 +54,8 @@ from pyroute2.netlink.rtnl.iprsocket import IPRSocket
 from pyroute2.netlink.taskstats import TaskStats
 from pyroute2.netlink.uevent import UeventSocket
 from pyroute2.nslink.nspopen import NSPopen
+from pyroute2.plan9.client import Plan9ClientSocket
+from pyroute2.plan9.server import Plan9ServerSocket
 from pyroute2.wiset import WiSet
 
 modules = [
@@ -91,6 +93,8 @@ modules = [
     NFTSocket,
     NL80211,
     NSPopen,
+    Plan9ClientSocket,
+    Plan9ServerSocket,
     ProcEventSocket,
     RawIPRoute,
     Server,

@@ -35,7 +35,7 @@ def _publish_function_r(
         inode.data.write(dumper(ret))
 
     inode.data.seek(request['offset'])
-    response['data'] = dumper(inode.data.read(request['count']))
+    response['data'] = inode.data.read(request['count'])
     return response
 
 
@@ -120,7 +120,7 @@ class Inode:
                 return child
         raise KeyError('file not found')
 
-    def publish_function(
+    def register_function(
         self,
         func,
         loader=json.loads,
