@@ -3,9 +3,8 @@ from logging import getLogger
 from typing import ClassVar, DefaultDict, Iterable, Optional
 
 from pyroute2.dhcp import fsm, messages
-from pyroute2.dhcp.constants import dhcp
-from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
+from pyroute2.dhcp.enums import dhcp
 from pyroute2.dhcp.hooks import Hook
 from pyroute2.dhcp.leases import JSONFileLease, Lease
 from pyroute2.dhcp.timers import Timers
@@ -45,7 +44,9 @@ class AsyncDHCPClient:
         # Current lease, read from persistent storage or sent by a server
         self._lease: Optional[Lease] = None
         # dhcp messages put in this queue are sent by _send_forever
-        self._sendq: asyncio.Queue[Optional[dhcp4msg]] = asyncio.Queue()
+        self._sendq: asyncio.Queue[Optional[messages.SentDHCPMessage]] = (
+            asyncio.Queue()
+        )
         # Handle to run _send_forever for the context manager's lifetime
         self._sender_task: Optional[asyncio.Task] = None
         # Handle to run _recv_forever for the context manager's lifetime
@@ -96,10 +97,10 @@ class AsyncDHCPClient:
             # send request for lease
             await self.transition(
                 to=fsm.State.REBOOTING,
-                send=messages.request(
-                    requested_ip=self.lease.ip,
-                    server_id=self.lease.server_id,
+                send=messages.request_for_lease(
                     parameter_list=self.requested_parameters,
+                    lease=self.lease,
+                    state=fsm.State.REBOOTING,
                 ),
             )
         # the decorator prevents the needs for an else
@@ -153,10 +154,10 @@ class AsyncDHCPClient:
         self.timers._reset_timer('renewal')  # FIXME should be automatic
         await self.transition(
             to=fsm.State.RENEWING,
-            send=messages.request(
-                requested_ip=self.lease.ip,
-                server_id=self.lease.server_id,
+            send=messages.request_for_lease(
                 parameter_list=self.requested_parameters,
+                lease=self.lease,
+                state=fsm.State.RENEWING,
             ),
         )
 
@@ -167,10 +168,10 @@ class AsyncDHCPClient:
         self.timers._reset_timer('rebinding')
         await self.transition(
             to=fsm.State.REBINDING,
-            send=messages.request(
-                requested_ip=self.lease.ip,
-                server_id=self.lease.server_id,
+            send=messages.request_for_lease(
                 parameter_list=self.requested_parameters,
+                lease=self.lease,
+                state=fsm.State.REBINDING,
             ),
         )
 
@@ -189,30 +190,27 @@ class AsyncDHCPClient:
 
     async def _send_forever(self):
         """Send packets from _sendq until the client stops."""
-        packet_to_send = None
+        msg_to_send = None
         wait_til_stopped = asyncio.Task(self.wait_for_state(None))
         interval = 5  # TODO make dynamic
         while not wait_til_stopped.done():
-            wait_for_packet_to_send = asyncio.Task(
+            wait_for_msg_to_send = asyncio.Task(
                 self._sendq.get(), name='wait for packet to send'
             )
             done, pending = await asyncio.wait(
-                (wait_til_stopped, wait_for_packet_to_send),
+                (wait_til_stopped, wait_for_msg_to_send),
                 return_when=asyncio.FIRST_COMPLETED,
                 timeout=interval,
             )
-            if wait_for_packet_to_send in done:
-                if packet_to_send := wait_for_packet_to_send.result():
-                    packet_to_send['xid'] = self.xid
-            elif wait_for_packet_to_send in pending:
-                wait_for_packet_to_send.cancel()
+            if wait_for_msg_to_send in done:
+                if msg_to_send := wait_for_msg_to_send.result():
+                    msg_to_send.dhcp['xid'] = self.xid
+            elif wait_for_msg_to_send in pending:
+                wait_for_msg_to_send.cancel()
 
-            if packet_to_send:
-                LOG.debug(
-                    'Sending %s',
-                    packet_to_send['options']['message_type'].name,
-                )
-                await self._sock.put(packet_to_send)
+            if msg_to_send:
+                LOG.debug('Sending %s', msg_to_send)
+                await self._sock.put(msg_to_send)
 
     async def _recv_forever(self) -> None:
         """Receive & process DHCP packets until the client stops.
@@ -236,10 +234,10 @@ class AsyncDHCPClient:
             if wait_for_received_packet in done:
                 received_packet = wait_for_received_packet.result()
                 msg_type = dhcp.MessageType(
-                    received_packet['options']['message_type']
+                    received_packet.dhcp['options']['message_type']
                 )
-                LOG.info('Received %s', msg_type.name)
-                if received_packet.get('xid') != self.xid:
+                LOG.info('Received %s', received_packet)
+                if received_packet.dhcp.get('xid') != self.xid:
                     LOG.error('Missing or wrong xid, discarding')
                 else:
                     handler_name = f'{msg_type.name.lower()}_received'
@@ -252,7 +250,9 @@ class AsyncDHCPClient:
             elif wait_for_received_packet in pending:
                 wait_for_received_packet.cancel()
 
-    async def transition(self, to: fsm.State, send: Optional[dhcp4msg] = None):
+    async def transition(
+        self, to: fsm.State, send: Optional[messages.SentDHCPMessage] = None
+    ):
         '''Change the client's state, and start sending a message repeatedly.
 
         If the message is None, any current message will stop being sent.
@@ -268,12 +268,14 @@ class AsyncDHCPClient:
         fsm.State.REBINDING,
         fsm.State.RENEWING,
     )
-    async def ack_received(self, pkt: dhcp4msg):
+    async def ack_received(self, msg: messages.ReceivedDHCPMessage):
         '''Called when an ACK is received.
 
         Stores the lease and puts the client in the BOUND state.
         '''
-        self.lease = self.lease_type(ack=pkt, interface=self.interface)
+        self.lease = self.lease_type(
+            ack=msg.dhcp, interface=self.interface, server_mac=msg.eth_src
+        )
         LOG.info(
             'Got lease for %s from %s', self.lease.ip, self.lease.server_id
         )
@@ -288,11 +290,12 @@ class AsyncDHCPClient:
         fsm.State.RENEWING,
         fsm.State.REBINDING,
     )
-    async def nak_received(self, pkt: dhcp4msg):
+    async def nak_received(self, msg: messages.ReceivedDHCPMessage):
         '''Called when a NAK is received.
 
         Resets the client and starts looking for a new IP.
         '''
+        # TODO: check the NAK matches something we asked for ?
         await self.transition(to=fsm.State.INIT)
         # Reset lease & timers and start again
         self._lease = None
@@ -300,17 +303,15 @@ class AsyncDHCPClient:
         await self.bootstrap()
 
     @fsm.state_guard(fsm.State.SELECTING)
-    async def offer_received(self, pkt: dhcp4msg):
+    async def offer_received(self, msg: messages.ReceivedDHCPMessage):
         '''Called when an OFFER is received.
 
         Sends a REQUEST for the offered IP address.
         '''
         await self.transition(
             to=fsm.State.REQUESTING,
-            send=messages.request(
-                requested_ip=pkt['yiaddr'],
-                server_id=pkt['options']['server_id'],
-                parameter_list=self.requested_parameters,
+            send=messages.request_for_offer(
+                parameter_list=self.requested_parameters, offer=msg
             ),
         )
 
@@ -353,12 +354,12 @@ class AsyncDHCPClient:
         If there's an active lease, send a RELEASE for it first.
         '''
         self.timers.cancel()
-        if self.lease and not self.lease.expired:
-            await self._sendq.put(
-                messages.release(
-                    requested_ip=self.lease.ip, server_id=self.lease.server_id
-                )
-            )
+        # FIXME: call hooks in a non blocking way (maybe call_soon ?)
+        if self.lease:
+            for i in self.hooks:
+                await i.unbound(self.lease)
+            if not self.lease.expired:
+                await self._sendq.put(messages.release(lease=self.lease))
         self.state = None
         await self._sender_task
         await self._receiver_task

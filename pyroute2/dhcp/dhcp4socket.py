@@ -11,10 +11,12 @@ import socket
 from pyroute2.common import AddrPool
 from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
+from pyroute2.dhcp.messages import ReceivedDHCPMessage, SentDHCPMessage
 from pyroute2.ext.rawsocket import AsyncRawSocket
 from pyroute2.protocols import ethmsg, ip4msg, udp4_pseudo_header, udpmsg
 
 LOG = logging.getLogger(__name__)
+
 
 UDP_HEADER_SIZE = 8
 IPV4_HEADER_SIZE = 20
@@ -67,20 +69,9 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         )  # TODO : maybe it should be in the client and not here ?
         self.aio_loop = asyncio.get_running_loop()
 
-    async def put(
-        self,
-        msg: dhcp4msg,
-        eth_dst: str = 'ff:ff:ff:ff:ff:ff',
-        ip_dst: str = '255.255.255.255',
-        dport: int = 67,
-    ) -> dhcp4msg:
+    async def put(self, msg: SentDHCPMessage) -> SentDHCPMessage:
         '''
-        Put DHCP message. Parameters:
-
-        * msg -- dhcp4msg instance
-        * eth_dst -- dest MAC address
-        * ip_dst -- dest IP address
-        * dport -- DHCP server port
+        Put DHCP message.
 
         Examples::
 
@@ -91,11 +82,21 @@ class AsyncDHCP4Socket(AsyncRawSocket):
                                            'requested_ip': '172.16.101.2',
                                            'server_id': '172.16.101.1'}}))
 
-        The method returns the sent dhcp4msg, so one can get from
+        The method returns the SentDHCPMessage, so one can get from
         there the `xid` (transaction id) and other details.
         '''
+
+        if msg.sport != self.port:
+            raise ValueError(
+                f"Client source port is set to {self.port}, "
+                f"cannot send message from port {msg.sport}."
+            )
+
+        if not msg.eth_src:
+            msg.eth_src = self.l2addr
+
         # DHCP layer
-        dhcp = msg
+        dhcp = msg.dhcp
 
         # dhcp transaction id
         if dhcp['xid'] is None:
@@ -103,7 +104,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
 
         # auto add src addr
         if dhcp['chaddr'] is None:
-            dhcp['chaddr'] = self.l2addr
+            dhcp['chaddr'] = msg.eth_src
 
         data = dhcp.encode().buf
         dhcp_payload_size = len(data)
@@ -112,13 +113,17 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         udp = udpmsg(
             {
                 'sport': self.port,
-                'dport': dport,
+                'dport': msg.dport,
                 'len': UDP_HEADER_SIZE + dhcp_payload_size,
             }
         )
         # Pseudo UDP header, only for checksum purposes
         udph = udp4_pseudo_header(
-            {'dst': ip_dst, 'len': UDP_HEADER_SIZE + dhcp_payload_size}
+            {
+                'src': msg.ip_src,
+                'dst': msg.ip_dst,
+                'len': UDP_HEADER_SIZE + dhcp_payload_size,
+            }
         )
         udp['csum'] = self.csum(udph.encode().buf + udp.encode().buf + data)
         udp.reset()
@@ -128,7 +133,8 @@ class AsyncDHCP4Socket(AsyncRawSocket):
             {
                 'len': IPV4_HEADER_SIZE + UDP_HEADER_SIZE + dhcp_payload_size,
                 'proto': socket.IPPROTO_UDP,
-                'dst': ip_dst,
+                'dst': msg.ip_dst,
+                'src': msg.ip_src,
             }
         )
         ip4['csum'] = self.csum(ip4.encode().buf)
@@ -136,15 +142,15 @@ class AsyncDHCP4Socket(AsyncRawSocket):
 
         # MAC layer
         eth = ethmsg(
-            {'dst': eth_dst, 'src': self.l2addr, 'type': ETHERTYPE_IP}
+            {'dst': msg.eth_dst, 'src': msg.eth_src, 'type': ETHERTYPE_IP}
         )
 
         data = eth.encode().buf + ip4.encode().buf + udp.encode().buf + data
         await self.aio_loop.sock_sendall(self, data)
         dhcp.reset()
-        return dhcp
+        return msg
 
-    async def get(self) -> dhcp4msg:
+    async def get(self) -> ReceivedDHCPMessage:
         '''
         Get the next incoming packet from the socket and try
         to decode it as IPv4 DHCP. No analysis is done here,
@@ -155,4 +161,13 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         eth = ethmsg(buf=data).decode()
         ip4 = ip4msg(buf=data, offset=eth.offset).decode()
         udp = udpmsg(buf=data, offset=ip4.offset).decode()
-        return dhcp4msg(buf=data, offset=udp.offset).decode()
+        dhcp = dhcp4msg(buf=data, offset=udp.offset).decode()
+        return ReceivedDHCPMessage(
+            dhcp=dhcp,
+            eth_src=eth['src'],
+            eth_dst=eth['dst'],
+            ip_src=ip4['src'],
+            ip_dst=ip4['dst'],
+            sport=udp['sport'],
+            dport=udp['dport'],
+        )

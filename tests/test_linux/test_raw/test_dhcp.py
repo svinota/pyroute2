@@ -11,7 +11,7 @@ from pr2test.marks import require_root
 
 from pyroute2.dhcp import fsm
 from pyroute2.dhcp.client import AsyncDHCPClient
-from pyroute2.dhcp.constants import bootp, dhcp
+from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.leases import JSONFileLease, JSONStdoutLease
 
 pytestmark = [require_root()]

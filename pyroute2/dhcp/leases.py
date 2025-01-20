@@ -26,6 +26,8 @@ class Lease(abc.ABC):
     ack: dhcp4msg
     # Name of the interface for which this lease was requested
     interface: str
+    # MAC address of the server that allocated the lease
+    server_mac: str
     # Timestamp of when this lease was obtained
     obtained: float = field(default_factory=_now)
 
@@ -166,4 +168,7 @@ class JSONFileLease(Lease):
                 return cls(**json.load(lf))
         except FileNotFoundError:
             LOG.info('No existing lease at %s for %s', lease_path, interface)
+            return None
+        except TypeError as err:
+            LOG.warning("Error loading lease: %s", err)
             return None
