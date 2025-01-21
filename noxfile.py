@@ -12,7 +12,6 @@ nox.options.sessions = [
     'linter',
     'repo',
     'unit',
-    'lab',
     'neutron',
     'integration',
     'linux-python3.9',
@@ -146,7 +145,6 @@ def setup_venv_minimal(session, config):
         )
         session.run('rm', '-rf', 'build', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
-    session.run('cp', '-a', 'lab', tmpdir, external=True)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
     return tmpdir
@@ -302,22 +300,6 @@ def minimal(session, config):
     tmpdir = setup_venv_minimal(session, config)
     session.chdir(f'{tmpdir}/tests')
     session.run(*options('test_minimal', config))
-
-
-@nox.session
-@add_session_config
-def lab(session, config):
-    '''Test lab code blocks.'''
-    workspace = setup_venv_minimal(session, config)
-    for fname in os.listdir('dist'):
-        if fname.startswith('pyroute2.minimal') and fname.endswith('whl'):
-            break
-    session.run('python', 'util/make_lab_templates.py', fname, external=True)
-    session.run('make', '-C', 'lab', 'html', external=True)
-    session.run('cp', f'dist/{fname}', 'lab/_build/html/', external=True)
-    # make tests
-    session.chdir(f'{workspace}/tests')
-    session.run(*options('test_lab', config), env={'WORKSPACE': workspace})
 
 
 @nox.session

@@ -7,7 +7,6 @@ import struct
 from itertools import count
 
 from pyroute2.config import AF_NETLINK
-from pyroute2.lab import LAB_API
 from pyroute2.netlink import NLM_F_MULTI, NLMSG_DONE, nlmsg
 from pyroute2.netlink.core import Stats
 from pyroute2.netlink.exceptions import NetlinkError
@@ -738,7 +737,7 @@ class IPEngine:
         self.loopback_w.send(msg.data)
 
 
-class IPRoute(LAB_API, NetlinkSocket):
+class IPRoute(NetlinkSocket):
     '''To be deprecated.'''
 
     def __init__(self, *argv, **kwarg):
