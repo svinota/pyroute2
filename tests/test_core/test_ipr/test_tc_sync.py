@@ -1,4 +1,3 @@
-import pytest
 from pr2test.tools import (
     class_exists,
     filter_exists,
@@ -9,20 +8,19 @@ from pr2test.tools import (
 from pyroute2 import protocols
 
 
-async def util_link_add(async_ipr):
-    ifname = async_ipr.register_temporary_ifname()
-    await async_ipr.link('add', ifname=ifname, kind='dummy', state='up')
+def util_link_add(sync_ipr):
+    ifname = sync_ipr.register_temporary_ifname()
+    sync_ipr.link('add', ifname=ifname, kind='dummy', state='up')
     assert interface_exists(ifname)
-    (link,) = await async_ipr.link('get', ifname=ifname)
+    (link,) = sync_ipr.link('get', ifname=ifname)
     index = link['index']
     return ifname, index
 
 
-@pytest.mark.asyncio
-async def test_tc_get_qdiscs(async_ipr):
+def test_tc_get_qdiscs(sync_ipr):
     root_handle = '1:'
-    ifname, index = await util_link_add(async_ipr)
-    await async_ipr.tc(
+    ifname, index = util_link_add(sync_ipr)
+    sync_ipr.tc(
         'add',
         'tbf',
         index=index,
@@ -32,19 +30,18 @@ async def test_tc_get_qdiscs(async_ipr):
         latency=1,
     )
     assert qdisc_exists(ifname=ifname, handle=root_handle, rate=256)
-    assert len([x async for x in await async_ipr.get_qdiscs(index=index)]) == 1
-    await async_ipr.tc('del', index=index, handle=root_handle, root=True)
+    assert len([x for x in sync_ipr.get_qdiscs(index=index)]) == 1
+    sync_ipr.tc('del', index=index, handle=root_handle, root=True)
     assert not qdisc_exists(
         ifname=ifname, handle=root_handle, rate=256, timeout=0.1
     )
 
 
-@pytest.mark.asyncio
-async def test_tc_htb(async_ipr):
+def test_tc_htb(sync_ipr):
     root_handle = '1:'
     root_options_default = '0x200000'
-    ifname, index = await util_link_add(async_ipr)
-    await async_ipr.tc(
+    ifname, index = util_link_add(sync_ipr)
+    sync_ipr.tc(
         'add',
         'htb',
         index=index,
@@ -55,7 +52,7 @@ async def test_tc_htb(async_ipr):
         ifname=ifname, handle=root_handle, default=root_options_default
     )
 
-    await async_ipr.tc(
+    sync_ipr.tc(
         'add-class',
         'htb',
         index=index,
@@ -66,7 +63,7 @@ async def test_tc_htb(async_ipr):
     )
     assert class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
 
-    await async_ipr.tc(
+    sync_ipr.tc(
         'add-class',
         'htb',
         index=index,
@@ -78,7 +75,7 @@ async def test_tc_htb(async_ipr):
     )
     assert class_exists(ifname=ifname, kind='htb', handle='1:10', parent='1:1')
 
-    await async_ipr.tc(
+    sync_ipr.tc(
         'add-class',
         'htb',
         index=index,
@@ -90,7 +87,7 @@ async def test_tc_htb(async_ipr):
     )
     assert class_exists(ifname=ifname, kind='htb', handle='1:20', parent='1:1')
 
-    await async_ipr.tc(
+    sync_ipr.tc(
         'add-filter',
         'u32',
         index=index,
@@ -110,7 +107,7 @@ async def test_tc_htb(async_ipr):
         match_mask="ff000000",
     )
 
-    await async_ipr.tc(
+    sync_ipr.tc(
         'add-filter',
         'u32',
         index=index,
@@ -131,19 +128,19 @@ async def test_tc_htb(async_ipr):
     )
 
     # complementary delete commands
-    await async_ipr.tc('del-filter', index=index, handle='0:0', parent='1:0')
+    sync_ipr.tc('del-filter', index=index, handle='0:0', parent='1:0')
     assert not filter_exists(
         ifname=ifname, kind='u32', parent='1:0', timeout=0.1
     )
 
-    await async_ipr.tc('del-class', index=index, handle='1:20', parent='1:1')
+    sync_ipr.tc('del-class', index=index, handle='1:20', parent='1:1')
     assert not class_exists(
         ifname=ifname, kind='htb', handle='1:20', parent='1:1', timeout=0.1
     )
     assert class_exists(ifname=ifname, kind='htb', handle='1:10', parent='1:1')
     assert class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
 
-    await async_ipr.tc('del-class', index=index, handle='1:10', parent='1:1')
+    sync_ipr.tc('del-class', index=index, handle='1:10', parent='1:1')
     assert not class_exists(
         ifname=ifname, kind='htb', handle='1:20', parent='1:1', timeout=0.1
     )
@@ -152,7 +149,7 @@ async def test_tc_htb(async_ipr):
     )
     assert class_exists(ifname=ifname, kind='htb', handle='1:1', root=True)
 
-    await async_ipr.tc('del-class', index=index, handle='1:1', parent='1:0')
+    sync_ipr.tc('del-class', index=index, handle='1:1', parent='1:0')
     assert not class_exists(
         ifname=ifname, kind='htb', handle='1:20', parent='1:1', timeout=0.1
     )
@@ -163,5 +160,5 @@ async def test_tc_htb(async_ipr):
         ifname=ifname, kind='htb', handle='1:1', root=True, timeout=0.1
     )
 
-    await async_ipr.tc('del', index=index, handle=root_handle, root=True)
+    sync_ipr.tc('del', index=index, handle=root_handle, root=True)
     assert not qdisc_exists(ifname=ifname, handle=root_handle, timeout=0.1)
