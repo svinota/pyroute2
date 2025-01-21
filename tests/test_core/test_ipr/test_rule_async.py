@@ -1,3 +1,5 @@
+from socket import AF_INET, AF_INET6
+
 import pytest
 from pr2test.tools import rule_exists
 
@@ -22,3 +24,39 @@ async def test_rule_strict_src(async_ipr, priority, spec):
     netns = async_ipr.status['netns']
     await async_ipr.rule('add', priority=priority, **spec)
     assert rule_exists(priority=priority, netns=netns)
+
+
+@pytest.mark.parametrize(
+    'priority,proto,spec',
+    [
+        (20100, AF_INET, {'table': 10}),
+        (20101, AF_INET, {'table': 10, 'fwmark': 15}),
+        (20102, AF_INET, {'table': 10, 'fwmark': 15, 'fwmask': 20}),
+        (20103, AF_INET, {'table': 2048, 'FRA_FWMARK': 10, 'FRA_FWMASK': 12}),
+        (20104, AF_INET, {'table': 2048, 'src': '127.0.1.0', 'src_len': 24}),
+        (20105, AF_INET, {'table': 2048, 'dst': '127.0.1.0', 'dst_len': 24}),
+        (20106, AF_INET6, {'table': 5192, 'src': 'fd00::', 'src_len': 8}),
+        (20107, AF_INET6, {'table': 5192, 'dst': 'fd00::', 'dst_len': 8}),
+    ],
+)
+@pytest.mark.parametrize('async_ipr', [{'netns': True}], indirect=True)
+@pytest.mark.asyncio
+async def test_rule_add_del(async_ipr, priority, proto, spec):
+    netns = async_ipr.status['netns']
+    await async_ipr.rule('add', priority=priority, **spec)
+    assert rule_exists(priority=priority, proto=proto, netns=netns)
+    assert (
+        len(
+            [
+                x
+                async for x in await async_ipr.rule(
+                    'dump', priority=priority, **spec
+                )
+            ]
+        )
+        == 1
+    )
+    await async_ipr.rule('del', priority=priority, **spec)
+    assert not rule_exists(
+        priority=priority, proto=proto, netns=netns, timeout=0.1
+    )

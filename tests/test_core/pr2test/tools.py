@@ -3,6 +3,7 @@ import subprocess
 import time
 from collections import namedtuple
 from functools import reduce
+from socket import AF_INET, AF_INET6
 
 ip_object_filter = namedtuple('ip_object_filter', ('query', 'value'))
 
@@ -80,11 +81,12 @@ def route_exists(dst, table='main', netns=None, timeout=1, retry=0.2):
     )
 
 
-def rule_exists(priority, netns=None, timeout=1, retry=0.2):
+def rule_exists(priority, proto=AF_INET, netns=None, timeout=1, retry=0.2):
     ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
+    proto = {AF_INET: '-4', AF_INET6: '-6'}.get(proto, '-4')
     filters = [ip_object_filter(query='.priority', value=priority)]
     return wait_for_ip_object(
-        ns + ['ip', '-json', 'rule', 'show'], filters, timeout, retry
+        ns + ['ip', '-json', proto, 'rule', 'show'], filters, timeout, retry
     )
 
 
