@@ -14,6 +14,11 @@ class dhcp4msg(dhcpmsg):
         ('hops', 'uint8'),
         ('xid', 'uint32'),
         ('secs', 'uint16'),
+        # TODO: set flags to broadcast (RFC 2131)
+        # A client that cannot receive unicast IP datagrams until its protocol
+        # software has been configured with an IP address SHOULD set the
+        # BROADCAST bit in the 'flags' field to 1 in any DHCPDISCOVER or
+        # DHCPREQUEST messages that client sends.
         ('flags', 'uint16'),
         ('ciaddr', 'ip4addr'),
         ('yiaddr', 'ip4addr'),
@@ -40,10 +45,10 @@ class dhcp4msg(dhcpmsg):
         (9, 'lpr_server', 'ip4list'),
         (50, 'requested_ip', 'ip4addr'),
         (51, 'lease_time', 'be32'),
-        (53, 'message_type', 'uint8'),
+        (53, 'message_type', 'message_type'),
         (54, 'server_id', 'ip4addr'),
         (55, 'parameter_list', 'array8'),
-        (57, 'messagi_size', 'be16'),
+        (57, 'message_size', 'be16'),
         (58, 'renewal_time', 'be32'),
         (59, 'rebinding_time', 'be32'),
         (60, 'vendor_id', 'string'),

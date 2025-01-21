@@ -105,18 +105,7 @@ from array import array
 from pyroute2.common import basestring
 from pyroute2.protocols import msg
 
-BOOTREQUEST = 1
-BOOTREPLY = 2
-
-DHCPDISCOVER = 1
-DHCPOFFER = 2
-DHCPREQUEST = 3
-DHCPDECLINE = 4
-DHCPACK = 5
-DHCPNAK = 6
-DHCPRELEASE = 7
-DHCPINFORM = 8
-
+from . import enums
 
 if not hasattr(array, 'tobytes'):
     # Python2 and Python3 versions of array differ,
@@ -262,8 +251,8 @@ class dhcpmsg(msg):
         self._register_options()
         # put message type
         options = self.get('options') or {
-            'message_type': DHCPDISCOVER,
-            'parameter_list': [1, 3, 6, 12, 15, 28],
+            'message_type': enums.dhcp.MessageType.DISCOVER,
+            'parameter_list': [1, 3, 6, 12, 15, 28],  # FIXME
         }
 
         self.buf += (
@@ -321,3 +310,6 @@ class dhcpmsg(msg):
 
     class client_id(option):
         fields = (('type', 'uint8'), ('key', 'l2addr'))
+
+    class message_type(option):
+        policy = {'format': 'B', 'decode': lambda x: enums.dhcp.MessageType(x)}

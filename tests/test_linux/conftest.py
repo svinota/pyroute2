@@ -2,6 +2,9 @@ import errno
 from uuid import uuid4
 
 import pytest
+from fixtures.dhcp_servers.dnsmasq import dnsmasq, dnsmasq_config  # noqa: F401
+from fixtures.dhcp_servers.udhcpd import udhcpd, udhcpd_config  # noqa: F401
+from fixtures.interfaces import dhcp_range, veth_pair  # noqa: F401
 from pr2test.context_manager import NDBContextManager, SpecContextManager
 from utils import require_user
 
@@ -10,7 +13,7 @@ from pyroute2.ipset import IPSet, IPSetError
 from pyroute2.wiset import COUNT
 
 config.nlm_generator = True
-pytest_plugins = "pytester"
+pytest_plugins = 'pytester'
 
 
 @pytest.fixture
@@ -62,7 +65,7 @@ def wiset_sock(request):
     if request.param is None:
         yield None
     else:
-        before_count = COUNT["count"]
+        before_count = COUNT['count']
         with IPSet() as sock:
             yield sock
         assert before_count == COUNT['count']
