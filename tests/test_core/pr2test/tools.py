@@ -80,6 +80,14 @@ def route_exists(dst, table='main', netns=None, timeout=1, retry=0.2):
     )
 
 
+def rule_exists(priority, netns=None, timeout=1, retry=0.2):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
+    filters = [ip_object_filter(query='.priority', value=priority)]
+    return wait_for_ip_object(
+        ns + ['ip', '-json', 'rule', 'show'], filters, timeout, retry
+    )
+
+
 def class_exists(
     ifname,
     handle,

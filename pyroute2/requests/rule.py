@@ -37,7 +37,10 @@ class RuleIPRouteFilter(IPRouteFilter):
             if 'table' in context and 'action' not in context:
                 context['action'] = 'to_tbl'
             for key in ('src_len', 'dst_len'):
-                if context.get(key, None) is None and key[:3] in context:
+                if (
+                    context.get(key, None) is None
+                    and context.get(key[:3], None) is not None
+                ):
                     context[key] = {socket.AF_INET6: 128, socket.AF_INET: 32}[
                         context['family']
                     ]
