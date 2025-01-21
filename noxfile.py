@@ -77,6 +77,7 @@ def options(module, config):
         '--basetemp',
         './log',
         '--junitxml=junit.xml',
+        '--html=report.html',
     ]
     timeout = 60
     if config.get('exitfirst', True):
