@@ -365,12 +365,7 @@ class AsyncDHCPClient:
         opens the socket, starts the sender & receiver tasks
         and allocates a request ID.
         '''
-        loaded_lease = self.config.lease_type.load(self.config.interface)
-        if loaded_lease and loaded_lease.expired:
-            LOG.info('Discarding stale lease')
-            loaded_lease = None
-        if loaded_lease:
-            # TODO check lease is not expired
+        if loaded_lease := self.config.lease_type.load(self.config.interface):
             self._lease = loaded_lease
             self.state = fsm.State.INIT_REBOOT
         else:
@@ -380,7 +375,7 @@ class AsyncDHCPClient:
 
         self._receiver_task = asyncio.Task(
             self._recv_forever(),
-            name=f'Listen for incoming DHCP packets on {self.config.interface}',
+            name=f'Listen for DHCP packets on {self.config.interface}',
         )
         self._sender_task = asyncio.Task(
             self._send_forever(),

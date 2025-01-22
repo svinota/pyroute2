@@ -64,8 +64,8 @@ def request_for_offer(
     '''Make a REQUEST message for a given OFFER.
 
     Since we don't have an IP yet, the message is always broadcast.
-    Contrary to other cases where an REQUEST is sent, the server_id DHCP option
-    is always set.
+    When requesting an offer in the Selecting state, the server_id DHCP option
+    is always set as opposed to when a REQUEST is sent in other states.
 
     See RFC 2131 section 4.3.2.
     '''
