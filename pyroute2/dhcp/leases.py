@@ -56,11 +56,20 @@ class Lease(abc.ABC):
 
     @property
     def expiration_in(self) -> Optional[float]:
+        '''The amount of seconds before the lease expires.
+
+        Computed from the `lease_time` option.
+
+        Can be negative if it's past due,
+        or `None` if the server didn't give an expiration time.
+        '''
         return self._seconds_til_timer('lease')
 
     @property
     def renewal_in(self) -> Optional[float]:
         '''The amount of seconds before we have to renew the lease.
+
+        Computed from the `renewal_time` option.
 
         Can be negative if it's past due,
         or `None` if the server didn't give a renewal time.
@@ -70,6 +79,8 @@ class Lease(abc.ABC):
     @property
     def rebinding_in(self) -> Optional[float]:
         '''The amount of seconds before we have to rebind the lease.
+
+        Computed from the `rebinding_time` option.
 
         Can be negative if it's past due,
         or `None` if the server didn't give a rebinding time.

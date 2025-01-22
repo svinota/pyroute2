@@ -98,12 +98,12 @@ def request_for_lease(
     set to the IP in the stored lease. The bootp client IP is left blank.
 
     When renewing, (i.e. T1 expires) the message is for the server that granted
-    the lease. The leases's IP is expected to be assigned to the client's
+    the lease. The lease's IP is expected to be assigned to the client's
     interface at this point.
 
     When rebinding (T2), the message is broadcast on the network.
 
-    In both cases, the bootp client IP (ciaddr) is set to the leases's IP.
+    In both cases, the bootp client IP (ciaddr) is set to the lease's IP.
 
     See RFC 2131 section 4.3.6.
     '''
