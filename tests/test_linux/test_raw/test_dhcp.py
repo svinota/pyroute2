@@ -10,7 +10,7 @@ from fixtures.interfaces import VethPair
 from pr2test.marks import require_root
 
 from pyroute2.dhcp import fsm
-from pyroute2.dhcp.client import AsyncDHCPClient
+from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.leases import JSONFileLease, JSONStdoutLease
 
@@ -33,7 +33,8 @@ async def test_get_lease(
     monkeypatch.setattr(JSONFileLease, '_get_lease_dir', lambda: work_dir)
 
     # boot up the dhcp client and wait for a lease
-    async with AsyncDHCPClient(veth_pair.client) as cli:
+    cfg = ClientConfig(interface=veth_pair.client)
+    async with AsyncDHCPClient(cfg) as cli:
         await cli.bootstrap()
         await cli.wait_for_state(fsm.State.BOUND, timeout=10)
         assert cli.state == fsm.State.BOUND
@@ -90,9 +91,8 @@ async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
 @pytest.mark.asyncio
 async def test_client_lifecycle(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     '''Test getting a lease, expiring & getting a lease again.'''
-    async with AsyncDHCPClient(
-        veth_pair.client, lease_type=JSONStdoutLease
-    ) as cli:
+    cfg = ClientConfig(interface=veth_pair.client, lease_type=JSONStdoutLease)
+    async with AsyncDHCPClient(cfg) as cli:
         # No lease, we're in the INIT state
         assert cli.state == fsm.State.INIT
         # Start requesting an IP

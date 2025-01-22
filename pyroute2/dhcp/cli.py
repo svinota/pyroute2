@@ -4,7 +4,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from importlib import import_module
 from typing import Any
 
-from pyroute2.dhcp.client import AsyncDHCPClient
+from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.hooks import ConfigureIP, Hook
 from pyroute2.dhcp.leases import Lease
@@ -75,7 +75,7 @@ async def main():
         if not issubclass(i, Hook):
             psr.error(f'{i!r} must be a Hook subclass')
 
-    acli = AsyncDHCPClient(
+    cfg = ClientConfig(
         interface=args.interface,
         lease_type=args.lease_type,
         # Instantiate hooks
@@ -83,7 +83,7 @@ async def main():
     )
 
     # Open the socket, read existing lease, etc
-    async with acli:
+    async with AsyncDHCPClient(cfg) as acli:
         # Bootstrap the client by sending a DISCOVER or a REQUEST
         await acli.bootstrap()
         if args.exit_on_lease:

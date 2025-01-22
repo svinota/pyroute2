@@ -1,6 +1,16 @@
 import asyncio
+import random
+from dataclasses import dataclass
 from logging import getLogger
-from typing import ClassVar, DefaultDict, Iterable, Optional
+from typing import (
+    Callable,
+    ClassVar,
+    DefaultDict,
+    Iterable,
+    Iterator,
+    Optional,
+    Union,
+)
 
 from pyroute2.dhcp import fsm, messages
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
@@ -10,6 +20,36 @@ from pyroute2.dhcp.leases import JSONFileLease, Lease
 from pyroute2.dhcp.timers import Timers
 
 LOG = getLogger(__name__)
+
+
+# TODO: maybe move retransmission stuff to its own file
+Retransmission = Callable[[], Union[Iterator[int], Iterator[float]]]
+
+
+def randomized_increasing_backoff(
+    wait_first: float = 4.0, wait_max: float = 32.0, factor: float = 2.0
+):
+    '''Yields seconds to wait until the next retry, forever.'''
+    delay = wait_first
+    while True:
+        yield delay
+        delay = min(random.uniform(delay, delay * factor), wait_max)
+
+
+@dataclass
+class ClientConfig:
+    '''Avoids heaps of __init__ args & variables in the DHCP client.'''
+
+    interface: str
+    lease_type: type[Lease] = JSONFileLease
+    hooks: Iterable[Hook] = ()
+    requested_parameters: Iterable[dhcp.Parameter] = (
+        dhcp.Parameter.SUBNET_MASK,
+        dhcp.Parameter.ROUTER,
+        dhcp.Parameter.DOMAIN_NAME_SERVER,
+        dhcp.Parameter.DOMAIN_NAME,
+    )
+    retransmission: Retransmission = randomized_increasing_backoff
 
 
 class AsyncDHCPClient:
@@ -22,23 +62,10 @@ class AsyncDHCPClient:
         dhcp.Parameter.DOMAIN_NAME,
     )
 
-    def __init__(
-        self,
-        interface: str,
-        lease_type: type[Lease] = JSONFileLease,
-        hooks: Iterable[Hook] = (),
-        requested_parameters: Iterable[dhcp.Parameter] = (),
-    ):
-        self.interface = interface
-        self.lease_type = lease_type
-        self.hooks = hooks
-        self.requested_parameters = list(
-            requested_parameters
-            if requested_parameters
-            else self.DEFAULT_PARAMETERS
-        )
+    def __init__(self, config: ClientConfig):
+        self.config = config
         # The raw socket used to send and receive packets
-        self._sock: AsyncDHCP4Socket = AsyncDHCP4Socket(self.interface)
+        self._sock: AsyncDHCP4Socket = AsyncDHCP4Socket(self.config.interface)
         # Current client state
         self._state: Optional[fsm.State] = None
         # Current lease, read from persistent storage or sent by a server
@@ -72,8 +99,8 @@ class AsyncDHCPClient:
             await asyncio.wait_for(self._states[state].wait(), timeout=timeout)
         except TimeoutError as err:
             raise TimeoutError(
-                f"Timed out waiting for the {state} state. "
-                f"Current state: {self.state}"
+                f'Timed out waiting for the {state} state. '
+                f'Current state: {self.state}'
             ) from err
 
     @fsm.state_guard(fsm.State.INIT, fsm.State.INIT_REBOOT)
@@ -89,16 +116,17 @@ class AsyncDHCPClient:
             await self.transition(
                 to=fsm.State.SELECTING,
                 send=messages.discover(
-                    parameter_list=self.requested_parameters
+                    parameter_list=self.config.requested_parameters
                 ),
             )
         elif self.state is fsm.State.INIT_REBOOT:
             assert self.lease, 'cannot init_reboot without a lease'
+            # FIXME: if nobody answers, we never switch to another state
             # send request for lease
             await self.transition(
                 to=fsm.State.REBOOTING,
                 send=messages.request_for_lease(
-                    parameter_list=self.requested_parameters,
+                    parameter_list=self.config.requested_parameters,
                     lease=self.lease,
                     state=fsm.State.REBOOTING,
                 ),
@@ -109,7 +137,7 @@ class AsyncDHCPClient:
 
     @property
     def lease(self) -> Optional[Lease]:
-        """The current lease, if we have one."""
+        '''The current lease, if we have one.'''
         return self._lease
 
     @lease.setter
@@ -127,12 +155,12 @@ class AsyncDHCPClient:
 
     @property
     def state(self) -> Optional[fsm.State]:
-        """The current client state."""
+        '''The current client state.'''
         return self._state
 
     @state.setter
     def state(self, value: Optional[fsm.State]):
-        """Check the client can transition to the state, and set it."""
+        '''Check the client can transition to the state, and set it.'''
         old_state = self.state
         if value and old_state and value not in fsm.TRANSITIONS[old_state]:
             raise ValueError(
@@ -155,7 +183,7 @@ class AsyncDHCPClient:
         await self.transition(
             to=fsm.State.RENEWING,
             send=messages.request_for_lease(
-                parameter_list=self.requested_parameters,
+                parameter_list=self.config.requested_parameters,
                 lease=self.lease,
                 state=fsm.State.RENEWING,
             ),
@@ -169,7 +197,7 @@ class AsyncDHCPClient:
         await self.transition(
             to=fsm.State.REBINDING,
             send=messages.request_for_lease(
-                parameter_list=self.requested_parameters,
+                parameter_list=self.config.requested_parameters,
                 lease=self.lease,
                 state=fsm.State.REBINDING,
             ),
@@ -181,7 +209,7 @@ class AsyncDHCPClient:
         self.timers._reset_timer('expiration')
         self.state = fsm.State.INIT
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
-        for i in self.hooks:
+        for i in self.config.hooks:
             await i.unbound(self.lease)
         self._lease = None
         await self.bootstrap()
@@ -189,14 +217,21 @@ class AsyncDHCPClient:
     # DHCP packet sending & receving coroutines
 
     async def _send_forever(self):
-        """Send packets from _sendq until the client stops."""
-        msg_to_send = None
+        '''Send packets from _sendq until the client stops.'''
+        msg_to_send: Optional[messages.SentDHCPMessage] = None
+        # Called to get the interval value below
+        interval_factory: Optional[Retransmission] = None
+        # How long to sleep before retrying
+        interval: Union[int, float] = 1
+
         wait_til_stopped = asyncio.Task(self.wait_for_state(None))
-        interval = 5  # TODO make dynamic
         while not wait_til_stopped.done():
             wait_for_msg_to_send = asyncio.Task(
                 self._sendq.get(), name='wait for packet to send'
             )
+            interval = next(interval_factory) if interval_factory else 9999999
+            if msg_to_send:
+                LOG.debug('%.1f seconds until retransmission', interval)
             done, pending = await asyncio.wait(
                 (wait_til_stopped, wait_for_msg_to_send),
                 return_when=asyncio.FIRST_COMPLETED,
@@ -205,26 +240,30 @@ class AsyncDHCPClient:
             if wait_for_msg_to_send in done:
                 if msg_to_send := wait_for_msg_to_send.result():
                     msg_to_send.dhcp['xid'] = self.xid
+                    # There is a new message to send, reset the interval
+                    interval_factory = self.config.retransmission()
+                else:
+                    # No need to retry anything
+                    interval_factory = None
             elif wait_for_msg_to_send in pending:
                 wait_for_msg_to_send.cancel()
-
             if msg_to_send:
                 LOG.debug('Sending %s', msg_to_send)
                 await self._sock.put(msg_to_send)
 
     async def _recv_forever(self) -> None:
-        """Receive & process DHCP packets until the client stops.
+        '''Receive & process DHCP packets until the client stops.
 
         The incoming packet's xid is checked against the client's.
         Then, the relevant handler ({type}_received) is called.
-        """
+        '''
 
         wait_til_stopped = asyncio.Task(self.wait_for_state(None))
 
         while not wait_til_stopped.done():
             wait_for_received_packet = asyncio.Task(
                 coro=self._sock.get(),
-                name=f'wait for DHCP packet on {self.interface}',
+                name=f'wait for DHCP packet on {self.config.interface}',
             )
             done, pending = await asyncio.wait(
                 (wait_til_stopped, wait_for_received_packet),
@@ -273,15 +312,17 @@ class AsyncDHCPClient:
 
         Stores the lease and puts the client in the BOUND state.
         '''
-        self.lease = self.lease_type(
-            ack=msg.dhcp, interface=self.interface, server_mac=msg.eth_src
+        self.lease = self.config.lease_type(
+            ack=msg.dhcp,
+            interface=self.config.interface,
+            server_mac=msg.eth_src,
         )
         LOG.info(
             'Got lease for %s from %s', self.lease.ip, self.lease.server_id
         )
         await self.transition(to=fsm.State.BOUND)
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
-        for i in self.hooks:
+        for i in self.config.hooks:
             await i.bound(self.lease)
 
     @fsm.state_guard(
@@ -311,7 +352,7 @@ class AsyncDHCPClient:
         await self.transition(
             to=fsm.State.REQUESTING,
             send=messages.request_for_offer(
-                parameter_list=self.requested_parameters, offer=msg
+                parameter_list=self.config.requested_parameters, offer=msg
             ),
         )
 
@@ -324,9 +365,9 @@ class AsyncDHCPClient:
         opens the socket, starts the sender & receiver tasks
         and allocates a request ID.
         '''
-        loaded_lease = self.lease_type.load(self.interface)
+        loaded_lease = self.config.lease_type.load(self.config.interface)
         if loaded_lease and loaded_lease.expired:
-            LOG.info("Discarding stale lease")
+            LOG.info('Discarding stale lease')
             loaded_lease = None
         if loaded_lease:
             # TODO check lease is not expired
@@ -339,11 +380,11 @@ class AsyncDHCPClient:
 
         self._receiver_task = asyncio.Task(
             self._recv_forever(),
-            name=f'Listen for incoming DHCP packets on {self.interface}',
+            name=f'Listen for incoming DHCP packets on {self.config.interface}',
         )
         self._sender_task = asyncio.Task(
             self._send_forever(),
-            name=f'Send outgoing DHCP packets on {self.interface}',
+            name=f'Send outgoing DHCP packets on {self.config.interface}',
         )
         self.xid = self._sock.xid_pool.alloc()
         return self
@@ -356,7 +397,7 @@ class AsyncDHCPClient:
         self.timers.cancel()
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
         if self.lease:
-            for i in self.hooks:
+            for i in self.config.hooks:
                 await i.unbound(self.lease)
             if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
