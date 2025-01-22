@@ -1,3 +1,14 @@
+'''
+This module should be used to assert network objects like interfaces,
+addresses and routes.
+
+It MUST NOT use any code from pyroute2 project, directly or indirectly.
+Thus, only stdlib imports are allowed here.
+
+It MAY use external utilities. Right now it uses iproute2 tools with
+`-json` parameter.
+'''
+
 import json
 import subprocess
 import time

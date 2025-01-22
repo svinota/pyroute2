@@ -1,7 +1,7 @@
 from socket import AF_INET, AF_INET6
 
 import pytest
-from pr2test.tools import rule_exists
+from net_tools import rule_exists
 
 
 @pytest.mark.parametrize(

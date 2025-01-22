@@ -1,5 +1,5 @@
 import pytest
-from pr2test.tools import interface_exists
+from net_tools import interface_exists
 
 
 @pytest.mark.asyncio
