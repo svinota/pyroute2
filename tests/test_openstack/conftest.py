@@ -16,11 +16,12 @@ def nsname(request, tmpdir):
 
 
 @pytest.fixture
-def link(request, tmpdir):
+def link(request, tmpdir, nsname):
     name = uifname()
-    with IPRoute() as ipr:
-        ipr.link('add', ifname=name, kind='dummy', state='down')
+    with IPRoute(netns=nsname) as ipr:
+        ipr.link('add', ifname=name, kind='dummy')
         (link,) = ipr.link('get', ifname=name)
+        link.netns = nsname
         yield link
         try:
             ipr.link('del', index=link['index'])
