@@ -1,6 +1,7 @@
 from socket import AF_INET, inet_ntop, inet_pton
 
 from pyroute2.dhcp import dhcpmsg, option
+from pyroute2.dhcp.enums.dhcp import Option
 
 
 class dhcp4msg(dhcpmsg):
@@ -33,27 +34,27 @@ class dhcp4msg(dhcpmsg):
     # https://www.ietf.org/rfc/rfc2132.txt
     #
     options = (
-        (0, 'pad', 'none'),
-        (1, 'subnet_mask', 'ip4addr'),
-        (2, 'time_offset', 'be32'),
-        (3, 'router', 'ip4list'),
-        (4, 'time_server', 'ip4list'),
-        (5, 'ien_name_server', 'ip4list'),
-        (6, 'name_server', 'ip4list'),
-        (7, 'log_server', 'ip4list'),
-        (8, 'cookie_server', 'ip4list'),
-        (9, 'lpr_server', 'ip4list'),
-        (50, 'requested_ip', 'ip4addr'),
-        (51, 'lease_time', 'be32'),
-        (53, 'message_type', 'message_type'),
-        (54, 'server_id', 'ip4addr'),
-        (55, 'parameter_list', 'array8'),
-        (57, 'message_size', 'be16'),
-        (58, 'renewal_time', 'be32'),
-        (59, 'rebinding_time', 'be32'),
-        (60, 'vendor_id', 'string'),
-        (61, 'client_id', 'client_id'),
-        (255, 'end', 'none'),
+        (Option.PAD, 'none'),
+        (Option.SUBNET_MASK, 'ip4addr'),
+        (Option.TIME_OFFSET, 'be32'),
+        (Option.ROUTER, 'ip4list'),
+        (Option.TIME_SERVER, 'ip4list'),
+        (Option.IEN_NAME_SERVER, 'ip4list'),
+        (Option.NAME_SERVER, 'ip4list'),
+        (Option.LOG_SERVER, 'ip4list'),
+        (Option.COOKIE_SERVER, 'ip4list'),
+        (Option.LPR_SERVER, 'ip4list'),
+        (Option.REQUESTED_IP, 'ip4addr'),
+        (Option.LEASE_TIME, 'be32'),
+        (Option.MESSAGE_TYPE, 'message_type'),
+        (Option.SERVER_ID, 'ip4addr'),
+        (Option.PARAMETER_LIST, 'array8'),
+        (Option.MAX_MSG_SIZE, 'be16'),
+        (Option.RENEWAL_TIME, 'be32'),
+        (Option.REBINDING_TIME, 'be32'),
+        (Option.VENDOR_ID, 'string'),
+        (Option.CLIENT_ID, 'client_id'),
+        (Option.END, 'none'),
     )
 
     class ip4addr(option):

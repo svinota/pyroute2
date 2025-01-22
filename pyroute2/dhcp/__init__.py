@@ -205,8 +205,8 @@ class dhcpmsg(msg):
     _decode_map = {}
 
     def _register_options(self):
-        for option in self.options:
-            code, name, fmt = option[:3]
+        for code, fmt in self.options:
+            name = code.name.lower()
             self._decode_map[code] = self._encode_map[name] = {
                 'name': name,
                 'code': code,
