@@ -13,6 +13,7 @@ nox.options.sessions = [
     'repo',
     'unit',
     'neutron',
+    'openstack',
     'integration',
     'linux-python3.9',
     'linux-python3.10',
@@ -259,6 +260,14 @@ def integration(session, config):
     '''Run integration tests (lnst, kuryr, ...).'''
     setup_venv_dev(session)
     session.run(*options('test_integration', config))
+
+
+@nox.session
+@add_session_config
+def openstack(session, config):
+    '''Run some other OpenStack related tests.'''
+    setup_venv_dev(session)
+    session.run(*options('test_openstack', config))
 
 
 @nox.session(python=['python3.9', 'python3.10', 'python3.11', 'python3.12'])
