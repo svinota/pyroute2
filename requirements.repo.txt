@@ -1,5 +1,6 @@
 nox
 pytest
 pytest-cov
+pytest-html
 pytest-timeout
 setuptools

@@ -5,6 +5,7 @@ eventlet
 netaddr
 pytest
 pytest-cov
+pytest-html
 pytest-asyncio
 pytest-timeout
 pre-commit
