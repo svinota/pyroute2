@@ -4,7 +4,11 @@ import sys
 from pyroute2 import config
 from pyroute2.iproute.ipmock import IPEngine
 from pyroute2.netlink import NETLINK_ROUTE, rtnl
-from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, ChaoticNetlinkSocket
+from pyroute2.netlink.nlsocket import (
+    AsyncNetlinkSocket,
+    ChaoticNetlinkSocket,
+    NetlinkSocket,
+)
 from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 
@@ -13,7 +17,7 @@ if sys.platform.startswith('linux'):
     from pyroute2.netlink.rtnl.probe_msg import proxy_newprobe
 
 
-class IPRSocket(AsyncNetlinkSocket):
+class AsyncIPRSocket(AsyncNetlinkSocket):
     '''
     The simplest class, that connects together the netlink parser and
     a generic Python socket implementation. Provides method get() to
@@ -132,5 +136,51 @@ class IPRSocket(AsyncNetlinkSocket):
         )
 
 
-class ChaoticIPRSocket(IPRSocket, ChaoticNetlinkSocket):
+class IPRSocket(NetlinkSocket):
+    def __init__(
+        self,
+        port=None,
+        pid=None,
+        fileno=None,
+        sndbuf=1048576,
+        rcvbuf=1048576,
+        rcvsize=16384,
+        all_ns=False,
+        async_qsize=None,
+        nlm_generator=None,
+        target='localhost',
+        ext_ack=False,
+        strict_check=False,
+        groups=0,
+        nlm_echo=False,
+        use_socket=None,
+        netns=None,
+        netns_path=None,
+        flags=os.O_CREAT,
+        libc=None,
+    ):
+        self.asyncore = AsyncIPRSocket(
+            port,
+            pid,
+            fileno,
+            sndbuf,
+            rcvbuf,
+            rcvsize,
+            all_ns,
+            async_qsize,
+            nlm_generator,
+            target,
+            ext_ack,
+            strict_check,
+            groups,
+            nlm_echo,
+            use_socket,
+            netns,
+            netns_path,
+            flags,
+            libc,
+        )
+
+
+class ChaoticIPRSocket(AsyncIPRSocket, ChaoticNetlinkSocket):
     pass
