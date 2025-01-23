@@ -52,7 +52,7 @@ class Lease(abc.ABC):
         However the worst case scenario is that we send a REQUEST for it,
         get a NAK and restart from scratch.
         '''
-        return self.expiration_in and self.expiration_in < 0
+        return self.expiration_in is not None and self.expiration_in <= 0
 
     @property
     def expiration_in(self) -> Optional[float]:

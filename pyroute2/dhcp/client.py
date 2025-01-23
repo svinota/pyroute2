@@ -216,11 +216,13 @@ class AsyncDHCPClient:
 
     # DHCP packet sending & receving coroutines
 
-    async def _send_forever(self):
+    async def _send_forever(self) -> None:
         '''Send packets from _sendq until the client stops.'''
         msg_to_send: Optional[messages.SentDHCPMessage] = None
         # Called to get the interval value below
-        interval_factory: Optional[Retransmission] = None
+        interval_factory: Optional[Union[Iterator[int], Iterator[float]]] = (
+            None
+        )
         # How long to sleep before retrying
         interval: Union[int, float] = 1
 

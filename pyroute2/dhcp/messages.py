@@ -1,12 +1,14 @@
 """Helper functions to build dhcp client messages."""
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Iterable, Literal, Optional
 
 from pyroute2.dhcp import enums
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.leases import Lease
+
+Parameters = Iterable[enums.dhcp.Parameter]
 
 
 @dataclass
@@ -14,7 +16,7 @@ class _DHCPMessage:
     '''A DHCP message with some extra info from other layers.'''
 
     dhcp: dhcp4msg
-    eth_src: Optional[str] = None
+    eth_src: str
     eth_dst: str = 'ff:ff:ff:ff:ff:ff'
     ip_src: str = '0.0.0.0'
     ip_dst: str = '255.255.255.255'
@@ -27,8 +29,11 @@ class _DHCPMessage:
         return self.dhcp['options']['message_type']
 
 
+@dataclass
 class SentDHCPMessage(_DHCPMessage):
     '''A DHCP message to be sent to a server or broadcast.'''
+
+    eth_src: Optional[str] = None  # type: ignore[assignment]
 
     def __str__(self) -> str:
         type_name = self.message_type.name
@@ -43,7 +48,7 @@ class ReceivedDHCPMessage(_DHCPMessage):
         return f"{type_name} from {self.eth_src}/{self.ip_src}:{self.sport}"
 
 
-def discover(parameter_list: list[enums.dhcp.Parameter]) -> SentDHCPMessage:
+def discover(parameter_list: Parameters) -> SentDHCPMessage:
     # Default for SentDHCPMessage is broadcast which is what we want here
     return SentDHCPMessage(
         dhcp=dhcp4msg(
@@ -51,7 +56,7 @@ def discover(parameter_list: list[enums.dhcp.Parameter]) -> SentDHCPMessage:
                 'op': enums.bootp.MessageType.BOOTREQUEST,
                 'options': {
                     'message_type': enums.dhcp.MessageType.DISCOVER,
-                    'parameter_list': parameter_list,
+                    'parameter_list': list(parameter_list),
                 },
             }
         )
@@ -59,7 +64,7 @@ def discover(parameter_list: list[enums.dhcp.Parameter]) -> SentDHCPMessage:
 
 
 def request_for_offer(
-    parameter_list: list[enums.dhcp.Parameter], offer: ReceivedDHCPMessage
+    parameter_list: Parameters, offer: ReceivedDHCPMessage
 ) -> SentDHCPMessage:
     '''Make a REQUEST message for a given OFFER.
 
@@ -77,7 +82,7 @@ def request_for_offer(
                     'message_type': enums.dhcp.MessageType.REQUEST,
                     'requested_ip': offer.dhcp['yiaddr'],
                     'server_id': offer.dhcp['options']['server_id'],
-                    'parameter_list': parameter_list,
+                    'parameter_list': list(parameter_list),
                 },
             }
         )
@@ -85,7 +90,7 @@ def request_for_offer(
 
 
 def request_for_lease(
-    parameter_list: list[enums.dhcp.Parameter],
+    parameter_list: Parameters,
     lease: Lease,
     state: Literal[State.RENEWING, State.REBINDING, State.REBOOTING],
 ) -> SentDHCPMessage:
@@ -107,28 +112,30 @@ def request_for_lease(
 
     See RFC 2131 section 4.3.6.
     '''
-    kwargs = {
-        'dhcp': dhcp4msg(
-            {
-                'op': enums.bootp.MessageType.BOOTREQUEST,
-                # TODO: broadcast flag
-                'options': {
-                    'message_type': enums.dhcp.MessageType.REQUEST,
-                    'parameter_list': parameter_list,
-                },
-            }
-        )
-    }
+    dhcp_msg = dhcp4msg(
+        {
+            'op': enums.bootp.MessageType.BOOTREQUEST,
+            # TODO: broadcast flag
+            'options': {
+                'message_type': enums.dhcp.MessageType.REQUEST,
+                'parameter_list': list(parameter_list),
+            },
+        }
+    )
     if state == State.INIT_REBOOT:
-        kwargs['dhcp']['options']['requested_ip'] = lease.ip
+        dhcp_msg['options']['requested_ip'] = lease.ip
     else:
-        kwargs['dhcp']['ciaddr'] = lease.ip
+        dhcp_msg['ciaddr'] = lease.ip
         if state == State.RENEWING:
-            kwargs['eth_dst'] = lease.server_mac
-            kwargs['ip_dst'] = lease.server_id
-            kwargs['ip_src'] = lease.ip
-
-    return SentDHCPMessage(**kwargs)
+            # T1 timer expired, send a request directly to the known server
+            return SentDHCPMessage(
+                dhcp=dhcp_msg,
+                eth_dst=lease.server_mac,
+                ip_dst=lease.server_id,
+                ip_src=lease.ip,
+            )
+    # Reboot or rebind, broadcast the request
+    return SentDHCPMessage(dhcp=dhcp_msg)
 
 
 def release(lease: Lease) -> SentDHCPMessage:

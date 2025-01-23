@@ -57,8 +57,9 @@ class UdhcpdFixture(DHCPServerFixture[UdhcpdConfig]):
             ("lease_file", lease_file),
             ("pidfile", pidfile),
             ("opt lease", cfg.lease_time),
-            ("opt router", cfg.range.router),
         ]
+        if router := cfg.range.router:
+            lines.append(("opt router", router))
         return "\n".join(f"{opt}\t{value}" for opt, value in lines)
 
     async def __aexit__(self, *_):

@@ -3,7 +3,7 @@
 import asyncio
 import dataclasses
 from logging import getLogger
-from typing import Awaitable, Callable, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 from pyroute2.dhcp.leases import Lease
 
@@ -33,7 +33,11 @@ class Timers:
                 timer.cancel()
             setattr(self, timer_name, None)
 
-    def arm(self, lease: Lease, **callbacks: Callable[[], Awaitable[None]]):
+    def arm(
+        self,
+        lease: Lease,
+        **callbacks: Callable[[], Coroutine[Any, Any, None]],
+    ):
         '''Reset & arm timers from a `Lease`.
 
         `callbacks` must be async callables with no arguments
@@ -52,15 +56,20 @@ class Timers:
                 LOG.debug('Lease %s is in the past', timer_name)
                 continue
             LOG.info('Scheduling lease %s in %.2fs', timer_name, lease_time)
-            # Since call_later doesn't support async callbacks, we wrap the
-            # callback in a lambda that will schedule it when it's time
             timer = loop.call_later(
-                lease_time,
-                # since lambdas are evaluated when they're run, we have to
-                # bind variables as argument defaults or they'll have the
-                # value from the last loop iteration
-                lambda cb=async_callback, name=lease_time: asyncio.create_task(
-                    cb(), name=f"{name} timer callback"
-                ),
+                lease_time, self._create_timer_task, timer_name, async_callback
             )
             setattr(self, timer_name, timer)
+
+    def _create_timer_task(
+        self,
+        timer_name: str,
+        async_callback: Callable[[], Coroutine[Any, Any, None]],
+    ) -> None:
+        ''' 'Internal callback for loop.call_later.
+
+        Creates a Task that runs the async_callback.
+        '''
+        asyncio.create_task(
+            async_callback(), name=f"{timer_name} timer callback"
+        )
