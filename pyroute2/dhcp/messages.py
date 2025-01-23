@@ -78,6 +78,7 @@ def request_for_offer(
         dhcp=dhcp4msg(
             {
                 'op': enums.bootp.MessageType.BOOTREQUEST,
+                'flags': enums.bootp.Flag.BROADCAST,
                 'options': {
                     'message_type': enums.dhcp.MessageType.REQUEST,
                     'requested_ip': offer.dhcp['yiaddr'],
@@ -115,7 +116,7 @@ def request_for_lease(
     dhcp_msg = dhcp4msg(
         {
             'op': enums.bootp.MessageType.BOOTREQUEST,
-            # TODO: broadcast flag
+            'flags': enums.bootp.Flag.BROADCAST,
             'options': {
                 'message_type': enums.dhcp.MessageType.REQUEST,
                 'parameter_list': list(parameter_list),
@@ -128,6 +129,7 @@ def request_for_lease(
         dhcp_msg['ciaddr'] = lease.ip
         if state == State.RENEWING:
             # T1 timer expired, send a request directly to the known server
+            dhcp_msg['flags'] = enums.bootp.Flag.UNICAST
             return SentDHCPMessage(
                 dhcp=dhcp_msg,
                 eth_dst=lease.server_mac,
@@ -144,6 +146,7 @@ def release(lease: Lease) -> SentDHCPMessage:
         dhcp=dhcp4msg(
             {
                 'op': enums.bootp.MessageType.BOOTREQUEST,
+                'flags': enums.bootp.Flag.UNICAST,
                 'options': {
                     'message_type': enums.dhcp.MessageType.RELEASE,
                     'requested_ip': lease.ip,

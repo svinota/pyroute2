@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 
 
 class MessageType(IntEnum):
@@ -16,7 +16,7 @@ class HardwareType(IntEnum):
     WIRELESS_IEEE_802_11 = 20
 
 
-class Flag(IntEnum):  # TODO: use enum.Flag
+class Flag(IntFlag):
     UNICAST = 0x0000  # Unicast response requested
     BROADCAST = 0x8000  # Broadcast response requested
 
