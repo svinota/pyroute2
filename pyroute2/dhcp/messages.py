@@ -122,7 +122,7 @@ def request_for_lease(
             },
         }
     )
-    if state == State.INIT_REBOOT:
+    if state == State.REBOOTING:
         dhcp_msg['options']['requested_ip'] = lease.ip
     else:
         dhcp_msg['ciaddr'] = lease.ip
