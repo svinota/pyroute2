@@ -142,14 +142,16 @@ def request_for_lease(
 
 def release(lease: Lease) -> SentDHCPMessage:
     '''Make a RELEASE for an existing & active lease.'''
+    # RELEASE messages have nearly no allowed options,
+    # and the released IP address must be set in ciaddr
     return SentDHCPMessage(
         dhcp=dhcp4msg(
             {
                 'op': enums.bootp.MessageType.BOOTREQUEST,
                 'flags': enums.bootp.Flag.UNICAST,
+                'ciaddr': lease.ip,
                 'options': {
                     'message_type': enums.dhcp.MessageType.RELEASE,
-                    'requested_ip': lease.ip,
                     'server_id': lease.server_id,
                 },
             }
