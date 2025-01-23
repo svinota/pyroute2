@@ -39,12 +39,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: make nox session=neutron
-  openstack:
+  integration:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
-      - run: sudo make nox session=openstack
+      - run: sudo make nox session=integration
   minimal:
     runs-on: Linux
     steps:
