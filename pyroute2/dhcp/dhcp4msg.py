@@ -39,6 +39,8 @@ class dhcp4msg(dhcpmsg):
         (Option.LOG_SERVER, 'ip4list'),
         (Option.COOKIE_SERVER, 'ip4list'),
         (Option.LPR_SERVER, 'ip4list'),
+        (Option.HOST_NAME, 'string'),
+        (Option.BROADCAST_ADDRESS, 'ip4addr'),
         (Option.REQUESTED_IP, 'ip4addr'),
         (Option.LEASE_TIME, 'be32'),
         (Option.MESSAGE_TYPE, 'message_type'),
