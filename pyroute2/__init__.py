@@ -53,6 +53,7 @@ from pyroute2.netlink.nl80211 import NL80211
 from pyroute2.netlink.rtnl.iprsocket import AsyncIPRSocket, IPRSocket
 from pyroute2.netlink.taskstats import TaskStats
 from pyroute2.netlink.uevent import UeventSocket
+from pyroute2.noipdb import IPDB, CommitException, CreateException
 from pyroute2.nslink.nspopen import NSPopen
 from pyroute2.plan9.client import Plan9ClientSocket
 from pyroute2.plan9.server import Plan9ServerSocket
@@ -64,15 +65,18 @@ modules = [
     AsyncIPRSocket,
     ChaoticException,
     ChaoticIPRoute,
+    CommitException,
     Conntrack,
     ConntrackEntry,
     Console,
+    CreateException,
     DevlinkSocket,
     DiagSocket,
     DL,
     DQuotSocket,
     Ethtool,
     IPBatch,
+    IPDB,
     IPMock,
     IPQSocket,
     IPRoute,
