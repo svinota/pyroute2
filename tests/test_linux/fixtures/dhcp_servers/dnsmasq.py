@@ -34,12 +34,14 @@ class DnsmasqFixture(DHCPServerFixture[DnsmasqConfig]):
     def _get_base_cmdline_options(self) -> tuple[str]:
         '''The base commandline options for dnsmasq.'''
         return (
-            '--keep-in-foreground',  # self explanatory
+            '--no-daemon',  # keep in foreground
             '--no-resolv',  # don't mess w/ resolv.conf
             '--log-facility=-',  # log to stdout
             '--no-hosts',  # don't read /etc/hosts
             '--bind-interfaces',  # don't bind on wildcard
             '--no-ping',  # don't ping to check if ips are attributed
+            '--log-dhcp',
+            '--log-debug',
         )
 
     def get_cmdline_options(self) -> tuple[str]:
