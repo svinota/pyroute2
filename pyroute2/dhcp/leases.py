@@ -8,6 +8,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Optional
 
+from pyroute2.common import dqn2int
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 
 LOG = getLogger(__name__)
@@ -93,9 +94,14 @@ class Lease(abc.ABC):
         return self.ack['yiaddr']
 
     @property
-    def subnet_mask(self) -> str:
+    def subnet_mask(self) -> Optional[int]:
         '''The subnet mask assigned to the client.'''
-        return self.ack['options']['subnet_mask']
+        mask = self.ack['options'].get('subnet_mask')
+        if mask is None:
+            return None
+        if isinstance(mask, int) or mask.isdigit():
+            return int(mask)
+        return dqn2int(mask)
 
     @property
     def routers(self) -> str:
