@@ -621,7 +621,7 @@ class ifinfbase(object):
             sql_type = None
 
         class xdp_flags(nla):
-            fields = [('value', '>H')]
+            fields = [('value', 'I')]
             sql_type = 'INTEGER'
 
             def encode(self):
