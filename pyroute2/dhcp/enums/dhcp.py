@@ -25,6 +25,7 @@ class Option(IntEnum):
     LPR_SERVER = 9
     HOST_NAME = 12
     DOMAIN_NAME = 15
+    INTERFACE_MTU = 26
     BROADCAST_ADDRESS = 28
     REQUESTED_IP = 50
     LEASE_TIME = 51

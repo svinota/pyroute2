@@ -40,6 +40,7 @@ class dhcp4msg(dhcpmsg):
         (Option.COOKIE_SERVER, 'ip4list'),
         (Option.LPR_SERVER, 'ip4list'),
         (Option.HOST_NAME, 'string'),
+        (Option.INTERFACE_MTU, 'be16'),
         (Option.BROADCAST_ADDRESS, 'ip4addr'),
         (Option.REQUESTED_IP, 'ip4addr'),
         (Option.LEASE_TIME, 'be32'),
