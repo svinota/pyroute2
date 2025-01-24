@@ -627,6 +627,10 @@ class NetlinkSocket(SyncAPI):
             libc,
         )
 
+    @property
+    def fileno(self):
+        return self.asyncore.socket.fileno
+
     def bind(self, *argv, **kwarg):
         return self.asyncore.event_loop.run_until_complete(
             self.asyncore.bind(*argv, **kwarg)
