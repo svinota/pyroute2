@@ -11,13 +11,12 @@ from socket import AF_INET, AF_INET6, AF_UNSPEC
 from pyroute2.common import AF_MPLS, basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_ERROR
-from pyroute2.netlink.core import SyncAPI
 from pyroute2.netlink.exceptions import (
     NetlinkDumpInterrupted,
     NetlinkError,
     SkipInode,
 )
-from pyroute2.netlink.nlsocket import NetlinkRequest
+from pyroute2.netlink.nlsocket import NetlinkRequest, NetlinkSocket
 from pyroute2.netlink.rtnl import (
     RTM_DELADDR,
     RTM_DELLINK,
@@ -68,7 +67,7 @@ from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.ifstatsmsg import ifstatsmsg
-from pyroute2.netlink.rtnl.iprsocket import ChaoticIPRSocket, IPRSocket
+from pyroute2.netlink.rtnl.iprsocket import AsyncIPRSocket, ChaoticIPRSocket
 from pyroute2.netlink.rtnl.ndtmsg import ndtmsg
 from pyroute2.netlink.rtnl.nsidmsg import nsidmsg
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
@@ -2516,10 +2515,10 @@ class RTNL_API:
     # 8<---------------------------------------------------------------
 
 
-class AsyncIPRoute(IPRSocket, RTNL_API):
+class AsyncIPRoute(AsyncIPRSocket, RTNL_API):
     '''
     Regular ordinary async utility class, provides RTNL API using
-    IPRSocket as the transport level.
+    AsyncIPRSocket as the transport level.
     '''
 
     async def __aenter__(self):
@@ -2529,7 +2528,7 @@ class AsyncIPRoute(IPRSocket, RTNL_API):
         return await self.close()
 
 
-class IPRoute(SyncAPI):
+class IPRoute(NetlinkSocket):
     '''
     A synchronous version of AsyncIPRoute. All the same API, but
     sync. Provides a legacy API for the old code that is not using

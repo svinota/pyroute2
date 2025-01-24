@@ -1,7 +1,7 @@
 import re
 
 import pytest
-from pr2test.tools import address_exists, interface_exists
+from net_tools import address_exists, interface_exists
 
 ip4v6 = re.compile('^[.:0-9a-f]*$')
 

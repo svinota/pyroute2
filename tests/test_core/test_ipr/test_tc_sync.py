@@ -1,4 +1,4 @@
-from pr2test.tools import (
+from net_tools import (
     class_exists,
     filter_exists,
     interface_exists,

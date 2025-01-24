@@ -627,6 +627,64 @@ class NetlinkSocket(SyncAPI):
             libc,
         )
 
+    @property
+    def fileno(self):
+        return self.asyncore.socket.fileno
+
+    def bind(self, *argv, **kwarg):
+        return self.asyncore.event_loop.run_until_complete(
+            self.asyncore.bind(*argv, **kwarg)
+        )
+
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        if msg is None:
+            msg_class = self.marshal.msg_map[msg_type]
+            msg = msg_class()
+        return self.asyncore.event_loop.run_until_complete(
+            self.asyncore.put(msg, msg_type, msg_flags, addr, msg_seq, msg_pid)
+        )
+
+    def nlm_request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+        callback=None,
+        parser=None,
+    ):
+
+        async def collect_data():
+            return [
+                x
+                async for x in await self.asyncore.nlm_request(
+                    msg, msg_type, msg_flags, terminate, callback, parser
+                )
+            ]
+
+        return self.asyncore.event_loop.run_until_complete(collect_data())
+
+    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
+        '''Sync wrapper for async_get().'''
+
+        async def collect_data():
+            return [
+                i
+                async for i in self.asyncore.get(
+                    msg_seq, terminate, callback, noraise
+                )
+            ]
+
+        return self.asyncore.event_loop.run_until_complete(collect_data())
+
 
 class ChaoticNetlinkSocket(NetlinkSocket):
     success_rate = 1

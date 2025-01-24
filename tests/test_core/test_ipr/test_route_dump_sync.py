@@ -2,7 +2,7 @@ import io
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 
 import pytest
-from pr2test.tools import address_exists, route_exists
+from net_tools import address_exists, route_exists
 
 from pyroute2.common import load_dump
 

@@ -176,9 +176,9 @@ An example of a synchronous wrapper method:
     step back all the way until {git_root}, thus
     ../../../../
 
-.. literalinclude:: ../../../../pyroute2/netlink/core.py
-   :caption: pyroute2.netlink.core: class SyncAPI
-   :pyobject: SyncAPI.get
+.. literalinclude:: ../../../../pyroute2/netlink/nlsocket.py
+   :caption: pyroute2.netlink.nlsocket: class NetlinkSocket
+   :pyobject: NetlinkSocket.get
    :linenos:
    :lineno-match:
 

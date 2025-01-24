@@ -1,4 +1,4 @@
-from pr2test.tools import interface_exists
+from net_tools import interface_exists
 
 
 def test_link_dump(sync_ipr):

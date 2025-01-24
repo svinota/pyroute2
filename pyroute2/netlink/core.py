@@ -13,7 +13,7 @@ from urllib import parse
 
 from pyroute2 import config
 from pyroute2.common import AddrPool
-from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST
+from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netns import setns
 from pyroute2.requests.main import RequestProcessor
 
@@ -620,11 +620,6 @@ class SyncAPI:
     def set_marshal(self, value):
         return self.asyncore.set_marshal(value)
 
-    def bind(self, *argv, **kwarg):
-        return self.asyncore.event_loop.run_until_complete(
-            self.asyncore.bind(*argv, **kwarg)
-        )
-
     def __enter__(self):
         return self
 
@@ -655,52 +650,6 @@ class SyncAPI:
         return self.asyncore.event_loop.run_until_complete(
             self.asyncore.close(code)
         )
-
-    def put(
-        self,
-        msg,
-        msg_type,
-        msg_flags=NLM_F_REQUEST,
-        addr=(0, 0),
-        msg_seq=0,
-        msg_pid=None,
-    ):
-        return self.asyncore.event_loop.run_until_complete(
-            self.asyncore.put(msg, msg_type, msg_flags, addr, msg_seq, msg_pid)
-        )
-
-    def nlm_request(
-        self,
-        msg,
-        msg_type,
-        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-        terminate=None,
-        callback=None,
-        parser=None,
-    ):
-
-        async def collect_data():
-            return [
-                x
-                async for x in await self.asyncore.nlm_request(
-                    msg, msg_type, msg_flags, terminate, callback, parser
-                )
-            ]
-
-        return self.asyncore.event_loop.run_until_complete(collect_data())
-
-    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-        '''Sync wrapper for async_get().'''
-
-        async def collect_data():
-            return [
-                i
-                async for i in self.asyncore.get(
-                    msg_seq, terminate, callback, noraise
-                )
-            ]
-
-        return self.asyncore.event_loop.run_until_complete(collect_data())
 
 
 class CoreSocket(SyncAPI):
