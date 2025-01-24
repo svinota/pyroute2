@@ -130,9 +130,13 @@ class Lease(abc.ABC):
         return self.ack['options'].get('interface_mtu')
 
     @property
-    def server_id(self) -> str:
+    def name_servers(self) -> Optional[str]:  # XXX: list ?
+        return self.ack['options'].get('name_server')
+
+    @property
+    def server_id(self) -> Optional[str]:
         '''The IP address of the server which allocated this lease.'''
-        return self.ack['options']['server_id']
+        return self.ack['options'].get('server_id')
 
     @abc.abstractmethod
     def dump(self) -> None:
