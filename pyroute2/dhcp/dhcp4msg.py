@@ -13,7 +13,7 @@ class dhcp4msg(dhcpmsg):
         ('htype', 'uint8', 1),  # ethernet
         ('hlen', 'uint8', 6),  # ethernet addr len
         ('hops', 'uint8'),
-        ('xid', 'uint32'),
+        ('xid', 'be32'),
         ('secs', 'uint16'),
         ('flags', 'be16'),
         ('ciaddr', 'ip4addr'),

@@ -18,4 +18,4 @@ except ImportError:
     ETHERTYPE_IP = 0x800
 
 
-__all__ = ('StrEnum',)
+__all__ = ('StrEnum', 'ETHERTYPE_IP')

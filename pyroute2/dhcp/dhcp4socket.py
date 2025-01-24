@@ -158,6 +158,11 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         rest is interpreted as DHCP.
         '''
         data = await self.aio_loop.sock_recv(self, 4096)
+        return self._decode_msg(data)
+
+    @classmethod
+    def _decode_msg(cls, data: bytes) -> ReceivedDHCPMessage:
+        '''Decode and return an IPv4 DHCP packet from bytes.'''
         eth = ethmsg(buf=data).decode()
         ip4 = ip4msg(buf=data, offset=eth.offset).decode()
         udp = udpmsg(buf=data, offset=ip4.offset).decode()

@@ -30,6 +30,8 @@ def randomized_increasing_backoff(
     wait_first: float = 4.0, wait_max: float = 32.0, factor: float = 2.0
 ):
     '''Yields seconds to wait until the next retry, forever.'''
+    # TODO: not forever would be better.
+    # we should return to INIT after a while
     delay = wait_first
     while True:
         yield delay
