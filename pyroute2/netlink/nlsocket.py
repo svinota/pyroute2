@@ -645,6 +645,9 @@ class NetlinkSocket(SyncAPI):
         msg_seq=0,
         msg_pid=None,
     ):
+        if msg is None:
+            msg_class = self.marshal.msg_map[msg_type]
+            msg = msg_class()
         return self.asyncore.event_loop.run_until_complete(
             self.asyncore.put(msg, msg_type, msg_flags, addr, msg_seq, msg_pid)
         )
