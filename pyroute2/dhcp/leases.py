@@ -104,8 +104,8 @@ class Lease(abc.ABC):
         return dqn2int(mask)
 
     @property
-    def routers(self) -> str:
-        return self.ack['options']['router']
+    def routers(self) -> list[str]:
+        return self.ack['options'].get('router', [])
 
     @property
     def name_servers(self) -> str:  # XXX: list ?
