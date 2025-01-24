@@ -112,6 +112,14 @@ class Lease(abc.ABC):
         return self.ack['options']['name_server']
 
     @property
+    def default_gateway(self) -> Optional[str]:
+        '''The default gateway for this interface.
+
+        As mentioned by the RFC, the first router is the most prioritary.
+        '''
+        return self.routers[0] if self.routers else None
+
+    @property
     def server_id(self) -> str:
         '''The IP address of the server which allocated this lease.'''
         return self.ack['options']['server_id']
