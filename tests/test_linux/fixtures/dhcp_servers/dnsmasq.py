@@ -14,6 +14,10 @@ from . import DHCPServerConfig, DHCPServerFixture, run_fixture_as_main
 class DnsmasqConfig(DHCPServerConfig):
     '''Options for the dnsmasq server.'''
 
+    # Respond to REQUESTs even after RELEASEs
+    # TODO: test both cases
+    authoritative: bool = True
+
     def __iter__(self):
         opts = [
             f'--interface={self.interface}',
@@ -21,8 +25,10 @@ class DnsmasqConfig(DHCPServerConfig):
             f'{self.range.end},{self.lease_time}',
             f'--dhcp-lease-max={self.max_leases}',
         ]
+        if self.authoritative:
+            opts.append('--dhcp-authoritative')
         if router := self.range.router:
-            opts.append(f"--dhcp-option=option:router,{router}")
+            opts.append(f'--dhcp-option=option:router,{router}')
         return iter(opts)
 
 
