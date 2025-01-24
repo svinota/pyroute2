@@ -3,6 +3,7 @@
 from logging import getLogger
 
 from pyroute2.dhcp.leases import Lease
+from pyroute2.iproute.linux import AsyncIPRoute
 
 LOG = getLogger(__name__)
 
@@ -24,21 +25,25 @@ class Hook:
 
 class ConfigureIP(Hook):
     async def bound(self, lease: Lease):
-        LOG.info('STUB: add %s to %s', lease.ip, lease.interface)
-        # await ip(
-        #     "addr",
-        #     "replace",
-        #     f"{lease.ip}/{lease.subnet_mask}",
-        #     "dev",
-        #     lease.interface,
-        # )
+        LOG.info('Adding %s/%s to %s', lease.ip,
+                 lease.subnet_mask, lease.interface)
+        async with AsyncIPRoute() as ipr:
+            await ipr.addr(
+                'replace',
+                index=await ipr.link_lookup(ifname=lease.interface),
+                address=lease.ip,
+                mask=lease.subnet_mask,
+                broadcast=lease.broadcast_address
+            )
 
     async def unbound(self, lease: Lease):
-        LOG.info('STUB: remove %s from %s', lease.ip, lease.interface)
-        # await ip(
-        #     "addr",
-        #     "del",
-        #     f"{lease.ip}/{lease.subnet_mask}",
-        #     "dev",
-        #     lease.interface,
-        # )
+        LOG.info('Removing %s/%s from %s', lease.ip,
+                 lease.subnet_mask, lease.interface)
+        async with AsyncIPRoute() as ipr:
+            await ipr.addr(
+                'del',
+                index=await ipr.link_lookup(ifname=lease.interface),
+                address=lease.ip,
+                mask=lease.subnet_mask,
+                broadcast=lease.broadcast_address
+            )
