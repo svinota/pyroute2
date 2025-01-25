@@ -275,7 +275,7 @@ class AsyncCoreSocket:
                 self.local.fileno = fds[0]
                 nsproc.join()
             # 8<-----------------------------------------
-            self.local.socket = await self.setup_socket()
+            self.local.socket = self.setup_socket()
             if self.spec['netns'] is not None and config.mock_netlink:
                 self.local.socket.netns = self.spec['netns']
                 self.local.socket.flags = self.spec['flags']
@@ -337,7 +337,7 @@ class AsyncCoreSocket:
                 self.status['event_loop'] = 'new'
         return event_loop
 
-    async def setup_socket(self, sock=None):
+    def setup_socket(self, sock=None):
         if self.status['use_socket']:
             return self.use_socket
         sock = self.socket if sock is None else sock

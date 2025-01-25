@@ -281,7 +281,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
     def target(self):
         return self.status['target']
 
-    async def setup_socket(self, sock=None):
+    def setup_socket(self, sock=None):
         """Re-init a netlink socket."""
         if self.status['use_socket']:
             return self.use_socket
