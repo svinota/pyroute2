@@ -642,7 +642,7 @@ class NetlinkSocket(SyncAPI):
         msg_type,
         msg_flags=NLM_F_REQUEST,
         addr=(0, 0),
-        msg_seq=0,
+        msg_seq=None,
         msg_pid=None,
     ):
         if msg is None:
