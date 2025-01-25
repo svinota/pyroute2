@@ -1,5 +1,6 @@
 import os
 import sys
+from unittest import mock
 
 from pyroute2 import config
 from pyroute2.iproute.ipmock import IPEngine
@@ -136,6 +137,13 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         )
 
 
+class NotLocal:
+    event_loop = None
+    socket = None
+    fileno = None
+    msg_queue = mock.Mock()
+
+
 class IPRSocket(NetlinkSocket):
     def __init__(
         self,
@@ -180,6 +188,23 @@ class IPRSocket(NetlinkSocket):
             flags,
             libc,
         )
+        self.asyncore.local = NotLocal()
+        self.asyncore.local.event_loop = self.asyncore.setup_event_loop()
+        if netns is not None:
+            self.asyncore.local.fileno = self.asyncore.setup_netns()
+        self.asyncore.local.socket = self.asyncore.setup_socket()
+
+    @property
+    def socket(self):
+        return self.asyncore.local.socket
+
+    @property
+    def fileno(self):
+        return self.asyncore.local.socket.fileno
+
+    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
+        data = self.socket.recv(16384)
+        return [x for x in self.marshal.parse(data)]
 
 
 class ChaoticIPRSocket(AsyncIPRSocket, ChaoticNetlinkSocket):
