@@ -19,58 +19,83 @@ if sys.platform.startswith('linux'):
 
 
 class AsyncIPRSocket(AsyncNetlinkSocket):
-    '''
-    The simplest class, that connects together the netlink parser and
-    a generic Python socket implementation. Provides method get() to
-    receive the next message from netlink socket and parse it. It is
-    just simple socket-like class, it implements no buffering or
-    like that. It spawns no additional threads, leaving this up to
-    developers.
+    '''A low-level class to provide RTNL socket.
 
-    Please note, that netlink is an asynchronous protocol with
-    non-guaranteed delivery. You should be fast enough to get all the
-    messages in time. If the message flow rate is higher than the
-    speed you parse them with, exceeding messages will be dropped.
+    This is a low-level class designed to provide an RTNL
+    asyncio-controlled socket. It does not include high-level
+    methods like those found in AsyncIPRoute. Instead, it provides
+    only common netlink methods such as `get()` and `put()`. For
+    more details, refer to the `AsyncNetlinkSocket` documentation.
 
-    *Usage*
+    ,, testcode::
+        :hide:
 
-    Threadless RT netlink monitoring with blocking I/O calls:
+        from pyroute2 import AsyncIPRSocket
 
-        >>> from pyroute2 import IPRSocket
-        >>> from pprint import pprint
-        >>> s = IPRSocket()
-        >>> s.bind()
-        >>> pprint(s.get())
-        [{'attrs': [('RTA_TABLE', 254),
-                    ('RTA_DST', '2a00:1450:4009:808::1002'),
-                    ('RTA_GATEWAY', 'fe80:52:0:2282::1fe'),
-                    ('RTA_OIF', 2),
-                    ('RTA_PRIORITY', 0),
-                    ('RTA_CACHEINFO', {'rta_clntref': 0,
-                                       'rta_error': 0,
-                                       'rta_expires': 0,
-                                       'rta_id': 0,
-                                       'rta_lastuse': 5926,
-                                       'rta_ts': 0,
-                                       'rta_tsage': 0,
-                                       'rta_used': 1})],
-          'dst_len': 128,
-          'event': 'RTM_DELROUTE',
-          'family': 10,
-          'flags': 512,
-          'header': {'error': None,
-                     'flags': 0,
-                     'length': 128,
-                     'pid': 0,
-                     'sequence_number': 0,
-                     'type': 25},
-          'proto': 9,
-          'scope': 0,
-          'src_len': 0,
-          'table': 254,
-          'tos': 0,
-          'type': 1}]
+        iprsock = AsyncIPRSocket()
+        assert callable(iprsock.get)
+        assert callable(iprsock.put)
+        assert callable(iprsock.nlm_request)
+        assert callable(iprsock.bind)
+
+    Since the underlying socket is controlled by asyncio, it is
+    not possible to use it in poll/select loops. If you want
+    such API, consider using synchronous `IPRSocket`.
+
+    .. warning::
+
+        Netlink is an asynchronous protocol that does not guarantee
+        message delivery order or even delivery itself.
+
+    Your code must process incoming messages quickly enough to
+    prevent the RCVBUF from overflowing. If the RCVBUF overflows,
+    all subsequent socket operations will raise an OSError:
+
+    .. code::
+
+        >>> iprsock.get()
+        Traceback (most recent call last):
+          File "<python-input-12>", line 1, in <module>
+            iprsock.get()
+            ~~~~~~~~^^
+          File ".../pyroute2/netlink/rtnl/iprsocket.py", line 276, in get
+            data = self.socket.recv(16384)
+        OSError: [Errno 105] No buffer space available
         >>>
+
+    If this exception occurs, the only solution is to close the
+    socket and create a new one.
+
+    This class does not handle protocol-level error propagation; it
+    only provides socket-level error handling. It is the user's
+    responsibility to catch and manage protocol-level errors:
+
+    .. testsetup:: as0
+
+        from pyroute2.netlink import nlmsgerr, NLMSG_ERROR
+        msg = nlmsgerr()
+        msg['header']['type'] = NLMSG_ERROR
+        msg['error'] = 42
+        msg.reset()
+        msg.encode()
+        msg.decode()
+
+    .. testcode:: as0
+
+        if msg.get(('header', 'type')) == NLMSG_ERROR:
+            # prints error code and the request that
+            # triggered the error
+            print(
+                msg.get('error'),
+                msg.get('msg'),
+            )
+
+    .. testoutput:: as0
+        :hide:
+
+        42 None
+
+
     '''
 
     def __init__(
@@ -145,6 +170,82 @@ class NotLocal:
 
 
 class IPRSocket(NetlinkSocket):
+    '''Synchronous select-compatible netlink socket.
+
+    `IPRSocket` is the synchronous counterpart to `AsyncIPRSocket`.
+    A key feature of `IPRSocket` is that the underlying netlink
+    socket operates out of asyncio control, allowing it to be
+    used in poll/select loops.
+
+    .. testcode::
+
+        import select
+
+        from pyroute2 import IPRSocket
+        from pyroute2.netlink import NLM_F_DUMP, NLM_F_REQUEST
+        from pyroute2.netlink.rtnl import RTM_GETLINK
+        from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+
+        with IPRSocket() as iprsock:
+            iprsock.put(
+                ifinfmsg(),
+                msg_type=RTM_GETLINK,
+                msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+            )
+
+            ret = []
+
+            while True:
+                rl, wl, xl = select.select([iprsock], [], [], 0)
+                if not len(rl):
+                    break
+                ret.extend(iprsock.get())
+
+            for link in ret:
+                if link.get('event') == 'RTM_NEWLINK':
+                    print(
+                        link.get('ifname'),
+                        link.get('state'),
+                        link.get('address'),
+                    )
+
+    .. testoutput::
+
+        lo up 00:00:00:00:00:00
+        eth0 up 52:54:00:72:58:b2
+
+    Threadless RT netlink monitoring with blocking I/O calls:
+
+        >>> from pyroute2 import IPRSocket
+        >>> from pprint import pprint
+        >>> s = IPRSocket()
+        >>> s.bind()
+        >>> pprint(s.get())
+        [{'attrs': [('RTA_TABLE', 254),
+                    ('RTA_OIF', 2),
+                    ('RTA_GATEWAY', '192.168.122.1')],
+          'dst_len': 0,
+          'event': 'RTM_NEWROUTE',
+          'family': 2,
+          'flags': 0,
+          'header': {'error': None,
+                     'flags': 2,
+                     'length': 52,
+                     'pid': 325359,
+                     'sequence_number': 255,
+                     'type': 24},
+          'proto': 2,
+          'scope': 0,
+          'src_len': 0,
+          'table': 254,
+          'tos': 0,
+          'type': 2}]
+        >>>
+
+    Like `AsyncIPRSocket`, it does not perform response reassembly,
+    protocol-level error propagation, or packet buffering.
+    '''
+
     def __init__(
         self,
         port=None,

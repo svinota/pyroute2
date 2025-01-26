@@ -580,8 +580,8 @@ class IPEngine:
         self.loopback_w.close()
 
     def bind(self, address=None):
-        msg = ifinfmsg()
-        msg.load(self.database['links'][0])
+        msg = rtmsg()
+        msg.load(self.database['routes'][0].export())
         msg.encode()
         self.loopback_w.send(msg.data)
 

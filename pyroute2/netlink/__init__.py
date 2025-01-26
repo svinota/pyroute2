@@ -2431,6 +2431,8 @@ class nlmsgerr(nlmsg):
 
     fields = (('error', 'i'),)
 
+    prefix = 'NLMSGERR_ATTR_'
+
     nla_map = (
         ('NLMSGERR_ATTR_UNUSED', 'none'),
         ('NLMSGERR_ATTR_MSG', 'asciiz'),
