@@ -5,9 +5,6 @@
     from pyroute2 import config
     config.mock_netlink = True
 
-API classes
------------
-
 AsyncIPRoute
 ~~~~~~~~~~~~
 

@@ -22,8 +22,11 @@ There is an inheritance diagram of Linux netlink sockets, provided
 by the library:
 
 .. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
+    pyroute2.iproute.linux.IPRoute
     pyroute2.iproute.linux.AsyncIPRoute
     pyroute2.iproute.linux.RawIPRoute
+    pyroute2.netlink.rtnl.iprsocket.IPRSocket
+    pyroute2.netlink.rtnl.iprsocket.AsyncIPRSocket
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.ipvs.IPVS

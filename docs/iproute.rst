@@ -1,7 +1,7 @@
 .. _iproute:
 
-IPRoute module
-==============
+IPRoute and related modules
+===========================
 
 .. toctree::
     :maxdepth: 2

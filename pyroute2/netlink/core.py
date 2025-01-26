@@ -248,34 +248,9 @@ class AsyncCoreSocket:
             self.local.msg_queue = CoreMessageQueue()
             # 8<-----------------------------------------
             # Setup netns
-            if self.spec['netns'] is not None and not config.mock_netlink:
-                # inspect self.__init__ argument names
-                ctrl = socket.socketpair()
-                nsproc = multiprocessing.Process(
-                    target=netns_init,
-                    args=(
-                        ctrl[0],
-                        self.spec['netns'],
-                        self.spec['flags'],
-                        self.libc,
-                        type(self),
-                    ),
-                )
-                nsproc.start()
-                (data, fds, _, _) = socket.recv_fds(ctrl[1], 1024, 1)
-                # load the feedback
-                payload = json.loads(data.decode('utf-8'))
-                if payload:
-                    if set(payload.keys()) != set(('name', 'args')):
-                        raise TypeError('error loading netns feedback')
-                    error_class = getattr(builtins, payload['name'])
-                    if not issubclass(error_class, Exception):
-                        raise TypeError('error loading netns error')
-                    raise error_class(*payload['args'])
-                self.local.fileno = fds[0]
-                nsproc.join()
+            self.local.fileno = self.setup_netns()
             # 8<-----------------------------------------
-            self.local.socket = await self.setup_socket()
+            self.local.socket = self.setup_socket()
             if self.spec['netns'] is not None and config.mock_netlink:
                 self.local.socket.netns = self.spec['netns']
                 self.local.socket.flags = self.spec['flags']
@@ -337,7 +312,7 @@ class AsyncCoreSocket:
                 self.status['event_loop'] = 'new'
         return event_loop
 
-    async def setup_socket(self, sock=None):
+    def setup_socket(self, sock=None):
         if self.status['use_socket']:
             return self.use_socket
         sock = self.socket if sock is None else sock
@@ -346,6 +321,34 @@ class AsyncCoreSocket:
         sock = config.SocketBase(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return sock
+
+    def setup_netns(self):
+        if self.spec['netns'] is not None and not config.mock_netlink:
+            # inspect self.__init__ argument names
+            ctrl = socket.socketpair()
+            nsproc = multiprocessing.Process(
+                target=netns_init,
+                args=(
+                    ctrl[0],
+                    self.spec['netns'],
+                    self.spec['flags'],
+                    self.libc,
+                    type(self),
+                ),
+            )
+            nsproc.start()
+            (data, fds, _, _) = socket.recv_fds(ctrl[1], 1024, 1)
+            # load the feedback
+            payload = json.loads(data.decode('utf-8'))
+            if payload:
+                if set(payload.keys()) != set(('name', 'args')):
+                    raise TypeError('error loading netns feedback')
+                error_class = getattr(builtins, payload['name'])
+                if not issubclass(error_class, Exception):
+                    raise TypeError('error loading netns error')
+                raise error_class(*payload['args'])
+            nsproc.join()
+            return fds[0]
 
     def __getattr__(self, attr):
         if attr in (

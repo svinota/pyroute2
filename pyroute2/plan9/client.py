@@ -47,7 +47,7 @@ class Plan9ClientSocket(AsyncCoreSocket):
         tag = struct.unpack_from('H', data, 5)[0]
         return self.msg_queue.put_nowait(tag, data)
 
-    async def setup_socket(self, sock=None):
+    def setup_socket(self, sock=None):
         return sock
 
     async def setup_endpoint(self, loop=None):
