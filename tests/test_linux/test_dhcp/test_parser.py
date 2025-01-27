@@ -2,14 +2,20 @@ from fixtures.pcap_files import PcapFile
 
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
 from pyroute2.dhcp.enums import bootp, dhcp
+from pyroute2.dhcp.messages import ReceivedDHCPMessage
+
+
+def parse_pcap(
+    pcap: PcapFile, expected_packets: int
+) -> list[ReceivedDHCPMessage]:
+    decoded_dhcp_messages = [AsyncDHCP4Socket._decode_msg(i) for i in pcap]
+    assert len(decoded_dhcp_messages) == expected_packets
+    return decoded_dhcp_messages
 
 
 def test_decode_simple_lease_process(pcap: PcapFile):
     '''Decode a simple DHCP handshake using AsyncDHCP4Socket.'''
-    decoded_dhcp_messages = [AsyncDHCP4Socket._decode_msg(i) for i in pcap]
-    assert len(decoded_dhcp_messages) == 4
-    discover, offer, request, ack = decoded_dhcp_messages
-
+    discover, offer, request, ack = parse_pcap(pcap, expected_packets=4)
     assert discover.message_type == dhcp.MessageType.DISCOVER
     assert discover.dhcp['flags'] == bootp.Flag.BROADCAST
     assert discover.sport, discover.dport == (68, 67)
@@ -51,9 +57,7 @@ def test_decode_simple_lease_process(pcap: PcapFile):
 def test_android_reboot_request(pcap: PcapFile):
     '''Decode the request sent by an Android phone in init-reboot state.'''
     client_mac = '32:7a:80:aa:a7:c7'
-    decoded_dhcp_messages = [AsyncDHCP4Socket._decode_msg(i) for i in pcap]
-    assert len(decoded_dhcp_messages) == 1
-    request = decoded_dhcp_messages[0]
+    request = parse_pcap(pcap, expected_packets=1)[0]
     assert request.message_type == dhcp.MessageType.REQUEST
     assert request.dhcp['op'] == bootp.MessageType.BOOTREQUEST
     assert request.dhcp['chaddr'] == client_mac
@@ -82,9 +86,26 @@ def test_android_reboot_request(pcap: PcapFile):
             108,  # TODO ipv6 only preferred
         ],
         'requested_ip': '192.168.94.191',
-        'vendor_id': b'android-dhcp-1',
+        'vendor_id': b'android-dhcp-13',  # FIXME
     }
     assert request.eth_src == client_mac
     assert request.eth_dst == 'ff:ff:ff:ff:ff:ff'
     assert request.ip_src == '0.0.0.0'
     assert (request.sport, request.dport) == (68, 67)
+
+
+def test_wii_discover(pcap: PcapFile):
+    client_mac = '0:1e:a9:87:91:a7'
+    discover = parse_pcap(pcap, expected_packets=1)[0]
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+    assert discover.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert discover.dhcp['chaddr'] == client_mac
+    assert discover.dhcp['flags'] == bootp.Flag.UNICAST
+    assert discover.dhcp['options'] == {
+        'client_id': {'key': client_mac, 'type': 1},
+        'host_name': b'Wii',  # FIXME parsed as 'Wi'
+        'message_type': dhcp.MessageType.DISCOVER,
+        'parameter_list': [1, 3, 6, 15, 28, 33],
+        'requested_ip': '192.168.94.147',
+    }
+    breakpoint()
