@@ -10,8 +10,11 @@ from pyroute2.dhcp.leases import Lease
 LOG = getLogger(__name__)
 
 
+AsyncCallback = Callable[[], Coroutine[Any, Any, None]]
+
+
 @dataclasses.dataclass
-class Timers:
+class LeaseTimers:
     '''Manage callbacks associated with DHCP leases.'''
 
     renewal: Optional[asyncio.TimerHandle] = None
@@ -33,11 +36,7 @@ class Timers:
                 timer.cancel()
             setattr(self, timer_name, None)
 
-    def arm(
-        self,
-        lease: Lease,
-        **callbacks: Callable[[], Coroutine[Any, Any, None]],
-    ):
+    def arm(self, lease: Lease, **callbacks: AsyncCallback):
         '''Reset & arm timers from a `Lease`.
 
         `callbacks` must be async callables with no arguments
@@ -62,9 +61,7 @@ class Timers:
             setattr(self, timer_name, timer)
 
     def _create_timer_task(
-        self,
-        timer_name: str,
-        async_callback: Callable[[], Coroutine[Any, Any, None]],
+        self, timer_name: str, async_callback: AsyncCallback
     ) -> None:
         ''' 'Internal callback for loop.call_later.
 

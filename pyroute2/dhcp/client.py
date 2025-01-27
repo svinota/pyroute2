@@ -1,6 +1,6 @@
 import asyncio
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
     Callable,
@@ -17,7 +17,7 @@ from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
 from pyroute2.dhcp.enums import dhcp
 from pyroute2.dhcp.hooks import Hook
 from pyroute2.dhcp.leases import JSONFileLease, Lease
-from pyroute2.dhcp.timers import Timers
+from pyroute2.dhcp.timers import LeaseTimers
 
 LOG = getLogger(__name__)
 
@@ -30,12 +30,11 @@ def randomized_increasing_backoff(
     wait_first: float = 4.0, wait_max: float = 32.0, factor: float = 2.0
 ):
     '''Yields seconds to wait until the next retry, forever.'''
-    # TODO: not forever would be better.
-    # we should return to INIT after a while
     delay = wait_first
     while True:
         yield delay
-        delay = min(random.uniform(delay, delay * factor), wait_max)
+        if delay <= wait_max:
+            delay = min(random.uniform(delay, delay * factor), wait_max)
 
 
 @dataclass
@@ -50,6 +49,14 @@ class ClientConfig:
         dhcp.Parameter.ROUTER,
         dhcp.Parameter.DOMAIN_NAME_SERVER,
         dhcp.Parameter.DOMAIN_NAME,
+    )
+    timeouts: dict[fsm.State, int] = field(
+        default_factory=lambda: {
+            # No use staying too long in REBOOTING state if nobody is answering
+            fsm.State.REBOOTING: 10,
+            # When we get an OFFER, how long should we wait for an ACK ?
+            fsm.State.REQUESTING: 30,
+        }
     )
     retransmission: Retransmission = randomized_increasing_backoff
 
@@ -81,13 +88,14 @@ class AsyncDHCPClient:
         # Handle to run _recv_forever for the context manager's lifetime
         self._receiver_task: Optional[asyncio.Task] = None
         # Timers to run callbacks on lease timeouts expiration
-        self.timers = Timers()
+        self.lease_timers = LeaseTimers()
+        self._state_watchdog: asyncio.Task | None = None
         # Allows to easily track the state when running the client from python
         self._states: DefaultDict[Optional[fsm.State], asyncio.Event] = (
             DefaultDict(asyncio.Event)
         )
 
-    # "public api"
+    # 'public api'
 
     async def wait_for_state(
         self, state: Optional[fsm.State], timeout: Optional[float] = None
@@ -147,7 +155,7 @@ class AsyncDHCPClient:
         '''Set a fresh lease; only call this when a server grants one.'''
 
         self._lease = value
-        self.timers.arm(
+        self.lease_timers.arm(
             lease=self._lease,
             renewal=self._renew,
             rebinding=self._rebind,
@@ -169,10 +177,17 @@ class AsyncDHCPClient:
                 f'Cannot transition from {self._state} to {value}'
             )
         LOG.info('%s -> %s', old_state, value)
+        if self._state_watchdog:
+            self._state_watchdog.cancel()
+            self._state_watchdog = None
         if old_state in self._states:
             self._states[old_state].clear()
         self._state = value
         self._states[value].set()
+        if state_timeout := self.config.timeouts.get(value):
+            self._state_watchdog = asyncio.Task(
+                self.reset(delay=state_timeout)
+            )
 
     # Timer callbacks
 
@@ -181,7 +196,7 @@ class AsyncDHCPClient:
         assert self.lease, 'cannot renew without an existing lease'
         LOG.info('Renewal timer expired')
         # TODO: send only to server that gave us the current lease
-        self.timers._reset_timer('renewal')  # FIXME should be automatic
+        self.lease_timers._reset_timer('renewal')  # FIXME should be automatic
         await self.transition(
             to=fsm.State.RENEWING,
             send=messages.request_for_lease(
@@ -192,10 +207,10 @@ class AsyncDHCPClient:
         )
 
     async def _rebind(self):
-        ''' 'Called when the rebinding time defined in the lease expires.'''
+        '''Called when the rebinding time defined in the lease expires.'''
         assert self.lease, 'cannot rebind without an existing lease'
         LOG.info('Rebinding timer expired')
-        self.timers._reset_timer('rebinding')
+        self.lease_timers._reset_timer('rebinding')
         await self.transition(
             to=fsm.State.REBINDING,
             send=messages.request_for_lease(
@@ -206,14 +221,22 @@ class AsyncDHCPClient:
         )
 
     async def _expire_lease(self):
-        ''' 'Called when the expiration time defined in the lease expires.'''
+        '''Called when the expiration time defined in the lease expires.'''
         LOG.info('Lease expired')
-        self.timers._reset_timer('expiration')
-        self.state = fsm.State.INIT
+        self.lease_timers._reset_timer('expiration')
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
         for i in self.config.hooks:
             await i.unbound(self.lease)
+        await self.reset()
+
+    async def reset(self, delay: float = 0.0):
+        if delay:
+            await asyncio.sleep(delay=delay)
+            LOG.warning('Resetting after %.1f seconds', delay)
+        await self.transition(to=fsm.State.INIT)
+        # Reset lease & timers and start again
         self._lease = None
+        self.lease_timers.cancel()
         await self.bootstrap()
 
     # DHCP packet sending & receving coroutines
@@ -230,10 +253,15 @@ class AsyncDHCPClient:
 
         wait_til_stopped = asyncio.Task(self.wait_for_state(None))
         while not wait_til_stopped.done():
+
+            if interval_factory:
+                interval = next(interval_factory)
+            else:
+                interval = 9999999
+
             wait_for_msg_to_send = asyncio.Task(
                 self._sendq.get(), name='wait for packet to send'
             )
-            interval = next(interval_factory) if interval_factory else 9999999
             if msg_to_send:
                 LOG.debug('%.1f seconds until retransmission', interval)
             done, pending = await asyncio.wait(
@@ -340,12 +368,7 @@ class AsyncDHCPClient:
 
         Resets the client and starts looking for a new IP.
         '''
-        # TODO: check the NAK matches something we asked for ?
-        await self.transition(to=fsm.State.INIT)
-        # Reset lease & timers and start again
-        self._lease = None
-        self.timers.cancel()
-        await self.bootstrap()
+        await self._reset()
 
     @fsm.state_guard(fsm.State.SELECTING)
     async def offer_received(self, msg: messages.ReceivedDHCPMessage):
@@ -393,7 +416,7 @@ class AsyncDHCPClient:
 
         If there's an active lease, send a RELEASE for it first.
         '''
-        self.timers.cancel()
+        self.lease_timers.cancel()
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
         if self.lease:
             for i in self.config.hooks:
