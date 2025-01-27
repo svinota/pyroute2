@@ -67,7 +67,7 @@ def test_android_reboot_request(pcap: PcapFile):
             'key': client_mac,
             'type': 1,  # TODO use constant/enum ?
         },
-        'host_name': b'TFY-LX',
+        'host_name': b'TFY-LX1',
         'max_msg_size': 1500,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
@@ -86,7 +86,7 @@ def test_android_reboot_request(pcap: PcapFile):
             108,  # TODO ipv6 only preferred
         ],
         'requested_ip': '192.168.94.191',
-        'vendor_id': b'android-dhcp-13',  # FIXME
+        'vendor_id': b'android-dhcp-13',
     }
     assert request.eth_src == client_mac
     assert request.eth_dst == 'ff:ff:ff:ff:ff:ff'
@@ -95,6 +95,7 @@ def test_android_reboot_request(pcap: PcapFile):
 
 
 def test_wii_discover(pcap: PcapFile):
+    '''Decode the request sent by a Wii trying to get an address.'''
     client_mac = '0:1e:a9:87:91:a7'
     discover = parse_pcap(pcap, expected_packets=1)[0]
     assert discover.message_type == dhcp.MessageType.DISCOVER
@@ -103,9 +104,19 @@ def test_wii_discover(pcap: PcapFile):
     assert discover.dhcp['flags'] == bootp.Flag.UNICAST
     assert discover.dhcp['options'] == {
         'client_id': {'key': client_mac, 'type': 1},
-        'host_name': b'Wii',  # FIXME parsed as 'Wi'
+        'host_name': b'Wii',
         'message_type': dhcp.MessageType.DISCOVER,
-        'parameter_list': [1, 3, 6, 15, 28, 33],
+        'parameter_list': [
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.ROUTER,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.STATIC_ROUTE,
+        ],
         'requested_ip': '192.168.94.147',
     }
-    breakpoint()
+    assert discover.eth_src == client_mac
+    assert discover.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert discover.ip_src == '0.0.0.0'
+    assert (discover.sport, discover.dport) == (68, 67)
