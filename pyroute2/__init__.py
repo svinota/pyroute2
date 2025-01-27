@@ -26,7 +26,6 @@ from pyroute2.iproute import (
     NetNS,
     RawIPRoute,
 )
-from pyroute2.iproute.ipmock import IPRoute as IPMock
 from pyroute2.ipset import IPSet
 from pyroute2.ipvs import IPVS, IPVSDest, IPVSService
 from pyroute2.iwutil import IW
@@ -77,7 +76,6 @@ modules = [
     Ethtool,
     IPBatch,
     IPDB,
-    IPMock,
     IPQSocket,
     IPRoute,
     IPRSocket,

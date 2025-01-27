@@ -2,11 +2,10 @@
 
 .. testsetup::
 
-    from pyroute2 import IPMock as IPRoute
     from pyroute2 import NDB
     from pyroute2 import config
 
-    config.mock_iproute = True
+    config.mock_netlink = True
 
 
 .. testsetup:: preset_1
@@ -14,12 +13,12 @@
     from pyroute2 import NDB
     from pyroute2 import config
 
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB(
         sources=[
-            {'target': 'localhost', 'kind': 'IPMock'},
-            {'target': 'worker1.sample.com', 'kind': 'IPMock'},
-            {'target': 'worker2.sample.com', 'kind': 'IPMock'},
+            {'target': 'localhost', 'kind': 'local'},
+            {'target': 'worker1.sample.com', 'kind': 'local'},
+            {'target': 'worker2.sample.com', 'kind': 'local'},
         ]
     )
 
@@ -27,7 +26,7 @@
 
     from pyroute2 import NDB
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB()
     ndb.interfaces.create(ifname='eth1', kind='dummy').commit()
     ndb.interfaces.create(ifname='br0', kind='bridge').commit()
@@ -37,7 +36,7 @@
 
     from pyroute2 import NDB
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB()
     ndb.interfaces.create(ifname='br0', kind='bridge').commit()
     ndb.interfaces['br0'].add_port('eth0').commit()
