@@ -13,6 +13,8 @@ class MessageType(IntEnum):
 
 
 class Option(IntEnum):
+    # FIXME these values are actually the same as Parameter below,
+    # we should merge these classes
     PAD = 0
     SUBNET_MASK = 1
     TIME_OFFSET = 2
@@ -26,6 +28,7 @@ class Option(IntEnum):
     HOST_NAME = 12
     DOMAIN_NAME = 15
     BROADCAST_ADDRESS = 28
+    VENDOR_SPECIFIC_INFORMATION = 43
     REQUESTED_IP = 50
     LEASE_TIME = 51
     MESSAGE_TYPE = 53

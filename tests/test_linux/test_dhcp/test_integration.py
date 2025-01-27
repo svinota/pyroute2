@@ -1,4 +1,3 @@
-import asyncio
 import json
 from ipaddress import IPv4Address
 from pathlib import Path
@@ -45,7 +44,9 @@ async def test_get_lease_from_dnsmasq(
     assert lease.ack['op'] == bootp.MessageType.BOOTREPLY
     assert lease.ack['options']['message_type'] == dhcp.MessageType.ACK
     assert lease.ack['options']['lease_time'] == dnsmasq.config.lease_time
-    assert lease.ack['options']['renewal_time'] == dnsmasq.config.lease_time / 2
+    assert (
+        lease.ack['options']['renewal_time'] == dnsmasq.config.lease_time / 2
+    )
     assert lease.expiration_in > lease.rebinding_in > lease.renewal_in > 0
     assert lease.expired is False
     assert lease.server_id == str(dnsmasq.config.range.router)
@@ -107,7 +108,11 @@ async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     assert lease.interface == veth_pair.client
     assert lease.ack["options"]["lease_time"] == udhcpd.config.lease_time
     # Check udhcpd output matches our expectations
-    assert udhcpd.stderr[-4:] == [
-        f'udhcpd: sending OFFER to {lease.ip}',
-        f'udhcpd: sending ACK to {lease.ip}',
-    ] * 2
+    assert (
+        udhcpd.stderr[-4:]
+        == [
+            f'udhcpd: sending OFFER to {lease.ip}',
+            f'udhcpd: sending ACK to {lease.ip}',
+        ]
+        * 2
+    )

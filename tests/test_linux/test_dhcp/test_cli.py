@@ -1,14 +1,11 @@
-
-
 import asyncio
-from ipaddress import IPv4Address
 import json
-import pytest
+from ipaddress import IPv4Address
 
+import pytest
 from fixtures.dhcp_servers.dnsmasq import DnsmasqFixture
 from fixtures.interfaces import VethPair
 from pr2test.marks import require_root
-
 
 pytestmark = [require_root()]
 
