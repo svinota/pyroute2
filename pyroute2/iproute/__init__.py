@@ -257,14 +257,7 @@ from pyroute2.netlink.rtnl import (
 )
 
 AsyncIPRoute = None
-if sys.platform.startswith('emscripten'):
-    from pyroute2.iproute.ipmock import (
-        ChaoticIPRoute,
-        IPRoute,
-        NetNS,
-        RawIPRoute,
-    )
-elif sys.platform.startswith('win'):
+if sys.platform.startswith('win'):
     from pyroute2.iproute.windows import (
         ChaoticIPRoute,
         IPRoute,
