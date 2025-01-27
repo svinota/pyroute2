@@ -1,10 +1,5 @@
 .. _asyncio:
 
-.. testsetup:: *
-
-    from pyroute2 import config
-    config.mock_iproute = True
-
 Library core
 ============
 

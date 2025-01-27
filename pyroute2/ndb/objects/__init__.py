@@ -27,11 +27,10 @@ See also: :ref:`iproute`
 
 .. testsetup::
 
-    from pyroute2 import IPMock as IPRoute
-    from pyroute2 import NDB
+    from pyroute2 import IPRoute, NDB
     from pyroute2 import config
 
-    config.mock_iproute = True
+    config.mock_netlink = True
 
 .. testcode::
 

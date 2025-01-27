@@ -15,7 +15,6 @@ except ImportError:
 
 from pyroute2.conntrack import Conntrack, ConntrackEntry
 from pyroute2.iproute import ChaoticIPRoute, IPBatch, IPRoute, RawIPRoute
-from pyroute2.iproute.ipmock import IPRoute as IPMock
 from pyroute2.iwutil import IW
 from pyroute2.netlink.devlink import DevlinkSocket
 from pyroute2.netlink.diag import DiagSocket
@@ -49,7 +48,6 @@ modules = [
     DiagSocket,
     DQuotSocket,
     IPBatch,
-    IPMock,
     IPQSocket,
     IPRoute,
     IPRSocket,

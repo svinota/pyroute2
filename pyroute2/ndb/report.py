@@ -3,10 +3,13 @@
 
 .. testsetup::
 
+    from pyroute2 import config
     from pyroute2 import NDB
-    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
 
-.. testcleanup:: *
+    config.mock_netlink = True
+    ndb = NDB()
+
+.. testcleanup::
 
     for key, value in tuple(globals().items()):
         if key.startswith('ndb') and hasattr(value, 'close'):

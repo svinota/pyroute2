@@ -4,14 +4,14 @@
 
     from pyroute2 import NDB
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB()
 
 .. testsetup:: tables
 
     from pyroute2 import NDB
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB()
     ndb.routes.create(
         dst='1.1.1.1/32', gateway='127.0.0.10', oif=1, table=101
@@ -27,7 +27,7 @@
 
     from pyroute2 import NDB
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB()
     ndb.routes.create(
         dst='10.0.0.0/24', gateway='127.0.0.10'

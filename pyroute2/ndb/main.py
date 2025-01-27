@@ -1,22 +1,11 @@
 '''
-.. testsetup::
+.. testsetup:: *
 
-    from pyroute2 import NDB
-    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
-
-.. testsetup:: netns
-
-    from types import MethodType
-
+    from pyroute2 import config
     from pyroute2 import NDB
 
-    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
-
-    def add_mock_netns(self, netns):
-        return self.add_orig(target=netns, kind='IPMock', preset='netns')
-
-    ndb.sources.add_orig = ndb.sources.add
-    ndb.sources.add = MethodType(add_mock_netns, ndb.sources)
+    config.mock_netlink = True
+    ndb = NDB()
 
 .. testcleanup:: *
 
@@ -286,7 +275,6 @@ import logging
 import logging.handlers
 import threading
 
-from pyroute2 import config
 from pyroute2.common import basestring
 
 ##
@@ -500,16 +488,9 @@ class NDB:
         #
         # fix sources prime
         if sources is None:
-            if config.mock_iproute:
-                sources = [{'target': 'localhost', 'kind': 'IPMock'}]
-            else:
-                sources = [
-                    {
-                        'target': self.localhost,
-                        'kind': 'local',
-                        'nlm_generator': 1,
-                    }
-                ]
+            sources = [
+                {'target': self.localhost, 'kind': 'local', 'nlm_generator': 1}
+            ]
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 

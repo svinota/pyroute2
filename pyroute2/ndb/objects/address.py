@@ -5,7 +5,7 @@
     from socket import AF_INET
     from pyroute2 import NDB
     from pyroute2 import config
-    config.mock_iproute = True
+    config.mock_netlink = True
     ndb = NDB()
 
 .. testcleanup:: *
