@@ -3,6 +3,8 @@
 import errno
 from logging import getLogger
 
+from pyroute2.dhcp.enums.dhcp import Option
+from pyroute2.dhcp.exceptions import DHCPOptionMissingError
 from pyroute2.dhcp.leases import Lease
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
@@ -29,6 +31,8 @@ class ConfigureIP(Hook):
     async def bound(self, lease: Lease):
         LOG.info('Adding %s/%s to %s', lease.ip,
                  lease.subnet_mask, lease.interface)
+        if not lease.subnet_mask:
+            raise DHCPOptionMissingError(Option.SUBNET_MASK)
         async with AsyncIPRoute() as ipr:
             await ipr.addr(
                 'replace',
