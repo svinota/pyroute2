@@ -2,6 +2,8 @@ import asyncio
 import random
 from dataclasses import dataclass, field
 from logging import getLogger
+from math import floor
+from time import time
 from typing import (
     Callable,
     ClassVar,
@@ -89,11 +91,13 @@ class AsyncDHCPClient:
         self._receiver_task: Optional[asyncio.Task] = None
         # Timers to run callbacks on lease timeouts expiration
         self.lease_timers = LeaseTimers()
+        # Calls reset() after a timeout in some states to avoid getting stuck
         self._state_watchdog: asyncio.Task | None = None
         # Allows to easily track the state when running the client from python
         self._states: DefaultDict[Optional[fsm.State], asyncio.Event] = (
             DefaultDict(asyncio.Event)
         )
+        self.last_state_change: float = time()
 
     # 'public api'
 
@@ -131,7 +135,6 @@ class AsyncDHCPClient:
             )
         elif self.state is fsm.State.INIT_REBOOT:
             assert self.lease, 'cannot init_reboot without a lease'
-            # FIXME: if nobody answers, we never switch to another state
             # send request for lease
             await self.transition(
                 to=fsm.State.REBOOTING,
@@ -183,6 +186,7 @@ class AsyncDHCPClient:
         if old_state in self._states:
             self._states[old_state].clear()
         self._state = value
+        self.last_state_change = time()
         self._states[value].set()
         if state_timeout := self.config.timeouts.get(value):
             self._state_watchdog = asyncio.Task(
@@ -195,7 +199,6 @@ class AsyncDHCPClient:
         '''Called when the renewal time defined in the lease expires.'''
         assert self.lease, 'cannot renew without an existing lease'
         LOG.info('Renewal timer expired')
-        # TODO: send only to server that gave us the current lease
         self.lease_timers._reset_timer('renewal')  # FIXME should be automatic
         await self.transition(
             to=fsm.State.RENEWING,
@@ -280,8 +283,12 @@ class AsyncDHCPClient:
             elif wait_for_msg_to_send in pending:
                 wait_for_msg_to_send.cancel()
             if msg_to_send:
+                # Set secs to the time elapsed since the last state change
+                # (max 16 bits)
+                msg_to_send.dhcp['secs'] = min(
+                    floor(time() - self.last_state_change), 0xFFFF
+                )
                 LOG.debug('Sending %s', msg_to_send)
-                # FIXME: we should probably increment the `secs` field
                 await self._sock.put(msg_to_send)
 
     async def _recv_forever(self) -> None:

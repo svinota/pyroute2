@@ -14,7 +14,7 @@ class dhcp4msg(dhcpmsg):
         ('hlen', 'uint8', 6),  # ethernet addr len
         ('hops', 'uint8'),
         ('xid', 'be32'),
-        ('secs', 'uint16'),
+        ('secs', 'be16'),
         ('flags', 'be16'),
         ('ciaddr', 'ip4addr'),
         ('yiaddr', 'ip4addr'),
