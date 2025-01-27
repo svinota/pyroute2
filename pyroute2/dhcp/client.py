@@ -281,6 +281,7 @@ class AsyncDHCPClient:
                 wait_for_msg_to_send.cancel()
             if msg_to_send:
                 LOG.debug('Sending %s', msg_to_send)
+                # FIXME: we should probably increment the `secs` field
                 await self._sock.put(msg_to_send)
 
     async def _recv_forever(self) -> None:

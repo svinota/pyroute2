@@ -18,16 +18,14 @@ pytestmark = [require_root()]
 
 
 @pytest.mark.asyncio
-async def test_get_lease(
+async def test_get_lease_from_dnsmasq(
     dnsmasq: DnsmasqFixture,
     veth_pair: VethPair,
     tmpdir: str,
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ):
-    '''The client can get a lease and write it to a file.'''
+    '''The client can get a lease from dnsmasq and write it to a file.'''
     work_dir = Path(tmpdir)
-    caplog.set_level("DEBUG")
     # Patch JSONFileLease so leases get written to the temp dir
     # instead of whatever the working directory is
     monkeypatch.setattr(JSONFileLease, '_get_lease_dir', lambda: work_dir)
@@ -39,12 +37,19 @@ async def test_get_lease(
         await cli.wait_for_state(fsm.State.BOUND, timeout=10)
         assert cli.state == fsm.State.BOUND
         lease = cli.lease
+        assert lease
         assert lease.ack['xid'] == cli.xid
 
     # check the obtained lease
     assert lease.interface == veth_pair.client
     assert lease.ack['op'] == bootp.MessageType.BOOTREPLY
     assert lease.ack['options']['message_type'] == dhcp.MessageType.ACK
+    assert lease.ack['options']['lease_time'] == dnsmasq.config.lease_time
+    assert lease.ack['options']['renewal_time'] == dnsmasq.config.lease_time / 2
+    assert lease.expiration_in > lease.rebinding_in > lease.renewal_in > 0
+    assert lease.expired is False
+    assert lease.server_id == str(dnsmasq.config.range.router)
+    assert lease.routers == [str(dnsmasq.config.range.router)]
     assert (
         dnsmasq.config.range.start
         <= IPv4Address(lease.ip)
@@ -62,34 +67,7 @@ async def test_get_lease(
 
 
 @pytest.mark.asyncio
-async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
-    '''The commandline client can get a lease, print it to stdout and exit.'''
-    process = await asyncio.create_subprocess_exec(
-        'pyroute2-dhcp-client',
-        veth_pair.client,
-        '--lease-type',
-        'pyroute2.dhcp.leases.JSONStdoutLease',
-        '--exit-on-lease',
-        '--log-level=DEBUG',
-        stdout=asyncio.subprocess.PIPE,
-    )
-    try:
-        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5)
-    except TimeoutError:
-        raise AssertionError(f'Timed out. dnsmasq output: {dnsmasq.stderr}')
-    assert process.returncode == 0
-    assert stdout
-    json_lease = json.loads(stdout)
-    assert json_lease['interface'] == veth_pair.client
-    assert (
-        dnsmasq.config.range.start
-        <= IPv4Address(json_lease['ack']['yiaddr'])
-        <= dnsmasq.config.range.end
-    )
-
-
-@pytest.mark.asyncio
-async def test_client_lifecycle(udhcpd: UdhcpdFixture, veth_pair: VethPair):
+async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     '''Test getting a lease, expiring & getting a lease again.'''
     cfg = ClientConfig(interface=veth_pair.client, lease_type=JSONStdoutLease)
     async with AsyncDHCPClient(cfg) as cli:
@@ -123,6 +101,13 @@ async def test_client_lifecycle(udhcpd: UdhcpdFixture, veth_pair: VethPair):
         <= IPv4Address(lease.ip)
         <= udhcpd.config.range.end
     )
+    # check the lease
+    assert lease.server_id == str(udhcpd.config.range.router)
     assert lease.routers == [str(udhcpd.config.range.router)]
     assert lease.interface == veth_pair.client
     assert lease.ack["options"]["lease_time"] == udhcpd.config.lease_time
+    # Check udhcpd output matches our expectations
+    assert udhcpd.stderr[-4:] == [
+        f'udhcpd: sending OFFER to {lease.ip}',
+        f'udhcpd: sending ACK to {lease.ip}',
+    ] * 2
