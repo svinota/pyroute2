@@ -8,6 +8,7 @@ import warnings
 from functools import partial
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 
+from pyroute2 import netns
 from pyroute2.common import AF_MPLS, basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_ERROR
@@ -2707,6 +2708,10 @@ class NetNS(IPRoute):
         super().__init__(
             target=target, netns=netns, flags=flags, libc=libc, groups=groups
         )
+
+    def remove(self):
+        self.close()
+        netns.remove(self.status['netns'])
 
 
 class ChaoticIPRoute(RTNL_API, ChaoticIPRSocket):
