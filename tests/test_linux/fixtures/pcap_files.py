@@ -72,6 +72,8 @@ class PcapFile(UserList):
 def pcap(request: pytest.FixtureRequest) -> PcapFile:
     '''Fixture that loads a pcap file named after the test.'''
     pcap_path = request.path.parent.joinpath(
-        'captures', request.node.name
+        'captures',
+        request.path.stem,  # test file name without the extension
+        request.node.name,  # name of the test
     ).with_suffix('.pcap')
     return PcapFile(pcap_path)

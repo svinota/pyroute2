@@ -54,6 +54,7 @@ def discover(parameter_list: Parameters) -> SentDHCPMessage:
         dhcp=dhcp4msg(
             {
                 'op': enums.bootp.MessageType.BOOTREQUEST,
+                'flags': enums.bootp.Flag.BROADCAST,
                 'options': {
                     'message_type': enums.dhcp.MessageType.DISCOVER,
                     'parameter_list': list(parameter_list),

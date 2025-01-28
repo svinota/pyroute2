@@ -67,7 +67,12 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         self.xid_pool = AddrPool(
             minaddr=16, release=1024
         )  # TODO : maybe it should be in the client and not here ?
-        self.aio_loop = asyncio.get_running_loop()
+        self._loop = asyncio.get_running_loop()
+
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        # We define this as a property because it's easier to patch in tests
+        return self._loop
 
     async def put(self, msg: SentDHCPMessage) -> SentDHCPMessage:
         '''
@@ -146,7 +151,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         )
 
         data = eth.encode().buf + ip4.encode().buf + udp.encode().buf + data
-        await self.aio_loop.sock_sendall(self, data)
+        await self.loop.sock_sendall(self, data)
         dhcp.reset()
         return msg
 
@@ -157,7 +162,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         only MAC/IPv4/UDP headers are stripped out, and the
         rest is interpreted as DHCP.
         '''
-        data = await self.aio_loop.sock_recv(self, 4096)
+        data = await self.loop.sock_recv(self, 4096)
         return self._decode_msg(data)
 
     @classmethod
