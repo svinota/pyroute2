@@ -80,18 +80,24 @@ SELinux state with `getenforce` command.
 
 '''
 
+import builtins
 import ctypes
 import ctypes.util
 import errno
 import io
+import json
 import os
 import os.path
 import pickle
+import socket
 import struct
+import subprocess
+import sys
 import traceback
 
 from pyroute2 import config
 from pyroute2.common import basestring
+from pyroute2.netns import create_socket_tool
 
 try:
     file = file
@@ -403,3 +409,48 @@ def dropns(libc=None):
         os.close(fd)
     except Exception:
         pass
+
+
+def create_socket(
+    netns=None,
+    family=socket.AF_INET,
+    socket_type=socket.SOCK_STREAM,
+    proto=0,
+    fileno=None,
+    flags=os.O_CREAT,
+):
+    if fileno is not None and netns is not None:
+        raise TypeError('you can not specify both fileno and netns')
+    if fileno is not None:
+        return socket.socket(fileno=fileno)
+    if netns is None:
+        return socket.socket(family, socket_type, proto)
+
+    ctrl_r, ctrl_w = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+    tool_path = create_socket_tool.__file__
+    module_path = os.sep.join(tool_path.split(os.sep)[:-3])
+    subprocess.Popen(
+        [
+            sys.executable,
+            tool_path,
+            netns,
+            str(ctrl_w.fileno()),
+            str(flags),
+            str(family),
+            str(socket_type),
+            str(proto),
+        ],
+        cwd=os.getcwd(),
+        env={'PYTHONPATH': module_path},
+        pass_fds=[ctrl_w.fileno()],
+    )
+    (data, fds, _, _) = socket.recv_fds(ctrl_r, 1024, 1)
+    payload = json.loads(data.decode('utf-8'))
+    if payload:
+        if set(payload.keys()) != set(('name', 'args')):
+            raise TypeError('error loading netns feedback')
+        error_class = getattr(builtins, payload['name'])
+        if not issubclass(error_class, Exception):
+            raise TypeError('error loading netns error')
+        raise error_class(*payload['args'])
+    return socket.socket(fileno=fds[0])
