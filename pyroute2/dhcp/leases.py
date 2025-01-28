@@ -8,6 +8,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import Optional
 
+from pyroute2.common import dqn2int
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 
 LOG = getLogger(__name__)
@@ -93,22 +94,49 @@ class Lease(abc.ABC):
         return self.ack['yiaddr']
 
     @property
-    def subnet_mask(self) -> str:
+    def subnet_mask(self) -> Optional[int]:
         '''The subnet mask assigned to the client.'''
-        return self.ack['options']['subnet_mask']
+        mask = self.ack['options'].get('subnet_mask')
+        if mask is None:
+            return None
+        if isinstance(mask, int) or mask.isdigit():
+            return int(mask)
+        return dqn2int(mask)
 
     @property
-    def routers(self) -> str:
-        return self.ack['options']['router']
+    def routers(self) -> list[str]:
+        return self.ack['options'].get('router', [])
 
     @property
     def name_servers(self) -> str:  # XXX: list ?
         return self.ack['options']['name_server']
 
     @property
-    def server_id(self) -> str:
+    def default_gateway(self) -> Optional[str]:
+        '''The default gateway for this interface.
+
+        As mentioned by the RFC, the first router is the most prioritary.
+        '''
+        return self.routers[0] if self.routers else None
+
+    @property
+    def broadcast_address(self) -> Optional[str]:
+        '''The broadcast address for this network.'''
+        return self.ack['options'].get('broadcast_address')
+
+    @property
+    def mtu(self) -> Optional[int]:
+        '''The MTU for this interface.'''
+        return self.ack['options'].get('interface_mtu')
+
+    @property
+    def name_servers(self) -> Optional[str]:  # XXX: list ?
+        return self.ack['options'].get('name_server')
+
+    @property
+    def server_id(self) -> Optional[str]:
         '''The IP address of the server which allocated this lease.'''
-        return self.ack['options']['server_id']
+        return self.ack['options'].get('server_id')
 
     @abc.abstractmethod
     def dump(self) -> None:

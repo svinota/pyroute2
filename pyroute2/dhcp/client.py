@@ -228,7 +228,7 @@ class AsyncDHCPClient:
         LOG.info('Lease expired')
         self.lease_timers._reset_timer('expiration')
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
-        for i in self.config.hooks:
+        for i in reversed(self.config.hooks):
             await i.unbound(self.lease)
         await self.reset()
 
@@ -427,7 +427,7 @@ class AsyncDHCPClient:
         self.lease_timers.cancel()
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
         if self.lease:
-            for i in self.config.hooks:
+            for i in reversed(self.config.hooks):
                 await i.unbound(self.lease)
             if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
