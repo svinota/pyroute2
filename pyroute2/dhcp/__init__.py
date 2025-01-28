@@ -105,18 +105,7 @@ from array import array
 from pyroute2.common import basestring
 from pyroute2.protocols import msg
 
-BOOTREQUEST = 1
-BOOTREPLY = 2
-
-DHCPDISCOVER = 1
-DHCPOFFER = 2
-DHCPREQUEST = 3
-DHCPDECLINE = 4
-DHCPACK = 5
-DHCPNAK = 6
-DHCPRELEASE = 7
-DHCPINFORM = 8
-
+from .enums.dhcp import MessageType, Option
 
 if not hasattr(array, 'tobytes'):
     # Python2 and Python3 versions of array differ,
@@ -194,7 +183,7 @@ class option(msg):
                 isinstance(value, basestring)
                 and self.policy['format'] == 'string'
             ):
-                value = value[: value.find(b'\x00')]
+                value = value.lstrip(b"\x00")
             self.value = value
         else:
             # remember current offset as msg.decode() will advance it
@@ -216,8 +205,8 @@ class dhcpmsg(msg):
     _decode_map = {}
 
     def _register_options(self):
-        for option in self.options:
-            code, name, fmt = option[:3]
+        for code, fmt in self.options:
+            name = code.name.lower()
             self._decode_map[code] = self._encode_map[name] = {
                 'name': name,
                 'code': code,
@@ -232,10 +221,10 @@ class dhcpmsg(msg):
             code = struct.unpack('B', self.buf[self.offset : self.offset + 1])[
                 0
             ]
-            if code == 0:
+            if code == Option.PAD:
                 self.offset += 1
                 continue
-            if code == 255:
+            if code == Option.END:
                 return self
             # code is unknown -- bypass it
             if code not in self._decode_map:
@@ -262,19 +251,25 @@ class dhcpmsg(msg):
         self._register_options()
         # put message type
         options = self.get('options') or {
-            'message_type': DHCPDISCOVER,
-            'parameter_list': [1, 3, 6, 12, 15, 28],
+            'message_type': MessageType.DISCOVER,
+            'parameter_list': [1, 3, 6, 12, 15, 28],  # FIXME
         }
 
         self.buf += (
-            self.uint8(code=53, value=options['message_type']).encode().buf
-        )
-        self.buf += (
-            self.client_id({'type': 1, 'key': self['chaddr']}, code=61)
+            self.uint8(code=Option.MESSAGE_TYPE, value=options['message_type'])
             .encode()
             .buf
         )
-        self.buf += self.string(code=60, value='pyroute2').encode().buf
+        self.buf += (
+            self.client_id(
+                {'type': 1, 'key': self['chaddr']}, code=Option.CLIENT_ID
+            )
+            .encode()
+            .buf
+        )
+        self.buf += (
+            self.string(code=Option.VENDOR_ID, value='pyroute2').encode().buf
+        )
 
         for name, value in options.items():
             if name in ('message_type', 'client_id', 'vendor_id'):
@@ -294,7 +289,7 @@ class dhcpmsg(msg):
                 )
             self.buf += option.encode().buf
 
-        self.buf += self.none(code=255).encode().buf
+        self.buf += self.none(code=Option.END).encode().buf
         return self
 
     class none(option):
@@ -321,3 +316,6 @@ class dhcpmsg(msg):
 
     class client_id(option):
         fields = (('type', 'uint8'), ('key', 'l2addr'))
+
+    class message_type(option):
+        policy = {'format': 'B', 'decode': MessageType}
