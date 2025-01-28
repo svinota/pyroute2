@@ -29,8 +29,9 @@ class Hook:
 
 class ConfigureIP(Hook):
     async def bound(self, lease: Lease):
-        LOG.info('Adding %s/%s to %s', lease.ip,
-                 lease.subnet_mask, lease.interface)
+        LOG.info(
+            'Adding %s/%s to %s', lease.ip, lease.subnet_mask, lease.interface
+        )
         if not lease.subnet_mask:
             raise DHCPOptionMissingError(Option.SUBNET_MASK)
         async with AsyncIPRoute() as ipr:
@@ -39,19 +40,23 @@ class ConfigureIP(Hook):
                 index=await ipr.link_lookup(ifname=lease.interface),
                 address=lease.ip,
                 mask=lease.subnet_mask,
-                broadcast=lease.broadcast_address
+                broadcast=lease.broadcast_address,
             )
 
     async def unbound(self, lease: Lease):
-        LOG.info('Removing %s/%s from %s', lease.ip,
-                 lease.subnet_mask, lease.interface)
+        LOG.info(
+            'Removing %s/%s from %s',
+            lease.ip,
+            lease.subnet_mask,
+            lease.interface,
+        )
         async with AsyncIPRoute() as ipr:
             await ipr.addr(
                 'del',
                 index=await ipr.link_lookup(ifname=lease.interface),
                 address=lease.ip,
                 mask=lease.subnet_mask,
-                broadcast=lease.broadcast_address
+                broadcast=lease.broadcast_address,
             )
 
 
@@ -60,15 +65,18 @@ class ConfigureDefaultRoute(Hook):
         if lease.default_gateway is None:
             LOG.error('Lease does not set the router option')
             return
-        LOG.info('Adding %s as default route through %s',
-                 lease.default_gateway, lease.interface)
+        LOG.info(
+            'Adding %s as default route through %s',
+            lease.default_gateway,
+            lease.interface,
+        )
         async with AsyncIPRoute() as ipr:
-            ifindex = await ipr.link_lookup(ifname=lease.interface),
+            ifindex = (await ipr.link_lookup(ifname=lease.interface),)
             await ipr.route(
                 'replace',
                 dst='0.0.0.0/0',
                 gateway=lease.default_gateway,
-                oif=ifindex
+                oif=ifindex,
             )
 
     async def unbound(self, lease: Lease):
@@ -83,9 +91,11 @@ class ConfigureDefaultRoute(Hook):
                     'del',
                     dst='0.0.0.0/0',
                     gateway=lease.default_gateway,
-                    oif=ifindex
+                    oif=ifindex,
                 )
             except NetlinkError as err:
                 if err.code == errno.ESRCH:
-                    LOG.warning('Default route was already removed by another process')
+                    LOG.warning(
+                        'Default route was already removed by another process'
+                    )
                 LOG.error('Got a netlink error: %s', err)

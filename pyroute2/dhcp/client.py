@@ -60,6 +60,12 @@ class ClientConfig:
             fsm.State.REQUESTING: 30,
         }
     )
+    # FIXME: we send too many retries according to the RFC
+    # In both RENEWING and REBINDING states, if the client receives no
+    # response to its DHCPREQUEST message, the client SHOULD wait one-half
+    # of the remaining time until T2 (in RENEWING state) and one-half of
+    # the remaining lease time (in REBINDING state), down to a minimum of
+    # 60 seconds, before retransmitting the DHCPREQUEST message.
     retransmission: Retransmission = randomized_increasing_backoff
 
 
@@ -188,7 +194,7 @@ class AsyncDHCPClient:
         self._state = value
         self.last_state_change = time()
         self._states[value].set()
-        if state_timeout := self.config.timeouts.get(value):
+        if value and (state_timeout := self.config.timeouts.get(value)):
             self._state_watchdog = asyncio.Task(
                 self.reset(delay=state_timeout)
             )
@@ -352,6 +358,11 @@ class AsyncDHCPClient:
 
         Stores the lease and puts the client in the BOUND state.
         '''
+        # FIXME: according to the RFC:
+        # When the client receives a DHCPACK from the server, the client
+        # computes the lease expiration time as the sum of the time at which
+        # the client sent the DHCPREQUEST message and the duration of the lease
+        # in the DHCPACK message.
         self.lease = self.config.lease_type(
             ack=msg.dhcp,
             interface=self.config.interface,
@@ -376,7 +387,7 @@ class AsyncDHCPClient:
 
         Resets the client and starts looking for a new IP.
         '''
-        await self._reset()
+        await self.reset()
 
     @fsm.state_guard(fsm.State.SELECTING)
     async def offer_received(self, msg: messages.ReceivedDHCPMessage):

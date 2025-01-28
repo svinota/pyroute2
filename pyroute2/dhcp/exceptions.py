@@ -5,6 +5,7 @@ class DHCPError(Exception):
     '''
     Base dhcp error
     '''
+
     pass
 
 

@@ -133,7 +133,9 @@ def request_for_lease(
             return SentDHCPMessage(
                 dhcp=dhcp_msg,
                 eth_dst=lease.server_mac,
-                ip_dst=lease.server_id,
+                # default ip_dst to broadcast, it should not be necessary
+                # but it'll avoid a crash if the server_id is missing
+                ip_dst=lease.server_id or '255.255.255.255',
                 ip_src=lease.ip,
             )
     # Reboot or rebind, broadcast the request
@@ -158,6 +160,8 @@ def release(lease: Lease) -> SentDHCPMessage:
         ),
         # RELEASEs are unicast (see rfc section 4.4.4)
         eth_dst=lease.server_mac,
-        ip_dst=lease.server_id,
+        # default ip_dst to broadcast, it should not be necessary
+        # but it'll avoid a crash if the server_id is missing
+        ip_dst=lease.server_id or '255.255.255.255',
         ip_src=lease.ip,
     )

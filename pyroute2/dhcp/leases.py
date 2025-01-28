@@ -108,10 +108,6 @@ class Lease(abc.ABC):
         return self.ack['options'].get('router', [])
 
     @property
-    def name_servers(self) -> str:  # XXX: list ?
-        return self.ack['options']['name_server']
-
-    @property
     def default_gateway(self) -> Optional[str]:
         '''The default gateway for this interface.
 
