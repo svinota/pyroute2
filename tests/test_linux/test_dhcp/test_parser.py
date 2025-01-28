@@ -23,7 +23,7 @@ def test_decode_simple_lease_process(pcap: PcapFile):
     assert discover.dhcp['options']['parameter_list'] == [
         dhcp.Parameter.SUBNET_MASK,
         dhcp.Parameter.ROUTER,
-        dhcp.Parameter.DOMAIN_NAME_SERVER,
+        dhcp.Parameter.NAME_SERVER,
         dhcp.Parameter.DOMAIN_NAME,
     ]
     assert discover.dhcp['xid'] == 0x22334455
@@ -71,19 +71,19 @@ def test_android_reboot_request(pcap: PcapFile):
         'max_msg_size': 1500,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
-            dhcp.Option.SUBNET_MASK,
-            dhcp.Option.ROUTER,
-            dhcp.Option.NAME_SERVER,
-            dhcp.Option.DOMAIN_NAME,
-            26,  # FIXME wait for Brian's branch
-            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Parameter.SUBNET_MASK,
+            dhcp.Parameter.ROUTER,
+            dhcp.Parameter.NAME_SERVER,
+            dhcp.Parameter.DOMAIN_NAME,
+            dhcp.Parameter.INTERFACE_MTU,
+            dhcp.Parameter.BROADCAST_ADDRESS,
             # TODO: we should ask for these three too
-            dhcp.Option.LEASE_TIME,
-            dhcp.Option.RENEWAL_TIME,
-            dhcp.Option.REBINDING_TIME,
-            dhcp.Option.VENDOR_SPECIFIC_INFORMATION,
-            114,  # TODO dhcp captive portal
-            108,  # TODO ipv6 only preferred
+            dhcp.Parameter.LEASE_TIME,
+            dhcp.Parameter.RENEWAL_TIME,
+            dhcp.Parameter.REBINDING_TIME,
+            dhcp.Parameter.VENDOR_SPECIFIC_INFORMATION,
+            dhcp.Parameter.DHCP_CAPTIVE_PORTAL,
+            dhcp.Parameter.IPV6_ONLY_PREFERRED,
         ],
         'requested_ip': '192.168.94.191',
         'vendor_id': b'android-dhcp-13',
@@ -107,12 +107,12 @@ def test_wii_discover(pcap: PcapFile):
         'host_name': b'Wii',
         'message_type': dhcp.MessageType.DISCOVER,
         'parameter_list': [
-            dhcp.Option.SUBNET_MASK,
-            dhcp.Option.ROUTER,
-            dhcp.Option.NAME_SERVER,
-            dhcp.Option.DOMAIN_NAME,
-            dhcp.Option.BROADCAST_ADDRESS,
-            dhcp.Option.STATIC_ROUTE,
+            dhcp.Parameter.SUBNET_MASK,
+            dhcp.Parameter.ROUTER,
+            dhcp.Parameter.NAME_SERVER,
+            dhcp.Parameter.DOMAIN_NAME,
+            dhcp.Parameter.BROADCAST_ADDRESS,
+            dhcp.Parameter.STATIC_ROUTE,
         ],
         'requested_ip': '192.168.94.147',
     }

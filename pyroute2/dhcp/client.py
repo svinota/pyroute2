@@ -4,15 +4,7 @@ from dataclasses import dataclass, field
 from logging import getLogger
 from math import floor
 from time import time
-from typing import (
-    Callable,
-    ClassVar,
-    DefaultDict,
-    Iterable,
-    Iterator,
-    Optional,
-    Union,
-)
+from typing import Callable, DefaultDict, Iterable, Iterator, Optional, Union
 
 from pyroute2.dhcp import fsm, messages
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
@@ -49,8 +41,11 @@ class ClientConfig:
     requested_parameters: Iterable[dhcp.Parameter] = (
         dhcp.Parameter.SUBNET_MASK,
         dhcp.Parameter.ROUTER,
-        dhcp.Parameter.DOMAIN_NAME_SERVER,
+        dhcp.Parameter.NAME_SERVER,
         dhcp.Parameter.DOMAIN_NAME,
+        dhcp.Parameter.LEASE_TIME,
+        dhcp.Parameter.RENEWAL_TIME,
+        dhcp.Parameter.REBINDING_TIME,
     )
     timeouts: dict[fsm.State, int] = field(
         default_factory=lambda: {
@@ -71,13 +66,6 @@ class ClientConfig:
 
 class AsyncDHCPClient:
     '''A simple async DHCP client based on pyroute2.'''
-
-    DEFAULT_PARAMETERS: ClassVar[tuple[dhcp.Parameter, ...]] = (
-        dhcp.Parameter.SUBNET_MASK,
-        dhcp.Parameter.ROUTER,
-        dhcp.Parameter.DOMAIN_NAME_SERVER,
-        dhcp.Parameter.DOMAIN_NAME,
-    )
 
     def __init__(self, config: ClientConfig):
         self.config = config

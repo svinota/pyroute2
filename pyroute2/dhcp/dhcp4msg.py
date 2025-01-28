@@ -34,7 +34,6 @@ class dhcp4msg(dhcpmsg):
         (Option.TIME_OFFSET, 'be32'),
         (Option.ROUTER, 'ip4list'),
         (Option.TIME_SERVER, 'ip4list'),
-        (Option.IEN_NAME_SERVER, 'ip4list'),
         (Option.NAME_SERVER, 'ip4list'),
         (Option.LOG_SERVER, 'ip4list'),
         (Option.COOKIE_SERVER, 'ip4list'),

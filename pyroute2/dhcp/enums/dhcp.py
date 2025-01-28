@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import EnumType, IntEnum
 
 
 class MessageType(IntEnum):
@@ -12,130 +12,148 @@ class MessageType(IntEnum):
     INFORM = 8
 
 
-class Option(IntEnum):
-    # FIXME these values are actually the same as Parameter below,
-    # we should merge these classes
-    PAD = 0
+class Parameter(IntEnum):
+    '''Parameters that can be requested from DHCP servers.'''
+
+    # these are ordered & grouped 10 by 10 for readability,
+    # the grouping has no other meaning
+
     SUBNET_MASK = 1
     TIME_OFFSET = 2
     ROUTER = 3
     TIME_SERVER = 4
-    IEN_NAME_SERVER = 5
-    NAME_SERVER = 6
+    IEN_NAME_SERVER = 5  # prehistoric DNS
+    # this should be DOMAIN_NAME_SERVER but it's often used & shorted this way
+    NAME_SERVER = 6  # plain old DNS
     LOG_SERVER = 7
     COOKIE_SERVER = 8
     LPR_SERVER = 9
+    IMPRESS_SERVER = 10
+
+    RESOURCE_LOCATION_SERVER = 11
     HOST_NAME = 12
+    BOOT_FILE_SIZE = 13
+    MERIT_DUMP_FILE = 14
     DOMAIN_NAME = 15
+    SWAP_SERVER = 16
+    ROOT_PATH = 17
+    EXTENSIONS_PATH = 18
+    IP_FORWARDING = 19
+    NON_LOCAL_SOURCE_ROUTING = 20
+
+    POLICY_FILTER = 21
+    MAX_DATAGRAM_REASSEMBLY = 22
+    DEFAULT_TTL = 23
+    PATH_MTU_AGING_TIMEOUT = 24
+    PATH_MTU_PLATEAU_TABLE = 25
     INTERFACE_MTU = 26
+    ALL_SUBNETS_LOCAL = 27
     BROADCAST_ADDRESS = 28
+    PERFORM_MASK_DISCOVERY = 29
+    MASK_SUPPLIER = 30
+
+    PERFORM_ROUTER_DISCOVERY = 31
+    ROUTER_SOLICITATION_ADDRESS = 32
     STATIC_ROUTE = 33
+    TRAILER_ENCAPSULATION = 34
+    ARP_CACHE_TIMEOUT = 35
+    ETHERNET_ENCAPSULATION = 36
+    TCP_DEFAULT_TTL = 37
+    TCP_KEEPALIVE_INTERVAL = 38
+    TCP_KEEPALIVE_GARBAGE = 39
+    NIS_DOMAIN = 40
+
+    NIS_SERVERS = 41
+    NTP_SERVERS = 42
     VENDOR_SPECIFIC_INFORMATION = 43
+    NETBIOS_NAME_SERVER = 44
+    NETBIOS_DDG_SERVER = 45
+    NETBIOS_NODE_TYPE = 46
+    NETBIOS_SCOPE = 47
+    X_WINDOW_FONT_SERVER = 48
+    X_WINDOW_DISPLAY_MANAGER = 49
     REQUESTED_IP = 50
+
     LEASE_TIME = 51
+    OPTION_OVERLOAD = 52
     MESSAGE_TYPE = 53
     SERVER_ID = 54
-    PARAMETER_LIST = 55
+    MESSAGE = 56
     MAX_MSG_SIZE = 57
     RENEWAL_TIME = 58
     REBINDING_TIME = 59
     VENDOR_ID = 60
+
     CLIENT_ID = 61
-    END = 255
+    NETWARE_IP_DOMAIN = 62
+    NETWARE_IP_OPTION = 63
+    NIS_PLUS_DOMAIN = 64
+    NIS_PLUS_SERVERS = 65
+    TFTP_SERVER_NAME = 66
+    BOOTFILE_NAME = 67
+    MOBILE_IP_HOME_AGENT = 68
+    SMTP_SERVER = 69
+    POP3_SERVER = 70
 
+    NNTP_SERVER = 71
+    DEFAULT_WWW_SERVER = 72
+    DEFAULT_FINGER_SERVER = 73
+    DEFAULT_IRC_SERVER = 74
+    STREETTALK_SERVER = 75
+    STDA_SERVER = 76
+    USER_CLASS_INFORMATION = 77
+    SLP_DIRECTORY_AGENT = 78
+    SLP_SERVICE_SCOPE = 79
+    RAPID_COMMIT = 80
 
-class Parameter(IntEnum):
-    SUBNET_MASK = 1  # Subnet Mask
-    TIME_OFFSET = 2  # Time Offset
-    ROUTER = 3  # Router
-    TIME_SERVER = 4  # Time Server
-    NAME_SERVER = 5  # Name Server
-    DOMAIN_NAME_SERVER = 6  # Domain Name Server (DNS)
-    LOG_SERVER = 7  # Log Server
-    COOKIE_SERVER = 8  # Cookie Server
-    LPR_SERVER = 9  # Line Printer Server
-    IMPRESS_SERVER = 10  # Impress Server
-    RESOURCE_LOCATION_SERVER = 11  # Resource Location Server
-    HOST_NAME = 12  # Host Name
-    BOOT_FILE_SIZE = 13  # Boot File Size
-    MERIT_DUMP_FILE = 14  # Merit Dump File
-    DOMAIN_NAME = 15  # Domain Name
-    SWAP_SERVER = 16  # Swap Server
-    ROOT_PATH = 17  # Root Path
-    EXTENSIONS_PATH = 18  # Extensions Path
-    IP_FORWARDING = 19  # IP Forwarding Enable/Disable
-    NON_LOCAL_SOURCE_ROUTING = 20  # Non-Local Source Routing Enable/Disable
-    POLICY_FILTER = 21  # Policy Filter
-    MAX_DATAGRAM_REASSEMBLY = 22  # Maximum Datagram Reassembly Size
-    DEFAULT_TTL = 23  # Default IP Time-to-Live
-    PATH_MTU_AGING_TIMEOUT = 24  # Path MTU Aging Timeout
-    PATH_MTU_PLATEAU_TABLE = 25  # Path MTU Plateau Table
-    INTERFACE_MTU = 26  # Interface MTU
-    ALL_SUBNETS_LOCAL = 27  # All Subnets Are Local
-    BROADCAST_ADDRESS = 28  # Broadcast Address
-    PERFORM_MASK_DISCOVERY = 29  # Perform Mask Discovery
-    MASK_SUPPLIER = 30  # Mask Supplier
-    PERFORM_ROUTER_DISCOVERY = 31  # Perform Router Discovery
-    ROUTER_SOLICITATION_ADDRESS = 32  # Router Solicitation Address
-    STATIC_ROUTE = 33  # Static Route
-    TRAILER_ENCAPSULATION = 34  # Trailer Encapsulation
-    ARP_CACHE_TIMEOUT = 35  # ARP Cache Timeout
-    ETHERNET_ENCAPSULATION = 36  # Ethernet Encapsulation
-    TCP_DEFAULT_TTL = 37  # TCP Default TTL
-    TCP_KEEPALIVE_INTERVAL = 38  # TCP Keepalive Interval
-    TCP_KEEPALIVE_GARBAGE = 39  # TCP Keepalive Garbage
-    NIS_DOMAIN = 40  # Network Information Service Domain
-    NIS_SERVERS = 41  # NIS Servers
-    NTP_SERVERS = 42  # NTP Servers
-    VENDOR_SPECIFIC_INFORMATION = 43  # Vendor Specific Information
-    NETBIOS_NAME_SERVER = 44  # NetBIOS over TCP/IP Name Server
-    NETBIOS_DDG_SERVER = 45  # NetBIOS Datagram Distribution Server
-    NETBIOS_NODE_TYPE = 46  # NetBIOS Node Type
-    NETBIOS_SCOPE = 47  # NetBIOS Scope
-    X_WINDOW_FONT_SERVER = 48  # X Window System Font Server
-    X_WINDOW_DISPLAY_MANAGER = 49  # X Window System Display Manager
-    REQUESTED_IP_ADDRESS = 50  # Requested IP Address
-    IP_ADDRESS_LEASE_TIME = 51  # IP Address Lease Time
-    OPTION_OVERLOAD = 52  # Option Overload
-    DHCP_MESSAGE_TYPE = 53  # DHCP Message Type
-    SERVER_IDENTIFIER = 54  # Server Identifier
-    PARAMETER_REQUEST_LIST = 55  # Parameter Request List
-    MESSAGE = 56  # Message
-    MAX_DHCP_MESSAGE_SIZE = 57  # Maximum DHCP Message Size
-    RENEWAL_TIME_VALUE = 58  # Renewal (T1) Time Value
-    REBINDING_TIME_VALUE = 59  # Rebinding (T2) Time Value
-    CLASS_IDENTIFIER = 60  # Vendor Class Identifier
-    CLIENT_IDENTIFIER = 61  # Client Identifier
-    NETWARE_IP_DOMAIN = 62  # NetWare/IP Domain Name
-    NETWARE_IP_OPTION = 63  # NetWare/IP Option
-    NIS_PLUS_DOMAIN = 64  # NIS+ Domain
-    NIS_PLUS_SERVERS = 65  # NIS+ Servers
-    TFTP_SERVER_NAME = 66  # TFTP Server Name
-    BOOTFILE_NAME = 67  # Bootfile Name
-    MOBILE_IP_HOME_AGENT = 68  # Mobile IP Home Agent
-    SMTP_SERVER = 69  # Simple Mail Transport Protocol Server
-    POP3_SERVER = 70  # Post Office Protocol v3 Server
-    NNTP_SERVER = 71  # Network News Transport Protocol Server
-    DEFAULT_WWW_SERVER = 72  # Default World Wide Web Server
-    DEFAULT_FINGER_SERVER = 73  # Default Finger Server
-    DEFAULT_IRC_SERVER = 74  # Default Internet Relay Chat Server
-    STREETTALK_SERVER = 75  # StreetTalk Server
-    STDA_SERVER = 76  # StreetTalk Directory Assistance Server
-    USER_CLASS_INFORMATION = 77  # User Class Information
-    SLP_DIRECTORY_AGENT = 78  # SLP Directory Agent
-    SLP_SERVICE_SCOPE = 79  # SLP Service Scope
-    RAPID_COMMIT = 80  # Rapid Commit
-    CLIENT_FQDN = 81  # Fully Qualified Domain Name
-    RELAY_AGENT_INFORMATION = 82  # Relay Agent Information
-    INTERNET_STORAGE_NAME_SERVICE = 83  # ISNS
-    NDS_SERVERS = 85  # Novell Directory Services Servers
-    NDS_TREE_NAME = 86  # Novell Directory Services Tree Name
-    NDS_CONTEXT = 87  # Novell Directory Services Context
-    BCMCS_CONTROLLER_DOMAIN = 88  # BCMCS Controller Domain Name List
-    AUTHENTICATION = 90
+    CLIENT_FQDN = 81
+    RELAY_AGENT_INFORMATION = 82
+    INTERNET_STORAGE_NAME_SERVICE = 83
+    NDS_SERVERS = 85
+    NDS_TREE_NAME = 86
+    NDS_CONTEXT = 87
+    BCMCS_CONTROLLER_DOMAIN = 88
+
     CLIENT_SYSTEM_ARCHITECTURE_TYPE = 93
     CLIENT_NETWORK_INTERFACE_IDENTIFIER = 94
-    CLASSLESS_STATIC_ROUTE = 121
+
+    IPV6_ONLY_PREFERRED = 108
+
+    DHCP_CAPTIVE_PORTAL = 114
     DOMAIN_SEARCH = 119
+
+    CLASSLESS_STATIC_ROUTE = 121
+
     PRIVATE_CLASSIC_ROUTE_MS = 249
+
     PRIVATE_PROXY_AUTODISCOVERY = 252
+
+
+class _LooseEnumType(EnumType):
+    '''Custom enum metaclass that allows subclassing.'''
+
+    @classmethod
+    def _check_for_existing_members_(mcls, class_name, bases):
+        '''The default Enum behavior is to forbid enum subclasses.
+
+        But since DHCP options & parameters share most of their values,
+        having separate enums would result in 200+ lines of duplicated
+        code without any advantage.
+
+        This method just overwrites the relevant check to allow subclassing.
+
+        TODO: if anyone has a better idea...
+        '''
+        pass
+
+
+class Option(Parameter, metaclass=_LooseEnumType):
+    '''Options sent by DHCP servers in response to requested parameters.
+
+    They have the same values as request parameters,
+    except or a few specific values that cannot be requested.
+    '''
+
+    PAD = 0
+    PARAMETER_LIST = 55
+    END = 255
