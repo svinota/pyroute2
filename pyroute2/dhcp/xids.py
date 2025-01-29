@@ -9,6 +9,7 @@ class Xid:
 
     We use the last nibble to store the state the message was sent in.
     '''
+
     def __init__(self, value: Optional[int] = None):
         if value is None:
             value = random.randint(0x00000010, 0xFFFFFFF0)
