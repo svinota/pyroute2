@@ -9,12 +9,15 @@ from pyroute2.dhcp.fsm import State
 
 @pytest.mark.asyncio
 async def test_get_and_renew_lease(
-    mock_dhcp_server: MockDHCPServerFixture, veth_pair: VethPair
+    mock_dhcp_server: MockDHCPServerFixture,
+    veth_pair: VethPair,
+    caplog: pytest.LogCaptureFixture,
 ):
     '''A lease is obtained with a 1s renewing time, the client renews it.
 
     The test pcap file contains the OFFER & the 2 ACKs.
     '''
+    caplog.set_level("DEBUG")
     # FIXME the test will probably break if we randomize xids (and we should)
     cfg = ClientConfig(interface=veth_pair.client)
     async with AsyncDHCPClient(cfg) as cli:
@@ -28,8 +31,10 @@ async def test_get_and_renew_lease(
         await cli.wait_for_state(State.RENEWING, timeout=2)
         await cli.wait_for_state(State.BOUND, timeout=1)
 
-    assert len(mock_dhcp_server.decoded_requests) == 3
-    discover, request, renew_request = mock_dhcp_server.decoded_requests
+    assert len(mock_dhcp_server.decoded_requests) == 4
+    discover, request, renew_request, release = (
+        mock_dhcp_server.decoded_requests
+    )
 
     # First, the client sends a discover:
     assert discover.message_type == dhcp.MessageType.DISCOVER
@@ -46,6 +51,7 @@ async def test_get_and_renew_lease(
     assert discover.dhcp['options']['parameter_list'] == list(
         cfg.requested_parameters
     )
+    assert discover.sport, release.dport == (68, 67)
 
     # The pcap contains an offer in response to the discover.
     # The client sends a request for that offer:
@@ -64,6 +70,7 @@ async def test_get_and_renew_lease(
         'server_id': '192.168.186.1',
         'vendor_id': b'pyroute2',
     }
+    assert request.sport, release.dport == (68, 67)
 
     # the server sends an ACK and the client is bound.
 
@@ -82,3 +89,18 @@ async def test_get_and_renew_lease(
         'parameter_list': list(cfg.requested_parameters),
         'vendor_id': b'pyroute2',
     }
+    assert renew_request.sport, release.dport == (68, 67)
+
+    # since we stopped the client, it sends a RELEASE (unicast too)
+    assert release.message_type == dhcp.MessageType.RELEASE
+    assert release.dhcp['flags'] == bootp.Flag.UNICAST
+    assert release.eth_dst == '2e:7e:7d:8e:5f:5f'
+    assert renew_request.ip_dst == '192.168.186.1'
+    assert renew_request.ip_src == '192.168.186.73'
+    assert release.dhcp['options'] == {
+        'client_id': {'key': release.eth_src, 'type': 1},
+        'message_type': dhcp.MessageType.RELEASE,
+        'server_id': '192.168.186.1',
+        'vendor_id': b'pyroute2',
+    }
+    assert release.sport, release.dport == (68, 67)

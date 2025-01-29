@@ -249,7 +249,7 @@ class AsyncDHCPClient:
         interval: Union[int, float] = 1
 
         wait_til_stopped = asyncio.Task(self.wait_for_state(None))
-        while not wait_til_stopped.done():
+        while not (wait_til_stopped.done() and self._sendq.empty()):
 
             if interval_factory:
                 interval = next(interval_factory)
