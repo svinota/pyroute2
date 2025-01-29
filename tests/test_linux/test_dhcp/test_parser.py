@@ -27,7 +27,6 @@ def test_decode_simple_lease_process(pcap: PcapFile):
         dhcp.Parameter.DOMAIN_NAME,
     ]
     assert discover.dhcp['xid'] == 0x22334455
-
     assert offer.message_type == dhcp.MessageType.OFFER
     assert offer.dhcp['flags'] == bootp.Flag.BROADCAST
     assert offer.sport, offer.dport == (67, 68)
