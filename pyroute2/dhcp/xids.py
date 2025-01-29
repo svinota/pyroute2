@@ -23,7 +23,7 @@ class Xid:
         return self._value & 0xFFFFFFF0
 
     @property
-    def request_state(self) -> State | None:
+    def request_state(self) -> Optional[State]:
         '''The state in which the request was sent.
 
         Since servers answer with the same transaction ID as the request,
