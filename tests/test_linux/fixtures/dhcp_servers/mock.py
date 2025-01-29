@@ -17,10 +17,15 @@ class MockDHCPServerFixture:
     The requests made by the client will be stored in `decoded_requests`.
     '''
 
-    def __init__(self, responses: list[bytes]):
+    def __init__(
+        self, event_loop: asyncio.AbstractEventLoop, responses: list[bytes]
+    ):
         self.responses: list[bytes] = responses
         self.requests: list[bytes] = []
         self.decoded_requests: list[SentDHCPMessage] = []
+        # save the event_loop fixture, 'cause pytest-asyncio on Python < 3.10
+        # drops the loop in the middle of the test
+        self.loop = event_loop
         self._request_received = asyncio.Event()
 
     async def sock_sendall(self, sock, data: bytes):
@@ -37,14 +42,16 @@ class MockDHCPServerFixture:
 
 @pytest.fixture
 def mock_dhcp_server(
-    pcap: PcapFile, monkeypatch: pytest.MonkeyPatch
+    event_loop: asyncio.AbstractEventLoop,
+    pcap: PcapFile,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> MockDHCPServerFixture:
     '''Monkey patches the client to respond to requests with pcap data.
 
     The `pcap` fixture is used which means the pcap file must be named
     after the test.
     '''
-    responder = MockDHCPServerFixture(responses=pcap)
+    responder = MockDHCPServerFixture(event_loop, responses=pcap)
     monkeypatch.setattr(
         'pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket.loop', responder
     )
