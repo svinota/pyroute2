@@ -294,6 +294,8 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             SOCK_DGRAM,
             self.spec['family'],
             self.spec['fileno'] or self.local.fileno,
+            self.spec['flags'],
+            self.libc,
         )
         sock.setsockopt(SOL_SOCKET, SO_SNDBUF, self.status['sndbuf'])
         sock.setsockopt(SOL_SOCKET, SO_RCVBUF, self.status['rcvbuf'])

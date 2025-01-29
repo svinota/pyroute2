@@ -91,8 +91,6 @@ import os.path
 import pickle
 import socket
 import struct
-import subprocess
-import sys
 import traceback
 
 from pyroute2 import config
@@ -323,7 +321,7 @@ def remove(netns, libc=None):
     os.unlink(netnspath)
 
 
-def setns(netns, flags=os.O_CREAT, libc=None):
+def setns(netns, flags=os.O_CREAT, libc=None, fork=True):
     '''
     Set netns for the current process.
 
@@ -352,7 +350,10 @@ def setns(netns, flags=os.O_CREAT, libc=None):
                 raise OSError(errno.EEXIST, 'netns exists', netns)
         else:
             if flags & os.O_CREAT:
-                create(netns, libc=libc)
+                if fork:
+                    create(netns, libc=libc)
+                else:
+                    _create(netns, libc=libc)
         nsfd = os.open(netnspath, os.O_RDONLY)
         newfd = True
     elif isinstance(netns, file):
@@ -418,6 +419,7 @@ def create_socket(
     proto=0,
     fileno=None,
     flags=os.O_CREAT,
+    libc=None,
 ):
     if fileno is not None and netns is not None:
         raise TypeError('you can not specify both fileno and netns')
@@ -427,24 +429,17 @@ def create_socket(
         return socket.socket(family, socket_type, proto)
 
     ctrl_r, ctrl_w = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
-    tool_path = create_socket_tool.__file__
-    module_path = os.sep.join(tool_path.split(os.sep)[:-3])
-    subprocess.Popen(
-        [
-            sys.executable,
-            tool_path,
-            netns,
-            str(ctrl_w.fileno()),
-            str(flags),
-            str(family),
-            str(socket_type),
-            str(proto),
-        ],
-        cwd=os.getcwd(),
-        env={'PYTHONPATH': module_path},
-        pass_fds=[ctrl_w.fileno()],
-    )
+    pid = os.fork()
+    if pid == 0:
+        # child
+        create_socket_tool.main(
+            netns, ctrl_w, flags, family, socket_type, proto, libc
+        )
+        os._exit(0)
     (data, fds, _, _) = socket.recv_fds(ctrl_r, 1024, 1)
+    ctrl_r.close()
+    ctrl_w.close()
+    os.waitpid(pid, 0)
     payload = json.loads(data.decode('utf-8'))
     if payload:
         if set(payload.keys()) != set(('name', 'args')):

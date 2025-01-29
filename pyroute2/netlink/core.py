@@ -314,7 +314,11 @@ class AsyncCoreSocket:
         if sock is not None:
             sock.close()
         sock = netns.create_socket(
-            self.spec['netns'], socket.AF_INET, socket.SOCK_STREAM
+            self.spec['netns'],
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            flags=self.spec['flags'],
+            libc=self.libc,
         )
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return sock
