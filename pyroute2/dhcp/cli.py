@@ -63,10 +63,9 @@ async def main():
     psr = get_psr()
     args = psr.parse_args()
     logging.basicConfig(
-        level=args.log_level,
-        format='%(asctime)s %(levelname)s [%(name)s:%(funcName)s] %(message)s',
+        format='%(asctime)s %(levelname)s [%(name)s:%(funcName)s] %(message)s'
     )
-
+    logging.getLogger('pyroute2.dhcp').setLevel(args.log_level)
     if not issubclass(args.lease_type, Lease):
         psr.error(f'{args.lease_type!r} must be a Lease subclass')
 
@@ -91,7 +90,7 @@ async def main():
             await acli.wait_for_state(State.BOUND)
         else:
             # Wait until the client is stopped otherwise
-            await acli.wait_for_state(None)
+            await acli.wait_for_state(State.OFF)
 
 
 def run():

@@ -1,10 +1,8 @@
 '''DHCP client state machine helpers.'''
 
-from enum import auto
+from enum import IntEnum, auto
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
-
-from pyroute2.compat import StrEnum
 
 if TYPE_CHECKING:
     from .client import AsyncDHCPClient
@@ -13,13 +11,14 @@ if TYPE_CHECKING:
 LOG = getLogger(__name__)
 
 
-class State(StrEnum):
+class State(IntEnum):
     '''DHCP client states.
 
     see
     http://www.tcpipguide.com/free/t_DHCPGeneralOperationandClientFiniteStateMachine.htm
     '''
 
+    OFF = 0
     INIT = auto()
     INIT_REBOOT = auto()
     REBOOTING = auto()

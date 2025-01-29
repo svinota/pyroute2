@@ -8,7 +8,6 @@ import asyncio
 import logging
 import socket
 
-from pyroute2.common import AddrPool
 from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.messages import ReceivedDHCPMessage, SentDHCPMessage
@@ -50,23 +49,11 @@ class AsyncDHCP4Socket(AsyncRawSocket):
     to get only its UDP port. It can be used in poll/select and
     provides also the context manager protocol, so can be used in
     `with` statements.
-
-    It does not provide any DHCP state machine, and does not inspect
-    DHCP packets, it is totally up to you. No default values are
-    provided here, except `xid` -- DHCP transaction ID. If `xid` is
-    not provided, DHCP4Socket generates it for outgoing messages.
     '''
 
     def __init__(self, ifname, port: int = 68):
         AsyncRawSocket.__init__(self, ifname, listen_udp_port(port))
         self.port = port
-        # Create xid pool
-        #
-        # Every allocated xid will be released automatically after 1024
-        # alloc() calls, there is no need to call free(). Minimal xid == 16
-        self.xid_pool = AddrPool(
-            minaddr=16, release=1024
-        )  # TODO : maybe it should be in the client and not here ?
         self._loop = asyncio.get_running_loop()
 
     @property
@@ -102,10 +89,6 @@ class AsyncDHCP4Socket(AsyncRawSocket):
 
         # DHCP layer
         dhcp = msg.dhcp
-
-        # dhcp transaction id
-        if dhcp['xid'] is None:
-            dhcp['xid'] = self.xid_pool.alloc()
 
         # auto add src addr
         if dhcp['chaddr'] is None:

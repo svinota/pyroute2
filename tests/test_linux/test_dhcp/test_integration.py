@@ -28,7 +28,6 @@ async def test_get_lease_from_dnsmasq(
     # Patch JSONFileLease so leases get written to the temp dir
     # instead of whatever the working directory is
     monkeypatch.setattr(JSONFileLease, '_get_lease_dir', lambda: work_dir)
-
     # boot up the dhcp client and wait for a lease
     cfg = ClientConfig(interface=veth_pair.client)
     async with AsyncDHCPClient(cfg) as cli:
@@ -36,8 +35,11 @@ async def test_get_lease_from_dnsmasq(
         await cli.wait_for_state(fsm.State.BOUND, timeout=10)
         assert cli.state == fsm.State.BOUND
         lease = cli.lease
+        xid = cli.xid
         assert lease
-        assert lease.ack['xid'] == cli.xid
+        assert xid
+
+    assert lease.ack['xid'] == xid.for_state(fsm.State.REQUESTING)
 
     # check the obtained lease
     assert lease.interface == veth_pair.client
@@ -94,7 +96,12 @@ async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
 
         # Stop here, that's enough
         lease = cli.lease
-        assert lease.ack['xid'] == cli.xid
+        xid = cli.xid
+        assert lease
+        assert xid
+
+    # The ACK corresponds to a request that was made in the REQUESTING state
+    assert lease.ack['xid'] == xid.for_state(fsm.State.REQUESTING)
 
     # The obtained IP must be in the range
     assert (

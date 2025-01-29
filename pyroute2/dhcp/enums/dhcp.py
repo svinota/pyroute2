@@ -15,8 +15,6 @@ class MessageType(IntEnum):
 # Parameters that can be requested from DHCP servers.
 
 _PARAMETERS = dict(
-    # these are ordered & grouped 10 by 10 for readability,
-    # the grouping has no other meaning
     SUBNET_MASK=1,
     TIME_OFFSET=2,
     ROUTER=3,

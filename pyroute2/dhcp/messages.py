@@ -7,6 +7,7 @@ from pyroute2.dhcp import enums
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.leases import Lease
+from pyroute2.dhcp.xids import Xid
 
 Parameters = Iterable[enums.dhcp.Parameter]
 
@@ -27,6 +28,10 @@ class _DHCPMessage:
     def message_type(self) -> enums.dhcp.MessageType:
         '''The DHCP message type (DISCOVER, REQUEST, ACK...)'''
         return self.dhcp['options']['message_type']
+
+    @property
+    def xid(self) -> Xid:
+        return Xid(self.dhcp['xid'])
 
 
 @dataclass
