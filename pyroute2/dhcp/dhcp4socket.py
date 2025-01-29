@@ -40,7 +40,7 @@ def listen_udp_port(port: int = 68) -> list[list[int]]:
     return bpf_code
 
 
-class AsyncDHCP4Socket(AsyncRawSocket):
+class AsyncDHCP4Socket:
     '''
     Parameters:
 
@@ -58,8 +58,8 @@ class AsyncDHCP4Socket(AsyncRawSocket):
     '''
 
     def __init__(self, ifname, port: int = 68):
-        AsyncRawSocket.__init__(self, ifname, listen_udp_port(port))
         self.port = port
+        self.socket = AsyncRawSocket(ifname, listen_udp_port(port))
         # Create xid pool
         #
         # Every allocated xid will be released automatically after 1024
@@ -68,6 +68,17 @@ class AsyncDHCP4Socket(AsyncRawSocket):
             minaddr=16, release=1024
         )  # TODO : maybe it should be in the client and not here ?
         self._loop = asyncio.get_running_loop()
+
+    async def __aenter__(self):
+        await self.socket.__aenter__()
+        return self
+
+    async def __aexit__(self, *_):
+        self.socket.close()
+
+    @property
+    def fileno(self):
+        return self.socket.fileno
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -98,7 +109,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
             )
 
         if not msg.eth_src:
-            msg.eth_src = self.l2addr
+            msg.eth_src = self.socket.l2addr
 
         # DHCP layer
         dhcp = msg.dhcp
@@ -130,7 +141,9 @@ class AsyncDHCP4Socket(AsyncRawSocket):
                 'len': UDP_HEADER_SIZE + dhcp_payload_size,
             }
         )
-        udp['csum'] = self.csum(udph.encode().buf + udp.encode().buf + data)
+        udp['csum'] = self.socket.csum(
+            udph.encode().buf + udp.encode().buf + data
+        )
         udp.reset()
 
         # IPv4 layer
@@ -142,7 +155,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
                 'src': msg.ip_src,
             }
         )
-        ip4['csum'] = self.csum(ip4.encode().buf)
+        ip4['csum'] = self.socket.csum(ip4.encode().buf)
         ip4.reset()
 
         # MAC layer
@@ -151,7 +164,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         )
 
         data = eth.encode().buf + ip4.encode().buf + udp.encode().buf + data
-        await self.loop.sock_sendall(self, data)
+        await self.loop.sock_sendall(self.socket, data)
         dhcp.reset()
         return msg
 
@@ -162,7 +175,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         only MAC/IPv4/UDP headers are stripped out, and the
         rest is interpreted as DHCP.
         '''
-        data = await self.loop.sock_recv(self, 4096)
+        data = await self.loop.sock_recv(self.socket, 4096)
         return self._decode_msg(data)
 
     @classmethod
