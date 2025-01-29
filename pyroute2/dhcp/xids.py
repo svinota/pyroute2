@@ -4,6 +4,15 @@ from typing import Optional
 from pyroute2.dhcp.fsm import State
 
 
+def random_xid_prefix() -> int:
+    '''A (max) 32 bit random int with its last nibble set to 0.
+
+    These last 4 bits are used by the client to store its state
+    when sending a DHCP message.
+    '''
+    return random.randint(0x00000010, 0xFFFFFFF0)
+
+
 class Xid:
     '''Transaction IDs used to identify responses to DHCP requests.
 
@@ -12,7 +21,7 @@ class Xid:
 
     def __init__(self, value: Optional[int] = None):
         if value is None:
-            value = random.randint(0x00000010, 0xFFFFFFF0)
+            value = random_xid_prefix()
         else:
             assert value < 0xFFFFFFFF  # we have 32 bits
         self._value = value

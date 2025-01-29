@@ -37,7 +37,6 @@ class ClientConfig:
     '''Avoids heaps of __init__ args & variables in the DHCP client.'''
 
     interface: str
-    xid: Optional[int] = None
     lease_type: type[Lease] = JSONFileLease
     hooks: Iterable[Hook] = ()
     requested_parameters: Iterable[dhcp.Parameter] = (
@@ -95,7 +94,7 @@ class AsyncDHCPClient:
         )
         # Used to compute lease times, taking into account the request time
         self.last_state_change: float = time()
-        self.xid: Xid = Xid(self.config.xid)
+        self.xid: Xid = Xid()
 
     # 'public api'
 
@@ -313,7 +312,9 @@ class AsyncDHCPClient:
                 LOG.info('Received %s', received_packet)
                 if not self.xid.matches(received_packet.xid):
                     LOG.error(
-                        'Incorrect xid %s, discarding', received_packet.xid
+                        'Incorrect xid %s (expected %sX), discarding',
+                        received_packet.xid,
+                        hex(self.xid.random_part)[:-1],
                     )
                 else:
                     handler_name = f'{msg_type.name.lower()}_received'

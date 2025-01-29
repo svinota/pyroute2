@@ -11,15 +11,17 @@ from pyroute2.dhcp.fsm import State
 async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
     veth_pair: VethPair,
-    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     '''A lease is obtained with a 1s renewing time, the client renews it.
 
     The test pcap file contains the OFFER & the 2 ACKs.
     '''
-    caplog.set_level("DEBUG")
-    # FIXME the test will probably break if we randomize xids (and we should)
-    cfg = ClientConfig(interface=veth_pair.client, xid=0x10)
+    # Make xids non random so they match the ones in the pcap
+    monkeypatch.setattr(
+        "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0x12345670
+    )
+    cfg = ClientConfig(interface=veth_pair.client)
     async with AsyncDHCPClient(cfg) as cli:
         await cli.bootstrap()
         await cli.wait_for_state(State.SELECTING, timeout=1)
