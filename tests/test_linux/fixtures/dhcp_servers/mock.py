@@ -1,9 +1,10 @@
 import asyncio
 
 import pytest
+from fixtures.pcap_files import PcapFile
+
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
 from pyroute2.dhcp.messages import SentDHCPMessage
-from fixtures.pcap_files import PcapFile
 
 
 class MockDHCPServerFixture:
@@ -15,6 +16,7 @@ class MockDHCPServerFixture:
 
     The requests made by the client will be stored in `decoded_requests`.
     '''
+
     def __init__(self, responses: list[bytes]):
         self.responses: list[bytes] = responses
         self.requests: list[bytes] = []
@@ -34,14 +36,16 @@ class MockDHCPServerFixture:
 
 
 @pytest.fixture
-def mock_dhcp_server(pcap: PcapFile,
-                     monkeypatch: pytest.MonkeyPatch,
-                     ) -> MockDHCPServerFixture:
+def mock_dhcp_server(
+    pcap: PcapFile, monkeypatch: pytest.MonkeyPatch
+) -> MockDHCPServerFixture:
     '''Monkey patches the client to respond to requests with pcap data.
 
     The `pcap` fixture is used which means the pcap file must be named
     after the test.
     '''
     responder = MockDHCPServerFixture(responses=pcap)
-    monkeypatch.setattr('pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket.loop', responder)
+    monkeypatch.setattr(
+        'pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket.loop', responder
+    )
     return responder

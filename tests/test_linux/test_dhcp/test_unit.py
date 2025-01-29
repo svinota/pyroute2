@@ -1,18 +1,16 @@
-
 import pytest
-from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
+from fixtures.dhcp_servers.mock import MockDHCPServerFixture
 from fixtures.interfaces import VethPair
+
+from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.fsm import State
-from fixtures.dhcp_servers.mock import MockDHCPServerFixture
-
-
 
 
 @pytest.mark.asyncio
-async def test_get_and_renew_lease(mock_dhcp_server: MockDHCPServerFixture,
-                                   veth_pair: VethPair,
-                                   ):
+async def test_get_and_renew_lease(
+    mock_dhcp_server: MockDHCPServerFixture, veth_pair: VethPair
+):
     '''A lease is obtained with a 1s renewing time, the client renews it.
 
     The test pcap file contains the OFFER & the 2 ACKs.
@@ -45,7 +43,9 @@ async def test_get_and_renew_lease(mock_dhcp_server: MockDHCPServerFixture,
     # all bootp ip addr fields are left blank
     assert all([discover.dhcp[f'{x}iaddr'] == '0.0.0.0' for x in 'cysg'])
     # the requested parameters match those in the client config
-    assert discover.dhcp['options']['parameter_list'] == list(cfg.requested_parameters)
+    assert discover.dhcp['options']['parameter_list'] == list(
+        cfg.requested_parameters
+    )
 
     # The pcap contains an offer in response to the discover.
     # The client sends a request for that offer:

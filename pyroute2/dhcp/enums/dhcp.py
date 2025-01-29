@@ -1,4 +1,6 @@
-from enum import EnumType, IntEnum
+from enum import IntEnum
+
+from pyroute2.compat import EnumType
 
 
 class MessageType(IntEnum):
@@ -145,6 +147,9 @@ class _LooseEnumType(EnumType):
         TODO: if anyone has a better idea...
         '''
         pass
+
+    # This was renamed at some point
+    _check_for_existing_members = _check_for_existing_members_
 
 
 class Option(Parameter, metaclass=_LooseEnumType):
