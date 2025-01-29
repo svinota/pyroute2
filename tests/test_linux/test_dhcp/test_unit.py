@@ -19,7 +19,7 @@ async def test_get_and_renew_lease(
     '''
     caplog.set_level("DEBUG")
     # FIXME the test will probably break if we randomize xids (and we should)
-    cfg = ClientConfig(interface=veth_pair.client)
+    cfg = ClientConfig(interface=veth_pair.client, xid=0x10)
     async with AsyncDHCPClient(cfg) as cli:
         await cli.bootstrap()
         await cli.wait_for_state(State.SELECTING, timeout=1)

@@ -37,6 +37,7 @@ class ClientConfig:
     '''Avoids heaps of __init__ args & variables in the DHCP client.'''
 
     interface: str
+    xid: Optional[int] = None
     lease_type: type[Lease] = JSONFileLease
     hooks: Iterable[Hook] = ()
     requested_parameters: Iterable[dhcp.Parameter] = (
@@ -94,7 +95,7 @@ class AsyncDHCPClient:
         )
         # Used to compute lease times, taking into account the request time
         self.last_state_change: float = time()
-        self.xid: Xid = Xid()
+        self.xid: Xid = Xid(self.config.xid)
 
     # 'public api'
 
