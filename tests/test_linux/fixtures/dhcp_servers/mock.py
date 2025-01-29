@@ -5,6 +5,7 @@ from fixtures.pcap_files import PcapFile
 
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
 from pyroute2.dhcp.messages import SentDHCPMessage
+from pyroute2.ext.rawsocket import AsyncMockSocket
 
 
 class MockDHCPServerFixture:
@@ -44,8 +45,10 @@ def mock_dhcp_server(
     The `pcap` fixture is used which means the pcap file must be named
     after the test.
     '''
-    responder = MockDHCPServerFixture(responses=pcap)
+    responder = AsyncMockSocket(
+        responses=pcap, decoder=AsyncDHCP4Socket._decode_msg
+    )
     monkeypatch.setattr(
-        'pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket.loop', responder
+        'pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket.socket', responder
     )
     return responder

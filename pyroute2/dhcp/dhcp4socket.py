@@ -8,11 +8,12 @@ import asyncio
 import logging
 import socket
 
+from pyroute2 import config
 from pyroute2.common import AddrPool
 from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.messages import ReceivedDHCPMessage, SentDHCPMessage
-from pyroute2.ext.rawsocket import AsyncRawSocket
+from pyroute2.ext.rawsocket import AsyncMockSocket, AsyncRawSocket
 from pyroute2.protocols import ethmsg, ip4msg, udp4_pseudo_header, udpmsg
 
 LOG = logging.getLogger(__name__)
@@ -56,10 +57,15 @@ class AsyncDHCP4Socket:
     provided here, except `xid` -- DHCP transaction ID. If `xid` is
     not provided, DHCP4Socket generates it for outgoing messages.
     '''
+    socket = None
 
     def __init__(self, ifname, port: int = 68):
         self.port = port
-        self.socket = AsyncRawSocket(ifname, listen_udp_port(port))
+        if self.socket is None:
+            if config.mock_raw:
+                self.socket = AsyncMockSocket(ifname, listen_udp_port(port))
+            else:
+                self.socket = AsyncRawSocket(ifname, listen_udp_port(port))
         # Create xid pool
         #
         # Every allocated xid will be released automatically after 1024
