@@ -4,9 +4,9 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from importlib import import_module
 from typing import Any
 
+from pyroute2.dhcp import hooks
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.fsm import State
-from pyroute2.dhcp.hooks import ConfigureIP, Hook
 from pyroute2.dhcp.leases import Lease
 
 
@@ -40,7 +40,12 @@ def get_psr() -> ArgumentParser:
         'for example, renewing or expiring a lease.',
         nargs='+',
         type=importable,
-        default=[ConfigureIP],
+        default=[
+            hooks.configure_ip,
+            hooks.add_default_gw,
+            hooks.remove_default_gw,
+            hooks.remove_ip,
+        ],
         metavar='dotted.name',
     )
     psr.add_argument(
@@ -69,16 +74,8 @@ async def main():
     if not issubclass(args.lease_type, Lease):
         psr.error(f'{args.lease_type!r} must be a Lease subclass')
 
-    # Check hooks are subclasses of Hook
-    for i in args.hook:
-        if not issubclass(i, Hook):
-            psr.error(f'{i!r} must be a Hook subclass')
-
     cfg = ClientConfig(
-        interface=args.interface,
-        lease_type=args.lease_type,
-        # Instantiate hooks
-        hooks=[i() for i in args.hook],
+        interface=args.interface, lease_type=args.lease_type, hooks=args.hook
     )
 
     # Open the socket, read existing lease, etc

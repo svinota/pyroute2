@@ -9,7 +9,7 @@ from typing import Callable, DefaultDict, Iterable, Iterator, Optional, Union
 from pyroute2.dhcp import fsm, messages
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
 from pyroute2.dhcp.enums import dhcp
-from pyroute2.dhcp.hooks import Hook
+from pyroute2.dhcp.hooks import Hook, Trigger, run_hooks
 from pyroute2.dhcp.leases import JSONFileLease, Lease
 from pyroute2.dhcp.timers import LeaseTimers
 from pyroute2.dhcp.xids import Xid
@@ -220,9 +220,9 @@ class AsyncDHCPClient:
         '''Called when the expiration time defined in the lease expires.'''
         LOG.info('Lease expired')
         self.lease_timers._reset_timer('expiration')
-        # FIXME: call hooks in a non blocking way (maybe call_soon ?)
-        for i in reversed(self.config.hooks):
-            await i.unbound(self.lease)
+        await run_hooks(
+            hooks=self.config.hooks, lease=self.lease, trigger=Trigger.EXPIRED
+        )
         await self.reset()
 
     async def reset(self, delay: float = 0.0):
@@ -364,9 +364,22 @@ class AsyncDHCPClient:
             'Got lease for %s from %s', self.lease.ip, self.lease.server_id
         )
         await self.transition(to=fsm.State.BOUND)
-        # FIXME: call hooks in a non blocking way (maybe call_soon ?)
-        for i in self.config.hooks:
-            await i.bound(self.lease)
+
+        request_state = msg.xid.request_state
+
+        if request_state in (fsm.State.REQUESTING, fsm.State.REBOOTING):
+            trigger = Trigger.BOUND
+        elif request_state == fsm.State.RENEWING:
+            trigger = Trigger.RENEWED
+        elif request_state == fsm.State.REBINDING:
+            trigger = Trigger.REBOUND
+        else:
+            LOG.warning("Invalid request state %s in xid", request_state)
+            return
+
+        await run_hooks(
+            hooks=self.config.hooks, lease=self.lease, trigger=trigger
+        )
 
     @fsm.state_guard(
         fsm.State.REQUESTING,
@@ -429,8 +442,11 @@ class AsyncDHCPClient:
         self.lease_timers.cancel()
         # FIXME: call hooks in a non blocking way (maybe call_soon ?)
         if self.lease:
-            for i in reversed(self.config.hooks):
-                await i.unbound(self.lease)
+            await run_hooks(
+                hooks=self.config.hooks,
+                lease=self.lease,
+                trigger=Trigger.UNBOUND,
+            )
             if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
         self.state = fsm.State.OFF
