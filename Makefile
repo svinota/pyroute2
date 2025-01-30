@@ -7,14 +7,20 @@ python ?= $(shell util/find_python.sh)
 platform := $(shell uname -s)
 releaseTag ?= $(shell git describe --tags --abbrev=0)
 releaseDescription := $(shell git tag -l -n1 ${releaseTag} | sed 's/[0-9. ]\+//')
+noxboot ?= ~/.venv-boot
 
 define nox
         {\
 		which nox 2>/dev/null || {\
-			${python} -m venv ~/.venv-boot/;\
-			. ~/.venv-boot/bin/activate;\
-			pip install --upgrade pip;\
-			pip install nox;\
+		    test -d ${noxboot} && \
+				{\
+					. ${noxboot}/bin/activate;\
+				} || {\
+					${python} -m venv ${noxboot};\
+					. ${noxboot}/bin/activate;\
+					pip install --upgrade pip;\
+					pip install nox;\
+				};\
 		};\
 		nox $(1) -- '${noxconfig}';\
 	}
@@ -46,6 +52,8 @@ clean:
 	@rm -rf lab/_build
 	@rm -rf docs/html
 	@rm -rf docs/man
+	@rm -f tests/*.db
+	@rm -f tests/*.json
 	@rm -rf dist build MANIFEST
 	@rm -f docs-build.log
 	@rm -rf pyroute2.egg-info
