@@ -1,5 +1,6 @@
 import asyncio
 import json
+import signal
 from ipaddress import IPv4Address
 
 import pytest
@@ -18,9 +19,13 @@ async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         veth_pair.client,
         '--lease-type',
         'pyroute2.dhcp.leases.JSONStdoutLease',
-        '--exit-on-lease',
+        '--exit-on-timeout=5',
         '--log-level=DEBUG',
         stdout=asyncio.subprocess.PIPE,
+    )
+
+    asyncio.get_running_loop().call_later(
+        2, process.send_signal, signal.SIGINT
     )
     try:
         stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5)

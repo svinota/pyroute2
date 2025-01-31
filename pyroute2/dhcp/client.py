@@ -291,6 +291,7 @@ class AsyncDHCPClient:
                     floor(time() - self.last_state_change), 0xFFFF
                 )
                 msg_to_send.dhcp['xid'] = self.xid.for_state(self.state)
+                # TODO: don't send aynthing else than RELEASEs when stopping
                 LOG.info('Sending %s', msg_to_send)
                 await self._sock.put(msg_to_send)
 

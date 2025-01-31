@@ -50,10 +50,11 @@ def get_psr() -> ArgumentParser:
     )
     psr.add_argument(
         '-x',
-        '--exit-on-lease',
-        help='Exit as soon as getting a lease.',
-        default=False,
-        action='store_true',
+        '--exit-on-timeout',
+        metavar='N',
+        help='Wait for max N seconds for a lease, '
+        'exit if none could be obtained.',
+        type=int,
     )
     psr.add_argument(
         '--log-level',
@@ -91,13 +92,20 @@ async def main():
     # Open the socket, read existing lease, etc
     async with AsyncDHCPClient(cfg) as acli:
         # Bootstrap the client by sending a DISCOVER or a REQUEST
-        await acli.bootstrap()
-        if args.exit_on_lease:
-            # Wait until we're bound once, then exit
-            await acli.wait_for_state(State.BOUND)
-        else:
-            # Wait until the client is stopped otherwise
+        try:
+            await acli.bootstrap()
+            if args.exit_on_timeout:
+                # Wait a bit for a lease, and exit if we have none
+                try:
+                    await acli.wait_for_state(
+                        State.BOUND, timeout=args.exit_on_timeout
+                    )
+                except TimeoutError as err:
+                    psr.error(str(err))
+            # Wait until the client is stopped
             await acli.wait_for_state(State.OFF)
+        except asyncio.CancelledError:
+            pass
 
 
 def run():
