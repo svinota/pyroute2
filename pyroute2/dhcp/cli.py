@@ -61,6 +61,13 @@ def get_psr() -> ArgumentParser:
         choices=('DEBUG', 'INFO', 'WARNING', 'ERROR'),
         default='INFO',
     )
+    psr.add_argument(
+        '-p',
+        '--write-pidfile',
+        default=False,
+        action="store_true",
+        help="Write a pid file in the working directory.",
+    )
     return psr
 
 
@@ -75,7 +82,10 @@ async def main():
         psr.error(f'{args.lease_type!r} must be a Lease subclass')
 
     cfg = ClientConfig(
-        interface=args.interface, lease_type=args.lease_type, hooks=args.hook
+        interface=args.interface,
+        lease_type=args.lease_type,
+        hooks=args.hook,
+        write_pidfile=args.write_pidfile,
     )
 
     # Open the socket, read existing lease, etc

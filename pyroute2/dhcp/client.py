@@ -1,8 +1,10 @@
 import asyncio
+import os
 import random
 from dataclasses import dataclass, field
 from logging import getLogger
 from math import floor
+from pathlib import Path
 from time import time
 from typing import Callable, DefaultDict, Iterable, Iterator, Optional, Union
 
@@ -63,6 +65,13 @@ class ClientConfig:
     # the remaining lease time (in REBINDING state), down to a minimum of
     # 60 seconds, before retransmitting the DHCPREQUEST message.
     retransmission: Retransmission = randomized_increasing_backoff
+    # Whether to write a pidfile in the working directory
+    write_pidfile: bool = False
+
+    @property
+    def pidfile_path(self) -> Path:
+        '''Where to write the pid file. It's named after the interface.'''
+        return Path.cwd().joinpath(self.interface).with_suffix(".pid")
 
 
 class AsyncDHCPClient:
@@ -416,6 +425,9 @@ class AsyncDHCPClient:
         opens the socket, starts the sender & receiver tasks
         and allocates a request ID.
         '''
+        if self.config.write_pidfile:
+            self.config.pidfile_path.write_text(str(os.getpid()))
+            LOG.debug("Wrote pidfile to %s", self.config.pidfile_path)
         if loaded_lease := self.config.lease_type.load(self.config.interface):
             self._lease = loaded_lease
             self.state = fsm.State.INIT_REBOOT
@@ -454,3 +466,6 @@ class AsyncDHCPClient:
         await self._receiver_task
         await self._sock.__aexit__()
         self.xid = None
+        if self.config.write_pidfile:
+            self.config.pidfile_path.unlink(missing_ok=True)
+            LOG.debug("Removed pidfile at %s", self.config.pidfile_path)
