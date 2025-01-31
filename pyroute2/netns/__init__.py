@@ -80,22 +80,21 @@ SELinux state with `getenforce` command.
 
 '''
 
-import builtins
 import ctypes
 import ctypes.util
 import errno
 import io
-import json
+import logging
 import os
 import os.path
-import pickle
 import socket
-import struct
-import traceback
+import time
 
 from pyroute2 import config
 from pyroute2.common import basestring
-from pyroute2.netns import create_socket_tool
+from pyroute2.process import ChildProcess, ChildProcessReturnValue
+
+log = logging.getLogger(__name__)
 
 try:
     file = file
@@ -278,29 +277,11 @@ def create(netns, libc=None):
     '''
     Create a network namespace.
     '''
-    rctl, wctl = os.pipe()
-    pid = os.fork()
-    if pid == 0:
-        # child
-        error = None
-        try:
-            _create(netns, libc)
-        except Exception as e:
-            error = e
-            error.tb = traceback.format_exc()
-        msg = pickle.dumps(error)
-        os.write(wctl, struct.pack('I', len(msg)))
-        os.write(wctl, msg)
-        os._exit(0)
-    else:
-        # parent
-        msglen = struct.unpack('I', os.read(rctl, 4))[0]
-        error = pickle.loads(os.read(rctl, msglen))
-        os.close(rctl)
-        os.close(wctl)
-        os.waitpid(pid, 0)
-        if error is not None:
-            raise error
+    proc = ChildProcess(target=_create, args=[netns, libc])
+    proc.run()
+    proc.communicate()
+    proc.stop(kill=True)
+    proc.close()
 
 
 def attach(netns, pid, libc=None):
@@ -412,6 +393,12 @@ def dropns(libc=None):
         pass
 
 
+def _create_socket_child(nsname, flags, family, socket_type, proto, libc=None):
+    setns(nsname, flags=flags, libc=libc, fork=False)
+    sock = socket.socket(family, socket_type, proto)
+    return ChildProcessReturnValue(None, [sock])
+
+
 def create_socket(
     netns=None,
     family=socket.AF_INET,
@@ -420,6 +407,7 @@ def create_socket(
     fileno=None,
     flags=os.O_CREAT,
     libc=None,
+    timeout=5,
 ):
     if fileno is not None and netns is not None:
         raise TypeError('you can not specify both fileno and netns')
@@ -428,24 +416,14 @@ def create_socket(
     if netns is None:
         return socket.socket(family, socket_type, proto)
 
-    ctrl_r, ctrl_w = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
-    pid = os.fork()
-    if pid == 0:
-        # child
-        create_socket_tool.main(
-            netns, ctrl_w, flags, family, socket_type, proto, libc
-        )
-        os._exit(0)
-    (data, fds, _, _) = socket.recv_fds(ctrl_r, 1024, 1)
-    ctrl_r.close()
-    ctrl_w.close()
-    os.waitpid(pid, 0)
-    payload = json.loads(data.decode('utf-8'))
-    if payload:
-        if set(payload.keys()) != set(('name', 'args')):
-            raise TypeError('error loading netns feedback')
-        error_class = getattr(builtins, payload['name'])
-        if not issubclass(error_class, Exception):
-            raise TypeError('error loading netns error')
-        raise error_class(*payload['args'])
-    return socket.socket(fileno=fds[0])
+    start_time = time.time()
+    while time.time() - start_time < 5:
+        with ChildProcess(
+            target=_create_socket_child,
+            args=[netns, flags, family, socket_type, proto, libc],
+        ) as proc:
+            if (fds := proc.communicate(timeout=1)) is None:
+                continue
+            return socket.socket(fileno=fds[0])
+
+    raise TimeoutError('could not start netns socket within timeout')

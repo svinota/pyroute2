@@ -27,6 +27,7 @@ gc_timeout = 60
 db_transaction_limit = 1
 cache_expire = 60
 
+child_process_mode = 'fork'
 signal_stop_remote = None
 if hasattr(signal, 'SIGUSR1'):
     signal_stop_remote = signal.SIGUSR1
