@@ -10,6 +10,7 @@ import socket
 from collections import namedtuple
 
 from pyroute2 import config
+from pyroute2.netlink import exceptions as pyroute2_exceptions
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ class ChildProcess:
         return self._mode
 
     def communicate(self, timeout=1):
-        rl, _, _ = select.select([self.ctrl_r], [], [], 4)
+        rl, _, _ = select.select([self.ctrl_r], [], [], 400)
         if not len(rl):
             self.stop(kill=True, reason='no response from child')
             return None
@@ -80,7 +81,13 @@ class ChildProcess:
             if set(payload.keys()) != set(('exception', 'options')):
                 raise TypeError('error loading child feedback')
             if payload['exception'] is not None:
-                error_class = getattr(builtins, payload['exception'])
+                error_class = getattr(builtins, payload['exception'], None)
+                if error_class is None:
+                    error_class = getattr(
+                        pyroute2_exceptions, payload['exception'], None
+                    )
+                if error_class is None:
+                    error_class = Exception
                 if not issubclass(error_class, Exception):
                     raise TypeError('error loading child error')
                 raise error_class(*payload['options'])
