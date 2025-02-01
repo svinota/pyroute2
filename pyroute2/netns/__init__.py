@@ -84,14 +84,17 @@ import ctypes
 import ctypes.util
 import errno
 import io
+import logging
 import os
 import os.path
-import pickle
-import struct
-import traceback
+import socket
+import time
 
 from pyroute2 import config
 from pyroute2.common import basestring
+from pyroute2.process import ChildProcess, ChildProcessReturnValue
+
+log = logging.getLogger(__name__)
 
 try:
     file = file
@@ -274,29 +277,11 @@ def create(netns, libc=None):
     '''
     Create a network namespace.
     '''
-    rctl, wctl = os.pipe()
-    pid = os.fork()
-    if pid == 0:
-        # child
-        error = None
-        try:
-            _create(netns, libc)
-        except Exception as e:
-            error = e
-            error.tb = traceback.format_exc()
-        msg = pickle.dumps(error)
-        os.write(wctl, struct.pack('I', len(msg)))
-        os.write(wctl, msg)
-        os._exit(0)
-    else:
-        # parent
-        msglen = struct.unpack('I', os.read(rctl, 4))[0]
-        error = pickle.loads(os.read(rctl, msglen))
-        os.close(rctl)
-        os.close(wctl)
-        os.waitpid(pid, 0)
-        if error is not None:
-            raise error
+    proc = ChildProcess(target=_create, args=[netns, libc])
+    proc.run()
+    proc.communicate()
+    proc.stop(kill=True)
+    proc.close()
 
 
 def attach(netns, pid, libc=None):
@@ -317,7 +302,7 @@ def remove(netns, libc=None):
     os.unlink(netnspath)
 
 
-def setns(netns, flags=os.O_CREAT, libc=None):
+def setns(netns, flags=os.O_CREAT, libc=None, fork=True):
     '''
     Set netns for the current process.
 
@@ -346,7 +331,10 @@ def setns(netns, flags=os.O_CREAT, libc=None):
                 raise OSError(errno.EEXIST, 'netns exists', netns)
         else:
             if flags & os.O_CREAT:
-                create(netns, libc=libc)
+                if fork:
+                    create(netns, libc=libc)
+                else:
+                    _create(netns, libc=libc)
         nsfd = os.open(netnspath, os.O_RDONLY)
         newfd = True
     elif isinstance(netns, file):
@@ -403,3 +391,39 @@ def dropns(libc=None):
         os.close(fd)
     except Exception:
         pass
+
+
+def _create_socket_child(nsname, flags, family, socket_type, proto, libc=None):
+    setns(nsname, flags=flags, libc=libc, fork=False)
+    sock = socket.socket(family, socket_type, proto)
+    return ChildProcessReturnValue(None, [sock])
+
+
+def create_socket(
+    netns=None,
+    family=socket.AF_INET,
+    socket_type=socket.SOCK_STREAM,
+    proto=0,
+    fileno=None,
+    flags=os.O_CREAT,
+    libc=None,
+    timeout=5,
+):
+    if fileno is not None and netns is not None:
+        raise TypeError('you can not specify both fileno and netns')
+    if fileno is not None:
+        return socket.socket(fileno=fileno)
+    if netns is None:
+        return socket.socket(family, socket_type, proto)
+
+    start_time = time.time()
+    while time.time() - start_time < 5:
+        with ChildProcess(
+            target=_create_socket_child,
+            args=[netns, flags, family, socket_type, proto, libc],
+        ) as proc:
+            if (fds := proc.communicate(timeout=1)) is None:
+                continue
+            return socket.socket(fileno=fds[0])
+
+    raise TimeoutError('could not start netns socket within timeout')

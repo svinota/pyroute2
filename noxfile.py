@@ -13,6 +13,7 @@ nox.options.sessions = [
     'repo',
     'unit',
     'neutron',
+    'process',
     'integration',
     'linux-python3.9',
     'linux-python3.10',
@@ -291,6 +292,14 @@ def core(session, config):
             'PYTHONPATH': f'{workspace}/tests/mocklib',
         },
     )
+
+
+@nox.session
+@add_session_config
+def process(session, config):
+    '''Test child process module.'''
+    setup_venv_dev(session)
+    session.run(*options('test_process', config))
 
 
 @nox.session

@@ -291,8 +291,6 @@ class IPRSocket(NetlinkSocket):
         )
         self.asyncore.local = NotLocal()
         self.asyncore.local.event_loop = self.asyncore.setup_event_loop()
-        if netns is not None:
-            self.asyncore.local.fileno = self.asyncore.setup_netns()
         self.asyncore.local.socket = self.asyncore.setup_socket()
 
     @property

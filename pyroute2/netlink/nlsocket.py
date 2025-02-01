@@ -88,7 +88,7 @@ import random
 import struct
 from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
 
-from pyroute2 import config
+from pyroute2 import config, netns
 from pyroute2.common import AddrPool, basestring, msg_done
 from pyroute2.config import AF_NETLINK
 from pyroute2.netlink import (
@@ -288,11 +288,14 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         sock = self.socket if sock is None else sock
         if sock is not None:
             sock.close()
-        sock = config.SocketBase(
+        sock = netns.create_socket(
+            self.spec['netns'],
             AF_NETLINK,
             SOCK_DGRAM,
             self.spec['family'],
             self.spec['fileno'] or self.local.fileno,
+            self.spec['flags'],
+            self.libc,
         )
         sock.setsockopt(SOL_SOCKET, SO_SNDBUF, self.status['sndbuf'])
         sock.setsockopt(SOL_SOCKET, SO_RCVBUF, self.status['rcvbuf'])

@@ -1,17 +1,15 @@
 import asyncio
-import builtins
 import collections
 import errno
 import json
 import logging
-import multiprocessing
 import os
 import socket
 import struct
 import threading
 from urllib import parse
 
-from pyroute2 import config
+from pyroute2 import config, netns
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.netns import setns
@@ -247,9 +245,6 @@ class AsyncCoreSocket:
             self.local.fileno = None
             self.local.msg_queue = CoreMessageQueue()
             # 8<-----------------------------------------
-            # Setup netns
-            self.local.fileno = self.setup_netns()
-            # 8<-----------------------------------------
             self.local.socket = self.setup_socket()
             if self.spec['netns'] is not None and config.mock_netlink:
                 self.local.socket.netns = self.spec['netns']
@@ -318,37 +313,15 @@ class AsyncCoreSocket:
         sock = self.socket if sock is None else sock
         if sock is not None:
             sock.close()
-        sock = config.SocketBase(socket.AF_INET, socket.SOCK_STREAM)
+        sock = netns.create_socket(
+            self.spec['netns'],
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            flags=self.spec['flags'],
+            libc=self.libc,
+        )
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return sock
-
-    def setup_netns(self):
-        if self.spec['netns'] is not None and not config.mock_netlink:
-            # inspect self.__init__ argument names
-            ctrl = socket.socketpair()
-            nsproc = multiprocessing.Process(
-                target=netns_init,
-                args=(
-                    ctrl[0],
-                    self.spec['netns'],
-                    self.spec['flags'],
-                    self.libc,
-                    type(self),
-                ),
-            )
-            nsproc.start()
-            (data, fds, _, _) = socket.recv_fds(ctrl[1], 1024, 1)
-            # load the feedback
-            payload = json.loads(data.decode('utf-8'))
-            if payload:
-                if set(payload.keys()) != set(('name', 'args')):
-                    raise TypeError('error loading netns feedback')
-                error_class = getattr(builtins, payload['name'])
-                if not issubclass(error_class, Exception):
-                    raise TypeError('error loading netns error')
-                raise error_class(*payload['args'])
-            nsproc.join()
-            return fds[0]
 
     def __getattr__(self, attr):
         if attr in (
