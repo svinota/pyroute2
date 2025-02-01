@@ -119,3 +119,33 @@ def test_wii_discover(pcap: PcapFile):
     assert discover.eth_dst == 'ff:ff:ff:ff:ff:ff'
     assert discover.ip_src == '0.0.0.0'
     assert (discover.sport, discover.dport) == (68, 67)
+
+
+def test_washing_machine_request(pcap: PcapFile):
+    '''Decode a request sent by Quentin's "smart" (sic) washing machine.'''
+    washing_mac = '14:7f:67:8a:7b:4a'
+    request = parse_pcap(pcap, expected_packets=1)[0]
+    assert request.message_type == dhcp.MessageType.REQUEST
+    assert request.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert request.dhcp['chaddr'] == washing_mac
+    assert request.dhcp['flags'] == bootp.Flag.UNICAST
+    assert request.dhcp['options'] == {
+        'host_name': b'LG_Smart_Laundry2_open',
+        'max_msg_size': 1500,
+        'message_type': dhcp.MessageType.REQUEST,
+        'parameter_list': [
+            dhcp.Parameter.SUBNET_MASK,
+            dhcp.Parameter.ROUTER,
+            dhcp.Parameter.BROADCAST_ADDRESS,
+            dhcp.Parameter.NAME_SERVER,
+        ],
+        'requested_ip': '192.168.0.33',
+        'server_id': '192.168.0.254',
+    }
+    # despite being smart, this washing machine seems to invert the endianness
+    # for the 'secs' field, so `00 01` (1s) becomes `01 00` (256s)
+    assert request.dhcp['secs'] == 256
+    assert request.eth_src == washing_mac
+    assert request.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert request.ip_src == '0.0.0.0'
+    assert (request.sport, request.dport) == (68, 67)
