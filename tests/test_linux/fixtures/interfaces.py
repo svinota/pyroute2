@@ -1,4 +1,3 @@
-import asyncio
 import random
 from ipaddress import IPv4Address
 from typing import AsyncGenerator, NamedTuple
@@ -6,20 +5,15 @@ from typing import AsyncGenerator, NamedTuple
 import pytest
 import pytest_asyncio
 
+from pyroute2.common import uifname
+from pyroute2.iproute.linux import AsyncIPRoute
+
 
 class DHCPRangeConfig(NamedTuple):
     start: IPv4Address
     end: IPv4Address
     router: IPv4Address
     netmask: IPv4Address
-
-
-async def ip(*args: str):
-    '''Call `ip` in a subprocess.'''
-    proc = await asyncio.create_subprocess_exec('ip', *args)
-    stdout, stderr = await proc.communicate()
-    assert proc.returncode == 0, stderr
-    return stdout
 
 
 @pytest.fixture
@@ -46,31 +40,25 @@ async def veth_pair(
     dhcp_range: DHCPRangeConfig,
 ) -> AsyncGenerator[VethPair, None]:
     '''Fixture that creates a temporary veth pair.'''
-    # FIXME: use pyroute2
-    # TODO: /proc/sys/net/ipv4/conf/{interface}/accept_local ?
-    idx = random.randint(0, 999)
-    server_ifname = f'dhcptest{idx}-srv'
-    client_ifname = f'dhcptest{idx}-cli'
-    try:
-        await ip(
-            'link',
-            'add',
-            server_ifname,
-            'type',
-            'veth',
-            'peer',
-            'name',
-            client_ifname,
-        )
-        await ip(
-            'addr',
-            'add',
-            f"{dhcp_range.router}/{dhcp_range.netmask}",
-            'dev',
-            server_ifname,
-        )
-        await ip('link', 'set', server_ifname, 'up')
-        await ip('link', 'set', client_ifname, 'up')
-        yield VethPair(server_ifname, client_ifname)
-    finally:
-        await ip('link', 'del', server_ifname)
+    base_ifname = uifname()
+    server_ifname = f'{base_ifname}-srv'
+    client_ifname = f'{base_ifname}-cli'
+    async with AsyncIPRoute() as ipr:
+        try:
+            await ipr.link(
+                'add', ifname=server_ifname, kind="veth", peer=client_ifname
+            )
+            srv_id = (await ipr.link_lookup(ifname=server_ifname))[0]
+            cli_id = (await ipr.link_lookup(ifname=client_ifname))[0]
+            await ipr.addr(
+                'add',
+                index=srv_id,
+                # TODO: handle IPv4Address in pyroute2 ?
+                address=str(dhcp_range.router),
+                mask=24,  # FIXME
+            )
+            await ipr.link("set", index=srv_id, state="up")
+            await ipr.link("set", index=cli_id, state="up")
+            yield VethPair(server_ifname, client_ifname)
+        finally:
+            await ipr.link("del", index=srv_id)
