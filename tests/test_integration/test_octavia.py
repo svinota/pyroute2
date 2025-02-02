@@ -1,7 +1,13 @@
+import errno
+import os
+
+import pytest
 from net_tools import interface_exists
 
 import pyroute2
 from pyroute2.common import uifname
+from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.rtnl import ifaddrmsg, rt_proto
 
 
 def test_amphora_info(nsname):
@@ -39,3 +45,48 @@ def test_api_server_attrs(link):
     attr_dict = dict(link['attrs'])
     assert attr_dict.get('IFLA_ADDRESS') == link.get('address')
     assert attr_dict.get('IFLA_IFNAME') == link.get('ifname')
+
+
+def test_api_server_netns_flags(nsname):
+    with pyroute2.NetNS(nsname, flags=os.O_CREAT) as netns:
+        for link in netns.get_links():
+            assert isinstance(link.get('address'), str)
+            assert isinstance(link.get('ifname'), str)
+
+
+def test_utils_exception_ref():
+    assert pyroute2.NetlinkError is NetlinkError
+    e = NetlinkError(errno.EINVAL, 'message')
+    assert e.code == errno.EINVAL
+
+
+def test_utils_link_attr(link, ipr):
+    idx = ipr.link_lookup(ifname=link.get('ifname'))[0]
+    ref = ipr.get_links(idx)[0]
+    assert ref.get('state') == 'down'
+    ipr.link('set', index=idx, state='up', mtu=1000)
+    ipr.poll(ipr.link, 'dump', index=idx, state='up', mtu=1000, timeout=5)
+    with pytest.raises(TimeoutError):
+        ipr.poll(ipr.link, 'dump', index=idx, state='down', timeout=0.1)
+    with pytest.raises(TimeoutError):
+        ipr.poll(ipr.link, 'dump', index=idx, mtu=1500, timeout=0.1)
+
+
+def test_utils_addr_flags(link, ipr, ndb):
+    with ndb.interfaces[link] as i:
+        i.set('state', 'up')
+        i.add_ip('10.1.2.3/24')
+
+    for addr in ipr.get_addr(index=link.get('index')):
+        attrs = dict(addr['attrs'])
+        if attrs['IFA_FLAGS'] & ifaddrmsg.IFA_F_PERMANENT:
+            break
+    else:
+        raise NetlinkError(errno.ENOENT, 'no static addresses')
+
+
+def test_utils_route_proto(ndb, ipr):
+    with ndb.interfaces['lo'] as i:
+        i.set('state', 'up')
+    for route in ipr.get_routes(oif=1):
+        assert route['proto'] != rt_proto['static']
