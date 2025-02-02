@@ -1112,15 +1112,15 @@ class RTNL_API:
             'dump': (RTM_GETLINK, 'dump'),
             'show': (RTM_GETLINK, 'dump'),
         }
+        if command not in command_map:
+            raise TypeError('command not supported')
         dump_filter, kwarg = get_dump_filter('brport', command, kwarg)
         arguments = get_arguments_processor('brport', command, kwarg)
         request = NetlinkRequest(
             self, ifinfmsg(), command, command_map, dump_filter, arguments
         )
         await request.send()
-        if command == 'dump':
-            return request.response()
-        return [x async for x in request.response()]
+        return request.response()
 
     async def vlan_filter(self, command, **kwarg):
         '''
