@@ -1,6 +1,8 @@
+import errno
 import logging
 
 from pyroute2.ndb.main import NDB
+from pyroute2.netlink.exceptions import NetlinkError
 
 log = logging.getLogger(__name__)
 
@@ -14,8 +16,12 @@ class CommitException(Exception):
 
 
 class ObjectProxy(dict):
-    def __init__(self, obj):
+
+    _translate_keys = {}
+
+    def __init__(self, obj, ready=True):
         self._obj = obj
+        self._ready = ready
 
     def __getattribute__(self, key):
         if key[:4] == 'set_':
@@ -31,15 +37,21 @@ class ObjectProxy(dict):
             return super(ObjectProxy, self).__getattribute__(key)
 
     def __setattr__(self, key, value):
-        if key == '_obj':
+        if key in ('_obj', '_ready', '_translate_keys'):
             super(ObjectProxy, self).__setattr__(key, value)
         else:
             super(ObjectProxy, self).__getattribute__('_obj')[key] = value
 
     def __getitem__(self, key):
+        tk = super().__getattribute__('_translate_keys')
+        if isinstance(key, str) and key in tk:
+            return super().__getattribute__('_obj')[tk[key](self)]
         return super(ObjectProxy, self).__getattribute__('_obj')[key]
 
     def __setitem__(self, key, value):
+        tk = super().__getattribute__('_translate_keys')
+        if isinstance(key, str) and key in tk:
+            super().__getattribute__('_obj')[tk[key](self)] = value
         super(ObjectProxy, self).__getattribute__('_obj')[key] = value
 
     def __enter__(self):
@@ -57,6 +69,9 @@ class ObjectProxy(dict):
 
     def get_ndb_object(self):
         return self._obj
+
+    def get(self, key, *argv):
+        return self._obj.get(key, *argv)
 
     def keys(self):
         return self._obj.keys()
@@ -76,12 +91,23 @@ class ObjectProxy(dict):
 
 
 class Interface(ObjectProxy):
-    def add_ip(self, *argv, **kwarg):
-        self._obj.add_ip(*argv, **kwarg)
+
+    _translate_keys = {'mode': lambda x: f'{x["kind"]}_mode'}
+
+    def add_ip(self, address=None, prefixlen=None, **kwarg):
+        if address is not None:
+            kwarg['address'] = address
+        if prefixlen is not None:
+            kwarg['prefixlen'] = prefixlen
+        self._obj.add_ip(spec=kwarg)
         return self
 
-    def del_ip(self, *argv, **kwarg):
-        self._obj.del_ip(*argv, **kwarg)
+    def del_ip(self, address=None, prefixlen=None, **kwarg):
+        if address is not None:
+            kwarg['address'] = address
+        if prefixlen is not None:
+            kwarg['prefixlen'] = prefixlen
+        self._obj.del_ip(spec=kwarg)
         return self
 
     def add_port(self, *argv, **kwarg):
@@ -93,7 +119,14 @@ class Interface(ObjectProxy):
         return self
 
     def commit(self, *argv, **kwarg):
-        self._obj.commit(*argv, **kwarg)
+        try:
+            self._obj.commit(*argv, **kwarg)
+        except Exception as e:
+            if self._ready:
+                raise CommitException(e)
+            else:
+                raise CreateException(e)
+        self._ready = True
         return self
 
     def up(self):
@@ -114,7 +147,9 @@ class Interface(ObjectProxy):
 
     @property
     def ipaddr(self):
-        return tuple(self._obj.ipaddr.dump().select('address', 'prefixlen'))
+        report = self._obj.ipaddr.dump()
+        report.select_fields('address', 'prefixlen')
+        return tuple(report)
 
 
 class Interfaces(ObjectProxy):
@@ -123,8 +158,6 @@ When `create().commit()` fails, the failed interface object behaves
 differently in IPDB and NDB. IPDB saves the failed object in the database,
 while the NDB database contains only the system reflection, and the failed
 object may stay only being referenced by a variable.
-
-`KeyError: 'object exists'` vs. `CreateException`
 '''
 
     def __getitem__(self, key):
@@ -136,9 +169,24 @@ object may stay only being referenced by a variable.
     def add(self, *argv, **kwarg):
         return self.create(*argv, **kwarg)
 
+    def get(self, spec, *argv):
+        try:
+            return self[spec]
+        except KeyError:
+            if len[argv] > 0:
+                return argv[0]
+            raise
+
     def create(self, *argv, **kwarg):
         log.warning(self.text_create)
-        return Interface(self._obj.create(*argv, **kwarg))
+        key = dict(
+            filter(lambda x: x[0] in ('ifname', 'index'), kwarg.items())
+        )
+        if key in self:
+            if kwarg.get('reuse'):
+                return self[key]
+            raise CreateException(NetlinkError(errno.EEXIST, 'object exists'))
+        return Interface(self._obj.create(*argv, **kwarg), ready=False)
 
     def keys(self):
         ret = []
@@ -171,6 +219,7 @@ referenced as `localhost`::
 '''
 
     def __init__(self, *argv, **kwarg):
+        sources = kwarg.pop('sources', [{'target': 'localhost'}])
         if argv or kwarg:
             log.warning(
                 '%s does not support IPDB parameters, ignoring',
@@ -183,8 +232,14 @@ referenced as `localhost`::
                 self.__class__.__name__,
             )
 
-        self._ndb = NDB()
+        self._ndb = NDB(sources=sources)
         self.interfaces = Interfaces(self._ndb.interfaces)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.release()
 
     @property
     def nl(self):

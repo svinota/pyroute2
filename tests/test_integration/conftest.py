@@ -27,3 +27,8 @@ def link(request, tmpdir, nsname):
             ipr.link('del', index=link['index'])
         except:
             pass
+
+
+@pytest.fixture
+def ifname(link):
+    return link.get('ifname')
