@@ -891,6 +891,11 @@ class Interface(RTNL_Object):
             return {'ifname': spec}
         elif isinstance(spec, int):
             return {'index': spec}
+        elif isinstance(spec, ifinfmsg):
+            ret = {'ifname': spec.get('ifname')}
+            if spec.get('index') != 0:
+                ret['index'] = spec.get('index')
+            return ret
         return spec
 
     def complete_key(self, key):
