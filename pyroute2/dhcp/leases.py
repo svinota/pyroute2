@@ -154,7 +154,7 @@ class JSONStdoutLease(Lease):
     '''Just prints the lease to stdout when the client gets a new one.'''
 
     def dump(self) -> None:
-        """Writes the lease as json to stdout."""
+        '''Writes the lease as json to stdout.'''
         print(json.dumps(asdict(self), indent=2))
 
     @classmethod
@@ -205,5 +205,5 @@ class JSONFileLease(Lease):
             LOG.info('No existing lease at %s for %s', lease_path, interface)
             return None
         except TypeError as err:
-            LOG.warning("Error loading lease: %s", err)
+            LOG.warning('Error loading lease: %s', err)
             return None

@@ -30,13 +30,14 @@ class Trigger(StrEnum):
     EXPIRED = auto()
 
 
+# Signature for functions that can be passed to the hook decorator
 HookFunc = Callable[[Lease], Awaitable[None]]
 
 
 class Hook(NamedTuple):
     '''Stores a hook function and its triggers.
 
-    Returned by the `hook()` decorator.
+    Returned by the `hook()` decorator; no need to subclass or instantiate.
     '''
 
     func: HookFunc
@@ -60,6 +61,7 @@ async def run_hooks(hooks: Iterable[Hook], lease: Lease, trigger: Trigger):
     '''
     for i in filter(lambda y: trigger in y.triggers, hooks):
         try:
+            # TODO: what if a hook takes forever ? should there be a timeout ?
             await i(lease)
         except Exception:
             LOG.exception("Hook %s failed", i.name)
@@ -69,8 +71,8 @@ def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
     '''Decorator for dhcp client hooks.
 
     A hook is an async function that takes a lease as its single argument.
-    It will be called by the client when one of the triggers passed to the
-    decorator happens.
+    Hooks set in `ClientConfig.hooks` will be called in order by the client
+    when one of the triggers passed to the decorator happens.
 
     For example:
 
@@ -78,6 +80,10 @@ def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
         async def lease_was_renewed(lease: Lease):
             print(lease.server_mac, 'renewed our lease !')
 
+    The decorator returns a `Hook` instance, a utility class storing the hook
+    function and its triggers.
+
+    **Warning**: The hooks API might still change.
     '''
 
     def decorator(hook_func: HookFunc) -> Hook:
@@ -88,9 +94,15 @@ def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
 
 @hook(Trigger.BOUND)
 async def configure_ip(lease: Lease):
+    '''Add the IP allocated in the lease to its interface.
+
+    Use the `remove_ip` hook in addition to this one for cleanup.
+    The DHCP server must have set the subnet mask and broadcast address.
+    '''
     LOG.info(
         'Adding %s/%s to %s', lease.ip, lease.subnet_mask, lease.interface
     )
+    # FIXME: check the broadcast address, factorize missing options check
     if not lease.subnet_mask:
         raise DHCPOptionMissingError(Option.SUBNET_MASK)
     async with AsyncIPRoute() as ipr:
@@ -99,15 +111,18 @@ async def configure_ip(lease: Lease):
             index=await ipr.link_lookup(ifname=lease.interface),
             address=lease.ip,
             mask=lease.subnet_mask,
+            # FIXME: maybe make this optional
             broadcast=lease.broadcast_address,
         )
 
 
 @hook(Trigger.UNBOUND, Trigger.EXPIRED)
 async def remove_ip(lease: Lease):
+    '''Remove the IP in the lease from its interface.'''
     LOG.info(
         'Removing %s/%s from %s', lease.ip, lease.subnet_mask, lease.interface
     )
+    # FIXME: don't raise if someone removed the IP, just log something.
     async with AsyncIPRoute() as ipr:
         await ipr.addr(
             'del',
@@ -120,6 +135,11 @@ async def remove_ip(lease: Lease):
 
 @hook(Trigger.BOUND)
 async def add_default_gw(lease: Lease):
+    '''Configures the default gateway set in the lease.
+
+    Use in addition to the `remove_default_gw` for cleanup.
+    '''
+    # FIXME: refactor missing option handling
     if lease.default_gateway is None:
         LOG.error('Lease does not set the router option')
         return
@@ -140,6 +160,7 @@ async def add_default_gw(lease: Lease):
 
 @hook(Trigger.UNBOUND, Trigger.EXPIRED)
 async def remove_default_gw(lease: Lease):
+    '''Removes the default gateway set in the lease.'''
     if lease.default_gateway is None:
         LOG.error('Lease does not set the router option')
         return

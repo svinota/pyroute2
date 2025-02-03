@@ -29,6 +29,7 @@ class LeaseTimers:
     def _reset_timer(self, timer_name: str):
         '''Cancel a timer and set it to None.'''
         if timer := getattr(self, timer_name):
+            assert isinstance(timer, asyncio.TimerHandle)
             if not timer.cancelled():
                 # FIXME: how do we know a timer wasn't cancelled ?
                 # this causes spurious logs

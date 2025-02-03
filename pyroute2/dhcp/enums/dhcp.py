@@ -2,6 +2,8 @@ from enum import IntEnum
 
 
 class MessageType(IntEnum):
+    '''DHCP message types, see RFC 2131 table 2.'''
+
     DISCOVER = 1
     OFFER = 2
     REQUEST = 3
@@ -121,5 +123,6 @@ _OPTIONS = dict(PAD=0, PARAMETER_LIST=55, END=255, **_PARAMETERS)
 # we have to use the functional syntax because the enums share most of their
 # values but python does not allow subclassing them.
 # Doing it the standard way would result in a LOT of duplicate values.
+# FIXME: this confuses mypy
 Parameter = IntEnum('Parameter', _PARAMETERS, module=__name__)
 Option = IntEnum('Option', _OPTIONS, module=__name__)

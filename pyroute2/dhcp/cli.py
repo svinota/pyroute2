@@ -4,14 +4,14 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from importlib import import_module
 from typing import Any
 
-from pyroute2.dhcp import hooks
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.fsm import State
+from pyroute2.dhcp.hooks import Hook
 from pyroute2.dhcp.leases import Lease
 
 
-def importable(name: str) -> Any:
-    '''Imports anything by name. Used by the argument parser.'''
+def import_dotted_name(name: str) -> Any:
+    '''Imports anything by name.'''
     module_name, obj_name = name.rsplit('.', 1)
     module = import_module(module_name)
     return getattr(module, obj_name)
@@ -29,7 +29,7 @@ def get_psr() -> ArgumentParser:
         '--lease-type',
         help='Class to use for leases. '
         'Must be a subclass of `pyroute2.dhcp.leases.Lease`.',
-        type=importable,
+        type=str,
         default='pyroute2.dhcp.leases.JSONFileLease',
         metavar='dotted.name',
     )
@@ -39,12 +39,12 @@ def get_psr() -> ArgumentParser:
         'These are used to run async python code when, '
         'for example, renewing or expiring a lease.',
         nargs='+',
-        type=importable,
+        type=str,
         default=[
-            hooks.configure_ip,
-            hooks.add_default_gw,
-            hooks.remove_default_gw,
-            hooks.remove_ip,
+            'pyroute2.dhcp.hooks.configure_ip',
+            'pyroute2.dhcp.hooks.add_default_gw',
+            'pyroute2.dhcp.hooks.remove_default_gw',
+            'pyroute2.dhcp.hooks.remove_ip',
         ],
         metavar='dotted.name',
     )
@@ -55,6 +55,7 @@ def get_psr() -> ArgumentParser:
         help='Wait for max N seconds for a lease, '
         'exit if none could be obtained.',
         type=int,
+        default=0,
     )
     psr.add_argument(
         '--log-level',
@@ -67,32 +68,46 @@ def get_psr() -> ArgumentParser:
         '--write-pidfile',
         default=False,
         action="store_true",
-        help="Write a pid file in the working directory.",
+        help='Write a pid file in the working directory. '
+        'WARNING: this option might be removed later.',
     )
+    # TODO: add options for parameters, retransmission, timeouts...
     return psr
 
 
-async def main():
+async def main() -> None:
     psr = get_psr()
     args = psr.parse_args()
     logging.basicConfig(
         format='%(asctime)s %(levelname)s [%(name)s:%(funcName)s] %(message)s'
     )
     logging.getLogger('pyroute2.dhcp').setLevel(args.log_level)
-    if not issubclass(args.lease_type, Lease):
-        psr.error(f'{args.lease_type!r} must be a Lease subclass')
 
+    # parse lease type
+    lease_type = import_dotted_name(args.lease_type)
+    if not issubclass(lease_type, Lease):
+        psr.error(f'{args.lease_type!r} must point to a Lease subclass.')
+
+    # parse hooks
+    hooks: list[Hook] = []
+    for dotted_hook_name in args.hook:
+        hook = import_dotted_name(dotted_hook_name)
+        if not isinstance(hook, Hook):
+            psr.error(f'{dotted_hook_name!r} must point to a Hook instance.')
+        hooks.append(hook)
+
+    # Create configuration
     cfg = ClientConfig(
         interface=args.interface,
-        lease_type=args.lease_type,
-        hooks=args.hook,
+        lease_type=lease_type,
+        hooks=hooks,
         write_pidfile=args.write_pidfile,
     )
 
     # Open the socket, read existing lease, etc
     async with AsyncDHCPClient(cfg) as acli:
-        # Bootstrap the client by sending a DISCOVER or a REQUEST
         try:
+            # Bootstrap the client by sending a DISCOVER or a REQUEST
             await acli.bootstrap()
             if args.exit_on_timeout:
                 # Wait a bit for a lease, and exit if we have none
@@ -105,6 +120,7 @@ async def main():
             # Wait until the client is stopped
             await acli.wait_for_state(State.OFF)
         except asyncio.CancelledError:
+            # raised by recent python versions on ctrl-C
             pass
 
 
@@ -113,6 +129,7 @@ def run():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
+        # raised by "older" python versions on ctrl-C
         pass
 
 

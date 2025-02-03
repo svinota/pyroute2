@@ -31,6 +31,7 @@ class State(IntEnum):
 
 # allowed transitions between states
 TRANSITIONS: Final[dict[State, set[State]]] = {
+    State.OFF: {State.INIT, State.INIT_REBOOT},
     State.INIT_REBOOT: {State.REBOOTING},
     State.REBOOTING: {State.INIT, State.BOUND},
     State.INIT: {State.SELECTING},

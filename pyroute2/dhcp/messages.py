@@ -54,6 +54,7 @@ class ReceivedDHCPMessage(_DHCPMessage):
 
 
 def discover(parameter_list: Parameters) -> SentDHCPMessage:
+    '''Make a broadcast DISCOVER message for the given parameters.'''
     # Default for SentDHCPMessage is broadcast which is what we want here
     return SentDHCPMessage(
         dhcp=dhcp4msg(
