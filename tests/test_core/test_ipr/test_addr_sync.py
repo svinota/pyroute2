@@ -1,14 +1,12 @@
 import re
 
-import pytest
 from net_tools import address_exists
 
 ip4v6 = re.compile('^[.:0-9a-f]*$')
 
 
-@pytest.mark.asyncio
-async def test_addr_dump(async_ipr):
-    async for addr in await async_ipr.addr('dump'):
+def test_addr_dump(sync_ipr):
+    for addr in sync_ipr.addr('dump'):
         index = addr.get('index')
         address = addr.get('address', '')
         prefixlen = addr.get('prefixlen')
@@ -17,9 +15,6 @@ async def test_addr_dump(async_ipr):
         assert prefixlen > 0
 
 
-@pytest.mark.asyncio
-async def test_addr_add(async_ipr, ifname, index, nsname):
-    await async_ipr.addr(
-        'add', index=index, address='192.168.145.150', prefixlen=24
-    )
+def test_addr_add(sync_ipr, ifname, index, nsname):
+    sync_ipr.addr('add', index=index, address='192.168.145.150', prefixlen=24)
     assert address_exists('192.168.145.150', ifname, netns=nsname)

@@ -22,42 +22,38 @@ test_dump_data = '''
 '''
 
 
-@pytest.mark.parametrize('sync_ipr', [{'netns': True}], indirect=True)
-def test_load(sync_ipr):
-    netns = sync_ipr.status['netns']
+def test_load(sync_ipr, nsname):
     sync_ipr.link('set', index=1, state='up')
-    assert address_exists('127.0.0.1', ifname='lo', netns=netns)
-    assert not route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert not route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+    assert address_exists('127.0.0.1', ifname='lo', netns=nsname)
+    assert not route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert not route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
     fd = io.BytesIO()
     fd.write(load_dump(test_dump_data))
     fd.seek(0)
     sync_ipr.route_load(fd)
-    assert route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+    assert route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
 
 
-@pytest.mark.parametrize('sync_ipr', [{'netns': True}], indirect=True)
-def test_loads(sync_ipr):
-    netns = sync_ipr.status['netns']
+def test_loads(sync_ipr, nsname):
     sync_ipr.link('set', index=1, state='up')
-    assert address_exists('127.0.0.1', ifname='lo', netns=netns)
-    assert not route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert not route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+    assert address_exists('127.0.0.1', ifname='lo', netns=nsname)
+    assert not route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert not route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
     sync_ipr.route_loads(load_dump(test_dump_data))
-    assert route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+    assert route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
 
 
 @pytest.mark.parametrize(
     'family,target_tables,target_families,fmt,offset',
     [
-        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'iproute2', 4),
-        (AF_INET, {254, 255}, {AF_INET}, 'iproute2', 4),
-        (AF_INET6, {254, 255}, {AF_INET6}, 'iproute2', 4),
-        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'raw', 0),
-        (AF_INET, {254, 255}, {AF_INET}, 'raw', 0),
-        (AF_INET6, {254, 255}, {AF_INET6}, 'raw', 0),
+        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'iproute2', 4),
+        (AF_INET, {255}, {AF_INET}, 'iproute2', 4),
+        (AF_INET6, {255}, {AF_INET6}, 'iproute2', 4),
+        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'raw', 0),
+        (AF_INET, {255}, {AF_INET}, 'raw', 0),
+        (AF_INET6, {255}, {AF_INET6}, 'raw', 0),
     ],
     ids=(
         'iproute2/AF_UNSPEC',
@@ -76,19 +72,19 @@ def test_dump(sync_ipr, family, target_tables, target_families, fmt, offset):
     for route in sync_ipr.marshal.parse(fd.getvalue()[offset:]):
         tables.add(route.get('table'))
         families.add(route.get('family'))
-    assert tables >= target_tables
+    assert tables == target_tables
     assert families == target_families
 
 
 @pytest.mark.parametrize(
     'family,target_tables,target_families,fmt,offset',
     [
-        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'iproute2', 4),
-        (AF_INET, {254, 255}, {AF_INET}, 'iproute2', 4),
-        (AF_INET6, {254, 255}, {AF_INET6}, 'iproute2', 4),
-        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'raw', 0),
-        (AF_INET, {254, 255}, {AF_INET}, 'raw', 0),
-        (AF_INET6, {254, 255}, {AF_INET6}, 'raw', 0),
+        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'iproute2', 4),
+        (AF_INET, {255}, {AF_INET}, 'iproute2', 4),
+        (AF_INET6, {255}, {AF_INET6}, 'iproute2', 4),
+        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'raw', 0),
+        (AF_INET, {255}, {AF_INET}, 'raw', 0),
+        (AF_INET6, {255}, {AF_INET6}, 'raw', 0),
     ],
     ids=(
         'iproute2/AF_UNSPEC',
@@ -106,5 +102,5 @@ def test_dumps(sync_ipr, family, target_tables, target_families, fmt, offset):
     for route in sync_ipr.marshal.parse(data[offset:]):
         tables.add(route.get('table'))
         families.add(route.get('family'))
-    assert tables >= target_tables
+    assert tables == target_tables
     assert families == target_families
