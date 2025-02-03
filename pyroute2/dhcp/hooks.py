@@ -128,7 +128,7 @@ async def remove_ip(lease: Lease):
             'del',
             index=await ipr.link_lookup(ifname=lease.interface),
             address=lease.ip,
-            mask=lease.subnet_mask,
+            prefixlen=lease.subnet_mask,
             broadcast=lease.broadcast_address,
         )
 

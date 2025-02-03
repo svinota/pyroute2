@@ -5,7 +5,11 @@ import pytest
 from fixtures.dhcp_servers.dnsmasq import dnsmasq, dnsmasq_config  # noqa: F401
 from fixtures.dhcp_servers.mock import mock_dhcp_server  # noqa: F401
 from fixtures.dhcp_servers.udhcpd import udhcpd, udhcpd_config  # noqa: F401
-from fixtures.interfaces import dhcp_range, veth_pair  # noqa: F401
+from fixtures.interfaces import (  # noqa: F401
+    dhcp_range,
+    dummy_iface,
+    veth_pair,
+)
 from fixtures.pcap_files import pcap  # noqa: F401
 from pr2test.context_manager import NDBContextManager, SpecContextManager
 from utils import require_user
