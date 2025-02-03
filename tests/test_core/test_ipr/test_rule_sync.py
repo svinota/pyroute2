@@ -15,14 +15,11 @@ from net_tools import rule_exists
     ],
 )
 @pytest.mark.parametrize(
-    'sync_ipr',
-    [{'netns': True, 'ext_ack': True, 'strict_check': True}],
-    indirect=True,
+    'sync_ipr', [{'ext_ack': True, 'strict_check': True}], indirect=True
 )
-def test_rule_strict_src(sync_ipr, priority, spec):
-    netns = sync_ipr.status['netns']
+def test_rule_strict_src(sync_ipr, priority, spec, nsname):
     sync_ipr.rule('add', priority=priority, **spec)
-    assert rule_exists(priority=priority, netns=netns)
+    assert rule_exists(priority=priority, netns=nsname)
 
 
 @pytest.mark.parametrize(
@@ -38,15 +35,13 @@ def test_rule_strict_src(sync_ipr, priority, spec):
         (20107, AF_INET6, {'table': 5192, 'dst': 'fd00::', 'dst_len': 8}),
     ],
 )
-@pytest.mark.parametrize('sync_ipr', [{'netns': True}], indirect=True)
-def test_rule_add_del(sync_ipr, priority, proto, spec):
-    netns = sync_ipr.status['netns']
+def test_rule_add_del(sync_ipr, priority, proto, spec, nsname):
     sync_ipr.rule('add', priority=priority, **spec)
-    assert rule_exists(priority=priority, proto=proto, netns=netns)
+    assert rule_exists(priority=priority, proto=proto, netns=nsname)
     assert (
         len([x for x in sync_ipr.rule('dump', priority=priority, **spec)]) == 1
     )
     sync_ipr.rule('del', priority=priority, **spec)
     assert not rule_exists(
-        priority=priority, proto=proto, netns=netns, timeout=0.1
+        priority=priority, proto=proto, netns=nsname, timeout=0.1
     )
