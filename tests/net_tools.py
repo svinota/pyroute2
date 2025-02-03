@@ -111,6 +111,7 @@ def class_exists(
     timeout=1,
     retry=0.2,
 ):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
     filters = [
         ip_object_filter(query='.class', value=kind),
         ip_object_filter(query='.handle', value=handle),
@@ -120,7 +121,7 @@ def class_exists(
     if parent is not None:
         filters.append(ip_object_filter(query='.parent', value=parent))
     return wait_for_ip_object(
-        ['tc', '-json', 'class', 'show', 'dev', ifname],
+        ns + ['tc', '-json', 'class', 'show', 'dev', ifname],
         filters,
         timeout,
         retry,
@@ -138,6 +139,7 @@ def filter_exists(
     timeout=1,
     retry=0.2,
 ):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
     filters = [ip_object_filter(query='.kind', value=kind)]
     if parent is not None:
         filters.append(ip_object_filter(query='.parent', value=parent))
@@ -152,7 +154,7 @@ def filter_exists(
             ip_object_filter(query='.options.match.mask', value=match_mask)
         )
     return wait_for_ip_object(
-        ['tc', '-json', 'filter', 'show', 'dev', ifname],
+        ns + ['tc', '-json', 'filter', 'show', 'dev', ifname],
         filters,
         timeout,
         retry,
@@ -162,6 +164,7 @@ def filter_exists(
 def qdisc_exists(
     ifname, handle, default=None, rate=None, netns=None, timeout=1, retry=0.2
 ):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
     filters = [ip_object_filter(query='.handle', value=handle)]
     if default is not None:
         filters.append(
@@ -170,7 +173,7 @@ def qdisc_exists(
     if rate is not None:
         filters.append(ip_object_filter(query='.options.rate', value=rate))
     return wait_for_ip_object(
-        ['tc', '-json', 'qdisc', 'show', 'dev', ifname],
+        ns + ['tc', '-json', 'qdisc', 'show', 'dev', ifname],
         filters,
         timeout,
         retry,

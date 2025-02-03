@@ -9,21 +9,14 @@ async def test_link_dump(async_ipr):
         assert 1 < len(link.get('ifname')) < 16
 
 
-async def util_link_add(async_ipr):
-    ifname = async_ipr.register_temporary_ifname()
-    await async_ipr.link('add', ifname=ifname, kind='dummy', state='up')
-    assert interface_exists(ifname)
-    return ifname
+@pytest.mark.asyncio
+async def test_link_add(async_ipr, tmp_link, nsname):
+    await async_ipr.link('add', ifname=tmp_link, kind='dummy', state='up')
+    assert interface_exists(tmp_link, netns=nsname)
 
 
 @pytest.mark.asyncio
-async def test_link_add(async_ipr):
-    await util_link_add(async_ipr)
-
-
-@pytest.mark.asyncio
-async def test_link_get(async_ipr):
-    ifname = await util_link_add(async_ipr)
+async def test_link_get(async_ipr, ifname):
     (link,) = await async_ipr.link('get', ifname=ifname)
     assert link.get('state') == 'up'
     assert link.get('index') > 1
@@ -32,15 +25,13 @@ async def test_link_get(async_ipr):
 
 
 @pytest.mark.asyncio
-async def test_link_del_by_index(async_ipr):
-    ifname = await util_link_add(async_ipr)
+async def test_link_del_by_index(async_ipr, ifname, index, nsname):
     (link,) = await async_ipr.link('get', ifname=ifname)
-    await async_ipr.link('del', index=link['index'])
-    assert not interface_exists(ifname)
+    await async_ipr.link('del', index=index)
+    assert not interface_exists(ifname, netns=nsname)
 
 
 @pytest.mark.asyncio
-async def test_link_del_by_name(async_ipr):
-    ifname = await util_link_add(async_ipr)
+async def test_link_del_by_name(async_ipr, ifname, nsname):
     await async_ipr.link('del', ifname=ifname)
-    assert not interface_exists(ifname)
+    assert not interface_exists(ifname, netns=nsname)
