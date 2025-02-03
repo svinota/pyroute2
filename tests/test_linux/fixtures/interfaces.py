@@ -41,7 +41,7 @@ async def dummy_iface():
     ifname = uifname()
     async with AsyncIPRoute() as ipr:
         try:
-            await ipr.link('add', ifname=ifname, kind='dummy')
+            await ipr.link('add', ifname=ifname, kind='dummy', state='up')
             (idx,) = await ipr.link_lookup(ifname=ifname)
             yield idx, ifname
         finally:

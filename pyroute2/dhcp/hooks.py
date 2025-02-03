@@ -137,7 +137,7 @@ async def remove_ip(lease: Lease):
 async def add_default_gw(lease: Lease):
     '''Configures the default gateway set in the lease.
 
-    Use in addition to the `remove_default_gw` for cleanup.
+    Use in addition to `remove_default_gw` for cleanup.
     '''
     # FIXME: refactor missing option handling
     if lease.default_gateway is None:
@@ -164,7 +164,7 @@ async def remove_default_gw(lease: Lease):
     if lease.default_gateway is None:
         LOG.error('Lease does not set the router option')
         return
-    LOG.info('Removing %s as default route.', lease.default_gateway)
+    LOG.info('Removing %s as default route', lease.default_gateway)
     async with AsyncIPRoute() as ipr:
         ifindex = await ipr.link_lookup(ifname=lease.interface)
         try:

@@ -1,48 +1,45 @@
 import json
 import logging
 import socket
-from pyroute2.iproute.linux import AsyncIPRoute
+
 import pytest
+
 from pyroute2.dhcp import hooks
 from pyroute2.dhcp.leases import JSONFileLease
-
+from pyroute2.iproute.linux import AsyncIPRoute
 
 FAKE_LEASE = {
-  'ack': {
-    'op': 2,
-    'htype': 1,
-    'hlen': 6,
-    'hops': 0,
-    'xid': 1323206580,
-    'secs': 0,
-    'flags': 32768,
-    'ciaddr': '0.0.0.0',
-    'yiaddr': '192.168.186.73',
-    'siaddr': '192.168.186.1',
-    'giaddr': '0.0.0.0',
-    'chaddr': '72:c1:55:6f:76:83',
-    'sname': '',
-    'file': '',
-    'cookie': '63:82:53',
-    'options': {
-      'message_type': 5,
-      'server_id': '192.168.186.1',
-      'lease_time': 120,
-      'renewal_time': 60,
-      'rebinding_time': 105,
-      'subnet_mask': '255.255.255.0',
-      'broadcast_address': '192.168.186.255',
-      'router': [
-        '192.168.186.1'
-      ],
-      'name_server': [
-        '192.168.186.1'
-      ]
-    }
-  },
-  'interface': '<SET ME>',
-  'server_mac': '2e:7e:7d:8e:5f:5f',
-  'obtained': 1738249608.073041
+    'ack': {
+        'op': 2,
+        'htype': 1,
+        'hlen': 6,
+        'hops': 0,
+        'xid': 1323206580,
+        'secs': 0,
+        'flags': 32768,
+        'ciaddr': '0.0.0.0',
+        'yiaddr': '192.168.112.73',
+        'siaddr': '192.168.112.1',
+        'giaddr': '0.0.0.0',
+        'chaddr': '72:c1:55:6f:76:83',
+        'sname': '',
+        'file': '',
+        'cookie': '63:82:53',
+        'options': {
+            'message_type': 5,
+            'server_id': '192.168.112.1',
+            'lease_time': 120,
+            'renewal_time': 60,
+            'rebinding_time': 105,
+            'subnet_mask': '255.255.255.0',
+            'broadcast_address': '192.168.112.255',
+            'router': ['192.168.112.1'],
+            'name_server': ['192.168.112.1'],
+        },
+    },
+    'interface': '<SET ME>',
+    'server_mac': '2e:7e:7d:8e:5f:5f',
+    'obtained': 1738249608.073041,
 }
 
 
@@ -62,12 +59,19 @@ async def _ipv4_addrs(ifindex):
     '''Shortcut for `ipr.addr('dump')`.'''
     async with AsyncIPRoute() as ipr:
         return [
-            i async for i in await ipr.addr('dump', index=ifindex, family=socket.AF_INET)
+            i
+            async for i in await ipr.addr(
+                'dump', index=ifindex, family=socket.AF_INET
+            )
         ]
 
 
 @pytest.mark.asyncio
-async def test_add_and_remove_ip_hooks(fake_lease: JSONFileLease, dummy_iface: tuple[int, str], caplog: pytest.LogCaptureFixture):
+async def test_add_and_remove_ip_hooks(
+    fake_lease: JSONFileLease,
+    dummy_iface: tuple[int, str],
+    caplog: pytest.LogCaptureFixture,
+):
     '''Test the hooks that add & remove an address from an interface.'''
     caplog.set_level(logging.INFO, logger='pyroute2.dhcp.hooks')
 
@@ -89,5 +93,36 @@ async def test_add_and_remove_ip_hooks(fake_lease: JSONFileLease, dummy_iface: t
         f'Adding {fake_lease.ip}/{fake_lease.subnet_mask}'
         f' to {fake_lease.interface}',
         f'Removing {fake_lease.ip}/{fake_lease.subnet_mask}'
-        f' from {fake_lease.interface}'
+        f' from {fake_lease.interface}',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_add_and_remove_gw_hooks(
+    fake_lease: JSONFileLease,
+    dummy_iface: tuple[int, str],
+    caplog: pytest.LogCaptureFixture,
+):
+    '''Test the hooks that add & remove the default gw for a lease.'''
+    caplog.set_level(logging.INFO, logger='pyroute2.dhcp.hooks')
+    ifindex = dummy_iface[0]
+    async with AsyncIPRoute() as ipr:
+        await ipr.addr(
+            'add',
+            index=ifindex,
+            address=fake_lease.ip,
+            mask=fake_lease.subnet_mask,
+        )
+        await hooks.add_default_gw(lease=fake_lease)
+        routes = await ipr.route('get', dst='0.0.0.0/0', oif=ifindex)
+        assert len(routes) == 1
+        assert routes[0].get('RTA_DST') == '0.0.0.0'
+        # assert routes[0].get('RTA_OIF') == ifindex  # FIXME !
+        assert routes[0].get('RTA_PREFSRC') == fake_lease.ip
+        await hooks.remove_default_gw(lease=fake_lease)
+        # FIXME: test the route was removed
+    assert caplog.messages == [
+        f'Adding {fake_lease.default_gateway} '
+        f'as default route through {fake_lease.interface}',
+        f'Removing {fake_lease.default_gateway} as default route',
     ]
