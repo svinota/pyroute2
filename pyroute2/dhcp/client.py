@@ -141,7 +141,7 @@ class AsyncDHCPClient:
         )
         # Used to compute lease times, taking into account the request time
         self.last_state_change: float = time()
-        self.xid: Xid = Xid()
+        self.xid: Optional[Xid] = None
 
     # 'public api'
 
@@ -339,6 +339,15 @@ class AsyncDHCPClient:
             elif wait_for_msg_to_send in pending:
                 wait_for_msg_to_send.cancel()
             if msg_to_send:
+                if (
+                    msg_to_send.message_type != dhcp.MessageType.RELEASE
+                    and wait_til_off.done()
+                ):
+                    LOG.debug(
+                        "Not sending %s, client is shutting down",
+                        msg_to_send.message_type.name,
+                    )
+                    continue
                 # Set secs to the time elapsed since the last state change
                 # (max 16 bits)
                 msg_to_send.dhcp['secs'] = min(
@@ -347,8 +356,6 @@ class AsyncDHCPClient:
                 msg_to_send.dhcp['xid'] = self.xid.for_state(self.state)
                 # FIXME: don't send aynthing else than RELEASEs when stopping
                 LOG.info('Sending %s', msg_to_send)
-                # FIXME: interface could go down during the client lifetime
-                # add a test for it
                 await self._sock.put(msg_to_send)
 
     async def _recv_forever(self) -> None:
@@ -371,7 +378,12 @@ class AsyncDHCPClient:
             )
 
             if wait_for_received_packet in done:
-                received_packet = wait_for_received_packet.result()
+                try:
+                    received_packet = wait_for_received_packet.result()
+                except OSError as err:
+                    if err.errno == 100:  # network is down
+                        LOG.error("Could not recv, network is down")
+                        return
                 msg_type = dhcp.MessageType(
                     received_packet.dhcp['options']['message_type']
                 )
@@ -485,6 +497,7 @@ class AsyncDHCPClient:
         opens the socket, starts the sender & receiver tasks
         and allocates a request ID.
         '''
+        self.xid = Xid()
         if self.config.write_pidfile:
             self.config.pidfile_path.write_text(str(os.getpid()))
             LOG.debug("Wrote pidfile to %s", self.config.pidfile_path)

@@ -14,11 +14,13 @@ async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
     veth_pair: VethPair,  # FIXME: use dummy
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ):
     '''A lease is obtained with a 1s renewing time, the client renews it.
 
     The test pcap file contains the OFFER & the 2 ACKs.
     '''
+    caplog.set_level("INFO")
     # Make xids non random so they match the ones in the pcap
     monkeypatch.setattr(
         "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0x12345670

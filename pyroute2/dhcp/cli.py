@@ -7,6 +7,7 @@ from typing import Any
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.hooks import Hook
+from pyroute2.dhcp.iface_status import InterfaceStateWatcher
 from pyroute2.dhcp.leases import Lease
 
 
@@ -89,6 +90,8 @@ async def main() -> None:
         format='%(asctime)s %(levelname)s [%(name)s:%(funcName)s] %(message)s'
     )
     logging.getLogger('pyroute2.dhcp').setLevel(args.log_level)
+    LOG = logging.getLogger(__name__)
+    LOG.setLevel(args.log_level)
 
     # parse lease type
     lease_type = import_dotted_name(args.lease_type)
@@ -112,24 +115,29 @@ async def main() -> None:
         release=not args.no_release,
     )
 
-    # Open the socket, read existing lease, etc
-    async with AsyncDHCPClient(cfg) as acli:
-        try:
-            # Bootstrap the client by sending a DISCOVER or a REQUEST
-            await acli.bootstrap()
-            if args.exit_on_timeout:
-                # Wait a bit for a lease, and exit if we have none
-                try:
-                    await acli.wait_for_state(
-                        State.BOUND, timeout=args.exit_on_timeout
-                    )
-                except TimeoutError as err:
-                    psr.error(str(err))
-            # Wait until the client is stopped
-            await acli.wait_for_state(State.OFF)
-        except asyncio.CancelledError:
-            # raised by recent python versions on ctrl-C
-            pass
+    acli = AsyncDHCPClient(cfg)
+
+    async with InterfaceStateWatcher(cfg.interface) as iface_watcher:
+        while True:
+            # Open the socket, read existing lease, etc
+            if iface_watcher.state != 'up':
+                LOG.info("Waiting for %s to go up...", cfg.interface)
+            await iface_watcher.up.wait()
+            async with acli:
+                # Bootstrap the client by sending a DISCOVER or a REQUEST
+                await acli.bootstrap()
+                if args.exit_on_timeout:
+                    # Wait a bit for a lease, and exit if we have none
+                    try:
+                        await acli.wait_for_state(
+                            State.BOUND, timeout=args.exit_on_timeout
+                        )
+                        break
+                    except TimeoutError as err:
+                        psr.error(str(err))
+
+                await iface_watcher.down.wait()
+                LOG.info("%s went down", cfg.interface)
 
 
 def run():
