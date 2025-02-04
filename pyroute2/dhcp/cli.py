@@ -67,9 +67,16 @@ def get_psr() -> ArgumentParser:
         '-p',
         '--write-pidfile',
         default=False,
-        action="store_true",
+        action='store_true',
         help='Write a pid file in the working directory. '
         'WARNING: this option might be removed later.',
+    )
+    psr.add_argument(
+        '-R',
+        '--no-release',
+        default=False,
+        action='store_true',
+        help='Do not send a DHCPRELEASE on exit.',
     )
     # TODO: add options for parameters, retransmission, timeouts...
     return psr
@@ -102,6 +109,7 @@ async def main() -> None:
         lease_type=lease_type,
         hooks=hooks,
         write_pidfile=args.write_pidfile,
+        release=not args.no_release,
     )
 
     # Open the socket, read existing lease, etc

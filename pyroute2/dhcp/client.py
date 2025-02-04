@@ -78,6 +78,8 @@ class ClientConfig:
     # XXX: this might be removed later, it was done to mimic dhclient but
     # might be useless since we don't do the whole forking thing here.
     write_pidfile: bool = False
+    # Send a DHCPRELEASE on client exit
+    release: bool = True
 
     @property
     def pidfile_path(self) -> Path:
@@ -516,8 +518,7 @@ class AsyncDHCPClient:
                 lease=self.lease,
                 trigger=Trigger.UNBOUND,
             )
-            # FIXME: sending the RELEASE should probably be configurable
-            if not self.lease.expired:
+            if self.config.release and not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
         # XXX: as is, it is not possible to stop the client without exiting
         # its context manager. But would we need it ?
