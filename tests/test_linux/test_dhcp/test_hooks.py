@@ -97,6 +97,7 @@ async def test_add_and_remove_ip_hooks(
     ]
 
 
+@pytest.mark.skip(reason='Messes up routing; we need to use a netns')
 @pytest.mark.asyncio
 async def test_add_and_remove_gw_hooks(
     fake_lease: JSONFileLease,
@@ -114,13 +115,15 @@ async def test_add_and_remove_gw_hooks(
             mask=fake_lease.subnet_mask,
         )
         await hooks.add_default_gw(lease=fake_lease)
-        routes = await ipr.route('get', dst='0.0.0.0/0', oif=ifindex)
+        routes = await ipr.route('get', dst='1.2.3.4')
         assert len(routes) == 1
-        assert routes[0].get('RTA_DST') == '0.0.0.0'
-        # assert routes[0].get('RTA_OIF') == ifindex  # FIXME !
+        assert routes[0].get('RTA_DST') == '1.2.3.4'
+        assert routes[0].get('RTA_OIF') == ifindex
         assert routes[0].get('RTA_PREFSRC') == fake_lease.ip
         await hooks.remove_default_gw(lease=fake_lease)
-        # FIXME: test the route was removed
+        routes = await ipr.route('get', dst='1.2.3.4')
+        assert routes[0].get('RTA_OIF') != ifindex
+
     assert caplog.messages == [
         f'Adding {fake_lease.default_gateway} '
         f'as default route through {fake_lease.interface}',

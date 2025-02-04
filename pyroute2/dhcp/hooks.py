@@ -74,7 +74,7 @@ def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
     Hooks set in `ClientConfig.hooks` will be called in order by the client
     when one of the triggers passed to the decorator happens.
 
-    For example:
+    For example::
 
         @hook(Trigger.RENEWED)
         async def lease_was_renewed(lease: Lease):
@@ -110,7 +110,7 @@ async def configure_ip(lease: Lease):
             'replace',
             index=await ipr.link_lookup(ifname=lease.interface),
             address=lease.ip,
-            mask=lease.subnet_mask,
+            prefixlen=lease.subnet_mask,
             # FIXME: maybe make this optional
             broadcast=lease.broadcast_address,
         )
