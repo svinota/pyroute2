@@ -3,14 +3,16 @@ from fixtures.dhcp_servers.mock import MockDHCPServerFixture
 from fixtures.interfaces import VethPair
 
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
+from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.fsm import State
+from pyroute2.dhcp.leases import JSONFileLease
 
 
 @pytest.mark.asyncio
 async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
-    veth_pair: VethPair,
+    veth_pair: VethPair,  # FIXME: use dummy
     monkeypatch: pytest.MonkeyPatch,
 ):
     '''A lease is obtained with a 1s renewing time, the client renews it.
@@ -106,3 +108,82 @@ async def test_get_and_renew_lease(
         'vendor_id': b'pyroute2',
     }
     assert release.sport, release.dport == (68, 67)
+
+
+@pytest.mark.asyncio
+async def test_init_reboot_nak(
+    mock_dhcp_server: MockDHCPServerFixture,
+    veth_pair: VethPair,  # FIXME: use dummy
+    monkeypatch: pytest.MonkeyPatch,
+    caplog,
+):
+    '''The server doesn't like the requested IP in INIT-REBOOT.
+
+    It sends a NAK and the client goes back to INIT and gets a new lease.
+    '''
+    monkeypatch.setattr(
+        "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0xDD435A20
+    )
+    caplog.set_level("INFO")
+    # Create a fake lease to start the client in INIT-REBOOT
+    old_lease = JSONFileLease(
+        ack=dhcp4msg(
+            {
+                'op': bootp.MessageType.BOOTREPLY,
+                'flags': bootp.Flag.BROADCAST,
+                'yiaddr': '192.168.186.73',
+                'chaddr': '72:c1:55:6f:76:83',
+                'options': {
+                    'message_type': 5,
+                    'server_id': '192.168.186.1',
+                    'lease_time': 1,
+                },
+            }
+        ),
+        interface=veth_pair.client,
+        server_mac='2e:7e:7d:8e:5f:5f',
+    )
+    old_lease.dump()
+    cfg = ClientConfig(interface=veth_pair.client, hooks=[])
+    async with AsyncDHCPClient(cfg) as cli:
+        await cli.bootstrap()
+        # The client loaded the lease we just wrote and sents a REQUEST
+        await cli.wait_for_state(State.REBOOTING, timeout=1)
+        # The server sends a NAK, so the client goes back to INIT
+        await cli.wait_for_state(State.INIT, timeout=1)
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        # The server sends an OFFER an the client requests it
+        await cli.wait_for_state(State.REQUESTING, timeout=1)
+        # The servers ACKs the request and we're bound !
+        await cli.wait_for_state(State.BOUND, timeout=1)
+
+    assert len(mock_dhcp_server.decoded_requests) == 4
+    request1, discover, request2, release = mock_dhcp_server.decoded_requests
+    assert request1.message_type == dhcp.MessageType.REQUEST
+    assert request1.dhcp['flags'] == bootp.Flag.BROADCAST
+    assert request1.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert request1.dhcp['options']['requested_ip'] == old_lease.ip
+    assert request1.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert request1.ip_dst == '255.255.255.255'
+    assert request1.ip_src == '0.0.0.0'
+
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+    assert discover.dhcp['flags'] == bootp.Flag.BROADCAST
+    assert discover.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert discover.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert discover.ip_dst == '255.255.255.255'
+    assert discover.ip_src == '0.0.0.0'
+
+    assert request2.message_type == dhcp.MessageType.REQUEST
+    assert request2.dhcp['flags'] == bootp.Flag.BROADCAST
+    assert request2.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert request2.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert request2.ip_dst == '255.255.255.255'
+    assert request2.ip_src == '0.0.0.0'
+
+    assert release.message_type == dhcp.MessageType.RELEASE
+    assert release.dhcp['flags'] == bootp.Flag.UNICAST
+    assert release.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert release.eth_dst == '2e:7e:7d:8e:5f:5f'
+    assert release.ip_dst == '192.168.186.1'
+    assert release.ip_src == '192.168.186.85'
