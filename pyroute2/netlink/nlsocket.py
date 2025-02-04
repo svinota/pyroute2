@@ -331,7 +331,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                 except Exception as e:
                     # create a new underlying socket -- on kernel 4
                     # one failed bind() makes the socket useless
-                    log.error(e)
+                    log.debug(e)
             else:
                 raise KeyError('no free address available')
 
