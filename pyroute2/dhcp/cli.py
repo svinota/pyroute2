@@ -2,13 +2,15 @@ import asyncio
 import logging
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from importlib import import_module
-from typing import Any
+from typing import Any, Optional
 
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.hooks import Hook
 from pyroute2.dhcp.iface_status import InterfaceStateWatcher
 from pyroute2.dhcp.leases import Lease
+
+LOG = logging.getLogger(__name__)
 
 
 def import_dotted_name(name: str) -> Any:
@@ -83,6 +85,37 @@ def get_psr() -> ArgumentParser:
     return psr
 
 
+async def run_client(cfg: ClientConfig, exit_timeout: Optional[float] = None):
+    '''Run the client until interrupted, or a timeout occurs.
+
+    The optional `exit_timeout` controls 2 things when provided:
+    - How long to wait for the interface to be up
+    - How long to wait for the client to be bound when starting up
+    '''
+
+    acli = AsyncDHCPClient(cfg)
+
+    async with InterfaceStateWatcher(cfg.interface) as iface_watcher:
+        while True:
+            # Open the socket, read existing lease, etc
+            if iface_watcher.state != 'up':
+                LOG.info("Waiting for %s to go up...", cfg.interface)
+            async with asyncio.timeout(exit_timeout):
+                await iface_watcher.up.wait()
+            async with acli:
+                # Bootstrap the client by sending a DISCOVER or a REQUEST
+                await acli.bootstrap()
+                if exit_timeout:
+                    # Wait a bit for a lease, and raise if we have none
+                    await acli.wait_for_state(
+                        State.BOUND, timeout=exit_timeout
+                    )
+                    break
+
+                await iface_watcher.down.wait()
+                LOG.info("%s went down", cfg.interface)
+
+
 async def main() -> None:
     psr = get_psr()
     args = psr.parse_args()
@@ -90,7 +123,7 @@ async def main() -> None:
         format='%(asctime)s %(levelname)s [%(name)s:%(funcName)s] %(message)s'
     )
     logging.getLogger('pyroute2.dhcp').setLevel(args.log_level)
-    LOG = logging.getLogger(__name__)
+
     LOG.setLevel(args.log_level)
 
     # parse lease type
@@ -115,29 +148,7 @@ async def main() -> None:
         release=not args.no_release,
     )
 
-    acli = AsyncDHCPClient(cfg)
-
-    async with InterfaceStateWatcher(cfg.interface) as iface_watcher:
-        while True:
-            # Open the socket, read existing lease, etc
-            if iface_watcher.state != 'up':
-                LOG.info("Waiting for %s to go up...", cfg.interface)
-            await iface_watcher.up.wait()
-            async with acli:
-                # Bootstrap the client by sending a DISCOVER or a REQUEST
-                await acli.bootstrap()
-                if args.exit_on_timeout:
-                    # Wait a bit for a lease, and exit if we have none
-                    try:
-                        await acli.wait_for_state(
-                            State.BOUND, timeout=args.exit_on_timeout
-                        )
-                        break
-                    except TimeoutError as err:
-                        psr.error(str(err))
-
-                await iface_watcher.down.wait()
-                LOG.info("%s went down", cfg.interface)
+    await run_client(cfg)
 
 
 def run():
