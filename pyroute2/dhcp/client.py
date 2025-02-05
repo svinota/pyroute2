@@ -356,7 +356,12 @@ class AsyncDHCPClient:
                 msg_to_send.dhcp['xid'] = self.xid.for_state(self.state)
                 # FIXME: don't send aynthing else than RELEASEs when stopping
                 LOG.info('Sending %s', msg_to_send)
-                await self._sock.put(msg_to_send)
+                try:
+                    await self._sock.put(msg_to_send)
+                except OSError as err:
+                    if err.errno == 100:  # network is down
+                        LOG.error("Could not send, network is down")
+                        return
 
     async def _recv_forever(self) -> None:
         '''Receive & process DHCP packets until the client stops.

@@ -52,6 +52,12 @@ def get_psr() -> ArgumentParser:
         metavar='dotted.name',
     )
     psr.add_argument(
+        '--disable-hooks',
+        help='Disable all hooks.',
+        default=False,
+        action='store_true',
+    )
+    psr.add_argument(
         '-x',
         '--exit-on-timeout',
         metavar='N',
@@ -134,11 +140,16 @@ async def main() -> None:
 
     # parse hooks
     hooks: list[Hook] = []
-    for dotted_hook_name in args.hook:
-        hook = import_dotted_name(dotted_hook_name)
-        if not isinstance(hook, Hook):
-            psr.error(f'{dotted_hook_name!r} must point to a Hook instance.')
-        hooks.append(hook)
+    if not args.disable_hooks:
+        LOG.debug('Configured hooks:')
+        for dotted_hook_name in args.hook:
+            hook = import_dotted_name(dotted_hook_name)
+            if not isinstance(hook, Hook):
+                psr.error(
+                    f'{dotted_hook_name!r} must point to a Hook instance.'
+                )
+            hooks.append(hook)
+            LOG.debug("- %s", hook.name)
 
     # Create configuration
     cfg = ClientConfig(
