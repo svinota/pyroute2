@@ -6,10 +6,11 @@ import time
 from dataclasses import asdict, dataclass, field
 from logging import getLogger
 from pathlib import Path
-from typing import Optional
+from typing import Generic, Optional, TypeVar
 
 from pyroute2.common import dqn2int
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
+from pyroute2.dhcp.enums.dhcp import Option
 
 LOG = getLogger(__name__)
 
@@ -17,6 +18,35 @@ LOG = getLogger(__name__)
 def _now() -> float:
     '''The current timestamp.'''
     return time.time()
+
+
+class MissingOptionError(LookupError):
+    '''Raised when trying to access a missing option in a lease.'''
+
+    def __init__(self, opt: Option):
+        super().__init__(f"Lease does not set {opt}")
+
+
+LeaseOptionT = TypeVar('LeaseOptionT', bound=type)
+
+
+class LeaseOption(Generic[LeaseOptionT]):
+    '''Descriptor to factorize properties on leases that read DHCP options.'''
+
+    def __init__(self, opt: Option):
+        '''Create a new instance that looks up the given option.'''
+        self.opt = opt
+
+    def __get__(
+        self, obj: object, objtype: Optional[type] = None
+    ) -> LeaseOptionT:
+        '''Gets the option matching self.opt in the lease.'''
+        assert isinstance(obj, Lease)
+        opt_name = self.opt.name.lower()
+        if opt_name not in obj.ack['options']:
+            raise MissingOptionError(self.opt)
+        opt_value = obj.ack['options'][opt_name]
+        return opt_value
 
 
 @dataclass
@@ -94,45 +124,34 @@ class Lease(abc.ABC):
         return self.ack['yiaddr']
 
     @property
-    def subnet_mask(self) -> Optional[int]:
-        '''The subnet mask assigned to the client.'''
-        mask = self.ack['options'].get('subnet_mask')
-        if mask is None:
-            return None
-        if isinstance(mask, int) or mask.isdigit():
-            return int(mask)
-        return dqn2int(mask)
+    def prefixlen(self) -> int:
+        '''The length of the subnet mask assigned to the client.'''
+        return dqn2int(self.subnet_mask)
 
     @property
-    def routers(self) -> list[str]:
-        return self.ack['options'].get('router', [])
-
-    @property
-    def default_gateway(self) -> Optional[str]:
+    def default_gateway(self) -> str:
         '''The default gateway for this interface.
 
         As mentioned by the RFC, the first router is the most prioritary.
         '''
-        return self.routers[0] if self.routers else None
+        # TODO: unit test to make this crash
+        return self.routers[0]
 
-    @property
-    def broadcast_address(self) -> Optional[str]:
-        '''The broadcast address for this network.'''
-        return self.ack['options'].get('broadcast_address')
+    # The subnet mask assigned to the client.
+    subnet_mask = LeaseOption[str](Option.SUBNET_MASK)
 
-    @property
-    def mtu(self) -> Optional[int]:
-        '''The MTU for this interface.'''
-        return self.ack['options'].get('interface_mtu')
+    routers = LeaseOption[list[str]](Option.ROUTER)
 
-    @property
-    def name_servers(self) -> Optional[str]:  # XXX: list ?
-        return self.ack['options'].get('name_server')
+    # The broadcast address for this network.
+    broadcast_address = LeaseOption[str](Option.BROADCAST_ADDRESS)
 
-    @property
-    def server_id(self) -> Optional[str]:
-        '''The IP address of the server which allocated this lease.'''
-        return self.ack['options'].get('server_id')
+    # The MTU for this interface.
+    mtu = LeaseOption[int](Option.INTERFACE_MTU)
+
+    name_servers = LeaseOption[list[str]](Option.NAME_SERVER)
+
+    # The IP address of the server which allocated this lease.
+    server_id = LeaseOption[str](Option.SERVER_ID)
 
     @abc.abstractmethod
     def dump(self) -> None:

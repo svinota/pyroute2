@@ -6,8 +6,6 @@ from logging import getLogger
 from typing import Awaitable, Callable, Iterable, NamedTuple
 
 from pyroute2.compat import StrEnum
-from pyroute2.dhcp.enums.dhcp import Option
-from pyroute2.dhcp.exceptions import DHCPOptionMissingError
 from pyroute2.dhcp.leases import Lease
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
@@ -102,9 +100,6 @@ async def configure_ip(lease: Lease):
     LOG.info(
         'Adding %s/%s to %s', lease.ip, lease.subnet_mask, lease.interface
     )
-    # FIXME: check the broadcast address, factorize missing options check
-    if not lease.subnet_mask:
-        raise DHCPOptionMissingError(Option.SUBNET_MASK)
     async with AsyncIPRoute() as ipr:
         await ipr.addr(
             'replace',
@@ -139,10 +134,6 @@ async def add_default_gw(lease: Lease):
 
     Use in addition to `remove_default_gw` for cleanup.
     '''
-    # FIXME: refactor missing option handling
-    if lease.default_gateway is None:
-        LOG.error('Lease does not set the router option')
-        return
     LOG.info(
         'Adding %s as default route through %s',
         lease.default_gateway,
@@ -161,9 +152,6 @@ async def add_default_gw(lease: Lease):
 @hook(Trigger.UNBOUND, Trigger.EXPIRED)
 async def remove_default_gw(lease: Lease):
     '''Removes the default gateway set in the lease.'''
-    if lease.default_gateway is None:
-        LOG.error('Lease does not set the router option')
-        return
     LOG.info('Removing %s as default route', lease.default_gateway)
     async with AsyncIPRoute() as ipr:
         ifindex = await ipr.link_lookup(ifname=lease.interface)
