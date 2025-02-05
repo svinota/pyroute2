@@ -1,7 +1,9 @@
-import random
+from secrets import SystemRandom
 from typing import Any, Optional
 
 from pyroute2.dhcp.fsm import State
+
+random = SystemRandom()
 
 
 def random_xid_prefix() -> int:
