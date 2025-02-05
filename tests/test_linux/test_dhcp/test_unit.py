@@ -117,7 +117,7 @@ async def test_init_reboot_nak(
     mock_dhcp_server: MockDHCPServerFixture,
     veth_pair: VethPair,  # FIXME: use dummy
     monkeypatch: pytest.MonkeyPatch,
-    caplog,
+    caplog: pytest.LogCaptureFixture,
 ):
     '''The server doesn't like the requested IP in INIT-REBOOT.
 
@@ -189,3 +189,53 @@ async def test_init_reboot_nak(
     assert release.eth_dst == '2e:7e:7d:8e:5f:5f'
     assert release.ip_dst == '192.168.186.1'
     assert release.ip_src == '192.168.186.85'
+
+
+@pytest.mark.asyncio
+async def test_requesting_timeout(
+    mock_dhcp_server: MockDHCPServerFixture,
+    veth_pair: VethPair,  # FIXME: use dummy
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+):
+    monkeypatch.setattr(
+        "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0xDD435A20
+    )
+    caplog.set_level("INFO")
+    cfg = ClientConfig(interface=veth_pair.client, hooks=[])
+    # Timeout after 1s when requesting an offer and no answer
+    cfg.timeouts[State.REQUESTING] = 1
+    async with AsyncDHCPClient(cfg) as cli:
+        await cli.bootstrap()
+        # The client sends a DISCOVER, the servers sends an OFFER
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        await cli.wait_for_state(State.REQUESTING, timeout=1)
+        # and then the server nevers send an ack
+        # the client goes back to SELECTING after the timeout
+        await cli.wait_for_state(State.SELECTING, timeout=3)
+
+    # the client has reset
+    assert 'Resetting after 1.0 seconds' in caplog.messages
+
+    assert len(mock_dhcp_server.decoded_requests) == 2
+    discover, request = mock_dhcp_server.decoded_requests
+
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+    assert discover.dhcp['flags'] == bootp.Flag.BROADCAST
+    assert discover.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert discover.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert discover.ip_dst == '255.255.255.255'
+    assert discover.ip_src == '0.0.0.0'
+    assert discover.dhcp['options']['parameter_list'] == list(
+        cfg.requested_parameters
+    )
+
+    assert request.message_type == dhcp.MessageType.REQUEST
+    assert request.dhcp['flags'] == bootp.Flag.BROADCAST
+    assert request.dhcp['op'] == bootp.MessageType.BOOTREQUEST
+    assert request.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert request.ip_dst == '255.255.255.255'
+    assert request.ip_src == '0.0.0.0'
+    assert request.dhcp['options']['parameter_list'] == list(
+        cfg.requested_parameters
+    )

@@ -37,7 +37,10 @@ class MockDHCPServerFixture:
         # wait for a request to be received to send a response
         await self._request_received.wait()
         self._request_received.clear()
-        return self.responses.pop(0)
+        if self.responses:
+            return self.responses.pop(0)
+        # make the client timeout, the server is supposed to answer nothing
+        await asyncio.sleep(9999)
 
 
 @pytest.fixture

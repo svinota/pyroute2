@@ -1,8 +1,7 @@
-
-
 import asyncio
 import sys
 from typing import Literal, Optional
+
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import RTMGRP_LINK
@@ -20,7 +19,7 @@ class InterfaceStateWatcher:
         self.interface = interface
         self.up = asyncio.Event()
         self.down = asyncio.Event()
-        self._state: Optional[IfaceState] =  None
+        self._state: Optional[IfaceState] = None
         self._watcher: Optional[asyncio.Task] = None
         self._ipr: Optional[AsyncIPRoute] = None
 
@@ -74,7 +73,7 @@ class InterfaceStateWatcher:
                 pass
             else:
                 raise
-        self._watcher =  None
+        self._watcher = None
         self._ipr = None
 
 
