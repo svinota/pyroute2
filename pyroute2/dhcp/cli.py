@@ -100,8 +100,9 @@ async def run_client(cfg: ClientConfig, exit_timeout: Optional[float] = None):
             # Open the socket, read existing lease, etc
             if iface_watcher.state != 'up':
                 LOG.info("Waiting for %s to go up...", cfg.interface)
-            async with asyncio.timeout(exit_timeout):
-                await iface_watcher.up.wait()
+            await asyncio.wait_for(
+                iface_watcher.up.wait(), timeout=exit_timeout
+            )
             async with acli:
                 # Bootstrap the client by sending a DISCOVER or a REQUEST
                 await acli.bootstrap()
