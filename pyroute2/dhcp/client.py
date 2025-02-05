@@ -86,7 +86,7 @@ class ClientConfig:
     @property
     def pidfile_path(self) -> Path:
         '''Where to write the pid file. It's named after the interface.'''
-        return Path.cwd().joinpath(self.interface).with_suffix(".pid")
+        return Path.cwd().joinpath(self.interface).with_suffix('.pid')
 
 
 class AsyncDHCPClient:
@@ -344,7 +344,7 @@ class AsyncDHCPClient:
                     and wait_til_off.done()
                 ):
                     LOG.debug(
-                        "Not sending %s, client is shutting down",
+                        'Not sending %s, client is shutting down',
                         msg_to_send.message_type.name,
                     )
                     continue
@@ -360,7 +360,7 @@ class AsyncDHCPClient:
                     await self._sock.put(msg_to_send)
                 except OSError as err:
                     if err.errno == 100:  # network is down
-                        LOG.error("Could not send, network is down")
+                        LOG.error('Could not send, network is down')
                         return
 
     async def _recv_forever(self) -> None:
@@ -387,7 +387,7 @@ class AsyncDHCPClient:
                     received_packet = wait_for_received_packet.result()
                 except OSError as err:
                     if err.errno == 100:  # network is down
-                        LOG.error("Could not recv, network is down")
+                        LOG.error('Could not recv, network is down')
                         return
                 msg_type = dhcp.MessageType(
                     received_packet.dhcp['options']['message_type']
@@ -458,7 +458,7 @@ class AsyncDHCPClient:
         elif request_state == fsm.State.REBINDING:
             trigger = Trigger.REBOUND
         else:
-            LOG.warning("Invalid request state %s in xid", request_state.name)
+            LOG.warning('Invalid request state %s in xid', request_state)
             return
 
         await self._run_hooks(trigger)
@@ -503,7 +503,7 @@ class AsyncDHCPClient:
         self.xid = Xid()
         if self.config.write_pidfile:
             self.config.pidfile_path.write_text(str(os.getpid()))
-            LOG.debug("Wrote pidfile to %s", self.config.pidfile_path)
+            LOG.debug('Wrote pidfile to %s', self.config.pidfile_path)
         if loaded_lease := self.config.lease_type.load(self.config.interface):
             self._lease = loaded_lease
             self.state = fsm.State.INIT_REBOOT
@@ -541,10 +541,11 @@ class AsyncDHCPClient:
         self.xid = None
         if self.config.write_pidfile:
             self.config.pidfile_path.unlink(missing_ok=True)
-            LOG.debug("Removed pidfile at %s", self.config.pidfile_path)
+            LOG.debug('Removed pidfile at %s', self.config.pidfile_path)
 
     async def _run_hooks(self, trigger: Trigger):
         '''Run hooks for the given trigger.'''
+        assert self.lease, 'tried to run hooks without a lease'
         await run_hooks(
             hooks=self.config.hooks,
             lease=self.lease,

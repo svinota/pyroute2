@@ -27,7 +27,7 @@ class MissingOptionError(LookupError):
         super().__init__(f"Lease does not set {opt}")
 
 
-LeaseOptionT = TypeVar('LeaseOptionT', bound=type)
+LeaseOptionT = TypeVar('LeaseOptionT')
 
 
 class LeaseOption(Generic[LeaseOptionT]):

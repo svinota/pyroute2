@@ -32,7 +32,6 @@ class InterfaceStateWatcher:
     @state.setter
     def state(self, value: IfaceState) -> None:
         '''Set the state & trigger the relevant event.'''
-        assert value in IfaceState.__args__
         self._state = value
         if value == 'up':
             self.up.set()
@@ -43,12 +42,14 @@ class InterfaceStateWatcher:
 
     async def _fetch_current_state(self) -> IfaceState:
         '''Get the initial state before we're notified of changes.'''
+        assert self._ipr, 'need to use as a context manager'
         lookup_results = await self._ipr.link_lookup(ifname=self.interface)
         get_results = await self._ipr.link("get", index=lookup_results[0])
         return get_results[0].get('state')
 
     async def _watch_changes(self):
         '''Updates `state` in real time forever.'''
+        assert self._ipr, 'need to use as a context manager'
         while True:
             # TODO: svinota says we should call .link('dump') here
             # to empty the buffer before starting
@@ -77,9 +78,9 @@ class InterfaceStateWatcher:
         self._ipr = None
 
 
-async def main(iface: str, state: IfaceState):
+async def main(iface: str, state: str):
     '''Very basic entrypoint for commandline testing.'''
-    assert state in IfaceState.__args__
+    assert state in ('up', 'down')
     async with InterfaceStateWatcher(iface) as watcher:
         print('Will exit when', iface, 'is', state)
         await getattr(watcher, state).wait()

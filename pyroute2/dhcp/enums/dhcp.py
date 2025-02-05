@@ -122,8 +122,8 @@ class Parameter(IntEnum):
 # we have to use the functional syntax because the enums share most of their
 # values but python does not allow subclassing them.
 # Doing it the standard way would result in a LOT of duplicate values.
-# FIXME: this confuses mypy
-Option = IntEnum(
+# FIXME: this confuses mypy, it only understands literal dicts
+Option = IntEnum(  # type: ignore[misc]
     'Option',
     {
         **{i.name: i.value for i in Parameter},
