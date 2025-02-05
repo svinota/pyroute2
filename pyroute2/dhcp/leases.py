@@ -2,8 +2,8 @@
 
 import abc
 import json
+import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from logging import getLogger
 from pathlib import Path
 from typing import Optional
@@ -16,7 +16,7 @@ LOG = getLogger(__name__)
 
 def _now() -> float:
     '''The current timestamp.'''
-    return datetime.now().timestamp()
+    return time.time()
 
 
 @dataclass
