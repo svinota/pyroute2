@@ -1,6 +1,6 @@
 import json
-from ipaddress import IPv4Address
 import os
+from ipaddress import IPv4Address
 from pathlib import Path
 
 import pytest

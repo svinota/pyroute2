@@ -151,8 +151,8 @@ class AsyncDHCPClient:
         '''Waits until the client is in the target state.'''
         try:
             await asyncio.wait_for(self._states[state].wait(), timeout=timeout)
-        except TimeoutError as err:
-            raise TimeoutError(
+        except asyncio.exceptions.TimeoutError as err:
+            raise asyncio.exceptions.TimeoutError(
                 f'Timed out waiting for the {state.name} state. '
                 f'Current state: {self.state.name}'
             ) from err
