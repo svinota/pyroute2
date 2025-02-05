@@ -1,3 +1,4 @@
+import asyncio
 from typing import Callable
 
 import pytest
@@ -240,7 +241,7 @@ async def test_requesting_timeout(
 async def test_wait_for_state_timeout(client_config: ClientConfig):
     '''wait_for_state() can timeout after a given delay'''
     async with AsyncDHCPClient(client_config) as cli:
-        with pytest.raises(TimeoutError) as err_ctx:
+        with pytest.raises(asyncio.exceptions.TimeoutError) as err_ctx:
             await cli.wait_for_state(State.BOUND, timeout=0.2)
     assert (
         str(err_ctx.value)
