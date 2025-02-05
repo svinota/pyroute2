@@ -153,6 +153,10 @@ class Lease(abc.ABC):
     # The IP address of the server which allocated this lease.
     server_id = LeaseOption[str](Option.SERVER_ID)
 
+    domain_name = LeaseOption[str](Option.DOMAIN_NAME)
+
+    domain_search = LeaseOption[list[str]](Option.DOMAIN_SEARCH)
+
     @abc.abstractmethod
     def dump(self) -> None:
         '''Write a lease, i.e. to disk or to stdout.'''

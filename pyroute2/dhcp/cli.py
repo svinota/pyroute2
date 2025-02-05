@@ -105,7 +105,7 @@ async def run_client(cfg: ClientConfig, exit_timeout: Optional[float] = None):
         while True:
             # Open the socket, read existing lease, etc
             if iface_watcher.state != 'up':
-                LOG.info("Waiting for %s to go up...", cfg.interface)
+                LOG.info('Waiting for %s to go up...', cfg.interface)
             await asyncio.wait_for(
                 iface_watcher.up.wait(), timeout=exit_timeout
             )
@@ -118,9 +118,8 @@ async def run_client(cfg: ClientConfig, exit_timeout: Optional[float] = None):
                         State.BOUND, timeout=exit_timeout
                     )
                     break
-
                 await iface_watcher.down.wait()
-                LOG.info("%s went down", cfg.interface)
+                LOG.warning('%s went down', cfg.interface)
 
 
 async def main() -> None:

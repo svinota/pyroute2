@@ -60,9 +60,9 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         stderr=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
     )
-    await asyncio.sleep(1)
     # TODO: check the interface has an IP
-
+    await asyncio.sleep(1)
+    res_tsk = asyncio.Task(process.communicate())
     # put iface down
     async with AsyncIPRoute() as ipr:
         await ipr.link('set', index=veth_pair.client_idx, state='down')
@@ -73,15 +73,16 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         await ipr.link('set', index=veth_pair.client_idx, state='up')
 
     # stop client
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(1)
     # TODO: check the interface has an IP again
     process.send_signal(signal.SIGINT)
-    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+    stdout, stderr = await asyncio.wait_for(res_tsk, timeout=5)
     assert process.returncode == 0
     # TODO: check the interface has no IP anymore
 
     # check the logs mention the interface flapping
     logs = stderr.decode()
+    assert logs, "not a single lease"
     assert logs.index(f'{veth_pair.client} went down') < logs.index(
         f'Waiting for {veth_pair.client} to go up...'
     )

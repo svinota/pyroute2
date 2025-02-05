@@ -1,9 +1,10 @@
 '''Hooks called by the DHCP client when bound, a leases expires, etc.'''
 
+import asyncio
 import errno
 from enum import auto
 from logging import getLogger
-from typing import Awaitable, Callable, Iterable, NamedTuple
+from typing import Awaitable, Callable, Iterable, NamedTuple, Optional
 
 from pyroute2.compat import StrEnum
 from pyroute2.dhcp.leases import Lease
@@ -51,18 +52,26 @@ class Hook(NamedTuple):
         return self.func.__name__
 
 
-async def run_hooks(hooks: Iterable[Hook], lease: Lease, trigger: Trigger):
+async def run_hooks(
+    hooks: Iterable[Hook],
+    lease: Lease,
+    trigger: Trigger,
+    timeout: Optional[float] = None,
+):
     '''Called by the client to run the hooks registered for the given trigger.
 
     Exceptions are handled and printed, but don't prevent the other hooks from
     running.
     '''
-    for i in filter(lambda y: trigger in y.triggers, hooks):
-        try:
-            # TODO: what if a hook takes forever ? should there be a timeout ?
-            await i(lease)
-        except Exception:
-            LOG.exception("Hook %s failed", i.name)
+    if hooks := list(hooks):
+        LOG.info('Running %s hooks', trigger)
+        for i in filter(lambda y: trigger in y.triggers, hooks):
+            try:
+                await asyncio.wait_for(i(lease), timeout=timeout)
+            except asyncio.exceptions.TimeoutError:
+                LOG.error('Hook %s timed out', i.name)
+            except Exception as exc:
+                LOG.error('Hook %s failed: %s', i.name, exc)
 
 
 def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:

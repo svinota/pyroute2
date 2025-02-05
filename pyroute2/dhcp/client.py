@@ -80,6 +80,8 @@ class ClientConfig:
     write_pidfile: bool = False
     # Send a DHCPRELEASE on client exit
     release: bool = True
+    # Maximum execution duration for a single hook
+    hook_timeout: Optional[float] = 2.0
 
     @property
     def pidfile_path(self) -> Path:
@@ -271,9 +273,7 @@ class AsyncDHCPClient:
         '''Called when the expiration time defined in the lease expires.'''
         LOG.info('Lease expired')
         self.lease_timers._reset_timer('expiration')
-        await run_hooks(
-            hooks=self.config.hooks, lease=self.lease, trigger=Trigger.EXPIRED
-        )
+        await self._run_hooks(Trigger.EXPIRED)
         await self.reset()
 
     async def reset(self, delay: float = 0.0):
@@ -461,9 +461,7 @@ class AsyncDHCPClient:
             LOG.warning("Invalid request state %s in xid", request_state.name)
             return
 
-        await run_hooks(
-            hooks=self.config.hooks, lease=self.lease, trigger=trigger
-        )
+        await self._run_hooks(trigger)
 
     @fsm.state_guard(
         fsm.State.REQUESTING,
@@ -531,11 +529,7 @@ class AsyncDHCPClient:
         '''
         self.lease_timers.cancel()
         if self.lease:
-            await run_hooks(
-                hooks=self.config.hooks,
-                lease=self.lease,
-                trigger=Trigger.UNBOUND,
-            )
+            await self._run_hooks(Trigger.UNBOUND)
             if self.config.release and not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
         # XXX: as is, it is not possible to stop the client without exiting
@@ -548,3 +542,12 @@ class AsyncDHCPClient:
         if self.config.write_pidfile:
             self.config.pidfile_path.unlink(missing_ok=True)
             LOG.debug("Removed pidfile at %s", self.config.pidfile_path)
+
+    async def _run_hooks(self, trigger: Trigger):
+        '''Run hooks for the given trigger.'''
+        await run_hooks(
+            hooks=self.config.hooks,
+            lease=self.lease,
+            trigger=trigger,
+            timeout=self.config.hook_timeout,
+        )
