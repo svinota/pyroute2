@@ -1,3 +1,5 @@
+from typing import Callable
+
 import pytest
 from fixtures.dhcp_servers.mock import MockDHCPServerFixture
 from fixtures.interfaces import VethPair
@@ -12,8 +14,8 @@ from pyroute2.dhcp.leases import JSONFileLease
 @pytest.mark.asyncio
 async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
-    veth_pair: VethPair,  # FIXME: use dummy
-    monkeypatch: pytest.MonkeyPatch,
+    set_fixed_xid: Callable[[int], None],
+    client_config: ClientConfig,
     caplog: pytest.LogCaptureFixture,
 ):
     '''A lease is obtained with a 1s renewing time, the client renews it.
@@ -22,11 +24,8 @@ async def test_get_and_renew_lease(
     '''
     caplog.set_level("INFO")
     # Make xids non random so they match the ones in the pcap
-    monkeypatch.setattr(
-        "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0x12345670
-    )
-    cfg = ClientConfig(interface=veth_pair.client)
-    async with AsyncDHCPClient(cfg) as cli:
+    set_fixed_xid(0x12345670)
+    async with AsyncDHCPClient(client_config) as cli:
         await cli.bootstrap()
         await cli.wait_for_state(State.SELECTING, timeout=1)
         # server sends an OFFER
@@ -55,7 +54,7 @@ async def test_get_and_renew_lease(
     assert all([discover.dhcp[f'{x}iaddr'] == '0.0.0.0' for x in 'cysg'])
     # the requested parameters match those in the client config
     assert discover.dhcp['options']['parameter_list'] == list(
-        cfg.requested_parameters
+        client_config.requested_parameters
     )
     assert discover.sport, release.dport == (68, 67)
 
@@ -71,7 +70,7 @@ async def test_get_and_renew_lease(
     assert request.dhcp['options'] == {
         'client_id': {'key': request.eth_src, 'type': 1},
         'message_type': dhcp.MessageType.REQUEST,
-        'parameter_list': list(cfg.requested_parameters),
+        'parameter_list': list(client_config.requested_parameters),
         'requested_ip': '192.168.186.73',
         'server_id': '192.168.186.1',
         'vendor_id': b'pyroute2',
@@ -92,7 +91,7 @@ async def test_get_and_renew_lease(
     assert renew_request.dhcp['options'] == {
         'client_id': {'key': renew_request.eth_src, 'type': 1},
         'message_type': dhcp.MessageType.REQUEST,
-        'parameter_list': list(cfg.requested_parameters),
+        'parameter_list': list(client_config.requested_parameters),
         'vendor_id': b'pyroute2',
     }
     assert renew_request.sport, release.dport == (68, 67)
@@ -115,17 +114,16 @@ async def test_get_and_renew_lease(
 @pytest.mark.asyncio
 async def test_init_reboot_nak(
     mock_dhcp_server: MockDHCPServerFixture,
-    veth_pair: VethPair,  # FIXME: use dummy
-    monkeypatch: pytest.MonkeyPatch,
+    client_config: ClientConfig,
+    veth_pair: VethPair,
     caplog: pytest.LogCaptureFixture,
+    set_fixed_xid: Callable[[int], None],
 ):
     '''The server doesn't like the requested IP in INIT-REBOOT.
 
     It sends a NAK and the client goes back to INIT and gets a new lease.
     '''
-    monkeypatch.setattr(
-        "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0xDD435A20
-    )
+    set_fixed_xid(0xDD435A20)
     caplog.set_level("INFO")
     # Create a fake lease to start the client in INIT-REBOOT
     old_lease = JSONFileLease(
@@ -146,8 +144,7 @@ async def test_init_reboot_nak(
         server_mac='2e:7e:7d:8e:5f:5f',
     )
     old_lease.dump()
-    cfg = ClientConfig(interface=veth_pair.client, hooks=[])
-    async with AsyncDHCPClient(cfg) as cli:
+    async with AsyncDHCPClient(client_config) as cli:
         await cli.bootstrap()
         # The client loaded the lease we just wrote and sents a REQUEST
         await cli.wait_for_state(State.REBOOTING, timeout=1)
@@ -194,18 +191,16 @@ async def test_init_reboot_nak(
 @pytest.mark.asyncio
 async def test_requesting_timeout(
     mock_dhcp_server: MockDHCPServerFixture,
-    veth_pair: VethPair,  # FIXME: use dummy
-    monkeypatch: pytest.MonkeyPatch,
+    client_config: ClientConfig,
     caplog: pytest.LogCaptureFixture,
+    set_fixed_xid: Callable[[int], None],
 ):
-    monkeypatch.setattr(
-        "pyroute2.dhcp.xids.random_xid_prefix", lambda: 0xDD435A20
-    )
+    '''The client resets itself after a timeout in the REQUESTING state.'''
+    set_fixed_xid(0xDD435A20)
     caplog.set_level("INFO")
-    cfg = ClientConfig(interface=veth_pair.client, hooks=[])
     # Timeout after 1s when requesting an offer and no answer
-    cfg.timeouts[State.REQUESTING] = 1
-    async with AsyncDHCPClient(cfg) as cli:
+    client_config.timeouts[State.REQUESTING] = 1
+    async with AsyncDHCPClient(client_config) as cli:
         await cli.bootstrap()
         # The client sends a DISCOVER, the servers sends an OFFER
         await cli.wait_for_state(State.SELECTING, timeout=1)
@@ -227,7 +222,7 @@ async def test_requesting_timeout(
     assert discover.ip_dst == '255.255.255.255'
     assert discover.ip_src == '0.0.0.0'
     assert discover.dhcp['options']['parameter_list'] == list(
-        cfg.requested_parameters
+        client_config.requested_parameters
     )
 
     assert request.message_type == dhcp.MessageType.REQUEST
@@ -237,5 +232,17 @@ async def test_requesting_timeout(
     assert request.ip_dst == '255.255.255.255'
     assert request.ip_src == '0.0.0.0'
     assert request.dhcp['options']['parameter_list'] == list(
-        cfg.requested_parameters
+        client_config.requested_parameters
+    )
+
+
+@pytest.mark.asyncio
+async def test_wait_for_state_timeout(client_config: ClientConfig):
+    '''wait_for_state() can timeout after a given delay'''
+    async with AsyncDHCPClient(client_config) as cli:
+        with pytest.raises(TimeoutError) as err_ctx:
+            await cli.wait_for_state(State.BOUND, timeout=0.2)
+    assert (
+        str(err_ctx.value)
+        == 'Timed out waiting for the BOUND state. Current state: INIT'
     )

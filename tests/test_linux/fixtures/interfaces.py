@@ -33,6 +33,8 @@ class VethPair(NamedTuple):
 
     server: str
     client: str
+    server_idx: int
+    client_idx: int
 
 
 @pytest_asyncio.fixture
@@ -73,6 +75,11 @@ async def veth_pair(
             )
             await ipr.link("set", index=srv_id, state="up")
             await ipr.link("set", index=cli_id, state="up")
-            yield VethPair(server_ifname, client_ifname)
+            yield VethPair(
+                server=server_ifname,
+                client=client_ifname,
+                server_idx=srv_id,
+                client_idx=cli_id,
+            )
         finally:
             await ipr.link("del", index=srv_id)

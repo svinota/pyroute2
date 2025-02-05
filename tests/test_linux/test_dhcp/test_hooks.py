@@ -1,8 +1,8 @@
 import json
 import logging
-import socket
 
 import pytest
+from test_dhcp.conftest import ipv4_addrs
 
 from pyroute2.dhcp import hooks
 from pyroute2.dhcp.leases import JSONFileLease
@@ -55,17 +55,6 @@ def fake_lease(dummy_iface: tuple[int, str]) -> JSONFileLease:
     return lease
 
 
-async def _ipv4_addrs(ifindex):
-    '''Shortcut for `ipr.addr('dump')`.'''
-    async with AsyncIPRoute() as ipr:
-        return [
-            i
-            async for i in await ipr.addr(
-                'dump', index=ifindex, family=socket.AF_INET
-            )
-        ]
-
-
 @pytest.mark.asyncio
 async def test_add_and_remove_ip_hooks(
     fake_lease: JSONFileLease,
@@ -79,7 +68,7 @@ async def test_add_and_remove_ip_hooks(
     await hooks.configure_ip(lease=fake_lease)
     ifindex = dummy_iface[0]
     # check the ip addr & broadcast addr have ben set
-    assert len(addrs := await _ipv4_addrs(ifindex)) == 1
+    assert len(addrs := await ipv4_addrs(ifindex)) == 1
     addr = addrs[0]
     assert addr.get('IFA_ADDRESS') == fake_lease.ip
     assert addr.get('IFA_BROADCAST') == fake_lease.broadcast_address
@@ -87,7 +76,7 @@ async def test_add_and_remove_ip_hooks(
     # call the hooks that removes the IP address
     await hooks.remove_ip(lease=fake_lease)
     # check the interface has no address anymore
-    assert len(await _ipv4_addrs(ifindex)) == 0
+    assert len(await ipv4_addrs(ifindex)) == 0
 
     assert caplog.messages == [
         f'Adding {fake_lease.ip}/{fake_lease.subnet_mask}'
