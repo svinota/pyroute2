@@ -1,5 +1,6 @@
 import json
 from ipaddress import IPv4Address
+import os
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ pytestmark = [require_root()]
 async def test_get_lease_from_dnsmasq(
     dnsmasq: DnsmasqFixture,
     veth_pair: VethPair,
+    client_config: ClientConfig,
     tmpdir: str,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -29,8 +31,7 @@ async def test_get_lease_from_dnsmasq(
     # instead of whatever the working directory is
     monkeypatch.setattr(JSONFileLease, '_get_lease_dir', lambda: work_dir)
     # boot up the dhcp client and wait for a lease
-    cfg = ClientConfig(interface=veth_pair.client)
-    async with AsyncDHCPClient(cfg) as cli:
+    async with AsyncDHCPClient(client_config) as cli:
         await cli.bootstrap()
         await cli.wait_for_state(fsm.State.BOUND, timeout=10)
         assert cli.state == fsm.State.BOUND
@@ -123,3 +124,13 @@ async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
         ]
         * 2
     )
+
+
+@pytest.mark.asyncio
+async def test_lease_file(veth_pair: VethPair, client_config: ClientConfig):
+    '''The client must write a pidfile when configured to.'''
+    client_config.write_pidfile = True
+    async with AsyncDHCPClient(client_config):
+        assert client_config.pidfile_path.exists()
+        assert int(client_config.pidfile_path.read_text()) == os.getpid()
+    assert not client_config.pidfile_path.exists()
