@@ -7,7 +7,7 @@ from logging import getLogger
 from typing import Awaitable, Callable, Iterable, NamedTuple, Optional
 
 from pyroute2.compat import StrEnum
-from pyroute2.dhcp.leases import Lease
+from pyroute2.dhcp.leases import Lease, MissingOptionError
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 
@@ -109,14 +109,18 @@ async def configure_ip(lease: Lease):
     LOG.info(
         'Adding %s/%s to %s', lease.ip, lease.subnet_mask, lease.interface
     )
+    try:
+        bcast: Optional[str] = lease.broadcast_address
+    except MissingOptionError as err:
+        LOG.warning("%s", err)
+        bcast = None
     async with AsyncIPRoute() as ipr:
         await ipr.addr(
             'replace',
             index=await ipr.link_lookup(ifname=lease.interface),
             address=lease.ip,
             prefixlen=lease.subnet_mask,
-            # FIXME: maybe make this optional
-            broadcast=lease.broadcast_address,
+            broadcast=bcast,
         )
 
 
@@ -126,14 +130,12 @@ async def remove_ip(lease: Lease):
     LOG.info(
         'Removing %s/%s from %s', lease.ip, lease.subnet_mask, lease.interface
     )
-    # FIXME: don't raise if someone removed the IP, just log something.
     async with AsyncIPRoute() as ipr:
         await ipr.addr(
             'del',
             index=await ipr.link_lookup(ifname=lease.interface),
             address=lease.ip,
             prefixlen=lease.subnet_mask,
-            broadcast=lease.broadcast_address,
         )
 
 
