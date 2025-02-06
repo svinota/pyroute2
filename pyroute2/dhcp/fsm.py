@@ -54,7 +54,7 @@ def state_guard(*states: State):
                 LOG.debug(
                     'Ignoring call to %r in %s state',
                     meth.__name__,
-                    self.state,
+                    self.state.name,
                 )
                 return False
             return await meth(self, *args, **kwargs)

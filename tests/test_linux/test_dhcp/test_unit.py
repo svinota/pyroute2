@@ -284,3 +284,31 @@ async def test_wrong_state_change(client_config: ClientConfig):
         with pytest.raises(ValueError) as err_ctx:
             await cli.transition(State.BOUND)
     assert str(err_ctx.value) == 'Cannot transition from INIT to BOUND'
+
+
+@pytest.mark.asyncio
+async def test_unexpected_dhcp_message(
+    client_config: ClientConfig,
+    mock_dhcp_server: MockDHCPServerFixture,
+    set_fixed_xid: Callable[[int], None],
+    caplog: pytest.LogCaptureFixture,
+):
+    '''Client sends a DISCOVER, the server sends an ACK, itis ignored.'''
+    caplog.set_level('DEBUG', logger='pyroute2.dhcp')
+    set_fixed_xid(0x12345670)
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        # TODO: if we want to avoid a sleep here, we should include an
+        # OFFER and another ACK in the pcap, so we can simply wait for
+        # the client to be bound.
+        await asyncio.sleep(0.2)
+        # The client is still SELECTING: it didn't receive an OFFER
+        assert cli.state == State.SELECTING
+    assert (
+        'Ignoring call to \'ack_received\' in SELECTING state'
+        in caplog.messages
+    )
+    assert len(mock_dhcp_server.decoded_requests) == 1
+    discover = mock_dhcp_server.decoded_requests[0]
+    assert discover.message_type == dhcp.MessageType.DISCOVER

@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import os
 import random
 from dataclasses import dataclass, field
@@ -276,27 +277,6 @@ class AsyncDHCPClient:
         await self._run_hooks(Trigger.EXPIRED)
         await self.reset()
 
-    async def reset(self, delay: float = 0.0):
-        '''Called internally to restart the lease acquisition process.
-
-        - When the client receives a NAK;
-        - When it spends too much time in a configured state
-          (see `ClientConfig.timeouts`)
-        - When the current lease expires.
-
-        Erases the lease, cancel timers, resets the xid, and sends
-        DISCOVERs to get a new lease.
-        '''
-        if delay:
-            await asyncio.sleep(delay=delay)
-            LOG.warning('Resetting after %.1f seconds', delay)
-        await self.transition(to=fsm.State.INIT)
-        # Reset lease & timers and start again
-        self._lease = None
-        self.lease_timers.cancel()
-        self.xid = Xid()
-        await self.bootstrap()
-
     # DHCP packet sending & receving coroutines
 
     async def _send_forever(self) -> None:
@@ -359,66 +339,43 @@ class AsyncDHCPClient:
                 try:
                     await self._sock.put(msg_to_send)
                 except OSError as err:
-                    if err.errno == 100:  # network is down
+                    # That happens when the interface goes down.
+                    # In theses cases, the client is supposed to be restarted
+                    if err.errno == errno.ENETDOWN:
                         LOG.error('Could not send, network is down')
                         return
+                    raise
 
     async def _recv_forever(self) -> None:
-        '''Receive & process DHCP packets until the client stops.
+        '''Receive & process DHCP messages until the client stops.'''
 
-        The incoming packet's xid is checked against the client's.
-        Then, the relevant handler (`{type}_received`) is called.
-        '''
-
+        # TODO: is there a better way to wait for the client to stop ?
         wait_til_off = asyncio.Task(self.wait_for_state(fsm.State.OFF))
 
         while not wait_til_off.done():
-            wait_for_received_packet = asyncio.Task(
+            wait_for_received_msg = asyncio.Task(
                 coro=self._sock.get(),
-                name=f'wait for DHCP packet on {self.config.interface}',
+                name=f'wait for DHCP messages on {self.config.interface}',
             )
+            # sleep until a new message is received, or the client is OFF
             done, pending = await asyncio.wait(
-                (wait_til_off, wait_for_received_packet),
+                (wait_til_off, wait_for_received_msg),
                 return_when=asyncio.FIRST_COMPLETED,
             )
-
-            if wait_for_received_packet in done:
+            if wait_for_received_msg in done:
                 try:
-                    received_packet = wait_for_received_packet.result()
+                    received_msg = wait_for_received_msg.result()
                 except OSError as err:
-                    if err.errno == 100:  # network is down
+                    # That happens when the interface goes down.
+                    # In theses cases, the client is supposed to be restarted
+                    if err.errno == errno.ENETDOWN:
                         LOG.error('Could not recv, network is down')
                         return
-                msg_type = dhcp.MessageType(
-                    received_packet.dhcp['options']['message_type']
-                )
-                LOG.info('Received %s', received_packet)
-                if not self.xid.matches(received_packet.xid):
-                    LOG.error(
-                        'Incorrect xid %s (expected %sX), discarding',
-                        received_packet.xid,
-                        hex(self.xid.random_part)[:-1],
-                    )
-                else:
-                    handler_name = f'{msg_type.name.lower()}_received'
-                    handler = getattr(self, handler_name, None)
-                    if not handler:
-                        LOG.debug('%r messages are not handled', msg_type.name)
-                    else:
-                        await handler(received_packet)
+                    raise
+                await self._process_msg(received_msg)
 
-            elif wait_for_received_packet in pending:
-                wait_for_received_packet.cancel()
-
-    async def transition(
-        self, to: fsm.State, send: Optional[messages.SentDHCPMessage] = None
-    ):
-        '''Change the client's state, and start sending a message repeatedly.
-
-        If the message is None, any current message will stop being sent.
-        '''
-        self.state = to
-        await self._sendq.put(send)
+            elif wait_for_received_msg in pending:
+                wait_for_received_msg.cancel()
 
     # Callbacks for received DHCP messages
 
@@ -543,8 +500,46 @@ class AsyncDHCPClient:
             self.config.pidfile_path.unlink(missing_ok=True)
             LOG.debug('Removed pidfile at %s', self.config.pidfile_path)
 
+    # internal methods
+
+    async def transition(
+        self, to: fsm.State, send: Optional[messages.SentDHCPMessage] = None
+    ):
+        '''Change the client's state, and start sending a message repeatedly.
+
+        If the message is None, any current message will stop being sent.
+        '''
+        self.state = to
+        await self._sendq.put(send)
+
+    async def reset(self, delay: float = 0.0):
+        '''Called internally to restart the lease acquisition process.
+
+        - When the client receives a NAK;
+        - When it spends too much time in a configured state
+          (see `ClientConfig.timeouts`)
+        - When the current lease expires.
+
+        Erases the lease, cancel timers, resets the xid, and sends
+        DISCOVERs to get a new lease.
+        '''
+        if delay:
+            await asyncio.sleep(delay=delay)
+            LOG.warning('Resetting after %.1f seconds', delay)
+        await self.transition(to=fsm.State.INIT)
+        # Reset lease & timers and start again
+        self._lease = None
+        self.lease_timers.cancel()
+        self.xid = Xid()
+        await self.bootstrap()
+
     async def _run_hooks(self, trigger: Trigger):
-        '''Run hooks for the given trigger.'''
+        '''Run hooks for the given trigger.
+
+        Hooks are awaited and not run in the background; that means they could
+        cause issues if they run for too long. Hence, each hook is limited to
+        the `hook_timeout` config setting.
+        '''
         assert self.lease, 'tried to run hooks without a lease'
         await run_hooks(
             hooks=self.config.hooks,
@@ -552,3 +547,26 @@ class AsyncDHCPClient:
             trigger=trigger,
             timeout=self.config.hook_timeout,
         )
+
+    async def _process_msg(self, msg: messages.ReceivedDHCPMessage):
+        '''Processes a received DHCP message.
+
+        The messages's xid is checked against the client's xid, and the
+        appropriate async handler (`self.<msg type>_received`)
+        is then called if it exists.
+        '''
+        msg_type = dhcp.MessageType(msg.dhcp['options']['message_type'])
+        LOG.info('Received %s', msg)
+        if not self.xid.matches(msg.xid):
+            LOG.error(
+                'Incorrect xid %s (expected %sX), discarding',
+                msg.xid,
+                hex(self.xid.random_part)[:-1],
+            )
+            return
+        handler_name = f'{msg_type.name.lower()}_received'
+        handler = getattr(self, handler_name, None)
+        if not handler:
+            LOG.debug('%r messages are not handled', msg_type.name)
+        else:
+            await handler(msg)
