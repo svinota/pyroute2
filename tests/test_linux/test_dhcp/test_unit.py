@@ -23,7 +23,7 @@ async def test_get_and_renew_lease(
 
     The test pcap file contains the OFFER & the 2 ACKs.
     '''
-    caplog.set_level("INFO")
+    caplog.set_level('INFO')
     # Make xids non random so they match the ones in the pcap
     set_fixed_xid(0x12345670)
     async with AsyncDHCPClient(client_config) as cli:
@@ -125,7 +125,7 @@ async def test_init_reboot_nak(
     It sends a NAK and the client goes back to INIT and gets a new lease.
     '''
     set_fixed_xid(0xDD435A20)
-    caplog.set_level("INFO")
+    caplog.set_level('INFO')
     # Create a fake lease to start the client in INIT-REBOOT
     old_lease = JSONFileLease(
         ack=dhcp4msg(
@@ -198,7 +198,7 @@ async def test_requesting_timeout(
 ):
     '''The client resets itself after a timeout in the REQUESTING state.'''
     set_fixed_xid(0xDD435A20)
-    caplog.set_level("INFO")
+    caplog.set_level('INFO')
     # Timeout after 1s when requesting an offer and no answer
     client_config.timeouts[State.REQUESTING] = 1
     async with AsyncDHCPClient(client_config) as cli:
@@ -247,3 +247,40 @@ async def test_wait_for_state_timeout(client_config: ClientConfig):
         str(err_ctx.value)
         == 'Timed out waiting for the BOUND state. Current state: INIT'
     )
+
+
+@pytest.mark.asyncio
+async def test_offer_wrong_xid(
+    client_config: ClientConfig,
+    mock_dhcp_server: MockDHCPServerFixture,
+    set_fixed_xid: Callable[[int], None],
+    caplog: pytest.LogCaptureFixture,
+):
+    '''The client discards & logs packets with an unknown xid.
+
+    Since we just need a dhcp offer, the pcap for this test
+    is a symlink to the one for test_requesting_timeout
+    '''
+    set_fixed_xid(0x98765432)
+    caplog.set_level('ERROR')
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        # wait a tiny bit for the offer to arrive
+        await asyncio.sleep(0.5)
+    assert caplog.messages == [
+        'Incorrect xid Xid(0xdd435a25) (expected 0x9876543X), discarding'
+    ]
+
+    assert len(mock_dhcp_server.decoded_requests) == 1
+    discover = mock_dhcp_server.decoded_requests[0]
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+
+
+@pytest.mark.asyncio
+async def test_wrong_state_change(client_config: ClientConfig):
+    '''One cannot trigger a state change like that.'''
+    async with AsyncDHCPClient(client_config) as cli:
+        with pytest.raises(ValueError) as err_ctx:
+            await cli.transition(State.BOUND)
+    assert str(err_ctx.value) == 'Cannot transition from INIT to BOUND'

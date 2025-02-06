@@ -14,10 +14,13 @@ LOG = logging.getLogger(__name__)
 
 
 def import_dotted_name(name: str) -> Any:
-    '''Imports anything by name.'''
-    module_name, obj_name = name.rsplit('.', 1)
-    module = import_module(module_name)
-    return getattr(module, obj_name)
+    '''Import anything by name. Return None if the import wasn't successful.'''
+    try:
+        module_name, obj_name = name.rsplit('.', 1)
+        module = import_module(module_name)
+        return getattr(module, obj_name)
+    except (ValueError, ImportError, AttributeError):
+        return None
 
 
 def get_psr() -> ArgumentParser:
@@ -134,7 +137,7 @@ async def main() -> None:
 
     # parse lease type
     lease_type = import_dotted_name(args.lease_type)
-    if not issubclass(lease_type, Lease):
+    if not (isinstance(lease_type, type) and issubclass(lease_type, Lease)):
         psr.error(f'{args.lease_type!r} must point to a Lease subclass.')
 
     # parse hooks
@@ -144,9 +147,7 @@ async def main() -> None:
         for dotted_hook_name in args.hook:
             hook = import_dotted_name(dotted_hook_name)
             if not isinstance(hook, Hook):
-                psr.error(
-                    f'{dotted_hook_name!r} must point to a Hook instance.'
-                )
+                psr.error(f'{dotted_hook_name!r} must point to a valid hook.')
             hooks.append(hook)
             LOG.debug("- %s", hook.name)
 
@@ -167,9 +168,8 @@ def run():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        # raised by "older" python versions on ctrl-C
         pass
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     run()

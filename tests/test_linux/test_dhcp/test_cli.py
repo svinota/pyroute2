@@ -52,7 +52,7 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         veth_pair.client,
         '--lease-type',
         'pyroute2.dhcp.leases.JSONStdoutLease',
-        '--log-level=DEBUG',
+        '--log-level=INFO',
         '--hook',
         'pyroute2.dhcp.hooks.configure_ip',
         '--hook',
@@ -61,8 +61,8 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         stdout=asyncio.subprocess.PIPE,
     )
     # TODO: check the interface has an IP
-    await asyncio.sleep(1)
     res_tsk = asyncio.Task(process.communicate())
+    await asyncio.sleep(3)
     # put iface down
     async with AsyncIPRoute() as ipr:
         await ipr.link('set', index=veth_pair.client_idx, state='down')
@@ -73,7 +73,7 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         await ipr.link('set', index=veth_pair.client_idx, state='up')
 
     # stop client
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     # TODO: check the interface has an IP again
     process.send_signal(signal.SIGINT)
     stdout, stderr = await asyncio.wait_for(res_tsk, timeout=5)
@@ -82,7 +82,7 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
 
     # check the logs mention the interface flapping
     logs = stderr.decode()
-    assert logs, "not a single lease"
+    assert logs, 'not a single lease'
     assert logs.index(f'{veth_pair.client} went down') < logs.index(
         f'Waiting for {veth_pair.client} to go up...'
     )
@@ -95,3 +95,35 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         first_json_lease['ack']['options']
         == second_json_lease['ack']['options']
     )
+
+
+@pytest.mark.parametrize(
+    ('switch', 'value', 'err_msg'),
+    (
+        (
+            '--lease-type',
+            'meublé',
+            '\'meublé\' must point to a Lease subclass.',
+        ),
+        (
+            '--hook',
+            'captain.hook',
+            '\'captain.hook\' must point to a valid hook.',
+        ),
+    ),
+)
+@pytest.mark.asyncio
+async def test_wrong_custom_hook_or_lease(
+    switch: str, value: str, err_msg: str
+):
+    process = await asyncio.create_subprocess_exec(
+        'pyroute2-dhcp-client',
+        'irrelevantIface',
+        switch,
+        value,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await process.communicate()
+    assert process.returncode > 0
+    assert stderr
+    assert stderr.splitlines()[-1].decode().endswith(err_msg)

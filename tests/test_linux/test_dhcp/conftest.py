@@ -18,6 +18,8 @@ def client_config(veth_pair: VethPair) -> ClientConfig:
 
 @pytest.fixture
 def set_fixed_xid(monkeypatch: pytest.MonkeyPatch) -> Callable[[int], None]:
+    '''Set a static value to use instead of randomly generated xids.'''
+
     def _set_fixed_xid(xid: int):
         monkeypatch.setattr(
             "pyroute2.dhcp.xids.random_xid_prefix", lambda: xid
