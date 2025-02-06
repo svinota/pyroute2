@@ -10,8 +10,9 @@ from ctypes import (
     string_at,
 )
 from socket import AF_PACKET, SOCK_RAW, SOL_SOCKET, errno, error, htons, socket
+from typing import Optional
 
-from pyroute2.iproute.linux import IPRoute
+from pyroute2.iproute.linux import AsyncIPRoute
 
 ETH_P_ALL = 3
 SO_ATTACH_FILTER = 26
@@ -34,14 +35,14 @@ class sock_fprog(Structure):
     _fields_ = [('len', c_ushort), ('filter', c_void_p)]
 
 
-def compile_bpf(code):
+def compile_bpf(code: list[list[int]]):
     ProgramType = sock_filter * len(code)
     program = ProgramType(*[sock_filter(*line) for line in code])
     sfp = sock_fprog(len(code), addressof(program[0]))
     return string_at(addressof(sfp), sizeof(sfp)), program
 
 
-class RawSocket(socket):
+class AsyncRawSocket(socket):
     '''
     This raw socket binds to an interface and optionally installs a BPF
     filter.
@@ -55,28 +56,37 @@ class RawSocket(socket):
 
     fprog = None
 
-    def __init__(self, ifname, bpf=None):
-        self.ifname = ifname
+    async def __aexit__(self, *_):
+        self.close()
+
+    async def __aenter__(self):
         # lookup the interface details
-        with IPRoute() as ip:
-            for link in ip.get_links():
-                if link.get_attr('IFLA_IFNAME') == ifname:
+        async with AsyncIPRoute() as ip:
+            async for link in await ip.get_links():
+                if link.get_attr('IFLA_IFNAME') == self.ifname:
                     break
             else:
                 raise IOError(2, 'Link not found')
-        self.l2addr = link.get_attr('IFLA_ADDRESS')
-        self.ifindex = link['index']
+        self.l2addr: str = link.get_attr('IFLA_ADDRESS')
+        self.ifindex: int = link['index']
         # bring up the socket
         socket.__init__(self, AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
+        socket.setblocking(self, False)
         socket.bind(self, (self.ifname, ETH_P_ALL))
-        if bpf:
+        if self.bpf:
             self.clear_buffer()
-            fstring, self.fprog = compile_bpf(bpf)
+            fstring, self.fprog = compile_bpf(self.bpf)
             socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, fstring)
         else:
+            # FIXME: should be async
             self.clear_buffer(remove_total_filter=True)
+        return self
 
-    def clear_buffer(self, remove_total_filter=False):
+    def __init__(self, ifname: str, bpf: Optional[list[list[int]]] = None):
+        self.ifname = ifname
+        self.bpf = bpf
+
+    def clear_buffer(self, remove_total_filter: bool = False):
         # there is a window of time after the socket has been created and
         # before bind/attaching a filter where packets can be queued onto the
         # socket buffer
@@ -86,7 +96,6 @@ class RawSocket(socket):
         # before setting the desired filter
         total_fstring, prog = compile_bpf(total_filter)
         socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, total_fstring)
-        self.setblocking(0)
         while True:
             try:
                 self.recvfrom(0)
@@ -99,14 +108,15 @@ class RawSocket(socket):
                     break
                 else:
                     raise
-        self.setblocking(1)
         if remove_total_filter:
             # total_fstring ignored
             socket.setsockopt(
                 self, SOL_SOCKET, SO_DETACH_FILTER, total_fstring
             )
 
-    def csum(self, data):
+    @staticmethod
+    def csum(data: bytes) -> int:
+        '''Compute the "Internet checksum" for the given bytes.'''
         if len(data) % 2:
             data += b'\x00'
         csum = sum(

@@ -37,6 +37,18 @@ linux_kernel_modules = [
 ]
 
 
+def load_global_config():
+    if sys.argv[-2] == '--' and len(sys.argv[-1]):
+        return json.loads(sys.argv[-1])
+    return {}
+
+
+global_config = load_global_config()
+if global_config.get('fast'):
+    nox.options.reuse_venv = 'yes'
+    nox.options.no_install = True
+
+
 def add_session_config(func):
     '''Decorator to load the session config.
 
@@ -55,12 +67,7 @@ def add_session_config(func):
     '''
 
     def wrapper(session):
-        if session.posargs and len(session.posargs[0]) > 0:
-            config = json.loads(session.posargs[0])
-        else:
-            config = {}
-        session.debug(f'session config: {config}')
-        return func(session, config)
+        return func(session, global_config)
 
     wrapper.__name__ = func.__name__
     wrapper.__doc__ = func.__doc__
@@ -151,14 +158,21 @@ def setup_venv_minimal(session, config):
     return tmpdir
 
 
-def setup_venv_common(session, flavour='dev'):
-    session.install('--upgrade', 'pip')
-    session.install('-r', f'requirements.{flavour}.txt')
-    session.install('.')
+def setup_venv_common(session, flavour='dev', config=None):
+    if config is None:
+        config = {}
+    if not config.get('fast'):
+        session.install('--upgrade', 'pip')
+        session.install('-r', f'requirements.{flavour}.txt')
+        session.install('.')
     return os.path.abspath(session.create_tmp())
 
 
-def setup_venv_dev(session):
+def setup_venv_dev(session, config=None):
+    if config is None:
+        config = {}
+    if config.get('fast'):
+        return os.getcwd()
     tmpdir = setup_venv_common(session)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
@@ -185,8 +199,8 @@ def setup_venv_repo(session):
     return tmpdir
 
 
-def setup_venv_docs(session):
-    tmpdir = setup_venv_common(session, 'docs')
+def setup_venv_docs(session, config=None):
+    tmpdir = setup_venv_common(session, flavour='docs', config=config)
     session.run('cp', '-a', 'docs', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
     [
@@ -209,9 +223,10 @@ def test_platform(session):
 
 
 @nox.session(python='python3.10')
-def docs(session):
+@add_session_config
+def docs(session, config):
     '''Generate project docs.'''
-    tmpdir = setup_venv_docs(session)
+    tmpdir = setup_venv_docs(session, config)
     cwd = os.path.abspath(os.getcwd())
     # man pages
     session.chdir(f'{tmpdir}/docs/')
@@ -232,9 +247,11 @@ def docs(session):
 
 
 @nox.session
-def linter(session):
+@add_session_config
+def linter(session, config):
     '''Run code checks and linters.'''
-    session.install('pre-commit')
+    if not config.get('fast'):
+        session.install('pre-commit')
     session.run('pre-commit', 'run', '-a')
 
 
@@ -262,36 +279,31 @@ def integration(session, config):
     session.run(*options('test_integration', config))
 
 
+def test_common(session, config, module):
+    setup_linux(session)
+    workspace = setup_venv_dev(session, config)
+    path = f'{workspace}/tests/mocklib'
+    if config.get('fast'):
+        path += f':{workspace}'
+        session.chdir('tests')
+    session.run(
+        *options(module, config),
+        env={'WORKSPACE': workspace, 'SKIPDB': 'postgres', 'PYTHONPATH': path},
+    )
+
+
 @nox.session(python=['python3.9', 'python3.10', 'python3.11', 'python3.12'])
 @add_session_config
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
-    setup_linux(session)
-    workspace = setup_venv_dev(session)
-    session.run(
-        *options('test_linux', config),
-        env={
-            'WORKSPACE': workspace,
-            'SKIPDB': 'postgres',
-            'PYTHONPATH': f'{workspace}/tests/mocklib',
-        },
-    )
+    test_common(session, config, 'test_linux')
 
 
 @nox.session(python=['python3.10', 'python3.11', 'python3.12'])
 @add_session_config
 def core(session, config):
     '''Run Linux tests in asyncio.'''
-    setup_linux(session)
-    workspace = setup_venv_dev(session)
-    session.run(
-        *options('test_core', config),
-        env={
-            'WORKSPACE': workspace,
-            'SKIPDB': 'postgres',
-            'PYTHONPATH': f'{workspace}/tests/mocklib',
-        },
-    )
+    test_common(session, config, 'test_core')
 
 
 @nox.session

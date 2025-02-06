@@ -116,6 +116,7 @@ class msg(dict):
         'uint16': 'H',
         'uint32': 'I',
         'be16': '>H',
+        'be32': '>I',
         'ip4addr': {
             'format': '4s',
             'decode': lambda x: inet_ntop(AF_INET, x),
