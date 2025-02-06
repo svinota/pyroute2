@@ -72,37 +72,34 @@ async def test_get_lease_from_dnsmasq(
 
 @pytest.mark.asyncio
 async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
-    '''Test getting a lease, expiring & getting a lease again.'''
+    '''Test getting a lease from udhcpd and renewing it.'''
     cfg = ClientConfig(interface=veth_pair.client, lease_type=JSONStdoutLease)
     async with AsyncDHCPClient(cfg) as cli:
         # No lease, we're in the INIT state
         assert cli.state == fsm.State.INIT
         # Start requesting an IP
         await cli.bootstrap()
+        xid = cli.xid
         # Then, the client in the SELECTING state while sending DISCOVERs
         await cli.wait_for_state(fsm.State.SELECTING, timeout=1)
         # Once we get an OFFER the client switches to REQUESTING
         await cli.wait_for_state(fsm.State.REQUESTING, timeout=1)
         # After getting an ACK, we're BOUND !
         await cli.wait_for_state(fsm.State.BOUND, timeout=1)
+        # ACK corresponds to a request that was made in the REQUESTING state
+        assert cli.lease.ack['xid'] == xid.for_state(fsm.State.REQUESTING)
 
-        # Ideally, we would test the REBINDING & RENEWING states here,
-        # but they depend on timers that udhcpd does not implement.
-
-        # The lease expires, and we're back to INIT
-        await cli.wait_for_state(fsm.State.INIT, timeout=5)
-        await cli.wait_for_state(fsm.State.SELECTING, timeout=1)
-        await cli.wait_for_state(fsm.State.REQUESTING, timeout=1)
+        # a few seconds later, the renewal timer expires
+        await cli.wait_for_state(fsm.State.RENEWING, timeout=3)
+        # and we're bound again
         await cli.wait_for_state(fsm.State.BOUND, timeout=1)
+        # ACK corresponds to a request that was made in the RENEWING state
+        assert cli.lease.ack['xid'] == xid.for_state(fsm.State.RENEWING)
 
         # Stop here, that's enough
         lease = cli.lease
-        xid = cli.xid
         assert lease
         assert xid
-
-    # The ACK corresponds to a request that was made in the REQUESTING state
-    assert lease.ack['xid'] == xid.for_state(fsm.State.REQUESTING)
 
     # The obtained IP must be in the range
     assert (
@@ -116,14 +113,11 @@ async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     assert lease.interface == veth_pair.client
     assert lease.ack["options"]["lease_time"] == udhcpd.config.lease_time
     # Check udhcpd output matches our expectations
-    assert (
-        udhcpd.stderr[-4:]
-        == [
-            f'udhcpd: sending OFFER to {lease.ip}',
-            f'udhcpd: sending ACK to {lease.ip}',
-        ]
-        * 2
-    )
+    assert udhcpd.stderr[-3:] == [
+        f'udhcpd: sending OFFER to {lease.ip}',
+        f'udhcpd: sending ACK to {lease.ip}',
+        f'udhcpd: sending ACK to {lease.ip}',
+    ]
 
 
 @pytest.mark.asyncio
