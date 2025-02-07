@@ -2,11 +2,11 @@
 
 import abc
 import json
-import random
 import time
 from dataclasses import asdict, dataclass, field
 from logging import getLogger
 from pathlib import Path
+from secrets import SystemRandom
 from typing import Generic, Optional, TypeVar
 
 from pyroute2.common import dqn2int
@@ -14,6 +14,8 @@ from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.enums.dhcp import Option
 
 LOG = getLogger(__name__)
+
+random = SystemRandom()
 
 
 def _now() -> float:
