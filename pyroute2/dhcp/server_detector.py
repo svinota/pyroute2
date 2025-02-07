@@ -54,7 +54,10 @@ class DHCPServerDetector:
         '''Send the `DISCOVER` message at `interval` until cancelled.'''
         while True:
             LOG.info('[%s] -> %s', sock.ifname, self.discover_msg)
-            await sock.put(self.discover_msg)
+            try:
+                await sock.put(self.discover_msg)
+            except Exception as err:
+                LOG.error('Could not send on %s: %s', sock.ifname, err)
             await asyncio.sleep(self.interval)
 
     async def _get_offers(self, interface: str):

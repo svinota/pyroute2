@@ -25,6 +25,7 @@ async def test_detect_dnsmasq_once(
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+    assert process.returncode == 0
 
     # check the offer was properly encoded
     offer = json.loads(stdout)
@@ -61,6 +62,8 @@ async def test_detect_udhcpd_multiple(
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+    assert process.returncode == 0
+
     # dont bother decoding the json here, we just check we have 2 messages
     assert stdout.decode().count(f'"interface": "{veth_pair.client}"') == 2
 
@@ -71,3 +74,21 @@ async def test_detect_udhcpd_multiple(
     assert '<- OFFER' in logs[1]
     assert '-> DISCOVER' in logs[2]
     assert '<- OFFER' in logs[3]
+
+
+@pytest.mark.asyncio
+async def test_detect_no_response(veth_pair: VethPair):
+    '''The detector exits on error when there is no response.'''
+    process = await asyncio.create_subprocess_exec(
+        'dhcp-server-detector',
+        veth_pair.client,
+        '--duration=1',
+        '--interval=0.9',
+        '--log-level=INFO',
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=5)
+    assert process.returncode == 1  # no response, exited on error
+    assert not stdout  # no lease was written
+    assert stderr.count(b"DISCOVER") == 2  # 2 requests sent
