@@ -6,12 +6,13 @@ from typing import Union
 import pytest
 import pytest_asyncio
 
-from pyroute2 import netns
+from pyroute2 import NDB, netns
 from pyroute2.common import uifname
 from pyroute2.iproute.linux import AsyncIPRoute, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
-TestInterface = namedtuple('TestInterface', ('index', 'ifname'))
+TestInterface = namedtuple('TestInterface', ('index', 'ifname', 'address'))
 
 
 @pytest.fixture(name='nsname')
@@ -32,9 +33,9 @@ def _nsname() -> Generator[str]:
         pass
 
 
-@pytest.fixture(name='test_link')
-def _test_link(nsname: str) -> Generator[TestInterface]:
-    '''Create a test interface in the test netns and yield TestInterface.
+@pytest.fixture(name='test_link_ifinfmsg')
+def _test_link_ifinfmsg(nsname: str) -> Generator[ifinfmsg]:
+    '''Create a test interface in the test netns and yield ifinfmsg.
 
     Remove the interface on exit.
     '''
@@ -42,12 +43,28 @@ def _test_link(nsname: str) -> Generator[TestInterface]:
     with IPRoute(netns=nsname) as ipr:
         ipr.link('add', ifname=ifname, kind='dummy', state='up')
         (link,) = ipr.poll(ipr.link, 'dump', ifname=ifname, timeout=5)
-        yield TestInterface(index=link.get('index'), ifname=link.get('ifname'))
+        yield link
         try:
             ipr.link('del', index=link.get('index'))
         except NetlinkError as e:
             if e.code != errno.ENODEV:
                 raise
+
+
+@pytest.fixture(name='test_link')
+def _test_link(test_link_ifinfmsg: ifinfmsg) -> Generator[TestInterface]:
+    '''Yield test interface spec as TestInterface.'''
+    yield TestInterface(
+        index=test_link_ifinfmsg.get('index'),
+        ifname=test_link_ifinfmsg.get('ifname'),
+        address=test_link_ifinfmsg.get('address'),
+    )
+
+
+@pytest.fixture(name='test_link_address')
+def _test_link_address(test_link: TestInterface) -> Generator[str]:
+    '''Yield test interface address.'''
+    yield test_link.address
 
 
 @pytest.fixture(name='test_link_index')
@@ -133,3 +150,9 @@ def _sync_context(
     sync_ipr: IPRoute, test_link: TestInterface
 ) -> Generator[TestContext]:
     yield TestContext(sync_ipr, test_link)
+
+
+@pytest.fixture(name='ndb')
+def _ndb(nsname: str) -> Generator[NDB]:
+    with NDB(sources=[{'target': 'localhost', 'netns': nsname}]) as ndb:
+        yield ndb
