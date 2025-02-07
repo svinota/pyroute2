@@ -67,7 +67,7 @@ class DHCPServerDetector:
                     next_msg = await sock.get()
                     if next_msg.dhcp['xid'] != self.discover_msg.dhcp['xid']:
                         LOG.debug(
-                            'Got %s with xid mismatch, ignoring',
+                            'Got %r with xid mismatch, ignoring',
                             next_msg.message_type,
                         )
                         continue
@@ -78,7 +78,7 @@ class DHCPServerDetector:
                     send_task.cancel()
                     break
 
-    async def detect_servers(self) -> AsyncGenerator[DHCPResponse]:
+    async def detect_servers(self) -> AsyncGenerator[DHCPResponse, None]:
         '''Detect DHCP servers on `interfaces` for `duration`.
 
         Yields tuples of (interface name, response).
@@ -176,9 +176,13 @@ async def main() -> int:
     return response_count
 
 
-if __name__ == '__main__':
+def run():
     logging.basicConfig(
         format='%(asctime)s %(levelname)s %(name)s %(message)s'
     )
     # Exit on failure if there were no received responses
     exit(asyncio.run(main()) == 0)
+
+
+if __name__ == '__main__':
+    run()
