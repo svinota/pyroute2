@@ -165,12 +165,14 @@ class AsyncCoreSocket:
         flags=os.O_CREAT,
         libc=None,
         groups=0,
+        use_event_loop=False,
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
             {
                 'target': target,
                 'use_socket': use_socket,
+                'use_event_loop': use_event_loop,
                 'rcvsize': rcvsize,
                 'netns': netns,
                 'flags': flags,
@@ -180,6 +182,10 @@ class AsyncCoreSocket:
         self.status = self.spec.status
         self.request_proxy = None
         self.local = threading.local()
+        if use_event_loop:
+            self.local.event_loop = use_event_loop
+            self.status['use_event_loop'] = True
+            self.status['thread_id'] = id(threading.current_thread())
         if libc is not None:
             self.libc = libc
         url = parse.urlparse(self.spec['target'])
@@ -235,6 +241,15 @@ class AsyncCoreSocket:
     @property
     def event_loop(self):
         if not hasattr(self.local, 'event_loop'):
+            if self.status['use_event_loop']:
+                if self.status['use_thread_id'] == id(
+                    threading.current_thread()
+                ):
+                    raise RuntimeError('Lost the event loop')
+                raise RuntimeError(
+                    'Predefined event loop can not '
+                    'be used in another thread'
+                )
             self.local.event_loop = self.setup_event_loop()
             self.local.connection_lost = self.local.event_loop.create_future()
         return self.local.event_loop
@@ -370,7 +385,12 @@ class AsyncCoreSocket:
         self.__all_open_resources = tuple()
 
     def clone(self):
-        '''Return a copy of itself with a new underlying socket.'''
+        '''Return a copy of itself with a new underlying socket.
+
+        This method can not work if `use_socket` or `event_loop`
+        was used in the object constructor.'''
+        if self.status['use_socket'] or self.status['event_loop']:
+            raise RuntimeError('can not clone socket')
         new_spec = {}
         for key, value in self.spec.items():
             if key in self.__init__.__code__.co_varnames:

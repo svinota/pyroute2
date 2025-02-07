@@ -249,19 +249,20 @@ class Plan9ServerSocket(AsyncCoreSocket):
 
     '''
 
-    def __init__(self, address=None, use_socket=None):
+    def __init__(self, address=None, use_socket=False, use_event_loop=False):
         self.spec = CoreSocketSpec(
             {
                 'tag_field': 'tag',
                 'target': 'localhost',
                 'netns': None,
                 'address': address,
-                'use_socket': use_socket is not None,
+                'use_socket': use_socket,
+                'use_event_loop': use_event_loop,
             }
         )
         self.filesystem = Filesystem()
         self.marshal = Marshal9P()
-        super().__init__(use_socket=use_socket)
+        super().__init__(use_socket=use_socket, use_event_loop=use_event_loop)
 
     def register_function(
         self,

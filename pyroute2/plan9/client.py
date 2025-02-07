@@ -27,21 +27,22 @@ class Plan9ClientSocket(AsyncCoreSocket):
     * use_socket -- alternatively, provide a connected SOCK_STRAM socket
     '''
 
-    def __init__(self, address=None, use_socket=None):
+    def __init__(self, address=None, use_socket=False, use_event_loop=False):
         self.spec = CoreSocketSpec(
             {
                 'tag_field': 'tag',
                 'target': 'localhost',
                 'netns': None,
                 'address': address,
-                'use_socket': use_socket is not None,
+                'use_socket': use_socket,
+                'use_event_loop': use_event_loop,
             }
         )
         self.marshal = Marshal9P()
         self.wnames = {'': 0}
         self.cwd = 0
         self.fid_pool = AddrPool(minaddr=0x00000001, maxaddr=0x0000FFFF)
-        super().__init__(use_socket=use_socket)
+        super().__init__(use_socket=use_socket, use_event_loop=use_event_loop)
 
     def enqueue(self, data, addr):
         tag = struct.unpack_from('H', data, 5)[0]
