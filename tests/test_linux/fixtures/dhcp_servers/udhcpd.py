@@ -85,7 +85,7 @@ def udhcpd_config(
     return UdhcpdConfig(
         range=dhcp_range,
         interface=veth_pair[0],
-        lease_time=1,  # very short leases for tests
+        lease_time=5,  # very short leases for tests
     )
 
 

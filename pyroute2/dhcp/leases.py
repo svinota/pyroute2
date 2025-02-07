@@ -6,6 +6,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from logging import getLogger
 from pathlib import Path
+from secrets import SystemRandom
 from typing import Generic, Optional, TypeVar
 
 from pyroute2.common import dqn2int
@@ -13,6 +14,8 @@ from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.enums.dhcp import Option
 
 LOG = getLogger(__name__)
+
+random = SystemRandom()
 
 
 def _now() -> float:
@@ -24,7 +27,7 @@ class MissingOptionError(LookupError):
     '''Raised when trying to access a missing option in a lease.'''
 
     def __init__(self, opt: Option):
-        super().__init__(f"Lease does not set {opt}")
+        super().__init__(f"Lease does not set {opt!r}")
 
 
 LeaseOptionT = TypeVar('LeaseOptionT')
@@ -97,26 +100,32 @@ class Lease(abc.ABC):
         return self._seconds_til_timer('lease')
 
     @property
-    def renewal_in(self) -> Optional[float]:
+    def renewal_in(self) -> float:
         '''The amount of seconds before we have to renew the lease.
 
-        Computed from the `renewal_time` option.
+        Computed from the `renewal_time` option, defaults to ~.5 * lease exp.
 
-        Can be negative if it's past due,
-        or `None` if the server didn't give a renewal time.
+        Can be negative if it's past due.
         '''
-        return self._seconds_til_timer('renewal')
+        if lease_renewal := self._seconds_til_timer('renewal'):
+            return lease_renewal
+        # RFC section 4.4.5 says we need a fuzzy value around 0.5
+        # FIXME will crash if there is no lease time
+        return self.expiration_in * random.uniform(0.4, 0.6)
 
     @property
-    def rebinding_in(self) -> Optional[float]:
+    def rebinding_in(self) -> float:
         '''The amount of seconds before we have to rebind the lease.
 
-        Computed from the `rebinding_time` option.
+        Computed from the `rebinding_time` option, defaults to ~.8 * lease exp.
 
-        Can be negative if it's past due,
-        or `None` if the server didn't give a rebinding time.
+        Can be negative if it's past due.
         '''
-        return self._seconds_til_timer('rebinding')
+        if lease_rebinding := self._seconds_til_timer('rebinding'):
+            return lease_rebinding
+        # RFC section 4.4.5 says we need a fuzzy value around 0.875
+        # FIXME will crash if there is no lease time
+        return self.expiration_in * random.uniform(0.75, 0.90)
 
     @property
     def ip(self) -> str:
