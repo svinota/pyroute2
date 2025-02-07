@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -86,6 +87,29 @@ async def test_add_and_remove_ip_hooks(
     ]
 
 
+@pytest.mark.asyncio
+async def test_configure_ip_missing_broadcast_addr(
+    fake_lease: JSONFileLease,
+    dummy_iface: tuple[int, str],
+    caplog: pytest.LogCaptureFixture,
+):
+    '''The configure_ip hook mustn't crash when broadcast addr is missing.'''
+    caplog.set_level(logging.DEBUG, logger='pyroute2.dhcp.hooks')
+
+    del fake_lease.ack['options']['broadcast_address']
+    await hooks.configure_ip(fake_lease)
+    assert caplog.messages == [
+        f'Adding {fake_lease.ip}/{fake_lease.subnet_mask}'
+        f' to {fake_lease.interface}',
+        'Lease does not set <Option.BROADCAST_ADDRESS: 28>',
+    ]
+    # check the ip addr has been set, but no broadcast addr
+    assert len(addrs := await ipv4_addrs(dummy_iface[0])) == 1
+    addr = addrs[0]
+    assert addr.get('IFA_ADDRESS') == fake_lease.ip
+    assert addr.get('IFA_BROADCAST') is None
+
+
 @pytest.mark.skip(reason='Messes up routing; we need to use a netns')
 @pytest.mark.asyncio
 async def test_add_and_remove_gw_hooks(
@@ -117,4 +141,56 @@ async def test_add_and_remove_gw_hooks(
         f'Adding {fake_lease.default_gateway} '
         f'as default route through {fake_lease.interface}',
         f'Removing {fake_lease.default_gateway} as default route',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_remove_gw_already_removed(
+    fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
+):
+    '''Removing the default gw must not crash when it doesn't exist.'''
+    caplog.set_level(logging.INFO, logger='pyroute2.dhcp.hooks')
+    await hooks.remove_default_gw(lease=fake_lease)
+    assert caplog.messages == [
+        f'Removing {fake_lease.default_gateway} as default route',
+        'Default route was already removed by another process',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_hook_timeout(
+    fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
+):
+    '''Hooks that exceed the timeout cause an error log but no crash.'''
+    caplog.set_level(logging.ERROR, logger='pyroute2.dhcp.hooks')
+
+    @hooks.hook(hooks.Trigger.BOUND)
+    async def sleepy_hook(lease):
+        await asyncio.sleep(10)
+
+    await hooks.run_hooks(
+        hooks=[sleepy_hook],
+        lease=fake_lease,
+        trigger=hooks.Trigger.BOUND,
+        timeout=0.1,
+    )
+    assert caplog.messages == ["Hook 'sleepy_hook' timed out"]
+
+
+@pytest.mark.asyncio
+async def test_failing_hook(
+    fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
+):
+    '''Hooks that raise an exception cause an error log but no crash.'''
+    caplog.set_level(logging.ERROR, logger='pyroute2.dhcp.hooks')
+
+    @hooks.hook(hooks.Trigger.BOUND)
+    async def failing_hook(lease):
+        raise RuntimeError('boom')
+
+    await hooks.run_hooks(
+        hooks=[failing_hook], lease=fake_lease, trigger=hooks.Trigger.BOUND
+    )
+    assert caplog.messages == [
+        "Hook failing_hook failed: RuntimeError('boom')"
     ]

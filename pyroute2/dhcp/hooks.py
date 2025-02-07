@@ -69,9 +69,9 @@ async def run_hooks(
             try:
                 await asyncio.wait_for(i(lease), timeout=timeout)
             except asyncio.exceptions.TimeoutError:
-                LOG.error('Hook %s timed out', i.name)
+                LOG.error('Hook %r timed out', i.name)
             except Exception as exc:
-                LOG.error('Hook %s failed: %s', i.name, exc)
+                LOG.error('Hook %s failed: %r', i.name, exc)
 
 
 def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
@@ -112,9 +112,9 @@ async def configure_ip(lease: Lease):
     try:
         bcast: Optional[str] = lease.broadcast_address
     except MissingOptionError as err:
-        LOG.warning("%s", err)
+        LOG.debug("%s", err)
         bcast = None
-    async with AsyncIPRoute() as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         await ipr.addr(
             'replace',
             index=await ipr.link_lookup(ifname=lease.interface),
@@ -130,7 +130,7 @@ async def remove_ip(lease: Lease):
     LOG.info(
         'Removing %s/%s from %s', lease.ip, lease.subnet_mask, lease.interface
     )
-    async with AsyncIPRoute() as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         await ipr.addr(
             'del',
             index=await ipr.link_lookup(ifname=lease.interface),
@@ -150,7 +150,7 @@ async def add_default_gw(lease: Lease):
         lease.default_gateway,
         lease.interface,
     )
-    async with AsyncIPRoute() as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         ifindex = (await ipr.link_lookup(ifname=lease.interface),)
         await ipr.route(
             'replace',
@@ -164,7 +164,7 @@ async def add_default_gw(lease: Lease):
 async def remove_default_gw(lease: Lease):
     '''Removes the default gateway set in the lease.'''
     LOG.info('Removing %s as default route', lease.default_gateway)
-    async with AsyncIPRoute() as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         ifindex = await ipr.link_lookup(ifname=lease.interface)
         try:
             await ipr.route(
@@ -175,7 +175,8 @@ async def remove_default_gw(lease: Lease):
             )
         except NetlinkError as err:
             if err.code == errno.ESRCH:
-                LOG.warning(
+                LOG.info(
                     'Default route was already removed by another process'
                 )
-            LOG.error('Got a netlink error: %s', err)
+            else:
+                LOG.error('Got a netlink error: %s', err)
