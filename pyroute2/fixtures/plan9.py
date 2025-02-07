@@ -1,4 +1,7 @@
+from collections.abc import AsyncGenerator
 from socket import socketpair
+
+import pytest_asyncio
 
 from pyroute2.plan9.client import Plan9ClientSocket
 from pyroute2.plan9.server import Plan9ServerSocket
@@ -15,12 +18,21 @@ class AsyncPlan9Context:
         self.server_sock, self.client_sock = socketpair()
         self.server = Plan9ServerSocket(use_socket=self.server_sock)
         self.client = Plan9ClientSocket(use_socket=self.client_sock)
+        self._task = None
         inode = self.server.filesystem.create('test_file')
         inode.data.write(self.sample_data)
 
     async def ensure_session(self):
-        self.task = await self.server.async_run()
+        self._task = await self.server.async_run()
         await self.client.start_session()
 
     async def close(self):
-        self.task.cancel()
+        self._task.cancel()
+
+
+@pytest_asyncio.fixture
+async def async_p9_context() -> AsyncGenerator[AsyncPlan9Context]:
+    ctx = AsyncPlan9Context()
+    await ctx.ensure_session()
+    yield ctx
+    await ctx.close()

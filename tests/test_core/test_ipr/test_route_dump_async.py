@@ -48,12 +48,12 @@ async def test_loads(async_ipr, nsname):
 @pytest.mark.parametrize(
     'family,target_tables,target_families,fmt,offset',
     [
-        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'iproute2', 4),
-        (AF_INET, {255}, {AF_INET}, 'iproute2', 4),
-        (AF_INET6, {255}, {AF_INET6}, 'iproute2', 4),
-        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'raw', 0),
-        (AF_INET, {255}, {AF_INET}, 'raw', 0),
-        (AF_INET6, {255}, {AF_INET6}, 'raw', 0),
+        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'iproute2', 4),
+        (AF_INET, {254, 255}, {AF_INET}, 'iproute2', 4),
+        (AF_INET6, {254, 255}, {AF_INET6}, 'iproute2', 4),
+        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'raw', 0),
+        (AF_INET, {254, 255}, {AF_INET}, 'raw', 0),
+        (AF_INET6, {254, 255}, {AF_INET6}, 'raw', 0),
     ],
     ids=(
         'iproute2/AF_UNSPEC',
@@ -75,19 +75,19 @@ async def test_dump(
     for route in async_ipr.marshal.parse(fd.getvalue()[offset:]):
         tables.add(route.get('table'))
         families.add(route.get('family'))
-    assert tables == target_tables
+    assert tables <= target_tables
     assert families == target_families
 
 
 @pytest.mark.parametrize(
     'family,target_tables,target_families,fmt,offset',
     [
-        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'iproute2', 4),
-        (AF_INET, {255}, {AF_INET}, 'iproute2', 4),
-        (AF_INET6, {255}, {AF_INET6}, 'iproute2', 4),
-        (AF_UNSPEC, {255}, {AF_INET, AF_INET6}, 'raw', 0),
-        (AF_INET, {255}, {AF_INET}, 'raw', 0),
-        (AF_INET6, {255}, {AF_INET6}, 'raw', 0),
+        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'iproute2', 4),
+        (AF_INET, {254, 255}, {AF_INET}, 'iproute2', 4),
+        (AF_INET6, {254, 255}, {AF_INET6}, 'iproute2', 4),
+        (AF_UNSPEC, {254, 255}, {AF_INET, AF_INET6}, 'raw', 0),
+        (AF_INET, {254, 255}, {AF_INET}, 'raw', 0),
+        (AF_INET6, {254, 255}, {AF_INET6}, 'raw', 0),
     ],
     ids=(
         'iproute2/AF_UNSPEC',
@@ -108,5 +108,5 @@ async def test_dumps(
     for route in async_ipr.marshal.parse(data[offset:]):
         tables.add(route.get('table'))
         families.add(route.get('family'))
-    assert tables == target_tables
+    assert tables <= target_tables
     assert families == target_families

@@ -15,6 +15,8 @@ def test_addr_dump(sync_ipr):
         assert prefixlen > 0
 
 
-def test_addr_add(sync_ipr, ifname, index, nsname):
-    sync_ipr.addr('add', index=index, address='192.168.145.150', prefixlen=24)
-    assert address_exists('192.168.145.150', ifname, netns=nsname)
+def test_addr_add(sync_ipr, test_link_ifname, test_link_index, nsname):
+    sync_ipr.addr(
+        'add', index=test_link_index, address='192.168.145.150', prefixlen=24
+    )
+    assert address_exists('192.168.145.150', test_link_ifname, netns=nsname)

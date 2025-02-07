@@ -18,8 +18,8 @@ async def test_addr_dump(async_ipr):
 
 
 @pytest.mark.asyncio
-async def test_addr_add(async_ipr, ifname, index, nsname):
+async def test_addr_add(async_ipr, test_link_ifname, test_link_index, nsname):
     await async_ipr.addr(
-        'add', index=index, address='192.168.145.150', prefixlen=24
+        'add', index=test_link_index, address='192.168.145.150', prefixlen=24
     )
-    assert address_exists('192.168.145.150', ifname, netns=nsname)
+    assert address_exists('192.168.145.150', test_link_ifname, netns=nsname)
