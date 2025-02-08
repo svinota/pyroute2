@@ -1,4 +1,25 @@
 '''
+
+.. testsetup::
+
+    from pyroute2 import config, IPRoute, AsyncIPRoute
+    from pyroute2.fixtures import iproute
+
+    config.mock_netlink = True
+    config.mock_netns = True
+
+
+    def test_fixture(fixture, scope=None, name=None, argv=None):
+        argv = argv if argv is not None else []
+        spec = fixture._pytestfixturefunction
+        func = fixture.__wrapped__
+        if scope is not None:
+            assert spec.name == name
+        if name is not None:
+            assert spec.scope == scope
+        return func(*argv)
+
+
 CI test fixtures
 ----------------
 
