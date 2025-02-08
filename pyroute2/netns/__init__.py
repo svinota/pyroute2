@@ -273,6 +273,7 @@ def _create(netns, libc=None, pid=None):
         raise OSError(ctypes.get_errno(), 'mount failed', netns)
 
 
+@config.mock_if('mock_netns')
 def create(netns, libc=None):
     '''
     Create a network namespace.
@@ -284,6 +285,7 @@ def create(netns, libc=None):
     proc.close()
 
 
+@config.mock_if('mock_netns')
 def attach(netns, pid, libc=None):
     '''
     Attach the network namespace of the process `pid`
@@ -292,6 +294,7 @@ def attach(netns, pid, libc=None):
     _create(netns, libc, pid)
 
 
+@config.mock_if('mock_netns')
 def remove(netns, libc=None):
     '''
     Remove a network namespace.
@@ -302,6 +305,7 @@ def remove(netns, libc=None):
     os.unlink(netnspath)
 
 
+@config.mock_if('mock_netns')
 def setns(netns, flags=os.O_CREAT, libc=None, fork=True):
     '''
     Set netns for the current process.
@@ -350,6 +354,7 @@ def setns(netns, flags=os.O_CREAT, libc=None, fork=True):
         raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
 
 
+@config.mock_if('mock_netns')
 def pushns(newns=None, libc=None):
     '''
     Save the current netns in order to return to it later. If newns is
@@ -367,6 +372,7 @@ def pushns(newns=None, libc=None):
         setns(newns, libc=libc)
 
 
+@config.mock_if('mock_netns')
 def popns(libc=None):
     '''
     Restore the previously saved netns.
@@ -381,6 +387,7 @@ def popns(libc=None):
     os.close(fd)
 
 
+@config.mock_if('mock_netns')
 def dropns(libc=None):
     '''
     Discard the last saved with `pushns()` namespace
@@ -399,6 +406,7 @@ def _create_socket_child(nsname, flags, family, socket_type, proto, libc=None):
     return ChildProcessReturnValue(None, [sock])
 
 
+@config.mock_if('mock_netns')
 def create_socket(
     netns=None,
     family=socket.AF_INET,
