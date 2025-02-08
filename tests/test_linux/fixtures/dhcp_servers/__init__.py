@@ -1,9 +1,10 @@
 import abc
 import asyncio
 from argparse import ArgumentParser
+from collections import defaultdict
 from dataclasses import dataclass
 from ipaddress import IPv4Address
-from typing import ClassVar, Generic, Literal, Optional, TypeVar
+from typing import ClassVar, DefaultDict, Generic, Literal, Optional, TypeVar
 
 from ..interfaces import DHCPRangeConfig
 
@@ -33,13 +34,21 @@ class DHCPServerFixture(abc.ABC, Generic[DHCPServerConfigT]):
         self.stderr: list[str] = []
         self.process: Optional[asyncio.subprocess.Process] = None
         self.output_poller: Optional[asyncio.Task] = None
+        self._expected_logs: DefaultDict[str, asyncio.Event] = defaultdict(
+            asyncio.Event
+        )
 
     async def _read_output(self, name: Literal['stdout', 'stderr']):
         '''Read stdout or stderr until the process exits.'''
-        stream = getattr(self.process, name)
-        output = getattr(self, name)
+        stream: asyncio.StreamReader = getattr(self.process, name)
+        output: list[str] = getattr(self, name)
         while line := await stream.readline():
-            output.append(line.decode().strip())
+            line = line.decode().strip()
+            # Trigger events for any log substring we're looking for
+            # that will wake up `wait_for_log`
+            for sublog in filter(line.__contains__, self._expected_logs):
+                self._expected_logs[sublog].set()
+            output.append(line)
 
     async def _read_outputs(self):
         '''Read stdout & stderr until the process exits.'''
@@ -74,6 +83,12 @@ class DHCPServerFixture(abc.ABC, Generic[DHCPServerConfigT]):
                 self.process.terminate()
             await self.process.wait()
             await self.output_poller
+
+    async def wait_for_log(self, substr: str):
+        '''Wait for a string to appear in logs, then return.'''
+        await self._expected_logs[substr].wait()
+        # wait a tiny bit more so the client has time to react
+        await asyncio.sleep(0.1)
 
 
 def get_psr() -> ArgumentParser:

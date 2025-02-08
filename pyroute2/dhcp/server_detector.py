@@ -54,20 +54,32 @@ class DHCPServerDetector:
         '''Send the `DISCOVER` message at `interval` until cancelled.'''
         while True:
             LOG.info('[%s] -> %s', sock.ifname, self.discover_msg)
-            try:
-                await sock.put(self.discover_msg)
-            except Exception as err:
-                LOG.error('Could not send on %s: %s', sock.ifname, err)
+            await sock.put(self.discover_msg)
             await asyncio.sleep(self.interval)
 
     async def _get_offers(self, interface: str):
         '''Send DISCOVERs and wait for responses on an interface.'''
         async with AsyncDHCP4Socket(ifname=interface, port=self.sport) as sock:
-            send_task = asyncio.create_task(self._send_forever(sock))
-            while True:
+            send_task = asyncio.create_task(
+                self._send_forever(sock), name=f'Send DISCOVERS on {interface}'
+            )
+            # if send_task returns, that means _send_forever crashed
+            while not send_task.done():
                 try:
+                    get_next_msg = asyncio.Task(
+                        sock.get(), name=f'Get message from {interface}'
+                    )
                     # wait for a message and put it in the queue
-                    next_msg = await sock.get()
+                    _, pending = await asyncio.wait(
+                        [send_task, get_next_msg],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    # if get is still pending, that means send_task is over
+                    if get_next_msg in pending:
+                        get_next_msg.cancel()
+                        continue
+                    # we have a new message
+                    next_msg = await get_next_msg
                     if next_msg.dhcp['xid'] != self.discover_msg.dhcp['xid']:
                         LOG.debug(
                             'Got %r with xid mismatch, ignoring',
@@ -80,6 +92,8 @@ class DHCPServerDetector:
                     LOG.debug('[%s] stop discovery', interface)
                     send_task.cancel()
                     break
+            else:
+                await send_task
 
     async def detect_servers(self) -> AsyncGenerator[DHCPResponse, None]:
         '''Detect DHCP servers on `interfaces` for `duration`.
@@ -87,15 +101,28 @@ class DHCPServerDetector:
         Yields tuples of (interface name, response).
         '''
         discover_tasks = [
-            asyncio.create_task(self._get_offers(i)) for i in self.interfaces
+            asyncio.create_task(self._get_offers(i), name=i)
+            for i in self.interfaces
         ]
         started = time.time()
         remaining = self.duration
-        while remaining > 0:
+        while remaining > 0 and discover_tasks:
+            get_response = asyncio.create_task(self._responses_queue.get())
             try:
-                yield await asyncio.wait_for(
-                    self._responses_queue.get(), timeout=remaining
+                done, _ = await asyncio.wait(
+                    [get_response, *discover_tasks],
+                    timeout=remaining,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
+                if get_response in done:
+                    yield await get_response
+                    done.remove(get_response)
+                else:
+                    get_response.cancel()
+                for i in done:
+                    if task_exc := i.exception():
+                        LOG.error("%r: %s", i.get_name(), task_exc)
+                    discover_tasks.remove(i)
                 remaining -= time.time() - started
             except (TimeoutError, CancelledError):
                 break
