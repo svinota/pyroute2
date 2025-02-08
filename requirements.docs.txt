@@ -4,4 +4,6 @@ aafigure
 sphinx==6.2.0
 sphinx-code-include
 pre-commit
+pytest
+pytest_asyncio
 docutils

@@ -23,6 +23,7 @@ Usage
     asyncio
     iproute
     ndb
+    fixtures
     plan9
     wiset
     ipset
