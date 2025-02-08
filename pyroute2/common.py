@@ -11,6 +11,8 @@ import sys
 import threading
 import time
 import types
+from functools import partial
+from typing import Any, Callable, Literal, TypeVar, Union
 
 basestring = (str, bytes)
 file = io.BytesIO
@@ -71,11 +73,13 @@ rate_suffixes = {
 # General purpose
 #
 class Namespace(object):
-    def __init__(self, parent, override=None):
+    def __init__(
+        self, parent: 'Namespace', override: Union[dict[str, Any], None] = None
+    ):
         self.parent = parent
         self.override = override or {}
 
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> Union[str, types.MethodType]:
         if key in ('parent', 'override'):
             return object.__getattr__(self, key)
         elif key in self.override:
@@ -93,7 +97,7 @@ class Namespace(object):
                 ret = type(ret)(ret.__func__, self)
             return ret
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: int):
         if key in ('parent', 'override'):
             object.__setattr__(self, key, value)
         elif key in self.override:
@@ -102,7 +106,19 @@ class Namespace(object):
             setattr(self.parent, key, value)
 
 
-def map_namespace(prefix, ns, normalize=None):
+def _no_change(s: str) -> str:
+    return s
+
+
+def _default_normalize(s: str, prefix: str) -> str:
+    return s[len(prefix) :].lower()
+
+
+def map_namespace(
+    prefix: str,
+    ns: dict[str, Any],
+    normalize: Union[None, Literal[True], Callable[[str], str]] = None,
+) -> tuple[dict[str, int], dict[int, str]]:
     '''
     Take the namespace prefix, list all constants and build two
     dictionaries -- straight and reverse mappings. E.g.:
@@ -132,8 +148,14 @@ def map_namespace(prefix, ns, normalize=None):
     '''
     nmap = {None: lambda x: x, True: lambda x: x[len(prefix) :].lower()}
 
-    if not isinstance(normalize, types.FunctionType):
-        normalize = nmap[normalize]
+    if normalize is None:
+        transform = _no_change
+    elif normalize is True:
+        transform = partial(_default_normalize, prefix=prefix)
+    elif isinstance(normalize, types.FunctionType):
+        transform = normalize
+    else:
+        raise ValueError("Invalid value for `normalize` parameter")
 
     by_name = dict(
         [(normalize(i), ns[i]) for i in ns.keys() if i.startswith(prefix)]
