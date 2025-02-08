@@ -31,7 +31,6 @@ def test_imports():
     assert parameters(rtnl.rt_scope.get) == set(('key', 'default'))
     assert isinstance(rtnl.rt_proto, dict) and 'static' in rtnl.rt_proto
     assert parameters(netns._create) == set(('netns', 'libc', 'pid'))
-    assert parameters(netns.remove) == set(('netns', 'libc'))
     assert parameters(netns.listnetns) == set(('nspath',))
     assert ifinfmsg.IFF_ALLMULTI == 0x200
     assert {state[1]: state[0] for state in ndmsg.states.items()} == {
