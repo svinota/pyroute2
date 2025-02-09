@@ -1,6 +1,6 @@
 import errno
 from collections.abc import AsyncGenerator, Generator
-from typing import Union
+from typing import Generic, TypeVar
 
 import pytest
 import pytest_asyncio
@@ -11,6 +11,8 @@ from pyroute2.iproute.linux import AsyncIPRoute, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import IFNAMSIZ
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+
+T = TypeVar('T', AsyncIPRoute, IPRoute)
 
 
 class TestInterface:
@@ -65,7 +67,7 @@ class TestInterface:
         return self._netns
 
 
-class TestContext:
+class TestContext(Generic[T]):
     '''The test context.
 
     Provided by `async_context` and `sync_context` fixtures.
@@ -74,14 +76,12 @@ class TestContext:
     name and the test interface spec.
     '''
 
-    def __init__(
-        self, ipr: Union[IPRoute, AsyncIPRoute], test_link: TestInterface
-    ):
-        self._ipr = ipr
+    def __init__(self, ipr: T, test_link: TestInterface):
+        self._ipr: T = ipr
         self._test_link = test_link
 
     @property
-    def ipr(self) -> Union[IPRoute, AsyncIPRoute]:
+    def ipr(self) -> T:
         '''RTNL API.
 
         Return RTNL API instance, either IPRoute, or AsyncIPRoute.'''
@@ -330,7 +330,7 @@ def _sync_ipr(request, nsname: str) -> Generator[IPRoute]:
 @pytest_asyncio.fixture(name='async_context')
 async def _async_context(
     async_ipr: AsyncIPRoute, test_link: TestInterface
-) -> AsyncGenerator[TestContext]:
+) -> AsyncGenerator[TestContext[AsyncIPRoute]]:
     '''Asynchronous TestContext.
 
     * **Name**: async_context
@@ -339,13 +339,13 @@ async def _async_context(
 
     Yield `TestContext` with `AsyncIPRoute`.
     '''
-    yield TestContext(async_ipr, test_link)
+    yield TestContext[AsyncIPRoute](async_ipr, test_link)
 
 
 @pytest.fixture(name='sync_context')
 def _sync_context(
     sync_ipr: IPRoute, test_link: TestInterface
-) -> Generator[TestContext]:
+) -> Generator[TestContext[IPRoute]]:
     '''Synchronous TestContext.
 
     * **Name**: sync_context
@@ -354,7 +354,7 @@ def _sync_context(
 
     Yield `TestContext` with `IPRoute`.
     '''
-    yield TestContext(sync_ipr, test_link)
+    yield TestContext[IPRoute](sync_ipr, test_link)
 
 
 @pytest.fixture(name='ndb')
