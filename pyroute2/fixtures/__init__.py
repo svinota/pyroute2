@@ -21,6 +21,27 @@ CI test fixtures
 The library provides a set of fixtures that can be used with pytest
 to setup a simple test environment for functional network tests.
 
+Usage:
+
+.. testcode::
+
+    # file: conftest.py
+    pytest_plugins = [
+        "pyroute2.fixtures.iproute",
+        "pyroute2.fixtures.plan9"
+    ]
+
+    # file: my_test.py
+    def test_my_code(sync_context):
+        # here you have access to
+        #
+        sync_context.ipr        # IPRoute instance running in a netns
+        sync_context.netns      # ready to use netns with a test link up
+        sync_context.test_link  # test link in the netns
+        sync_context.test_link.index    # interface index
+        sync_context.test_link.ifname   # interface name
+        sync_context.test_link.address  # MAC address
+
 The fixtures set up a network namespace with a unique name, a dummy
 interface within the namespace, and bring the interface up. They form
 a tree of dependencies, so if you use e.g. `test_link_ifname` fixture,
