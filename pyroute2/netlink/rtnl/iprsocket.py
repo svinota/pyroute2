@@ -144,7 +144,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
             flags=flags,
             libc=libc,
         )
-        if sys.platform.startswith('linux'):
+        if sys.platform.startswith('linux') and not config.mock_netlink:
             self.request_proxy = NetlinkProxy(
                 pmap={
                     rtnl.RTM_NEWLINK: proxy_newlink,

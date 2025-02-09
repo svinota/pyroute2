@@ -13,6 +13,8 @@ nox.options.sessions = [
     'ci-self-python3.10',
     'ci-self-python3.11',
     'ci-self-python3.12',
+    'ci-self-python3.13',
+    'ci-self-python3.14',
     'linter',
     'repo',
     'unit',
@@ -23,9 +25,14 @@ nox.options.sessions = [
     'linux-python3.10',
     'linux-python3.11',
     'linux-python3.12',
+    'linux-python3.13',
+    'linux-python3.14',
+    'core-python3.9',
     'core-python3.10',
     'core-python3.11',
     'core-python3.12',
+    'core-python3.13',
+    'core-python3.14',
     'minimal',
 ]
 
@@ -298,7 +305,14 @@ def test_common(session, config, module):
 
 @nox.session(
     name='ci-self',
-    python=['python3.9', 'python3.10', 'python3.11', 'python3.12'],
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ],
 )
 @add_session_config
 def ci(session, config):
@@ -306,14 +320,32 @@ def ci(session, config):
     test_common(session, config, 'test_ci')
 
 
-@nox.session(python=['python3.9', 'python3.10', 'python3.11', 'python3.12'])
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
 @add_session_config
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
     test_common(session, config, 'test_linux')
 
 
-@nox.session(python=['python3.10', 'python3.11', 'python3.12'])
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
 @add_session_config
 def core(session, config):
     '''Run Linux tests in asyncio.'''
