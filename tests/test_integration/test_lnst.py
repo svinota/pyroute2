@@ -15,12 +15,9 @@ from pyroute2.netlink.rtnl import RTM_GETADDR, RTM_GETLINK
     ],
 )
 def test_interface_manager_dump_link(
-    link, msg_type, dump_method, field, event
+    nsname, msg_type, dump_method, field, event
 ):
-    with (
-        IPRSocket(netns=link.netns) as iprsock,
-        IPRoute(netns=link.netns) as ipr,
-    ):
+    with IPRSocket(netns=nsname) as iprsock, IPRoute(netns=nsname) as ipr:
 
         # bring up loopback
         ipr.link('set', index=1, state='up')

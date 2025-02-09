@@ -37,6 +37,10 @@ Module contents:
 
 from pyroute2.common import map_namespace
 
+# Useful RTNL related constants from the kernel sources:
+IFNAMSIZ = 16
+ALTIFNAMSIZ = 128
+
 #  RTnetlink multicast group flags (for use with bind())
 RTMGRP_NONE = 0x0
 RTMGRP_LINK = 0x1

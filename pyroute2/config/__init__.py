@@ -4,6 +4,36 @@ import re
 import signal
 import socket
 
+
+class LocalMock:
+
+    def __init__(self):
+        self._call_args_list = []
+
+    def __call__(self, *argv, **kwarg):
+        self._call_args_list.append((argv, kwarg))
+        return self
+
+    @property
+    def call_args_list(self):
+        return self._call_args_list
+
+
+def mock_if(name):
+    def decorator(func):
+        local_mock = LocalMock()
+
+        def wrapper(*argv, **kwarg):
+            if globals().get(name, False):
+                local_mock(*argv, **kwarg)
+                return local_mock
+            return func(*argv, **kwarg)
+
+        return wrapper
+
+    return decorator
+
+
 kernel_version_re = re.compile('^[0-9.]+')
 
 
@@ -33,6 +63,7 @@ if hasattr(signal, 'SIGUSR1'):
     signal_stop_remote = signal.SIGUSR1
 
 mock_netlink = False
+mock_netns = False
 nlsocket_thread_safe = True
 
 # save uname() on startup time: it is not so

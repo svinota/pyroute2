@@ -15,15 +15,12 @@ from net_tools import rule_exists
     ],
 )
 @pytest.mark.parametrize(
-    'async_ipr',
-    [{'netns': True, 'ext_ack': True, 'strict_check': True}],
-    indirect=True,
+    'async_ipr', [{'ext_ack': True, 'strict_check': True}], indirect=True
 )
 @pytest.mark.asyncio
-async def test_rule_strict_src(async_ipr, priority, spec):
-    netns = async_ipr.status['netns']
+async def test_rule_strict_src(async_ipr, priority, spec, nsname):
     await async_ipr.rule('add', priority=priority, **spec)
-    assert rule_exists(priority=priority, netns=netns)
+    assert rule_exists(priority=priority, netns=nsname)
 
 
 @pytest.mark.parametrize(
@@ -39,12 +36,10 @@ async def test_rule_strict_src(async_ipr, priority, spec):
         (20107, AF_INET6, {'table': 5192, 'dst': 'fd00::', 'dst_len': 8}),
     ],
 )
-@pytest.mark.parametrize('async_ipr', [{'netns': True}], indirect=True)
 @pytest.mark.asyncio
-async def test_rule_add_del(async_ipr, priority, proto, spec):
-    netns = async_ipr.status['netns']
+async def test_rule_add_del(async_ipr, priority, proto, spec, nsname):
     await async_ipr.rule('add', priority=priority, **spec)
-    assert rule_exists(priority=priority, proto=proto, netns=netns)
+    assert rule_exists(priority=priority, proto=proto, netns=nsname)
     assert (
         len(
             [
@@ -58,5 +53,5 @@ async def test_rule_add_del(async_ipr, priority, proto, spec):
     )
     await async_ipr.rule('del', priority=priority, **spec)
     assert not rule_exists(
-        priority=priority, proto=proto, netns=netns, timeout=0.1
+        priority=priority, proto=proto, netns=nsname, timeout=0.1
     )

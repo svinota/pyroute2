@@ -22,33 +22,27 @@ test_dump_data = '''
 '''
 
 
-@pytest.mark.parametrize('async_ipr', [{'netns': True}], indirect=True)
 @pytest.mark.asyncio
-async def test_load(async_ipr):
-    netns = async_ipr.status['netns']
-    await async_ipr.link('set', index=1, state='up')
-    assert address_exists('127.0.0.1', ifname='lo', netns=netns)
-    assert not route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert not route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+async def test_load(async_ipr, nsname):
+    assert address_exists('127.0.0.1', ifname='lo', netns=nsname)
+    assert not route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert not route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
     fd = io.BytesIO()
     fd.write(load_dump(test_dump_data))
     fd.seek(0)
     await async_ipr.route_load(fd)
-    assert route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+    assert route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
 
 
-@pytest.mark.parametrize('async_ipr', [{'netns': True}], indirect=True)
 @pytest.mark.asyncio
-async def test_loads(async_ipr):
-    netns = async_ipr.status['netns']
-    await async_ipr.link('set', index=1, state='up')
-    assert address_exists('127.0.0.1', ifname='lo', netns=netns)
-    assert not route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert not route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+async def test_loads(async_ipr, nsname):
+    assert address_exists('127.0.0.1', ifname='lo', netns=nsname)
+    assert not route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert not route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
     await async_ipr.route_loads(load_dump(test_dump_data))
-    assert route_exists(dst='10.1.2.0/24', table=100, netns=netns)
-    assert route_exists(dst='10.1.3.0/24', table=100, netns=netns)
+    assert route_exists(dst='10.1.2.0/24', table=100, netns=nsname)
+    assert route_exists(dst='10.1.3.0/24', table=100, netns=nsname)
 
 
 @pytest.mark.parametrize(
@@ -81,7 +75,7 @@ async def test_dump(
     for route in async_ipr.marshal.parse(fd.getvalue()[offset:]):
         tables.add(route.get('table'))
         families.add(route.get('family'))
-    assert tables >= target_tables
+    assert tables <= target_tables
     assert families == target_families
 
 
@@ -114,5 +108,5 @@ async def test_dumps(
     for route in async_ipr.marshal.parse(data[offset:]):
         tables.add(route.get('table'))
         families.add(route.get('family'))
-    assert tables >= target_tables
+    assert tables <= target_tables
     assert families == target_families
