@@ -119,7 +119,7 @@ def _nsname() -> Generator[str]:
 
     Example usage:
 
-    .. testcode::
+    .. testcode:: nsname
 
         def test_list_interfaces(nsname):
             subprocess.Popen(
@@ -127,36 +127,6 @@ def _nsname() -> Generator[str]:
                 stdout=subprocess.PIPE,
             )
             # ...
-
-    .. testcode::
-        :hide:
-
-        import subprocess
-        from unittest.mock import patch
-        from pyroute2 import netns
-
-        calls = 0
-        nsptr = None
-
-        with patch("subprocess.Popen"):
-            for nsname in test_fixture(
-                fixture=iproute._nsname,
-                scope='function',
-                name='nsname'
-            ):
-                nsptr = nsname
-                calls += 1
-                test_list_interfaces(nsname)
-
-        call_create = netns.create().call_args_list
-        call_remove = netns.remove().call_args_list
-        nslist_create = set([x[0][0] for x in call_create if x[0]])
-        nslist_remove = set([x[0][0] for x in call_remove if x[0]])
-
-        assert calls == 1
-        assert nsptr is not None
-        assert nsptr in nslist_create
-        assert nsptr in nslist_remove
     '''
     nsname = uifname()
     netns.create(nsname)
@@ -186,7 +156,7 @@ def _test_link_ifinfmsg(nsname: str) -> Generator[ifinfmsg]:
 
     Example usage:
 
-    .. testcode::
+    .. testcode:: test_link_ifinfmsg
 
         def test_check_interface(nsname, test_link_ifinfmsg):
             link = test_link_ifinfmsg
@@ -195,36 +165,6 @@ def _test_link_ifinfmsg(nsname: str) -> Generator[ifinfmsg]:
             subprocess.Popen(ns + up)
             # ...
 
-    .. testcode::
-        :hide:
-
-        import subprocess
-        from unittest.mock import patch
-        from pyroute2 import netns
-
-        nsptr = None
-        calls = 0
-        with patch("subprocess.Popen"):
-            for nsname in test_fixture(iproute._nsname):
-                nsptr = nsname
-                for msg in test_fixture(
-                    fixture=iproute._test_link_ifinfmsg,
-                    scope='function',
-                    name='test_link_ifinfmsg',
-                    argv=[nsname],
-                ):
-                    calls += 1
-                    test_check_interface(nsname, msg)
-
-        call_create = netns.create().call_args_list
-        call_remove = netns.remove().call_args_list
-        nslist_create = set([x[0][0] for x in call_create if x[0]])
-        nslist_remove = set([x[0][0] for x in call_remove if x[0]])
-
-        assert calls == 1
-        assert nsptr is not None
-        assert nsptr in nslist_create
-        assert nsptr in nslist_remove
     '''
     ifname = uifname()
     with IPRoute(netns=nsname) as ipr:
@@ -334,16 +274,7 @@ async def _async_ipr(request, nsname: str) -> AsyncGenerator[AsyncIPRoute]:
     Yield `AsyncIPRoute` instance, running within the test network namespace.
     You can provide additional keyword arguments to `AsyncIPRoute`:
 
-    .. testcode::
-        :hide:
-
-        import pytest
-        from unittest.mock import patch
-
-        patcher = patch("pytest.mark")
-        patcher.start()
-
-    .. testcode::
+    .. testcode:: async_ipr
 
         @pytest.mark.parametrize(
             'async_ipr',
@@ -359,36 +290,6 @@ async def _async_ipr(request, nsname: str) -> AsyncGenerator[AsyncIPRoute]:
         async def test_my_case(async_ipr):
             await async_ipr.link('set', index=1, state='up')
 
-    .. testcode::
-        :hide:
-
-        patcher.stop()
-
-        import asyncio
-
-        async def test_wrapper(calls):
-            ipptr = None
-            async for async_ipr in test_fixture(
-                fixture=iproute._async_ipr,
-                scope='function',
-                name='async_ipr',
-                argv=[None, nsname]
-            ):
-                calls += 1
-                ipptr = async_ipr
-
-            return ipptr, calls
-
-        nsptr = None
-        ipptr = None
-        calls = 0
-        for nsname in test_fixture(iproute._nsname):
-            nsptr = nsname
-            ipptr, calls = asyncio.run(test_wrapper(calls))
-
-        assert calls == 1
-        assert isinstance(ipptr, AsyncIPRoute)
-        assert ipptr.status['netns'] == nsptr
     '''
     kwarg = getattr(request, 'param', {})
     async with AsyncIPRoute(netns=nsname, **kwarg) as ipr:
@@ -406,16 +307,7 @@ def _sync_ipr(request, nsname: str) -> Generator[IPRoute]:
     Yield `IPRoute` instance, running within the test network namespace.
     You can provide additional keyword arguments to `IPRoute`:
 
-    .. testcode::
-        :hide:
-
-        import pytest
-        from unittest.mock import patch
-
-        patcher = patch("pytest.mark")
-        patcher.start()
-
-    .. testcode::
+    .. testcode:: sync_ipr
 
         @pytest.mark.parametrize(
             'sync_ipr',
@@ -429,50 +321,6 @@ def _sync_ipr(request, nsname: str) -> Generator[IPRoute]:
         )
         def test_my_case(sync_ipr):
             sync_ipr.link('set', index=1, state='up')
-
-    .. testcode::
-        :hide:
-
-        patcher.stop()
-
-        def test_wrapper(calls):
-            ipptr = None
-            for sync_ipr in test_fixture(
-                fixture=iproute._sync_ipr,
-                scope='function',
-                name='sync_ipr',
-                argv=[None, nsname]
-            ):
-                calls += 1
-                ipptr = sync_ipr
-
-            return ipptr, calls
-
-        nsptr = None
-        ipptr = None
-        calls = 0
-        for nsname in test_fixture(iproute._nsname):
-            nsptr = nsname
-            ipptr, calls = test_wrapper(calls)
-
-        assert calls == 1
-        assert isinstance(ipptr, IPRoute)
-        assert ipptr.status['netns'] == nsptr
-
-    .. code::
-
-        @pytest.mark.parametrize(
-            'sync_ipr',
-            [
-                {
-                    'ext_ack': True,
-                    'strict_check': True,
-                },
-            ],
-            indirect=True
-        )
-        def test_my_case(sync_ipr):
-            sync_ipr.link(...)
     '''
     kwarg = getattr(request, 'param', {})
     with IPRoute(netns=nsname, **kwarg) as ipr:

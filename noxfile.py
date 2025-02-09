@@ -9,6 +9,10 @@ import nox
 nox.options.envdir = f'./.nox-{getpass.getuser()}'
 nox.options.reuse_existing_virtualenvs = False
 nox.options.sessions = [
+    'ci-self-python3.9',
+    'ci-self-python3.10',
+    'ci-self-python3.11',
+    'ci-self-python3.12',
     'linter',
     'repo',
     'unit',
@@ -290,6 +294,16 @@ def test_common(session, config, module):
         *options(module, config),
         env={'WORKSPACE': workspace, 'SKIPDB': 'postgres', 'PYTHONPATH': path},
     )
+
+
+@nox.session(
+    name='ci-self',
+    python=['python3.9', 'python3.10', 'python3.11', 'python3.12'],
+)
+@add_session_config
+def ci(session, config):
+    '''Run ci self-test. No root required.'''
+    test_common(session, config, 'test_ci')
 
 
 @nox.session(python=['python3.9', 'python3.10', 'python3.11', 'python3.12'])

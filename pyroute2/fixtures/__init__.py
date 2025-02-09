@@ -1,23 +1,18 @@
 '''
+..
+    8<-----------------------------------------------------------
+    Doctest setup.
 
-.. testsetup::
+    It is not rendered into html. For the docs, skip to tne
+    CI test fixtures section below.
 
-    from pyroute2 import config, IPRoute, AsyncIPRoute
-    from pyroute2.fixtures import iproute
+.. testsetup:: *
 
-    config.mock_netlink = True
-    config.mock_netns = True
+    from pyroute2.fixtures.doctest import *
 
-
-    def test_fixture(fixture, scope=None, name=None, argv=None):
-        argv = argv if argv is not None else []
-        spec = fixture._pytestfixturefunction
-        func = fixture.__wrapped__
-        if scope is not None:
-            assert spec.name == name
-        if name is not None:
-            assert spec.scope == scope
-        return func(*argv)
+..
+    End of the doctest setup.
+    8<-----------------------------------------------------------
 
 
 CI test fixtures
@@ -105,4 +100,5 @@ Fixtures dependencies diagram:
 
 .. autoclass:: pyroute2.fixtures.iproute.TestContext
     :members:
+
 '''
