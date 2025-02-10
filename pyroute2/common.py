@@ -285,7 +285,6 @@ class AddrPool(object):
         mx = self.cell
         self.reverse = reverse
         self.release = release
-        self.allocated = 0
         if self.release and not isinstance(self.release, int):
             raise TypeError()
         self.ban = []
@@ -332,7 +331,6 @@ class AddrPool(object):
                     if self.minaddr <= ret <= self.maxaddr:
                         if self.release:
                             self.free(ret, ban=self.release)
-                        self.allocated += 1
                         return ret
                     else:
                         self.free(ret)
@@ -388,10 +386,8 @@ class AddrPool(object):
         with self.lock:
             base, bit, is_allocated = self.locate(addr)
             if value == 'free' and is_allocated:
-                self.allocated -= 1
                 self.addr_map[base] |= 1 << bit
             elif value == 'allocated' and not is_allocated:
-                self.allocated += 1
                 self.addr_map[base] &= ~(1 << bit)
 
     def free(self, addr, ban=0):
@@ -404,7 +400,6 @@ class AddrPool(object):
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
                     raise KeyError('address is not allocated')
-                self.allocated -= 1
                 self.addr_map[base] ^= 1 << bit
 
 
