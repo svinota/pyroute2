@@ -1,15 +1,4 @@
-from pyroute2.common import dqn2int, hexdump, hexload, uifname, uuid32
-
-
-def test_hexdump():
-    binary = b'abcdef5678'
-    dump1 = hexdump(binary)
-    dump2 = hexdump(binary, length=6)
-    assert len(dump1) == 29
-    assert len(dump2) == 17
-    assert dump1[2] == dump1[-3] == dump2[2] == dump2[-3] == ':'
-    assert hexload(dump1) == binary
-    assert hexload(dump2) == binary[:6]
+from pyroute2.common import dqn2int, uifname, uuid32
 
 
 def test_uuid32():

@@ -4,9 +4,7 @@ Common utilities
 '''
 import errno
 import io
-import logging
 import os
-import re
 import socket
 import struct
 import sys
@@ -14,29 +12,10 @@ import threading
 import time
 import types
 
-log = logging.getLogger(__name__)
-
-try:
-    #
-    # Python2 section
-    #
-    basestring = basestring
-    reduce = reduce
-    file = file
-
-except NameError:
-    #
-    # Python3 section
-    #
-    basestring = (str, bytes)
-    from functools import reduce
-
-    reduce = reduce
-    file = io.BytesIO
+basestring = (str, bytes)
+file = io.BytesIO
 
 AF_MPLS = 28
-AF_PIPE = 255  # Right now AF_MAX == 40
-DEFAULT_RCVBUF = 65536
 _uuid32 = 0  # (singleton) the last uuid32 value saved to avoid collisions
 _uuid32_lock = threading.Lock()
 
@@ -91,63 +70,6 @@ rate_suffixes = {
 ##
 # General purpose
 #
-class View(object):
-    '''
-    A read-only view of a dictionary object.
-    '''
-
-    def __init__(self, src=None, path=None, constraint=lambda k, v: True):
-        self.src = src if src is not None else {}
-        if path is not None:
-            path = path.split('/')
-            for step in path:
-                self.src = getattr(self.src, step)
-        self.constraint = constraint
-
-    def __getitem__(self, key):
-        if key in self.keys():
-            return self.src[key]
-        raise KeyError()
-
-    def __setitem__(self, key, value):
-        raise NotImplementedError()
-
-    def __delitem__(self, key):
-        raise NotImplementedError()
-
-    def get(self, key, default=None):
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def _filter(self):
-        ret = []
-        for key, value in tuple(self.src.items()):
-            try:
-                if self.constraint(key, value):
-                    ret.append((key, value))
-            except Exception as e:
-                log.error("view filter error: %s", e)
-        return ret
-
-    def keys(self):
-        return [x[0] for x in self._filter()]
-
-    def values(self):
-        return [x[1] for x in self._filter()]
-
-    def items(self):
-        return self._filter()
-
-    def __iter__(self):
-        for key in self.keys():
-            yield key
-
-    def __repr__(self):
-        return repr(dict(self._filter()))
-
-
 class Namespace(object):
     def __init__(self, parent, override=None):
         self.parent = parent
@@ -178,60 +100,6 @@ class Namespace(object):
             self.override[key] = value
         else:
             setattr(self.parent, key, value)
-
-
-class Dotkeys(dict):
-    '''
-    This is a sick-minded hack of dict, intended to be an eye-candy.
-    It allows to get dict's items by dot reference:
-
-    ipdb["lo"] == ipdb.lo
-    ipdb["eth0"] == ipdb.eth0
-
-    Obviously, it will not work for some cases, like unicode names
-    of interfaces and so on. Beside of that, it introduces some
-    complexity.
-
-    But it simplifies live for old-school admins, who works with good
-    old "lo", "eth0", and like that naming schemes.
-    '''
-
-    __var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
-
-    def __dir__(self):
-        return [
-            i for i in self if isinstance(i, str) and self.__var_name.match(i)
-        ]
-
-    def __getattribute__(self, key, *argv):
-        try:
-            return dict.__getattribute__(self, key)
-        except AttributeError as e:
-            if key == '__deepcopy__':
-                raise e
-            elif key[:4] == 'set_':
-
-                def set_value(value):
-                    self[key[4:]] = value
-                    return self
-
-                return set_value
-            elif key in self:
-                return self[key]
-            else:
-                raise e
-
-    def __setattr__(self, key, value):
-        if key in self:
-            self[key] = value
-        else:
-            dict.__setattr__(self, key, value)
-
-    def __delattr__(self, key):
-        if key in self:
-            del self[key]
-        else:
-            dict.__delattr__(self, key)
 
 
 def map_namespace(prefix, ns, normalize=None):
@@ -329,10 +197,6 @@ def hexdump(payload, length=0):
     return ':'.join('{0:02x}'.format(c) for c in payload[:length] or payload)
 
 
-def hexload(data):
-    return bytes(bytearray((int(x, 16) for x in data.split(':'))))
-
-
 def load_dump(f, meta=None):
     '''
     Load a packet dump from an open file-like object or a string.
@@ -421,7 +285,6 @@ class AddrPool(object):
         mx = self.cell
         self.reverse = reverse
         self.release = release
-        self.allocated = 0
         if self.release and not isinstance(self.release, int):
             raise TypeError()
         self.ban = []
@@ -468,7 +331,6 @@ class AddrPool(object):
                     if self.minaddr <= ret <= self.maxaddr:
                         if self.release:
                             self.free(ret, ban=self.release)
-                        self.allocated += 1
                         return ret
                     else:
                         self.free(ret)
@@ -483,28 +345,6 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
-    def alloc_multi(self, count):
-        with self.lock:
-            addresses = []
-            raised = False
-            try:
-                for _ in range(count):
-                    addr = self.alloc()
-                    try:
-                        addresses.append(addr)
-                    except:
-                        # In case of a MemoryError during appending,
-                        # the finally block would not free the address.
-                        self.free(addr)
-                return addresses
-            except:
-                raised = True
-                raise
-            finally:
-                if raised:
-                    for addr in addresses:
-                        self.free(addr)
-
     def locate(self, addr):
         if self.reverse:
             addr = self.maxaddr - addr
@@ -518,18 +358,6 @@ class AddrPool(object):
             is_allocated = False
         return (base, bit, is_allocated)
 
-    def setaddr(self, addr, value):
-        if value not in ('free', 'allocated'):
-            raise TypeError()
-        with self.lock:
-            base, bit, is_allocated = self.locate(addr)
-            if value == 'free' and is_allocated:
-                self.allocated -= 1
-                self.addr_map[base] |= 1 << bit
-            elif value == 'allocated' and not is_allocated:
-                self.allocated += 1
-                self.addr_map[base] &= ~(1 << bit)
-
     def free(self, addr, ban=0):
         with self.lock:
             if ban != 0:
@@ -540,30 +368,10 @@ class AddrPool(object):
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
                     raise KeyError('address is not allocated')
-                self.allocated -= 1
                 self.addr_map[base] ^= 1 << bit
 
 
-def _fnv1_python2(data):
-    '''
-    FNV1 -- 32bit hash, python2 version
-
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
-
-    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-    '''
-    hval = 0x811C9DC5
-    for i in range(len(data)):
-        hval *= 0x01000193
-        hval ^= struct.unpack('B', data[i])[0]
-    return hval & 0xFFFFFFFF
-
-
-def _fnv1_python3(data):
+def fnv1(data):
     '''
     FNV1 -- 32bit hash, python3 version
 
@@ -580,12 +388,6 @@ def _fnv1_python3(data):
         hval *= 0x01000193
         hval ^= data[i]
     return hval & 0xFFFFFFFF
-
-
-if sys.version[0] == '3':
-    fnv1 = _fnv1_python3
-else:
-    fnv1 = _fnv1_python2
 
 
 def uuid32():
@@ -664,16 +466,6 @@ def metaclass(mc):
         return mc(cls.__name__, cls.__bases__, nvars)
 
     return wrapped
-
-
-def failed_class(message):
-    class FailedClass(object):
-        def __init__(self, *argv, **kwarg):
-            ret = RuntimeError(message)
-            ret.feature_supported = False
-            raise ret
-
-    return FailedClass
 
 
 def msg_done(msg):
