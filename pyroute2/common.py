@@ -380,16 +380,6 @@ class AddrPool(object):
             is_allocated = False
         return (base, bit, is_allocated)
 
-    def setaddr(self, addr, value):
-        if value not in ('free', 'allocated'):
-            raise TypeError()
-        with self.lock:
-            base, bit, is_allocated = self.locate(addr)
-            if value == 'free' and is_allocated:
-                self.addr_map[base] |= 1 << bit
-            elif value == 'allocated' and not is_allocated:
-                self.addr_map[base] &= ~(1 << bit)
-
     def free(self, addr, ban=0):
         with self.lock:
             if ban != 0:

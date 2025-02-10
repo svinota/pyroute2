@@ -52,31 +52,3 @@ def test_locate():
     assert bit2 == bit1 + 1
     assert is_allocated1
     assert not is_allocated2
-
-
-def test_setaddr_allocated():
-    ap = AddrPool()
-    f = ap.alloc()
-    base, bit, is_allocated = ap.locate(f + 1)
-    assert not is_allocated
-    ap.setaddr(f + 1, 'allocated')
-    base, bit, is_allocated = ap.locate(f + 1)
-    assert is_allocated
-    ap.free(f + 1)
-    base, bit, is_allocated = ap.locate(f + 1)
-    assert not is_allocated
-
-
-def test_setaddr_free():
-    ap = AddrPool()
-    f = ap.alloc()
-    base, bit, is_allocated = ap.locate(f + 1)
-    assert not is_allocated
-    ap.setaddr(f + 1, 'free')
-    base, bit, is_allocated = ap.locate(f + 1)
-    assert not is_allocated
-    ap.setaddr(f, 'free')
-    base, bit, is_allocated = ap.locate(f)
-    assert not is_allocated
-    with pytest.raises(KeyError):
-        ap.free(f)
