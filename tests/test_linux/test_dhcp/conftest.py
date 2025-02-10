@@ -1,12 +1,13 @@
 '''Fixtures only relevant for dhcp tests.'''
 
 import socket
-from typing import Callable
+from typing import Awaitable, Callable
 
 import pytest
 from fixtures.interfaces import VethPair
 
 from pyroute2.dhcp.client import ClientConfig
+from pyroute2.fixtures.iproute import TestContext
 from pyroute2.iproute.linux import AsyncIPRoute
 
 
@@ -28,15 +29,20 @@ def set_fixed_xid(monkeypatch: pytest.MonkeyPatch) -> Callable[[int], None]:
     return _set_fixed_xid
 
 
-async def ipv4_addrs(ifindex):
-    '''Shortcut for `ipr.addr('dump')`.'''
-    # FIXME: refactor into a fixture that depends on async_ipr
-    # when the fixture refactoring will be done
-    # or better, use a fixture from pyroute2 if it exists
-    async with AsyncIPRoute() as ipr:
+@pytest.fixture
+def get_ipv4_addrs(
+    async_context: TestContext[AsyncIPRoute],
+) -> Callable[[None], Awaitable[list[str]]]:
+    '''Callable fixture that returns the test interface's addresses.'''
+
+    async def _get_ipv4_addrs() -> list[str]:
         return [
             i
-            async for i in await ipr.addr(
-                'dump', index=ifindex, family=socket.AF_INET
+            async for i in await async_context.ipr.addr(
+                'dump',
+                index=async_context.test_link.index,
+                family=socket.AF_INET,
             )
         ]
+
+    return _get_ipv4_addrs
