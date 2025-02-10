@@ -128,7 +128,7 @@ async def test_add_and_remove_gw_hooks(
         'add',
         index=async_context.test_link.index,
         address=fake_lease.ip,
-        mask=fake_lease.prefixlen,
+        prefixlen=fake_lease.prefixlen,
     )
     await hooks.add_default_gw(lease=fake_lease, netns=async_context.netns)
     routes = await async_context.ipr.route('get', dst='1.2.3.4')

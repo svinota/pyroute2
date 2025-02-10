@@ -76,6 +76,8 @@ class TestContext(Generic[T]):
     name and the test interface spec.
     '''
 
+    __test__ = False  # prevent pytest from looking for tests here
+
     def __init__(self, ipr: T, test_link: TestInterface):
         self._ipr: T = ipr
         self._test_link = test_link
