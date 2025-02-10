@@ -38,19 +38,6 @@ class VethPair(NamedTuple):
 
 
 @pytest_asyncio.fixture
-async def dummy_iface():
-    '''Fixture that creates & removes a temporary dummy interface.'''
-    ifname = uifname()
-    async with AsyncIPRoute() as ipr:
-        try:
-            await ipr.link('add', ifname=ifname, kind='dummy', state='up')
-            (idx,) = await ipr.link_lookup(ifname=ifname)
-            yield idx, ifname
-        finally:
-            await ipr.link('del', index=idx)
-
-
-@pytest_asyncio.fixture
 async def veth_pair(
     dhcp_range: DHCPRangeConfig,
 ) -> AsyncGenerator[VethPair, None]:
