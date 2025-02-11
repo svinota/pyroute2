@@ -12,6 +12,7 @@ from ctypes import (
 from socket import AF_PACKET, SOCK_RAW, SOL_SOCKET, errno, error, htons, socket
 from typing import Optional
 
+from pyroute2 import netns
 from pyroute2.iproute.linux import AsyncIPRoute
 
 ETH_P_ALL = 3
@@ -61,7 +62,7 @@ class AsyncRawSocket(socket):
 
     async def __aenter__(self):
         # lookup the interface details
-        async with AsyncIPRoute() as ip:
+        async with AsyncIPRoute(netns=self.netns) as ip:
             async for link in await ip.get_links():
                 if link.get_attr('IFLA_IFNAME') == self.ifname:
                     break
@@ -70,7 +71,11 @@ class AsyncRawSocket(socket):
         self.l2addr: str = link.get_attr('IFLA_ADDRESS')
         self.ifindex: int = link['index']
         # bring up the socket
-        socket.__init__(self, AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
+        prime = netns.create_socket(
+            self.netns, AF_PACKET, SOCK_RAW, htons(ETH_P_ALL)
+        )
+        socket.__init__(self, fileno=prime.fileno())
+        # socket.__init__(self, AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))
         socket.setblocking(self, False)
         socket.bind(self, (self.ifname, ETH_P_ALL))
         if self.bpf:
@@ -82,9 +87,15 @@ class AsyncRawSocket(socket):
             self.clear_buffer(remove_total_filter=True)
         return self
 
-    def __init__(self, ifname: str, bpf: Optional[list[list[int]]] = None):
+    def __init__(
+        self,
+        ifname: str,
+        bpf: Optional[list[list[int]]] = None,
+        netns: Optional[str] = None,
+    ):
         self.ifname = ifname
         self.bpf = bpf
+        self.netns = netns
 
     def clear_buffer(self, remove_total_filter: bool = False):
         # there is a window of time after the socket has been created and

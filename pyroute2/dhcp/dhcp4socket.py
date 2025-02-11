@@ -7,6 +7,7 @@ IPv4 DHCP socket
 import asyncio
 import logging
 import socket
+from typing import Optional
 
 from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
@@ -51,8 +52,8 @@ class AsyncDHCP4Socket(AsyncRawSocket):
     `with` statements.
     '''
 
-    def __init__(self, ifname, port: int = 68):
-        AsyncRawSocket.__init__(self, ifname, listen_udp_port(port))
+    def __init__(self, ifname, port: int = 68, netns: Optional[str] = None):
+        AsyncRawSocket.__init__(self, ifname, listen_udp_port(port), netns)
         self.port = port
         self._loop = asyncio.get_running_loop()
 
