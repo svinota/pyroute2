@@ -436,13 +436,18 @@ def uifname() -> str:
     return 'pr%x' % uuid32()
 
 
-def map_exception(match, subst):
+F = TypeVar("F", bound=Callable[..., Any])
+
+def map_exception(
+    match: Callable[[Exception], bool],
+    subst: Callable[[Exception], Exception]
+) -> Callable[[F], F]:
     '''
     Decorator to map exception types
     '''
 
-    def wrapper(f):
-        def decorated(*argv, **kwarg):
+    def wrapper(f: F) -> F:
+        def decorated(*argv: Any, **kwarg: Any) -> Any:
             try:
                 f(*argv, **kwarg)
             except Exception as e:
@@ -450,7 +455,7 @@ def map_exception(match, subst):
                     raise subst(e)
                 raise
 
-        return decorated
+        return decorated  # type: ignore
 
     return wrapper
 
