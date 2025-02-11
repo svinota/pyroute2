@@ -146,7 +146,7 @@ def map_namespace(
         - True — cut the prefix and `lower()` the rest
         - lambda x: … — apply the function to every name
     '''
-    nmap = {None: lambda x: x, True: lambda x: x[len(prefix) :].lower()}
+    transform: Callable[[str], str]
 
     if normalize is None:
         transform = _no_change
@@ -157,12 +157,8 @@ def map_namespace(
     else:
         raise ValueError("Invalid value for `normalize` parameter")
 
-    by_name = dict(
-        [(normalize(i), ns[i]) for i in ns.keys() if i.startswith(prefix)]
-    )
-    by_value = dict(
-        [(ns[i], normalize(i)) for i in ns.keys() if i.startswith(prefix)]
-    )
+    by_name = {transform(i): ns[i] for i in ns.keys() if i.startswith(prefix)}
+    by_value = {ns[i]: transform(i) for i in ns.keys() if i.startswith(prefix)}
     return (by_name, by_value)
 
 
