@@ -192,7 +192,7 @@ def getbroadcast(
     return socket.inet_ntop(family, n)
 
 
-def dqn2int(mask, family=socket.AF_INET):
+def dqn2int(mask: str, family: socket.AddressFamily = socket.AF_INET) -> int:
     '''
     IPv4 dotted quad notation to int mask conversion
     '''
