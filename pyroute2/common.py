@@ -472,7 +472,6 @@ def map_enoent(f: F) -> F:
 
 T = TypeVar('T', bound=type)
 
-
 def metaclass(mc: T) -> Callable[[T], T]:
     def wrapped(cls: T) -> T:
         nvars = {}
