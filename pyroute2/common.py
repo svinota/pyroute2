@@ -410,12 +410,9 @@ def fnv1(data: bytes) -> int:
     return hval & 0xFFFFFFFF
 
 
-def uuid32():
+def uuid32() -> int:
     '''
     Return 32bit UUID, based on the current time and pid.
-
-    @return: 32bit int uuid
-    @rtype: int
 
     The uuid is guaranteed to be unique within one process.
     '''
