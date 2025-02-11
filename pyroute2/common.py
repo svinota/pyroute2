@@ -460,7 +460,7 @@ def map_exception(
     return wrapper
 
 
-def map_enoent(f):
+def map_enoent(f: F) -> F:
     '''
     Shortcut to map OSError(2) -> OSError(95)
     '''
