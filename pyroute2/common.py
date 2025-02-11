@@ -205,7 +205,7 @@ def dqn2int(mask: str, family: socket.AddressFamily = socket.AF_INET) -> int:
     return ret
 
 
-def get_address_family(address):
+def get_address_family(address: str) -> socket.AddressFamily:
     if address.find(':') > -1:
         return socket.AF_INET6
     else:
