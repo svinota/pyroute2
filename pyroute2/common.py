@@ -395,15 +395,11 @@ class AddrPool(object):
                 self.addr_map[base] ^= 1 << bit
 
 
-def fnv1(data):
+def fnv1(data: bytes) -> int:
     '''
     FNV1 -- 32bit hash, python3 version
 
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
+    Returns: 32bit int hash
 
     See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
     '''
