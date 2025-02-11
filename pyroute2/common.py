@@ -219,7 +219,9 @@ def hexdump(payload: bytes, length: int = 0) -> str:
     return ':'.join('{0:02x}'.format(c) for c in payload[:length] or payload)
 
 
-def load_dump(f, meta=None):
+def load_dump(
+    f: Union[str, io.StringIO], meta: Union[dict[str, str], None] = None
+) -> Union[bytes, str]:
     '''
     Load a packet dump from an open file-like object or a string.
 
@@ -240,6 +242,7 @@ def load_dump(f, meta=None):
     code = None
     meta_data = None
     meta_label = None
+    io_obj: Union[io.StringIO, str]
     if isinstance(f, str):
         io_obj = io.StringIO()
         io_obj.write(f)
@@ -284,13 +287,10 @@ def load_dump(f, meta=None):
     if isinstance(meta, dict):
         if code is not None:
             meta['code'] = code
-        if meta_data is not None:
+        if meta_data is not None and meta_label is not None:
             meta[meta_label] = meta_data
 
-    if sys.version[0] == '3':
-        return bytes(data, 'iso8859-1')
-    else:
-        return data
+    return bytes(data, 'iso8859-1')
 
 
 class AddrPool(object):
@@ -473,8 +473,11 @@ def map_enoent(f):
     )(f)
 
 
-def metaclass(mc):
-    def wrapped(cls):
+T = TypeVar('T', bound=type)
+
+
+def metaclass(mc: T) -> Callable[[T], T]:
+    def wrapped(cls: T) -> T:
         nvars = {}
         skip = ['__dict__', '__weakref__']
         slots = cls.__dict__.get('__slots__')
