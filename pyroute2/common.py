@@ -301,15 +301,17 @@ class AddrPool(object):
     cell = 0xFFFFFFFFFFFFFFFF
 
     def __init__(
-        self, minaddr=0xF, maxaddr=0xFFFFFF, reverse=False, release=False
+        self,
+        minaddr: int = 0xF,
+        maxaddr: int = 0xFFFFFF,
+        reverse: bool = False,
+        release: bool = False
     ):
         self.cell_size = 0  # in bits
         mx = self.cell
         self.reverse = reverse
         self.release = release
-        if self.release and not isinstance(self.release, int):
-            raise TypeError()
-        self.ban = []
+        self.ban: list[dict[str, int]] = []
         while mx:
             mx >>= 8
             self.cell_size += 1
@@ -322,7 +324,7 @@ class AddrPool(object):
         self.maxaddr = maxaddr
         self.lock = threading.RLock()
 
-    def alloc(self):
+    def alloc(self) -> int:
         with self.lock:
             # gc self.ban:
             for item in tuple(self.ban):
@@ -367,7 +369,7 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
-    def locate(self, addr):
+    def locate(self, addr: int) -> tuple[int, int, bool]:
         if self.reverse:
             addr = self.maxaddr - addr
         else:
@@ -380,12 +382,12 @@ class AddrPool(object):
             is_allocated = False
         return (base, bit, is_allocated)
 
-    def free(self, addr, ban=0):
+    def free(self, addr: int, ban: int = 0):
         with self.lock:
             if ban != 0:
                 self.ban.append({'addr': addr, 'counter': ban})
             else:
-                base, bit, is_allocated = self.locate(addr)
+                base, bit, _ = self.locate(addr)
                 if len(self.addr_map) <= base:
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
