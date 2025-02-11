@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 
 from pyroute2.common import uifname
+from pyroute2.fixtures.iproute import SetNSContext, TestContext
 from pyroute2.iproute.linux import AsyncIPRoute
 
 
@@ -40,33 +41,32 @@ class VethPair(NamedTuple):
 @pytest_asyncio.fixture
 async def veth_pair(
     dhcp_range: DHCPRangeConfig,
+    async_context: TestContext[AsyncIPRoute],
+    setns_context: SetNSContext,
 ) -> AsyncGenerator[VethPair, None]:
     '''Fixture that creates & removes a temporary veth pair.'''
-    # TODO: use AsyncIPRouteContext
     base_ifname = uifname()
     server_ifname = f'{base_ifname}-srv'
     client_ifname = f'{base_ifname}-cli'
-    async with AsyncIPRoute() as ipr:
-        try:
-            await ipr.link(
-                'add', ifname=server_ifname, kind="veth", peer=client_ifname
-            )
-            srv_id = (await ipr.link_lookup(ifname=server_ifname))[0]
-            cli_id = (await ipr.link_lookup(ifname=client_ifname))[0]
-            await ipr.addr(
-                'add',
-                index=srv_id,
-                # TODO: handle IPv4Address in pyroute2 ?
-                address=str(dhcp_range.router),
-                prefixlen=24,  # FIXME
-            )
-            await ipr.link("set", index=srv_id, state="up")
-            await ipr.link("set", index=cli_id, state="up")
-            yield VethPair(
-                server=server_ifname,
-                client=client_ifname,
-                server_idx=srv_id,
-                client_idx=cli_id,
-            )
-        finally:
-            await ipr.link("del", index=srv_id)
+    try:
+        await async_context.ipr.link(
+            'add', ifname=server_ifname, kind="veth", peer=client_ifname
+        )
+        srv_id = (await async_context.ipr.link_lookup(ifname=server_ifname))[0]
+        cli_id = (await async_context.ipr.link_lookup(ifname=client_ifname))[0]
+        await async_context.ipr.addr(
+            'add',
+            index=srv_id,
+            address=str(dhcp_range.router),
+            prefixlen=24,  # FIXME
+        )
+        await async_context.ipr.link("set", index=srv_id, state="up")
+        await async_context.ipr.link("set", index=cli_id, state="up")
+        yield VethPair(
+            server=server_ifname,
+            client=client_ifname,
+            server_idx=srv_id,
+            client_idx=cli_id,
+        )
+    finally:
+        await async_context.ipr.link("del", index=srv_id)

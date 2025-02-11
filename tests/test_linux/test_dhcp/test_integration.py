@@ -121,10 +121,35 @@ async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
 
 
 @pytest.mark.asyncio
-async def test_lease_file(veth_pair: VethPair, client_config: ClientConfig):
+async def test_lease_file(client_config: ClientConfig):
     '''The client must write a pidfile when configured to.'''
     client_config.write_pidfile = True
     async with AsyncDHCPClient(client_config):
         assert client_config.pidfile_path.exists()
         assert int(client_config.pidfile_path.read_text()) == os.getpid()
     assert not client_config.pidfile_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_lease_expiration(udhcpd: UdhcpdFixture, client_config: ClientConfig, caplog: pytest.LogCaptureFixture):
+    '''The client must go back to INIT when the lease expires.'''
+    caplog.set_level('INFO', logger='pyroute2.dhcp')
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        # wait for the client to get a lease
+        await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        # stop udhcpd, so nobody is answering anymore
+        await udhcpd.__aexit__(None, None, None)
+        # renewing timer expires
+        await cli.wait_for_state(fsm.State.RENEWING, timeout=5.0)
+        # rebinding timer expires
+        await cli.wait_for_state(fsm.State.REBINDING, timeout=5.0)
+        # lease expire, we look for a new one
+        await cli.wait_for_state(fsm.State.INIT, timeout=5.0)
+        await cli.wait_for_state(fsm.State.SELECTING, timeout=5.0)
+
+    assert (
+        caplog.messages.index('Renewal timer expired')
+        < caplog.messages.index('Rebinding timer expired')
+        < caplog.messages.index('Lease expired')
+    )
