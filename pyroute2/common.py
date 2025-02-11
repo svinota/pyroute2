@@ -162,9 +162,7 @@ def map_namespace(
 
 
 def getbroadcast(
-    addr: str,
-    mask: int,
-    family: socket.AddressFamily = socket.AF_INET
+    addr: str, mask: int, family: socket.AddressFamily = socket.AF_INET
 ) -> str:
     # 1. convert addr to int
     i = socket.inet_pton(family, addr)
@@ -304,7 +302,7 @@ class AddrPool(object):
         minaddr: int = 0xF,
         maxaddr: int = 0xFFFFFF,
         reverse: bool = False,
-        release: bool = False
+        release: bool = False,
     ):
         self.cell_size = 0  # in bits
         mx = self.cell
@@ -437,9 +435,9 @@ def uifname() -> str:
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+
 def map_exception(
-    match: Callable[[Exception], bool],
-    subst: Callable[[Exception], Exception]
+    match: Callable[[Exception], bool], subst: Callable[[Exception], Exception]
 ) -> Callable[[F], F]:
     '''
     Decorator to map exception types
@@ -470,6 +468,7 @@ def map_enoent(f: F) -> F:
 
 
 T = TypeVar('T', bound=type)
+
 
 def metaclass(mc: T) -> Callable[[T], T]:
     def wrapped(cls: T) -> T:
