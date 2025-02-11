@@ -162,16 +162,20 @@ def map_namespace(
     return (by_name, by_value)
 
 
-def getbroadcast(addr, mask, family=socket.AF_INET):
+def getbroadcast(
+    addr: str,
+    mask: int,
+    family: socket.AddressFamily = socket.AF_INET
+) -> str:
     # 1. convert addr to int
     i = socket.inet_pton(family, addr)
     if family == socket.AF_INET:
-        i = struct.unpack('>I', i)[0]
+        i_unpacked = struct.unpack('>I', i)[0]
         a = 0xFFFFFFFF
         length = 32
     elif family == socket.AF_INET6:
-        i = struct.unpack('>QQ', i)
-        i = i[0] << 64 | i[1]
+        i_unpacked = struct.unpack('>QQ', i)
+        i_unpacked = i_unpacked[0] << 64 | i_unpacked[1]
         a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         length = 128
     else:
@@ -179,7 +183,7 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     # 2. calculate mask
     m = (a << length - mask) & a
     # 3. calculate default broadcast
-    n = (i & m) | a >> mask
+    n = (i_unpacked & m) | a >> mask
     # 4. convert it back to the normal address form
     if family == socket.AF_INET:
         n = struct.pack('>I', n)
