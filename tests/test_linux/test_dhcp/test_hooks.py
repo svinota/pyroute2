@@ -12,8 +12,7 @@ from pyroute2.fixtures.iproute import TestContext
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 
-# from test_dhcp.conftest import ipv4_addrs
-
+pytestmark = pytest.mark.usefixtures('setns_context')
 
 FAKE_LEASE = {
     'ack': {
@@ -72,7 +71,7 @@ async def test_add_and_remove_ip_hooks(
     caplog.set_level(logging.INFO, logger='pyroute2.dhcp.hooks')
 
     # call the hook that adds the IP address to the dummy interface
-    await hooks.configure_ip(lease=fake_lease, netns=async_context.netns)
+    await hooks.configure_ip(lease=fake_lease)
     # check the ip addr & broadcast addr have ben set
     assert len(addrs := await get_ipv4_addrs()) == 1
     addr = addrs[0]
@@ -80,7 +79,7 @@ async def test_add_and_remove_ip_hooks(
     assert addr.get('IFA_BROADCAST') == fake_lease.broadcast_address
 
     # call the hooks that removes the IP address
-    await hooks.remove_ip(lease=fake_lease, netns=async_context.netns)
+    await hooks.remove_ip(lease=fake_lease)
     # check the interface has no address anymore
     assert len(addrs := await get_ipv4_addrs()) == 0
 
@@ -103,7 +102,7 @@ async def test_configure_ip_missing_broadcast_addr(
     caplog.set_level(logging.DEBUG, logger='pyroute2.dhcp.hooks')
 
     del fake_lease.ack['options']['broadcast_address']
-    await hooks.configure_ip(fake_lease, netns=async_context.netns)
+    await hooks.configure_ip(fake_lease)
     assert caplog.messages == [
         f'Adding {fake_lease.ip}/{fake_lease.subnet_mask}'
         f' to {fake_lease.interface}',
@@ -130,13 +129,13 @@ async def test_add_and_remove_gw_hooks(
         address=fake_lease.ip,
         prefixlen=fake_lease.prefixlen,
     )
-    await hooks.add_default_gw(lease=fake_lease, netns=async_context.netns)
+    await hooks.add_default_gw(lease=fake_lease)
     routes = await async_context.ipr.route('get', dst='1.2.3.4')
     assert len(routes) == 1
     assert routes[0].get('RTA_DST') == '1.2.3.4'
     assert routes[0].get('RTA_OIF') == async_context.test_link.index
     assert routes[0].get('RTA_PREFSRC') == fake_lease.ip
-    await hooks.remove_default_gw(lease=fake_lease, netns=async_context.netns)
+    await hooks.remove_default_gw(lease=fake_lease)
     with pytest.raises(NetlinkError) as err_ctx:
         await async_context.ipr.route('get', dst='1.2.3.4')
     assert err_ctx.value.code == errno.ENETUNREACH
@@ -150,11 +149,11 @@ async def test_add_and_remove_gw_hooks(
 
 @pytest.mark.asyncio
 async def test_remove_gw_already_removed(
-    fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture, nsname: str
+    fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
 ):
     '''Removing the default gw must not crash when it doesn't exist.'''
     caplog.set_level(logging.INFO, logger='pyroute2.dhcp.hooks')
-    await hooks.remove_default_gw(lease=fake_lease, netns=nsname)
+    await hooks.remove_default_gw(lease=fake_lease)
     assert caplog.messages == [
         f'Removing {fake_lease.default_gateway} as default route',
         'Default route was already removed by another process',

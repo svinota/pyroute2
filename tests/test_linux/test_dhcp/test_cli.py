@@ -8,16 +8,13 @@ from fixtures.dhcp_servers.dnsmasq import DnsmasqFixture
 from fixtures.interfaces import VethPair
 from pr2test.marks import require_root
 
-from pyroute2.fixtures.iproute import SetNSContext
 from pyroute2.iproute.linux import AsyncIPRoute
 
-pytestmark = [require_root()]
+pytestmark = [require_root(), pytest.mark.usefixtures('setns_context')]
 
 
 @pytest.mark.asyncio
-async def test_client_console(
-    setns_context: SetNSContext, dnsmasq: DnsmasqFixture, veth_pair: VethPair
-):
+async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
     '''The commandline client can get a lease, print it to stdout and exit.'''
     process = await asyncio.create_subprocess_exec(
         'pyroute2-dhcp-client',
@@ -48,9 +45,7 @@ async def test_client_console(
 
 
 @pytest.mark.asyncio
-async def test_interface_flaps(
-    setns_context: SetNSContext, dnsmasq: DnsmasqFixture, veth_pair: VethPair
-):
+async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
     # Run a dhcp client
     process = await asyncio.create_subprocess_exec(
         'pyroute2-dhcp-client',
@@ -119,7 +114,7 @@ async def test_interface_flaps(
 )
 @pytest.mark.asyncio
 async def test_wrong_custom_hook_or_lease(
-    setns_context: SetNSContext, switch: str, value: str, err_msg: str
+    switch: str, value: str, err_msg: str
 ):
     process = await asyncio.create_subprocess_exec(
         'pyroute2-dhcp-client',

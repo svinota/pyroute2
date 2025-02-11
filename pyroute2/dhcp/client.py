@@ -401,7 +401,10 @@ class AsyncDHCPClient:
             server_mac=msg.eth_src,
         )
         LOG.info(
-            'Got lease for %s from %s', self.lease.ip, self.lease.server_id
+            'Got lease for %s from %s (%s)',
+            self.lease.ip,
+            self.lease.server_id,
+            msg.eth_src,
         )
         await self.transition(to=fsm.State.BOUND)
 

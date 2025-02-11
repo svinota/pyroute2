@@ -34,9 +34,7 @@ class HookFunc(Protocol):
 
     __name__: str
 
-    async def __call__(
-        self, lease: Lease, netns: Optional[str] = None
-    ) -> None:
+    async def __call__(self, lease: Lease) -> None:
         pass  # pragma: no cover
 
 
@@ -49,11 +47,9 @@ class Hook(NamedTuple):
     func: HookFunc
     triggers: set[Trigger]
 
-    async def __call__(
-        self, lease: Lease, netns: Optional[str] = None
-    ) -> None:
+    async def __call__(self, lease: Lease) -> None:
         '''Call the hook function.'''
-        await self.func(lease=lease, netns=netns)
+        await self.func(lease=lease)
 
     @property
     def name(self) -> str:
@@ -66,7 +62,6 @@ async def run_hooks(
     lease: Lease,
     trigger: Trigger,
     timeout: Optional[float] = None,
-    netns: Optional[str] = None,
 ):
     '''Called by the client to run the hooks registered for the given trigger.
 
@@ -74,10 +69,10 @@ async def run_hooks(
     running.
     '''
     if hooks := list(hooks):
-        LOG.info('Running %s hooks', trigger)
+        LOG.debug('Running %s hooks', trigger)
         for i in filter(lambda y: trigger in y.triggers, hooks):
             try:
-                await asyncio.wait_for(i(lease, netns=netns), timeout=timeout)
+                await asyncio.wait_for(i(lease), timeout=timeout)
             except asyncio.exceptions.TimeoutError:
                 LOG.error('Hook %r timed out', i.name)
             except Exception as exc:
@@ -87,14 +82,14 @@ async def run_hooks(
 def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
     '''Decorator for dhcp client hooks.
 
-    A hook is an async function that takes a lease and an (optional) netns.
+    A hook is an async function that takes a lease.
     Hooks set in `ClientConfig.hooks` will be called in order by the client
     when one of the triggers passed to the decorator happens.
 
     For example::
 
         @hook(Trigger.RENEWED)
-        async def lease_was_renewed(lease: Lease, netns: Optional[str] = None):
+        async def lease_was_renewed(lease: Lease):
             print(lease.server_mac, 'renewed our lease !')
 
     The decorator returns a `Hook` instance, a utility class storing the hook
@@ -110,7 +105,7 @@ def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
 
 
 @hook(Trigger.BOUND)
-async def configure_ip(lease: Lease, netns: Optional[str] = None):
+async def configure_ip(lease: Lease):
     '''Add the IP allocated in the lease to its interface.
 
     Use the `remove_ip` hook in addition to this one for cleanup.
@@ -124,9 +119,7 @@ async def configure_ip(lease: Lease, netns: Optional[str] = None):
     except MissingOptionError as err:
         LOG.debug("%s", err)
         bcast = None
-    async with AsyncIPRoute(
-        ext_ack=True, strict_check=True, netns=netns
-    ) as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         await ipr.addr(
             'replace',
             index=await ipr.link_lookup(ifname=lease.interface),
@@ -137,14 +130,12 @@ async def configure_ip(lease: Lease, netns: Optional[str] = None):
 
 
 @hook(Trigger.UNBOUND, Trigger.EXPIRED)
-async def remove_ip(lease: Lease, netns: Optional[str] = None):
+async def remove_ip(lease: Lease):
     '''Remove the IP in the lease from its interface.'''
     LOG.info(
         'Removing %s/%s from %s', lease.ip, lease.subnet_mask, lease.interface
     )
-    async with AsyncIPRoute(
-        ext_ack=True, strict_check=True, netns=netns
-    ) as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         await ipr.addr(
             'del',
             index=await ipr.link_lookup(ifname=lease.interface),
@@ -154,7 +145,7 @@ async def remove_ip(lease: Lease, netns: Optional[str] = None):
 
 
 @hook(Trigger.BOUND)
-async def add_default_gw(lease: Lease, netns: Optional[str] = None):
+async def add_default_gw(lease: Lease):
     '''Configures the default gateway set in the lease.
 
     Use in addition to `remove_default_gw` for cleanup.
@@ -164,9 +155,7 @@ async def add_default_gw(lease: Lease, netns: Optional[str] = None):
         lease.default_gateway,
         lease.interface,
     )
-    async with AsyncIPRoute(
-        ext_ack=True, strict_check=True, netns=netns
-    ) as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         ifindex = (await ipr.link_lookup(ifname=lease.interface),)
         await ipr.route(
             'replace',
@@ -177,12 +166,10 @@ async def add_default_gw(lease: Lease, netns: Optional[str] = None):
 
 
 @hook(Trigger.UNBOUND, Trigger.EXPIRED)
-async def remove_default_gw(lease: Lease, netns: Optional[str] = None):
+async def remove_default_gw(lease: Lease):
     '''Removes the default gateway set in the lease.'''
     LOG.info('Removing %s as default route', lease.default_gateway)
-    async with AsyncIPRoute(
-        ext_ack=True, strict_check=True, netns=netns
-    ) as ipr:
+    async with AsyncIPRoute(ext_ack=True, strict_check=True) as ipr:
         ifindex = await ipr.link_lookup(ifname=lease.interface)
         try:
             await ipr.route(
