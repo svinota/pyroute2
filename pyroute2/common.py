@@ -212,7 +212,7 @@ def get_address_family(address: str) -> socket.AddressFamily:
         return socket.AF_INET
 
 
-def hexdump(payload, length=0):
+def hexdump(payload: bytes, length: int = 0) -> str:
     '''
     Represent byte string as hex -- for debug purposes
     '''
