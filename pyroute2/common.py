@@ -429,12 +429,9 @@ def uuid32() -> int:
         return candidate
 
 
-def uifname():
+def uifname() -> str:
     '''
     Return a unique interface name based on a prime function
-
-    @return: interface name
-    @rtype: str
     '''
     return 'pr%x' % uuid32()
 
