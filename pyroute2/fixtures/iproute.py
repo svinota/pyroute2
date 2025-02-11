@@ -104,6 +104,31 @@ class TestContext(Generic[T]):
         return self.ipr.status['netns']
 
 
+class SetNSContext:
+    '''A unique network namespace context.
+
+    Provided by `setns_context` fixture.
+
+    Sets a unique netns for the whole python process for the
+    fixture scope, and returns from the nets on the scope exit.'''
+
+    def __init__(self, nsname: str):
+        self._netns = nsname
+
+    def __enter__(self):
+        netns.pushns(self.netns)
+
+    def __exit__(self, *_):
+        netns.popns()
+
+    @property
+    def netns(self) -> str:
+        '''Network namespace.
+
+        A string name of the network namespace.'''
+        return self._netns
+
+
 @pytest.fixture(name='nsname')
 def _nsname() -> Generator[str]:
     '''Network namespace.
@@ -371,3 +396,21 @@ def _ndb(nsname: str) -> Generator[NDB]:
     '''
     with NDB(sources=[{'target': 'localhost', 'netns': nsname}]) as ndb:
         yield ndb
+
+
+@pytest.fixture(name='setns_context')
+def _setns_context(nsname: str) -> Generator[SetNSContext]:
+    '''Set network namespace.
+
+    * **Name**: setns_context
+    * **Scope**: function
+    * **Depends**: nsname
+
+    Set a unique network namespace for the current process. Push the new
+    netns onto the stack, yield the network namespace context, and pop and
+    cleanup netns on exit.
+
+    Please notice that `setns()` call affects the whole python process.
+    '''
+    with SetNSContext(nsname) as ctx:
+        yield ctx

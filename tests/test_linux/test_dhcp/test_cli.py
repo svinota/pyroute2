@@ -10,7 +10,7 @@ from pr2test.marks import require_root
 
 from pyroute2.iproute.linux import AsyncIPRoute
 
-pytestmark = [require_root()]
+pytestmark = [require_root(), pytest.mark.usefixtures('setns_context')]
 
 
 @pytest.mark.asyncio

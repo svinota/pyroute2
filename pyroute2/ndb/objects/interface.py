@@ -150,7 +150,7 @@ Bridge and bond ports
 
 Add bridge and bond ports one can use specific API:
 
-.. testcode:: preset_br0_1
+.. code::
 
     with ndb.interfaces['br0'] as br0:
         br0.add_port('eth0')
@@ -164,7 +164,7 @@ Add bridge and bond ports one can use specific API:
 
 To remove a port:
 
-.. testcode:: preset_br0_2
+.. code::
 
     with ndb.interfaces['br0'] as br0:
         br0.del_port('eth0')
@@ -172,7 +172,7 @@ To remove a port:
 Or by setting the master property on a port, in the same
 way as with `IPRoute`:
 
-.. testcode:: preset_br0_1
+.. code::
 
     index = ndb.interfaces['br0']['index']
 

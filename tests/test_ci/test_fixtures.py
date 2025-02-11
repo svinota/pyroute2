@@ -26,6 +26,7 @@ def test_nsname_cleanup(cleanup_netns, netns_remove_list):
         (iproute._async_context, 'function', 'async_context'),
         (iproute._sync_context, 'function', 'sync_context'),
         (iproute._ndb, 'function', 'ndb'),
+        (iproute._setns_context, 'function', 'setns_context'),
     ),
     ids=(
         'nsname',
@@ -39,6 +40,7 @@ def test_nsname_cleanup(cleanup_netns, netns_remove_list):
         'async_context',
         'sync_context',
         'ndb',
+        'setns_context',
     ),
 )
 def test_fixture_spec(check_fixture_spec, fixture, scope, name):
