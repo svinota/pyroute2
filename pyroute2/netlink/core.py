@@ -240,6 +240,9 @@ class AsyncCoreSocket:
 
     @property
     def event_loop(self):
+        return self.ensure_event_loop()
+
+    def ensure_event_loop(self):
         if not hasattr(self.local, 'event_loop'):
             if self.status['use_event_loop']:
                 if self.status['use_thread_id'] == id(
@@ -247,8 +250,7 @@ class AsyncCoreSocket:
                 ):
                     raise RuntimeError('Lost the event loop')
                 raise RuntimeError(
-                    'Predefined event loop can not '
-                    'be used in another thread'
+                    'Predefined event loop can not be used in another thread'
                 )
             self.local.event_loop = self.setup_event_loop()
             self.local.connection_lost = self.local.event_loop.create_future()

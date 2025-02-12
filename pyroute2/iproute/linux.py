@@ -2577,6 +2577,9 @@ class IPRoute(NetlinkSocket):
             flags=flags,
             libc=libc,
         )
+        self.asyncore.ensure_event_loop()
+        if self.asyncore.status['event_loop'] != 'new':
+            raise RuntimeError()
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.ensure_socket()
         )
