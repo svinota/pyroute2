@@ -410,6 +410,20 @@ class AsyncDHCPClient:
         # computes the lease expiration time as the sum of the time at which
         # the client sent the DHCPREQUEST message and the duration of the lease
         # in the DHCPACK message.
+
+        # The state the client was in when sending the message
+        request_state = msg.xid.request_state
+
+        if request_state in (fsm.State.REQUESTING, fsm.State.REBOOTING):
+            trigger = Trigger.BOUND
+        elif request_state == fsm.State.RENEWING:
+            trigger = Trigger.RENEWED
+        elif request_state == fsm.State.REBINDING:
+            trigger = Trigger.REBOUND
+        else:
+            LOG.warning('Invalid request state for xid %s', msg.xid)
+            return
+
         self.lease = self.config.lease_type(
             ack=msg.dhcp,
             interface=self.config.interface,
@@ -422,20 +436,6 @@ class AsyncDHCPClient:
             msg.eth_src,
         )
         await self.transition(to=fsm.State.BOUND)
-
-        # The state the client was in when sending the message
-        request_state = msg.xid.request_state
-
-        if request_state in (fsm.State.REQUESTING, fsm.State.REBOOTING):
-            trigger = Trigger.BOUND
-        elif request_state == fsm.State.RENEWING:
-            trigger = Trigger.RENEWED
-        elif request_state == fsm.State.REBINDING:
-            trigger = Trigger.REBOUND
-        else:
-            LOG.warning('Invalid request state %s in xid', request_state)
-            return
-
         await self._run_hooks(trigger)
 
     @fsm.state_guard(
@@ -585,6 +585,6 @@ class AsyncDHCPClient:
         handler_name = f'{msg_type.name.lower()}_received'
         handler = getattr(self, handler_name, None)
         if not handler:
-            LOG.debug('%r messages are not handled', msg_type.name)
+            LOG.debug('DHCP %s messages are not handled', msg_type.name)
         else:
             await handler(msg)

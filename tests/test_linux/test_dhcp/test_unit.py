@@ -5,7 +5,11 @@ import pytest
 from fixtures.dhcp_servers.mock import MockDHCPServerFixture
 from fixtures.interfaces import VethPair
 
-from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
+from pyroute2.dhcp.client import (
+    AsyncDHCPClient,
+    ClientConfig,
+    randomized_increasing_backoff,
+)
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.fsm import State
@@ -111,6 +115,34 @@ async def test_get_and_renew_lease(
         'vendor_id': b'pyroute2',
     }
     assert release.sport, release.dport == (68, 67)
+
+
+async def test_ack_invalid_request_state(
+    mock_dhcp_server: MockDHCPServerFixture,
+    set_fixed_xid: Callable[[int], None],
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+):
+    '''An ack received with an invalid request state in its xid
+    must cause a warning to be logged and the lease to be ignored.
+    '''
+    caplog.set_level('WARNING')
+    # Make xids non random so they match the ones in the pcap
+    set_fixed_xid(0x12345670)
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        # server sends an OFFER
+        await cli.wait_for_state(State.REQUESTING, timeout=1)
+        # server sends an ACK, which is ignored by the client
+        await asyncio.sleep(0.2)
+        assert cli.lease is None
+
+    assert caplog.messages == ['Invalid request state for xid 0x1234567f']
+    assert len(mock_dhcp_server.decoded_requests) == 2
+    discover, request = mock_dhcp_server.decoded_requests
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+    assert request.message_type == dhcp.MessageType.REQUEST
 
 
 async def test_init_reboot_nak(
@@ -266,12 +298,30 @@ async def test_offer_wrong_xid(
         # wait a tiny bit for the offer to arrive
         await asyncio.sleep(0.5)
     assert caplog.messages == [
-        'Incorrect xid Xid(0xdd435a25) (expected 0x9876543X), discarding'
+        'Incorrect xid 0xdd435a25 (expected 0x9876543X), discarding'
     ]
 
     assert len(mock_dhcp_server.decoded_requests) == 1
     discover = mock_dhcp_server.decoded_requests[0]
     assert discover.message_type == dhcp.MessageType.DISCOVER
+
+
+async def test_unknown_message(
+    client_config: ClientConfig,
+    mock_dhcp_server: MockDHCPServerFixture,
+    caplog: pytest.LogCaptureFixture,
+    set_fixed_xid: Callable[[int], None],
+):
+    '''Unknown messages must be discarded.'''
+    set_fixed_xid(0x8F506FD0)
+    caplog.set_level('DEBUG', logger='pyroute2.dhcp.client')
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        # wait a tiny bit for the packet to arrive
+        await asyncio.sleep(0.5)
+    # the capture contains a request, which the client does not handle
+    assert 'DHCP REQUEST messages are not handled'
+    assert len(mock_dhcp_server.decoded_requests) == 1
 
 
 async def test_wrong_state_change(client_config: ClientConfig):
@@ -288,7 +338,7 @@ async def test_unexpected_dhcp_message(
     set_fixed_xid: Callable[[int], None],
     caplog: pytest.LogCaptureFixture,
 ):
-    '''Client sends a DISCOVER, the server sends an ACK, itis ignored.'''
+    '''Client sends a DISCOVER, the server sends an ACK, it is ignored.'''
     caplog.set_level('DEBUG', logger='pyroute2.dhcp')
     set_fixed_xid(0x12345670)
     async with AsyncDHCPClient(client_config) as cli:
@@ -307,3 +357,13 @@ async def test_unexpected_dhcp_message(
     assert len(mock_dhcp_server.decoded_requests) == 1
     discover = mock_dhcp_server.decoded_requests[0]
     assert discover.message_type == dhcp.MessageType.DISCOVER
+
+
+async def test_backoff():
+    '''Test that the function generating wait times works as expected.'''
+    backoff = randomized_increasing_backoff()
+    wait_times = [next(backoff) for _ in range(10)]
+    assert min(wait_times) == 4.0
+    assert max(wait_times) == 32.0
+    assert len([i for i in wait_times if 4.0 < i < 32.0]) > 2
+    assert sorted(wait_times) == wait_times

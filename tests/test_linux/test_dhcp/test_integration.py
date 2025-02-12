@@ -237,3 +237,79 @@ async def test_mac_addr_change(
         f'udhcpd: sending OFFER to {second_ip}',
         f'udhcpd: sending ACK to {second_ip}',
     ]
+
+
+@pytest.mark.parametrize('delete_lease', (True, False))
+@pytest.mark.parametrize('release', (True, False))
+async def test_fixed_client_id_changing_mac(
+    dnsmasq: DnsmasqFixture,
+    client_config: ClientConfig,
+    veth_pair: VethPair,
+    caplog: pytest.LogCaptureFixture,
+    async_context: TestContext[AsyncIPRoute],
+    release: bool,
+    delete_lease: bool,
+):
+    '''When using a fixed client id, the client keeps its IP,
+    even when the mac changes.
+
+    But if the lease is released and deleted locally, the client
+    will send a DISCOVER with a different mac & will be granted
+    a new IP.
+    '''
+    caplog.set_level('INFO', logger='pyroute2.ext.rawsocket')
+    caplog.set_level('INFO', logger='pyroute2.dhcp')
+    client_config.client_id = b'test'
+    client_config.release = release
+
+    # get an initial lease
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(fsm.State.BOUND, timeout=3.0)
+        first_lease = cli.lease
+
+    # change the mac addr
+    await async_context.ipr.link(
+        'set', index=veth_pair.client_idx, address='06:06:06:06:06:06'
+    )
+    if delete_lease:
+        JSONFileLease._get_path(veth_pair.client).unlink()
+
+    # get a second lease
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(fsm.State.BOUND, timeout=3.0)
+        second_lease = cli.lease
+
+    if release:
+        await dnsmasq.wait_for_log('DHCPRELEASE')
+
+    if release and delete_lease:
+        # the lease was released from the server and deleted locally,
+        # and the mac changed: we'll get another IP
+        assert first_lease.ip != second_lease.ip
+    else:
+        # the mac changed, but the client id stays the same so we're
+        # supposed to get the same ip twice
+        assert first_lease.ip == second_lease.ip
+    assert first_lease.ack['chaddr'] != second_lease.ack['chaddr']
+    assert second_lease.ack['chaddr'] == '06:06:06:06:06:06'
+    assert first_lease.obtained < second_lease.obtained
+
+    # check logs
+    logged_releases = [i for i in dnsmasq.stderr if 'DHCPRELEASE' in i]
+    if release:
+        assert len(logged_releases) == 2
+    else:
+        assert not logged_releases
+
+    init_count = caplog.messages.count('OFF -> INIT')
+    init_reboot_count = caplog.messages.count('OFF -> INIT_REBOOT')
+    if delete_lease:
+        # since the lease was deleted the client started from scratch twice
+        assert init_count == 2
+        assert init_reboot_count == 0
+    else:
+        # the second run read the existing lease
+        assert init_reboot_count == 1
+        assert init_count == 1
