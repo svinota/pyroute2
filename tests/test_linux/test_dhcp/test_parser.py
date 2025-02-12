@@ -149,3 +149,54 @@ def test_washing_machine_request(pcap: PcapFile):
     assert request.eth_dst == 'ff:ff:ff:ff:ff:ff'
     assert request.ip_src == '0.0.0.0'
     assert (request.sport, request.dport) == (68, 67)
+
+
+def test_netatmo_discover_request(pcap: PcapFile):
+    disco1, disco2, request = parse_pcap(pcap, expected_packets=3)
+    '''Packets from a netatmo weather station.
+
+    it uses a embedded stack (lwip), so packets are minimalistic.
+    '''
+    # their source says:
+    # we don't need the broadcast flag since we can receive unicast traffic
+    # before being fully configured!
+    assert (
+        disco1.dhcp['flags']
+        == disco2.dhcp['flags']
+        == request.dhcp['flags']
+        == bootp.Flag.UNICAST
+    )
+
+    # they do not seem to increment the `secs` field with time
+    assert (
+        disco1.dhcp['secs'] == disco2.dhcp['secs'] == request.dhcp['secs'] == 0
+    )
+
+    # they do not pass a client_id in options
+    assert (
+        disco1.dhcp['options']
+        == disco2.dhcp['options']
+        == {
+            'message_type': dhcp.MessageType.DISCOVER,
+            'max_msg_size': 1500,
+            'parameter_list': [
+                dhcp.Parameter.SUBNET_MASK,
+                dhcp.Parameter.ROUTER,
+                dhcp.Parameter.BROADCAST_ADDRESS,
+                dhcp.Parameter.NAME_SERVER,
+            ],
+        }
+    )
+    assert request.dhcp['options'] == {
+        'message_type': dhcp.MessageType.REQUEST,
+        'max_msg_size': 1500,
+        'requested_ip': '192.168.0.8',
+        'server_id': '192.168.0.254',
+        'parameter_list': [
+            dhcp.Parameter.SUBNET_MASK,
+            dhcp.Parameter.ROUTER,
+            dhcp.Parameter.BROADCAST_ADDRESS,
+            dhcp.Parameter.NAME_SERVER,
+        ],
+        'host_name': b'Netatmo-Personal-Weather-Station',
+    }
