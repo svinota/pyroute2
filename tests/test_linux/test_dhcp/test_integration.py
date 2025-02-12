@@ -16,10 +16,9 @@ from pyroute2.dhcp.leases import JSONFileLease, JSONStdoutLease
 from pyroute2.fixtures.iproute import TestContext
 from pyroute2.iproute.linux import AsyncIPRoute
 
-pytestmark = [require_root()]
+pytestmark = [require_root(), pytest.mark.asyncio]
 
 
-@pytest.mark.asyncio
 async def test_get_lease_from_dnsmasq(
     dnsmasq: DnsmasqFixture,
     veth_pair: VethPair,
@@ -72,7 +71,6 @@ async def test_get_lease_from_dnsmasq(
     assert JSONFileLease(**json_lease) == lease
 
 
-@pytest.mark.asyncio
 async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     '''Test getting a lease from udhcpd and renewing it.'''
     cfg = ClientConfig(interface=veth_pair.client, lease_type=JSONStdoutLease)
@@ -122,7 +120,6 @@ async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     ]
 
 
-@pytest.mark.asyncio
 async def test_lease_file(client_config: ClientConfig):
     '''The client must write a pidfile when configured to.'''
     client_config.write_pidfile = True
@@ -132,7 +129,6 @@ async def test_lease_file(client_config: ClientConfig):
     assert not client_config.pidfile_path.exists()
 
 
-@pytest.mark.asyncio
 async def test_lease_expiration(
     udhcpd: UdhcpdFixture,
     client_config: ClientConfig,
@@ -164,14 +160,13 @@ async def test_lease_expiration(
 @pytest.mark.skip(
     'not working -- dnsmasq answers but the client doesnt receive'
 )
-@pytest.mark.asyncio
 async def test_mac_addr_change_same_client_id(
     dnsmasq: DnsmasqFixture,
     client_config: ClientConfig,
     veth_pair: VethPair,
     caplog: pytest.LogCaptureFixture,
     async_context: TestContext[AsyncIPRoute],
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     caplog.set_level('INFO', logger='pyroute2.ext.rawsocket')
     caplog.set_level('DEBUG', logger='pyroute2.dhcp')
@@ -194,3 +189,51 @@ async def test_mac_addr_change_same_client_id(
     # the client's mac addr was indeed changed
     assert cli._sock.l2addr == '06:06:06:06:06:06'
     # TODO test the mac change is logged
+
+
+async def test_mac_addr_change(
+    udhcpd: UdhcpdFixture,
+    client_config: ClientConfig,
+    veth_pair: VethPair,
+    caplog: pytest.LogCaptureFixture,
+    async_context: TestContext[AsyncIPRoute],
+):
+    caplog.set_level('INFO', logger='pyroute2.ext.rawsocket')
+    caplog.set_level('INFO', logger='pyroute2.dhcp')
+    async with AsyncDHCPClient(client_config) as cli:
+        '''The mac (& client id) changes, we have to re-discover.'''
+        await cli.bootstrap()
+        # wait for the client to get a lease
+        await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        first_ip = cli.lease.ip
+        # change the mac addr
+        await async_context.ipr.link(
+            'set', index=veth_pair.client_idx, address='06:06:06:06:06:06'
+        )
+        # the client renews after a very short while
+        await cli.wait_for_state(fsm.State.RENEWING, timeout=5.0)
+        # since the mac (and client id) changed, the server does not answer
+        await cli.wait_for_state(fsm.State.REBINDING, timeout=5.0)
+        # we go back to discover
+        await cli.wait_for_state(fsm.State.SELECTING, timeout=5.0)
+        await cli.wait_for_state(fsm.State.REQUESTING, timeout=5.0)
+        # dnsmasq should have renewed the lease with a different ip
+        await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        second_ip = cli.lease.ip
+        assert second_ip != first_ip
+
+    # the client's mac addr was indeed changed
+    assert any(
+        [
+            f'l2addr for {veth_pair.client} changed' in i
+            for i in caplog.messages
+        ]
+    )
+    assert cli._sock.l2addr == '06:06:06:06:06:06'
+    # udhcpd sent 2 offers and 2 acks
+    assert udhcpd.stderr[-4:] == [
+        f'udhcpd: sending OFFER to {first_ip}',
+        f'udhcpd: sending ACK to {first_ip}',
+        f'udhcpd: sending OFFER to {second_ip}',
+        f'udhcpd: sending ACK to {second_ip}',
+    ]
