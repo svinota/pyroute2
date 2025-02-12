@@ -367,3 +367,24 @@ async def test_backoff():
     assert max(wait_times) == 32.0
     assert len([i for i in wait_times if 4.0 < i < 32.0]) > 2
     assert sorted(wait_times) == wait_times
+
+
+@pytest.mark.parametrize(
+    'bad_lease_data',
+    (
+        'not json',
+        '{"unexpected": "json"}',
+        '"valid json (?) but still unexpected"',
+    ),
+)
+async def test_corrupted_lease_file(
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+    bad_lease_data: str,
+):
+    caplog.set_level('WARNING', logger='pyroute2.dhcp.client')
+    JSONFileLease._get_path(client_config.interface).write_text(bad_lease_data)
+    async with AsyncDHCPClient(client_config) as cli:
+        assert cli.lease is None
+    assert len(caplog.messages) == 1
+    assert caplog.messages[0].startswith('Error loading lease: ')

@@ -65,17 +65,9 @@ class Lease(abc.ABC):
     # Timestamp of when this lease was obtained
     obtained: float = field(default_factory=_now)
 
-    def _seconds_til_timer(self, timer_name: str) -> Optional[float]:
-        '''The number of seconds to wait until the given timer expires.
-
-        The value is fetched from options as `{timer_name}_time`.
-        (lease -> lease_time, renewal -> renewal_time, ...)
-        '''
-        try:
-            delta: int = self.ack['options'][f'{timer_name}_time']
-            return self.obtained + delta - _now()
-        except KeyError:
-            return None
+    def _seconds_til_timer(self, value: int) -> float:
+        '''Number of seconds to wait until the given timer value expires.'''
+        return self.obtained + value - _now()
 
     @property
     def expired(self) -> bool:
@@ -89,15 +81,15 @@ class Lease(abc.ABC):
         return self.expiration_in is not None and self.expiration_in <= 0
 
     @property
-    def expiration_in(self) -> Optional[float]:
+    def expiration_in(self) -> float:
         '''The amount of seconds before the lease expires.
 
         Computed from the `lease_time` option.
 
         Can be negative if it's past due,
-        or `None` if the server didn't give an expiration time.
+        or raise MissingOptionError if the server did not give a lease time.
         '''
-        return self._seconds_til_timer('lease')
+        return self._seconds_til_timer(self.lease_time)
 
     @property
     def renewal_in(self) -> float:
@@ -107,11 +99,11 @@ class Lease(abc.ABC):
 
         Can be negative if it's past due.
         '''
-        if lease_renewal := self._seconds_til_timer('renewal'):
-            return lease_renewal
-        # RFC section 4.4.5 says we need a fuzzy value around 0.5
-        # FIXME will crash if there is no lease time
-        return self.expiration_in * random.uniform(0.4, 0.6)
+        try:
+            return self._seconds_til_timer(self.renewal_time)
+        except MissingOptionError:
+            # RFC section 4.4.5 says we need a fuzzy value around 0.5
+            return self.expiration_in * random.uniform(0.4, 0.6)
 
     @property
     def rebinding_in(self) -> float:
@@ -121,11 +113,10 @@ class Lease(abc.ABC):
 
         Can be negative if it's past due.
         '''
-        if lease_rebinding := self._seconds_til_timer('rebinding'):
-            return lease_rebinding
-        # RFC section 4.4.5 says we need a fuzzy value around 0.875
-        # FIXME will crash if there is no lease time
-        return self.expiration_in * random.uniform(0.75, 0.90)
+        try:
+            return self._seconds_til_timer(self.rebinding_time)
+        except MissingOptionError:
+            return self.expiration_in * random.uniform(0.75, 0.90)
 
     @property
     def ip(self) -> str:
@@ -145,6 +136,11 @@ class Lease(abc.ABC):
         '''
         # TODO: unit test to make this crash
         return self.routers[0]
+
+    # timers
+    lease_time = LeaseOption[int](Option.LEASE_TIME)
+    renewal_time = LeaseOption[int](Option.RENEWAL_TIME)
+    rebinding_time = LeaseOption[int](Option.REBINDING_TIME)
 
     # The subnet mask assigned to the client.
     subnet_mask = LeaseOption[str](Option.SUBNET_MASK)
@@ -169,7 +165,6 @@ class Lease(abc.ABC):
     @abc.abstractmethod
     def dump(self) -> None:
         '''Write a lease, i.e. to disk or to stdout.'''
-        pass
 
     @classmethod
     @abc.abstractmethod
@@ -179,7 +174,6 @@ class Lease(abc.ABC):
         The lease is not checked for freshness, and will be None if no lease
         could be loaded.
         '''
-        pass
 
 
 class JSONStdoutLease(Lease):
@@ -236,6 +230,6 @@ class JSONFileLease(Lease):
         except FileNotFoundError:
             LOG.info('No existing lease at %s for %s', lease_path, interface)
             return None
-        except TypeError as err:
+        except (TypeError, ValueError) as err:
             LOG.warning('Error loading lease: %s', err)
             return None

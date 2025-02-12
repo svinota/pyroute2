@@ -76,8 +76,6 @@ class ClientConfig:
     # 60 seconds, before retransmitting the DHCPREQUEST message.
     retransmission: Retransmission = randomized_increasing_backoff
     # Whether to write a pidfile in the working directory
-    # XXX: this might be removed later, it was done to mimic dhclient but
-    # might be useless since we don't do the whole forking thing here.
     write_pidfile: bool = False
     # Send a DHCPRELEASE on client exit
     release: bool = True
@@ -424,6 +422,11 @@ class AsyncDHCPClient:
             LOG.warning('Invalid request state for xid %s', msg.xid)
             return
 
+        if 'lease_time' not in msg.dhcp['options']:
+            # that would not make sense at all, but still...
+            LOG.warning('Server did not define a lease time, ignoring ACK.')
+            return
+
         self.lease = self.config.lease_type(
             ack=msg.dhcp,
             interface=self.config.interface,
@@ -507,8 +510,6 @@ class AsyncDHCPClient:
             await self._run_hooks(Trigger.UNBOUND)
             if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
-        # XXX: as is, it is not possible to stop the client without exiting
-        # its context manager. But would we need it ?
         self.state = fsm.State.OFF
         await self._sender_task
         await self._receiver_task
