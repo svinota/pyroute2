@@ -182,6 +182,7 @@ class AsyncCoreSocket:
         self.status = self.spec.status
         self.request_proxy = None
         self.local = threading.local()
+        self.lock = threading.Lock()
         if use_event_loop:
             self.local.event_loop = use_event_loop
             self.status['use_event_loop'] = True
@@ -375,22 +376,22 @@ class AsyncCoreSocket:
         def send_terminator(msg_queue):
             msg_queue.put_nowait(0, b'')
 
-        for (
-            sock,
-            msg_queue,
-            event_loop,
-            transport,
-            protocol,
-        ) in self.__all_open_resources:
-            event_loop.call_soon_threadsafe(send_terminator, msg_queue)
-            transport.close()
-            if sock is not None:
-                sock.close()
-            if self.status['event_loop'] == 'new':
-                event_loop.run_until_complete(event_loop.shutdown_asyncgens())
-                event_loop.stop()
-                event_loop.close()
-        self.__all_open_resources = tuple()
+        with self.lock:
+            for (
+                sock,
+                msg_queue,
+                event_loop,
+                transport,
+                protocol,
+            ) in self.__all_open_resources:
+                event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+                transport.close()
+                if sock is not None:
+                    sock.close()
+                if self.status['event_loop'] == 'new':
+                    event_loop.stop()
+                    event_loop.close()
+            self.__all_open_resources = tuple()
 
     def clone(self):
         '''Return a copy of itself with a new underlying socket.
