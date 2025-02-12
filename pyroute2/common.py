@@ -489,7 +489,7 @@ def metaclass(mc: T) -> Callable[[T], T]:
     return wrapped
 
 
-def msg_done(msg):
+def msg_done(msg) -> bytes:
     newmsg = struct.pack('IHH', 40, 2, 0)
     newmsg += msg.data[8:16]
     newmsg += struct.pack('I', 0)
