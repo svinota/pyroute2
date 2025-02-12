@@ -5,15 +5,20 @@ from ipaddress import IPv4Address
 
 import pytest
 from fixtures.dhcp_servers.dnsmasq import DnsmasqFixture
+from fixtures.dhcp_servers.udhcpd import UdhcpdFixture
 from fixtures.interfaces import VethPair
 from pr2test.marks import require_root
+from test_dhcp.conftest import GetIPv4AddrsFor
 
 from pyroute2.iproute.linux import AsyncIPRoute
 
-pytestmark = [require_root(), pytest.mark.usefixtures('setns_context')]
+pytestmark = [
+    pytest.mark.asyncio,
+    require_root(),
+    pytest.mark.usefixtures('setns_context'),
+]
 
 
-@pytest.mark.asyncio
 async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
     '''The commandline client can get a lease, print it to stdout and exit.'''
     process = await asyncio.create_subprocess_exec(
@@ -44,7 +49,6 @@ async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
     )
 
 
-@pytest.mark.asyncio
 async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
     # Run a dhcp client
     process = await asyncio.create_subprocess_exec(
@@ -112,7 +116,6 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         ),
     ),
 )
-@pytest.mark.asyncio
 async def test_wrong_custom_hook_or_lease(
     switch: str, value: str, err_msg: str
 ):
@@ -127,3 +130,39 @@ async def test_wrong_custom_hook_or_lease(
     assert process.returncode > 0
     assert stderr
     assert stderr.splitlines()[-1].decode().endswith(err_msg)
+
+
+async def test_exit_timeout(
+    udhcpd: UdhcpdFixture,
+    veth_pair: VethPair,
+    get_ipv4_addrs_for: GetIPv4AddrsFor,
+):
+    process = await asyncio.create_subprocess_exec(
+        'pyroute2-dhcp-client',
+        veth_pair.client,
+        '--lease-type',
+        'pyroute2.dhcp.leases.JSONStdoutLease',
+        '--exit-on-timeout=3',
+        '--no-release',
+        stderr=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=5)
+    except TimeoutError:
+        raise AssertionError(f'Timed out. udhcpd output: {udhcpd.stderr}')
+    assert process.returncode == 0
+    # check the lease
+    assert stdout
+    json_lease = json.loads(stdout)
+    assert json_lease['interface'] == veth_pair.client
+    ip = json_lease['ack']['yiaddr']
+    assert udhcpd.stderr[-2:] == [
+        f'udhcpd: sending OFFER to {ip}',
+        f'udhcpd: sending ACK to {ip}',
+    ]
+
+    # since we passed --no-release, the ip is still there on exit
+    ips = await get_ipv4_addrs_for(veth_pair.client_idx)
+    assert len(ips) == 1
+    assert ips[0].get('address') == ip

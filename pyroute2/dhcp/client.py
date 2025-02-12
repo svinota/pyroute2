@@ -503,9 +503,9 @@ class AsyncDHCPClient:
         If there's an active lease, send a RELEASE for it first.
         '''
         self.lease_timers.cancel()
-        if self.lease:
+        if self.lease and self.config.release:
             await self._run_hooks(Trigger.UNBOUND)
-            if self.config.release and not self.lease.expired:
+            if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
         # XXX: as is, it is not possible to stop the client without exiting
         # its context manager. But would we need it ?

@@ -14,6 +14,7 @@ class DHCPRangeConfig(NamedTuple):
     start: IPv4Address
     end: IPv4Address
     router: IPv4Address
+    broadcast: IPv4Address
     netmask: IPv4Address
 
 
@@ -25,6 +26,7 @@ def dhcp_range() -> DHCPRangeConfig:
         start=IPv4Address(f'10.{rangeidx}.0.10'),
         end=IPv4Address(f'10.{rangeidx}.0.20'),
         router=IPv4Address(f'10.{rangeidx}.0.1'),
+        broadcast=IPv4Address(f'10.{rangeidx}.0.255'),
         netmask=IPv4Address('255.255.255.0'),
     )
 

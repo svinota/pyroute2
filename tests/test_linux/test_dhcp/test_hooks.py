@@ -2,9 +2,10 @@ import asyncio
 import errno
 import json
 import logging
-from typing import Awaitable, Callable
 
 import pytest
+from pr2test.marks import require_root
+from test_dhcp.conftest import GetIPv4Addrs
 
 from pyroute2.dhcp import hooks
 from pyroute2.dhcp.leases import JSONFileLease
@@ -12,7 +13,11 @@ from pyroute2.fixtures.iproute import TestContext
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 
-pytestmark = pytest.mark.usefixtures('setns_context')
+pytestmark = [
+    require_root(),
+    pytest.mark.asyncio,
+    pytest.mark.usefixtures('setns_context'),
+]
 
 FAKE_LEASE = {
     'ack': {
@@ -60,11 +65,10 @@ def fake_lease(test_link_ifname: str) -> JSONFileLease:
     return lease
 
 
-@pytest.mark.asyncio
 async def test_add_and_remove_ip_hooks(
     fake_lease: JSONFileLease,
     async_context: TestContext[AsyncIPRoute],
-    get_ipv4_addrs: Callable[[None], Awaitable[list[str]]],
+    get_ipv4_addrs: GetIPv4Addrs,
     caplog: pytest.LogCaptureFixture,
 ):
     '''Test the hooks that add & remove an address from an interface.'''
@@ -91,11 +95,10 @@ async def test_add_and_remove_ip_hooks(
     ]
 
 
-@pytest.mark.asyncio
 async def test_configure_ip_missing_broadcast_addr(
     fake_lease: JSONFileLease,
     async_context: TestContext[AsyncIPRoute],
-    get_ipv4_addrs: Callable[[None], Awaitable[list[str]]],
+    get_ipv4_addrs: GetIPv4Addrs,
     caplog: pytest.LogCaptureFixture,
 ):
     '''The configure_ip hook mustn't crash when broadcast addr is missing.'''
@@ -147,7 +150,6 @@ async def test_add_and_remove_gw_hooks(
     ]
 
 
-@pytest.mark.asyncio
 async def test_remove_gw_already_removed(
     fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
 ):
@@ -160,7 +162,6 @@ async def test_remove_gw_already_removed(
     ]
 
 
-@pytest.mark.asyncio
 async def test_hook_timeout(
     fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
 ):
@@ -180,7 +181,6 @@ async def test_hook_timeout(
     assert caplog.messages == ["Hook 'sleepy_hook' timed out"]
 
 
-@pytest.mark.asyncio
 async def test_failing_hook(
     fake_lease: JSONFileLease, caplog: pytest.LogCaptureFixture
 ):

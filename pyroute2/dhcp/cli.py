@@ -66,8 +66,7 @@ def get_psr() -> ArgumentParser:
         metavar='N',
         help='Wait for max N seconds for a lease, '
         'exit if none could be obtained.',
-        type=int,
-        default=0,
+        type=float,
     )
     psr.add_argument(
         '--log-level',
@@ -160,7 +159,7 @@ async def main() -> None:
         release=not args.no_release,
     )
 
-    await run_client(cfg)
+    await run_client(cfg, exit_timeout=args.exit_on_timeout)
 
 
 def run():

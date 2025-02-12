@@ -11,8 +11,9 @@ from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.leases import JSONFileLease
 
+pytestmark = pytest.mark.asyncio
 
-@pytest.mark.asyncio
+
 async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
     set_fixed_xid: Callable[[int], None],
@@ -112,7 +113,6 @@ async def test_get_and_renew_lease(
     assert release.sport, release.dport == (68, 67)
 
 
-@pytest.mark.asyncio
 async def test_init_reboot_nak(
     mock_dhcp_server: MockDHCPServerFixture,
     client_config: ClientConfig,
@@ -189,7 +189,6 @@ async def test_init_reboot_nak(
     assert release.ip_src == '192.168.186.85'
 
 
-@pytest.mark.asyncio
 async def test_requesting_timeout(
     mock_dhcp_server: MockDHCPServerFixture,
     client_config: ClientConfig,
@@ -237,7 +236,6 @@ async def test_requesting_timeout(
     )
 
 
-@pytest.mark.asyncio
 async def test_wait_for_state_timeout(client_config: ClientConfig):
     '''wait_for_state() can timeout after a given delay'''
     async with AsyncDHCPClient(client_config) as cli:
@@ -249,7 +247,6 @@ async def test_wait_for_state_timeout(client_config: ClientConfig):
     )
 
 
-@pytest.mark.asyncio
 async def test_offer_wrong_xid(
     client_config: ClientConfig,
     mock_dhcp_server: MockDHCPServerFixture,
@@ -277,7 +274,6 @@ async def test_offer_wrong_xid(
     assert discover.message_type == dhcp.MessageType.DISCOVER
 
 
-@pytest.mark.asyncio
 async def test_wrong_state_change(client_config: ClientConfig):
     '''One cannot trigger a state change like that.'''
     async with AsyncDHCPClient(client_config) as cli:
@@ -286,7 +282,6 @@ async def test_wrong_state_change(client_config: ClientConfig):
     assert str(err_ctx.value) == 'Cannot transition from INIT to BOUND'
 
 
-@pytest.mark.asyncio
 async def test_unexpected_dhcp_message(
     client_config: ClientConfig,
     mock_dhcp_server: MockDHCPServerFixture,

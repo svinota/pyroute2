@@ -10,10 +10,9 @@ from pr2test.marks import require_root
 from pyroute2.dhcp.enums import dhcp
 from pyroute2.iproute.linux import AsyncIPRoute
 
-pytestmark = [require_root()]
+pytestmark = [pytest.mark.asyncio, require_root()]
 
 
-@pytest.mark.asyncio
 async def test_detect_dnsmasq_once(
     dnsmasq: DnsmasqFixture, veth_pair: VethPair
 ):
@@ -48,7 +47,6 @@ async def test_detect_dnsmasq_once(
     assert f'[{veth_pair.client}] <- OFFER from ' in logs[1]
 
 
-@pytest.mark.asyncio
 async def test_detect_udhcpd_multiple(
     udhcpd: UdhcpdFixture, veth_pair: VethPair
 ):
@@ -77,7 +75,6 @@ async def test_detect_udhcpd_multiple(
     assert '<- OFFER' in logs[3]
 
 
-@pytest.mark.asyncio
 async def test_detect_no_response(veth_pair: VethPair):
     '''The detector exits on error when there is no response.'''
     process = await asyncio.create_subprocess_exec(
@@ -95,7 +92,6 @@ async def test_detect_no_response(veth_pair: VethPair):
     assert stderr.count(b"DISCOVER") == 2  # 2 requests sent
 
 
-@pytest.mark.asyncio
 async def test_detect_wrong_interface():
     '''The only passed interface does not exist.'''
     process = await asyncio.create_subprocess_exec(
@@ -112,7 +108,6 @@ async def test_detect_wrong_interface():
     ) in stderr.decode()
 
 
-@pytest.mark.asyncio
 async def test_interface_goes_down_during_detection(
     udhcpd: UdhcpdFixture, veth_pair: VethPair
 ):
