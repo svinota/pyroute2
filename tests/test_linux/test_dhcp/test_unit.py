@@ -362,7 +362,7 @@ async def test_unexpected_dhcp_message(
 async def test_backoff():
     '''Test that the function generating wait times works as expected.'''
     backoff = randomized_increasing_backoff()
-    wait_times = [next(backoff) for _ in range(10)]
+    wait_times = [next(backoff) for _ in range(100)]
     assert min(wait_times) == 4.0
     assert max(wait_times) == 32.0
     assert len([i for i in wait_times if 4.0 < i < 32.0]) > 2
