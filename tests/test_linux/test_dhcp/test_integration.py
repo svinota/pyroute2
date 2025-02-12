@@ -9,7 +9,7 @@ from fixtures.dhcp_servers.udhcpd import UdhcpdFixture
 from fixtures.interfaces import VethPair
 from pr2test.marks import require_root
 
-from pyroute2.dhcp import fsm
+from pyroute2.dhcp import fsm, hooks
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.leases import JSONFileLease, JSONStdoutLease
@@ -157,9 +157,6 @@ async def test_lease_expiration(
     )
 
 
-@pytest.mark.skip(
-    'not working -- dnsmasq answers but the client doesnt receive'
-)
 async def test_mac_addr_change_same_client_id(
     dnsmasq: DnsmasqFixture,
     client_config: ClientConfig,
@@ -168,9 +165,13 @@ async def test_mac_addr_change_same_client_id(
     async_context: TestContext[AsyncIPRoute],
     monkeypatch: pytest.MonkeyPatch,
 ):
+    '''The mac addr can change during the lease lifetime, renewing works'''
+    new_mac = '06:06:06:06:06:06'
     caplog.set_level('INFO', logger='pyroute2.ext.rawsocket')
     caplog.set_level('DEBUG', logger='pyroute2.dhcp')
-    client_config.client_id = b"Coucou"
+    client_config.client_id = b'Coucou'
+    # make sure the ip is configured, which is assumed by the client when bound
+    client_config.hooks = [hooks.configure_ip]
     # renew & rebind earlier than dnsmasq tells the client (min. 60s)
     monkeypatch.setattr('pyroute2.dhcp.leases.Lease.renewal_in', 1.0)
     monkeypatch.setattr('pyroute2.dhcp.leases.Lease.rebinding_in', 3.0)
@@ -178,17 +179,30 @@ async def test_mac_addr_change_same_client_id(
         await cli.bootstrap()
         # wait for the client to get a lease
         await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        first_lease = cli.lease
         # change the mac addr
         await async_context.ipr.link(
-            'set', index=veth_pair.client_idx, address='06:06:06:06:06:06'
+            'set', index=veth_pair.client_idx, address=new_mac
         )
         # wait for the client to renew
         await cli.wait_for_state(fsm.State.RENEWING, timeout=5.0)
         # dnsmasq should have renewed the lease even though the mac changed
         await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        second_lease = cli.lease
     # the client's mac addr was indeed changed
-    assert cli._sock.l2addr == '06:06:06:06:06:06'
-    # TODO test the mac change is logged
+    assert cli._sock.l2addr == new_mac
+    assert second_lease.ack['chaddr'] == new_mac
+    assert first_lease.ack['chaddr'] != new_mac
+    assert any(
+        (
+            f'l2addr for {veth_pair.client} changed' in i
+            for i in caplog.messages
+        )
+    )
+    # but not the ip
+    assert first_lease.ip == second_lease.ip
+    assert first_lease.obtained < second_lease.obtained
+    assert first_lease.ack['xid'] != second_lease.ack['xid']
 
 
 async def test_mac_addr_change(

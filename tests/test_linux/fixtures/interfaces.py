@@ -1,5 +1,6 @@
 import random
 from ipaddress import IPv4Address
+from pathlib import Path
 from typing import AsyncGenerator, NamedTuple
 
 import pytest
@@ -40,6 +41,14 @@ class VethPair(NamedTuple):
     client_idx: int
 
 
+def accept_local(ifname: str):
+    '''Turn on the accept_local sysctl for the given interface.
+
+    This seems to be required for arp to work on veth pairs.
+    '''
+    Path('/proc/sys/net/ipv4/conf', ifname, 'accept_local').write_text('1')
+
+
 @pytest_asyncio.fixture
 async def veth_pair(
     dhcp_range: DHCPRangeConfig,
@@ -64,6 +73,8 @@ async def veth_pair(
         )
         await async_context.ipr.link("set", index=srv_id, state="up")
         await async_context.ipr.link("set", index=cli_id, state="up")
+        accept_local(server_ifname)
+        accept_local(client_ifname)
         yield VethPair(
             server=server_ifname,
             client=client_ifname,
