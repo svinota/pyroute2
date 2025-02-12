@@ -252,6 +252,8 @@ class AsyncCoreSocket:
                 )
             self.local.event_loop = self.setup_event_loop()
             self.local.connection_lost = self.local.event_loop.create_future()
+        if self.local.event_loop.is_closed():
+            raise OSError(errno.EBADF, 'Bad file descriptor')
         return self.local.event_loop
 
     async def ensure_socket(self):
@@ -365,7 +367,7 @@ class AsyncCoreSocket:
         await self.ensure_socket()
         return self.socket.bind(addr)
 
-    async def close(self, code=errno.ECONNRESET):
+    def close(self, code=errno.ECONNRESET):
         '''Terminate the object.'''
 
         def send_terminator(msg_queue):
@@ -382,6 +384,10 @@ class AsyncCoreSocket:
             transport.close()
             if sock is not None:
                 sock.close()
+            if self.status['event_loop'] == 'new':
+                event_loop.run_until_complete(event_loop.shutdown_asyncgens())
+                event_loop.stop()
+                event_loop.close()
         self.__all_open_resources = tuple()
 
     def clone(self):
@@ -472,7 +478,7 @@ class AsyncCoreSocket:
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        await self.close()
+        self.close()
 
     def register_callback(self, callback, predicate=lambda x: True, args=None):
         '''
@@ -643,9 +649,7 @@ class SyncAPI:
 
     def close(self, code=errno.ECONNRESET):
         '''Correctly close the socket and free all the resources.'''
-        return self.asyncore.event_loop.run_until_complete(
-            self.asyncore.close(code)
-        )
+        self.asyncore.close(code)
 
 
 class CoreSocket(SyncAPI):

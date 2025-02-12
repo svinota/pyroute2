@@ -65,7 +65,7 @@ class InterfaceStateWatcher:
         return self
 
     async def __aexit__(self, *_):
-        await self._ipr.close()
+        self._ipr.close()
         try:
             await self._watcher
         except NetlinkError as exc:

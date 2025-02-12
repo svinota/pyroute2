@@ -2526,7 +2526,7 @@ class AsyncIPRoute(AsyncIPRSocket, RTNL_API):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        return await self.close()
+        self.close()
 
 
 class IPRoute(NetlinkSocket):

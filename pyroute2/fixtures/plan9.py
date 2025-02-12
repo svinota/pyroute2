@@ -26,8 +26,10 @@ class AsyncPlan9Context:
         self._task = await self.server.async_run()
         await self.client.start_session()
 
-    async def close(self):
+    def close(self):
         self._task.cancel()
+        self.client.close()
+        self.server.close()
 
 
 @pytest_asyncio.fixture
@@ -35,4 +37,4 @@ async def async_p9_context() -> AsyncGenerator[AsyncPlan9Context]:
     ctx = AsyncPlan9Context()
     await ctx.ensure_session()
     yield ctx
-    await ctx.close()
+    ctx.close()
