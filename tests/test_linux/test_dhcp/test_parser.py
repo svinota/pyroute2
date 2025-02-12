@@ -95,7 +95,7 @@ def test_android_reboot_request(pcap: PcapFile):
 
 def test_wii_discover(pcap: PcapFile):
     '''Decode the request sent by a Wii trying to get an address.'''
-    client_mac = '0:1e:a9:87:91:a7'
+    client_mac = '00:1e:a9:87:91:a7'
     discover = parse_pcap(pcap, expected_packets=1)[0]
     assert discover.message_type == dhcp.MessageType.DISCOVER
     assert discover.dhcp['op'] == bootp.MessageType.BOOTREQUEST

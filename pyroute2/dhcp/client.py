@@ -83,6 +83,8 @@ class ClientConfig:
     release: bool = True
     # Maximum execution duration for a single hook
     hook_timeout: Optional[float] = 2.0
+    # Custom client id. The mac is used as the client id if not provided.
+    client_id: Optional[bytes] = None
 
     @property
     def pidfile_path(self) -> Path:
@@ -279,6 +281,27 @@ class AsyncDHCPClient:
 
     # DHCP packet sending & receving coroutines
 
+    async def _send_message(self, msg: messages.SentDHCPMessage):
+        '''Set secs, xid & client id on the message, and send it.'''
+
+        # Set secs to the time elapsed since the last state change
+        # (max 16 bits)
+        msg.dhcp['secs'] = min(floor(time() - self.last_state_change), 0xFFFF)
+        msg.dhcp['xid'] = self.xid.for_state(self.state)
+
+        # set the client id, rfc says:
+        # A hardware type of 0 (zero) should be used when the value field
+        # contains an identifier other than a hardware address (e.g. a fully
+        # qualified domain name).
+        if self.config.client_id:
+            client_id = {'type': 0, 'key': self.config.client_id}
+        else:
+            # default behavior, use hw type & hw addr as client id
+            client_id = {'type': 1, 'key': self._sock.l2addr}
+        msg.dhcp['options']['client_id'] = client_id
+        LOG.info('Sending %s', msg)
+        await self._sock.put(msg)
+
     async def _send_forever(self) -> None:
         '''Send packets from `_sendq` until the client is in `State.OFF`.'''
         msg_to_send: Optional[messages.SentDHCPMessage] = None
@@ -328,16 +351,8 @@ class AsyncDHCPClient:
                         msg_to_send.message_type.name,
                     )
                     continue
-                # Set secs to the time elapsed since the last state change
-                # (max 16 bits)
-                msg_to_send.dhcp['secs'] = min(
-                    floor(time() - self.last_state_change), 0xFFFF
-                )
-                msg_to_send.dhcp['xid'] = self.xid.for_state(self.state)
-                # FIXME: don't send aynthing else than RELEASEs when stopping
-                LOG.info('Sending %s', msg_to_send)
                 try:
-                    await self._sock.put(msg_to_send)
+                    await self._send_message(msg_to_send)
                 except OSError as err:
                     # That happens when the interface goes down.
                     # In theses cases, the client is supposed to be restarted

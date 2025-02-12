@@ -13,6 +13,8 @@ from pyroute2.dhcp import fsm
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.leases import JSONFileLease, JSONStdoutLease
+from pyroute2.fixtures.iproute import TestContext
+from pyroute2.iproute.linux import AsyncIPRoute
 
 pytestmark = [require_root()]
 
@@ -131,13 +133,17 @@ async def test_lease_file(client_config: ClientConfig):
 
 
 @pytest.mark.asyncio
-async def test_lease_expiration(udhcpd: UdhcpdFixture, client_config: ClientConfig, caplog: pytest.LogCaptureFixture):
+async def test_lease_expiration(
+    udhcpd: UdhcpdFixture,
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+):
     '''The client must go back to INIT when the lease expires.'''
     caplog.set_level('INFO', logger='pyroute2.dhcp')
     async with AsyncDHCPClient(client_config) as cli:
         await cli.bootstrap()
         # wait for the client to get a lease
-        await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        await cli.wait_for_state(fsm.State.RENEWING, timeout=5.0)
         # stop udhcpd, so nobody is answering anymore
         await udhcpd.__aexit__(None, None, None)
         # renewing timer expires
@@ -153,3 +159,38 @@ async def test_lease_expiration(udhcpd: UdhcpdFixture, client_config: ClientConf
         < caplog.messages.index('Rebinding timer expired')
         < caplog.messages.index('Lease expired')
     )
+
+
+@pytest.mark.skip(
+    'not working -- dnsmasq answers but the client doesnt receive'
+)
+@pytest.mark.asyncio
+async def test_mac_addr_change_same_client_id(
+    dnsmasq: DnsmasqFixture,
+    client_config: ClientConfig,
+    veth_pair: VethPair,
+    caplog: pytest.LogCaptureFixture,
+    async_context: TestContext[AsyncIPRoute],
+    monkeypatch,
+):
+    caplog.set_level('INFO', logger='pyroute2.ext.rawsocket')
+    caplog.set_level('DEBUG', logger='pyroute2.dhcp')
+    client_config.client_id = b"Coucou"
+    # renew & rebind earlier than dnsmasq tells the client (min. 60s)
+    monkeypatch.setattr('pyroute2.dhcp.leases.Lease.renewal_in', 1.0)
+    monkeypatch.setattr('pyroute2.dhcp.leases.Lease.rebinding_in', 3.0)
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        # wait for the client to get a lease
+        await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+        # change the mac addr
+        await async_context.ipr.link(
+            'set', index=veth_pair.client_idx, address='06:06:06:06:06:06'
+        )
+        # wait for the client to renew
+        await cli.wait_for_state(fsm.State.RENEWING, timeout=5.0)
+        # dnsmasq should have renewed the lease even though the mac changed
+        await cli.wait_for_state(fsm.State.BOUND, timeout=5.0)
+    # the client's mac addr was indeed changed
+    assert cli._sock.l2addr == '06:06:06:06:06:06'
+    # TODO test the mac change is logged
