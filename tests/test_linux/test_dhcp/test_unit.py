@@ -5,14 +5,19 @@ import pytest
 from fixtures.dhcp_servers.mock import MockDHCPServerFixture
 from fixtures.interfaces import VethPair
 
-from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
+from pyroute2.dhcp.client import (
+    AsyncDHCPClient,
+    ClientConfig,
+    randomized_increasing_backoff,
+)
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.leases import JSONFileLease
 
+pytestmark = pytest.mark.asyncio
 
-@pytest.mark.asyncio
+
 async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
     set_fixed_xid: Callable[[int], None],
@@ -112,7 +117,34 @@ async def test_get_and_renew_lease(
     assert release.sport, release.dport == (68, 67)
 
 
-@pytest.mark.asyncio
+async def test_ack_invalid_request_state(
+    mock_dhcp_server: MockDHCPServerFixture,
+    set_fixed_xid: Callable[[int], None],
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+):
+    '''An ack received with an invalid request state in its xid
+    must cause a warning to be logged and the lease to be ignored.
+    '''
+    caplog.set_level('WARNING')
+    # Make xids non random so they match the ones in the pcap
+    set_fixed_xid(0x12345670)
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        # server sends an OFFER
+        await cli.wait_for_state(State.REQUESTING, timeout=1)
+        # server sends an ACK, which is ignored by the client
+        await asyncio.sleep(0.2)
+        assert cli.lease is None
+
+    assert caplog.messages == ['Invalid request state for xid 0x1234567f']
+    assert len(mock_dhcp_server.decoded_requests) == 2
+    discover, request = mock_dhcp_server.decoded_requests
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+    assert request.message_type == dhcp.MessageType.REQUEST
+
+
 async def test_init_reboot_nak(
     mock_dhcp_server: MockDHCPServerFixture,
     client_config: ClientConfig,
@@ -189,7 +221,6 @@ async def test_init_reboot_nak(
     assert release.ip_src == '192.168.186.85'
 
 
-@pytest.mark.asyncio
 async def test_requesting_timeout(
     mock_dhcp_server: MockDHCPServerFixture,
     client_config: ClientConfig,
@@ -237,7 +268,6 @@ async def test_requesting_timeout(
     )
 
 
-@pytest.mark.asyncio
 async def test_wait_for_state_timeout(client_config: ClientConfig):
     '''wait_for_state() can timeout after a given delay'''
     async with AsyncDHCPClient(client_config) as cli:
@@ -249,7 +279,6 @@ async def test_wait_for_state_timeout(client_config: ClientConfig):
     )
 
 
-@pytest.mark.asyncio
 async def test_offer_wrong_xid(
     client_config: ClientConfig,
     mock_dhcp_server: MockDHCPServerFixture,
@@ -269,7 +298,7 @@ async def test_offer_wrong_xid(
         # wait a tiny bit for the offer to arrive
         await asyncio.sleep(0.5)
     assert caplog.messages == [
-        'Incorrect xid Xid(0xdd435a25) (expected 0x9876543X), discarding'
+        'Incorrect xid 0xdd435a25 (expected 0x9876543X), discarding'
     ]
 
     assert len(mock_dhcp_server.decoded_requests) == 1
@@ -277,7 +306,24 @@ async def test_offer_wrong_xid(
     assert discover.message_type == dhcp.MessageType.DISCOVER
 
 
-@pytest.mark.asyncio
+async def test_unknown_message(
+    client_config: ClientConfig,
+    mock_dhcp_server: MockDHCPServerFixture,
+    caplog: pytest.LogCaptureFixture,
+    set_fixed_xid: Callable[[int], None],
+):
+    '''Unknown messages must be discarded.'''
+    set_fixed_xid(0x8F506FD0)
+    caplog.set_level('DEBUG', logger='pyroute2.dhcp.client')
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        # wait a tiny bit for the packet to arrive
+        await asyncio.sleep(0.5)
+    # the capture contains a request, which the client does not handle
+    assert 'DHCP REQUEST messages are not handled'
+    assert len(mock_dhcp_server.decoded_requests) == 1
+
+
 async def test_wrong_state_change(client_config: ClientConfig):
     '''One cannot trigger a state change like that.'''
     async with AsyncDHCPClient(client_config) as cli:
@@ -286,14 +332,13 @@ async def test_wrong_state_change(client_config: ClientConfig):
     assert str(err_ctx.value) == 'Cannot transition from INIT to BOUND'
 
 
-@pytest.mark.asyncio
 async def test_unexpected_dhcp_message(
     client_config: ClientConfig,
     mock_dhcp_server: MockDHCPServerFixture,
     set_fixed_xid: Callable[[int], None],
     caplog: pytest.LogCaptureFixture,
 ):
-    '''Client sends a DISCOVER, the server sends an ACK, itis ignored.'''
+    '''Client sends a DISCOVER, the server sends an ACK, it is ignored.'''
     caplog.set_level('DEBUG', logger='pyroute2.dhcp')
     set_fixed_xid(0x12345670)
     async with AsyncDHCPClient(client_config) as cli:
@@ -312,3 +357,34 @@ async def test_unexpected_dhcp_message(
     assert len(mock_dhcp_server.decoded_requests) == 1
     discover = mock_dhcp_server.decoded_requests[0]
     assert discover.message_type == dhcp.MessageType.DISCOVER
+
+
+async def test_backoff():
+    '''Test that the function generating wait times works as expected.'''
+    backoff = randomized_increasing_backoff()
+    wait_times = [next(backoff) for _ in range(100)]
+    assert min(wait_times) == 4.0
+    assert max(wait_times) == 32.0
+    assert len([i for i in wait_times if 4.0 < i < 32.0]) > 2
+    assert sorted(wait_times) == wait_times
+
+
+@pytest.mark.parametrize(
+    'bad_lease_data',
+    (
+        'not json',
+        '{"unexpected": "json"}',
+        '"valid json (?) but still unexpected"',
+    ),
+)
+async def test_corrupted_lease_file(
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+    bad_lease_data: str,
+):
+    caplog.set_level('WARNING', logger='pyroute2.dhcp.client')
+    JSONFileLease._get_path(client_config.interface).write_text(bad_lease_data)
+    async with AsyncDHCPClient(client_config) as cli:
+        assert cli.lease is None
+    assert len(caplog.messages) == 1
+    assert caplog.messages[0].startswith('Error loading lease: ')

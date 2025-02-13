@@ -76,13 +76,13 @@ class ClientConfig:
     # 60 seconds, before retransmitting the DHCPREQUEST message.
     retransmission: Retransmission = randomized_increasing_backoff
     # Whether to write a pidfile in the working directory
-    # XXX: this might be removed later, it was done to mimic dhclient but
-    # might be useless since we don't do the whole forking thing here.
     write_pidfile: bool = False
     # Send a DHCPRELEASE on client exit
     release: bool = True
     # Maximum execution duration for a single hook
     hook_timeout: Optional[float] = 2.0
+    # Custom client id. The mac is used as the client id if not provided.
+    client_id: Optional[bytes] = None
 
     @property
     def pidfile_path(self) -> Path:
@@ -279,6 +279,27 @@ class AsyncDHCPClient:
 
     # DHCP packet sending & receving coroutines
 
+    async def _send_message(self, msg: messages.SentDHCPMessage):
+        '''Set secs, xid & client id on the message, and send it.'''
+
+        # Set secs to the time elapsed since the last state change
+        # (max 16 bits)
+        msg.dhcp['secs'] = min(floor(time() - self.last_state_change), 0xFFFF)
+        msg.dhcp['xid'] = self.xid.for_state(self.state)
+
+        # set the client id, rfc says:
+        # A hardware type of 0 (zero) should be used when the value field
+        # contains an identifier other than a hardware address (e.g. a fully
+        # qualified domain name).
+        if self.config.client_id:
+            client_id = {'type': 0, 'key': self.config.client_id}
+        else:
+            # default behavior, use hw type & hw addr as client id
+            client_id = {'type': 1, 'key': self._sock.l2addr}
+        msg.dhcp['options']['client_id'] = client_id
+        LOG.info('Sending %s', msg)
+        await self._sock.put(msg)
+
     async def _send_forever(self) -> None:
         '''Send packets from `_sendq` until the client is in `State.OFF`.'''
         msg_to_send: Optional[messages.SentDHCPMessage] = None
@@ -328,16 +349,8 @@ class AsyncDHCPClient:
                         msg_to_send.message_type.name,
                     )
                     continue
-                # Set secs to the time elapsed since the last state change
-                # (max 16 bits)
-                msg_to_send.dhcp['secs'] = min(
-                    floor(time() - self.last_state_change), 0xFFFF
-                )
-                msg_to_send.dhcp['xid'] = self.xid.for_state(self.state)
-                # FIXME: don't send aynthing else than RELEASEs when stopping
-                LOG.info('Sending %s', msg_to_send)
                 try:
-                    await self._sock.put(msg_to_send)
+                    await self._send_message(msg_to_send)
                 except OSError as err:
                     # That happens when the interface goes down.
                     # In theses cases, the client is supposed to be restarted
@@ -395,6 +408,25 @@ class AsyncDHCPClient:
         # computes the lease expiration time as the sum of the time at which
         # the client sent the DHCPREQUEST message and the duration of the lease
         # in the DHCPACK message.
+
+        # The state the client was in when sending the message
+        request_state = msg.xid.request_state
+
+        if request_state in (fsm.State.REQUESTING, fsm.State.REBOOTING):
+            trigger = Trigger.BOUND
+        elif request_state == fsm.State.RENEWING:
+            trigger = Trigger.RENEWED
+        elif request_state == fsm.State.REBINDING:
+            trigger = Trigger.REBOUND
+        else:
+            LOG.warning('Invalid request state for xid %s', msg.xid)
+            return
+
+        if 'lease_time' not in msg.dhcp['options']:
+            # that would not make sense at all, but still...
+            LOG.warning('Server did not define a lease time, ignoring ACK.')
+            return
+
         self.lease = self.config.lease_type(
             ack=msg.dhcp,
             interface=self.config.interface,
@@ -407,20 +439,6 @@ class AsyncDHCPClient:
             msg.eth_src,
         )
         await self.transition(to=fsm.State.BOUND)
-
-        # The state the client was in when sending the message
-        request_state = msg.xid.request_state
-
-        if request_state in (fsm.State.REQUESTING, fsm.State.REBOOTING):
-            trigger = Trigger.BOUND
-        elif request_state == fsm.State.RENEWING:
-            trigger = Trigger.RENEWED
-        elif request_state == fsm.State.REBINDING:
-            trigger = Trigger.REBOUND
-        else:
-            LOG.warning('Invalid request state %s in xid', request_state)
-            return
-
         await self._run_hooks(trigger)
 
     @fsm.state_guard(
@@ -488,12 +506,10 @@ class AsyncDHCPClient:
         If there's an active lease, send a RELEASE for it first.
         '''
         self.lease_timers.cancel()
-        if self.lease:
+        if self.lease and self.config.release:
             await self._run_hooks(Trigger.UNBOUND)
-            if self.config.release and not self.lease.expired:
+            if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
-        # XXX: as is, it is not possible to stop the client without exiting
-        # its context manager. But would we need it ?
         self.state = fsm.State.OFF
         await self._sender_task
         await self._receiver_task
@@ -570,6 +586,6 @@ class AsyncDHCPClient:
         handler_name = f'{msg_type.name.lower()}_received'
         handler = getattr(self, handler_name, None)
         if not handler:
-            LOG.debug('%r messages are not handled', msg_type.name)
+            LOG.debug('DHCP %s messages are not handled', msg_type.name)
         else:
             await handler(msg)

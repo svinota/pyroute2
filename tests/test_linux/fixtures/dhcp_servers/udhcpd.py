@@ -57,6 +57,7 @@ class UdhcpdFixture(DHCPServerFixture[UdhcpdConfig]):
             ("lease_file", lease_file),
             ("pidfile", pidfile),
             ("opt lease", cfg.lease_time),
+            ("opt subnet", cfg.range.netmask),
         ]
         if router := cfg.range.router:
             lines.append(("opt router", router))

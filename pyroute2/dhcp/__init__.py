@@ -103,7 +103,7 @@ import sys
 from array import array
 
 from pyroute2.common import basestring
-from pyroute2.protocols import msg
+from pyroute2.protocols import _decode_mac, _encode_mac, msg
 
 from .enums.dhcp import MessageType, Option
 
@@ -112,6 +112,31 @@ if not hasattr(array, 'tobytes'):
     # but we need here a consistent API w/o warnings
     class array(array):
         tobytes = array.tostring
+
+
+def _decode_client_id(value: bytes) -> dict:
+    '''Decode a raw client id option into a dict with type and key.
+
+    If the type is 1, the key is decoded as a mac address,
+    otherwise it's just the raw bytes.
+    '''
+    type_, key = value[0], value[1:]
+
+    if type_ == 1:
+        # ethernet
+        key = _decode_mac(value=key)
+    return {'type': type_, 'key': key}
+
+
+def _encode_client_id(value: dict) -> bytes:
+    '''Encode a client_id dict into bytes.'''
+    type_ = value['type']
+    key = value['key']
+    if type_ == 1:
+        assert isinstance(key, str), 'client_id must be a mac str when type=1'
+        key = bytes(_encode_mac(key))
+    assert isinstance(key, bytes), 'client_id must be bytes'
+    return struct.pack('B', type_) + key
 
 
 class option(msg):
@@ -261,18 +286,11 @@ class dhcpmsg(msg):
             .buf
         )
         self.buf += (
-            self.client_id(
-                {'type': 1, 'key': self['chaddr']}, code=Option.CLIENT_ID
-            )
-            .encode()
-            .buf
-        )
-        self.buf += (
             self.string(code=Option.VENDOR_ID, value='pyroute2').encode().buf
         )
 
         for name, value in options.items():
-            if name in ('message_type', 'client_id', 'vendor_id'):
+            if name in ('message_type', 'vendor_id'):
                 continue
             fmt = self._encode_map.get(name, {'format': None})['format']
             if fmt is None:
@@ -315,7 +333,19 @@ class dhcpmsg(msg):
         }
 
     class client_id(option):
-        fields = (('type', 'uint8'), ('key', 'l2addr'))
+        policy = {
+            'format': 'string',
+            'encode': _encode_client_id,
+            'decode': _decode_client_id,
+        }
+
+        def __init__(
+            self, content=None, buf=b'', offset=0, value=None, code=0
+        ):
+            # FIXME: we have to override value w/ content here, because
+            # when trying to encode an option, if it's a dict, its value is
+            # set to None.
+            super().__init__(content, buf, offset, value=content, code=code)
 
     class message_type(option):
         policy = {'format': 'B', 'decode': MessageType}

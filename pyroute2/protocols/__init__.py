@@ -1,5 +1,6 @@
 import struct
 from socket import AF_INET, inet_ntop, inet_pton
+from typing import Union
 
 from pyroute2.common import basestring, hexdump
 
@@ -106,6 +107,16 @@ ETH_P_IEEE802154 = 0x00F6  # IEEE802.15.4 frame
 ETH_P_CAIF = 0x00F7  # ST-Ericsson CAIF protocol
 
 
+def _decode_mac(value: Union[bytes, tuple[int, ...]]) -> str:
+    if isinstance(value, tuple):
+        value = bytes(value)
+    return value.hex(sep=':')
+
+
+def _encode_mac(value: str) -> list[int]:
+    return [int(i, 16) for i in value.split(':')]
+
+
 class msg(dict):
     buf = None
     data_len = None
@@ -124,14 +135,13 @@ class msg(dict):
         },
         'l2addr': {
             'format': '6B',
-            'decode': lambda x: ':'.join(['%x' % i for i in x]),
-            'encode': lambda x: [int(i, 16) for i in x.split(':')],
+            'decode': _decode_mac,
+            'encode': _encode_mac,
         },
         'l2paddr': {
             'format': '6B10s',
-            'decode': lambda x: ':'.join(['%x' % i for i in x[:6]]),
-            'encode': lambda x: [int(i, 16) for i in x.split(':')]
-            + [10 * b'\x00'],
+            'decode': lambda x: _decode_mac(x[:6]),
+            'encode': lambda x: _encode_mac(x) + [10 * b'\x00'],
         },
     }
 

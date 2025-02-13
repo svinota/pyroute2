@@ -73,5 +73,8 @@ class Xid:
             return self._value == other
         return False
 
-    def __repr__(self):
-        return f"Xid({hex(self._value)})"
+    def __str__(self) -> str:
+        return hex(self._value)
+
+    def __repr__(self) -> str:
+        return f"Xid({self})"
