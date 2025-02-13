@@ -19,10 +19,11 @@ class DnsmasqConfig(DHCPServerConfig):
     authoritative: bool = True
 
     def __iter__(self):
+        lease_time = 'infinite' if self.lease_time == -1 else self.lease_time
         opts = [
             f'--interface={self.interface}',
             f'--dhcp-range={self.range.start},'
-            f'{self.range.end},{self.lease_time}',
+            f'{self.range.end},{lease_time}',
             f'--dhcp-lease-max={self.max_leases}',
         ]
         if self.authoritative:
@@ -57,10 +58,12 @@ class DnsmasqFixture(DHCPServerFixture[DnsmasqConfig]):
 
 @pytest.fixture
 def dnsmasq_config(
-    veth_pair: tuple[str, str], dhcp_range: DHCPRangeConfig
+    veth_pair: tuple[str, str], dhcp_range: DHCPRangeConfig, lease_time: int
 ) -> DnsmasqConfig:
     '''dnsmasq options useful for test purposes.'''
-    return DnsmasqConfig(range=dhcp_range, interface=veth_pair[0])
+    return DnsmasqConfig(
+        range=dhcp_range, interface=veth_pair[0], lease_time=lease_time
+    )
 
 
 @pytest_asyncio.fixture

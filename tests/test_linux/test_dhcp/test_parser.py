@@ -19,7 +19,7 @@ def test_decode_simple_lease_process(pcap: PcapFile):
     assert discover.message_type == dhcp.MessageType.DISCOVER
     assert discover.dhcp['flags'] == bootp.Flag.BROADCAST
     assert discover.sport, discover.dport == (68, 67)
-    assert discover.dhcp['options']['lease_time'] == 0xFFFFFFFF  # infinity
+    assert discover.dhcp['options']['lease_time'] == -1  # infinity
     assert discover.dhcp['options']['parameter_list'] == [
         dhcp.Parameter.SUBNET_MASK,
         dhcp.Parameter.ROUTER,

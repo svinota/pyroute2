@@ -80,13 +80,11 @@ class UdhcpdFixture(DHCPServerFixture[UdhcpdConfig]):
 
 @pytest.fixture
 def udhcpd_config(
-    veth_pair: tuple[str, str], dhcp_range: DHCPRangeConfig
+    veth_pair: tuple[str, str], dhcp_range: DHCPRangeConfig, lease_time: int
 ) -> UdhcpdConfig:
     '''udhcpd options useful for test purposes.'''
     return UdhcpdConfig(
-        range=dhcp_range,
-        interface=veth_pair[0],
-        lease_time=5,  # very short leases for tests
+        range=dhcp_range, interface=veth_pair[0], lease_time=lease_time
     )
 
 
