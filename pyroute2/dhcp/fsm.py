@@ -1,12 +1,9 @@
 '''DHCP client state machine helpers.'''
 
+import functools
 from enum import IntEnum, auto
 from logging import getLogger
-from typing import TYPE_CHECKING, Final
-
-if TYPE_CHECKING:  # pragma: no cover
-    from .client import AsyncDHCPClient
-
+from typing import Any, Awaitable, Callable, Final
 
 LOG = getLogger(__name__)
 
@@ -43,21 +40,28 @@ TRANSITIONS: Final[dict[State, set[State]]] = {
 }
 
 
-def state_guard(*states: State):
+def state_guard(
+    *states: State,
+) -> Callable[
+    [Callable[..., Awaitable[None]]], Callable[..., Awaitable[None]]
+]:
     '''Decorator that prevents a method from running
 
     if the associated instance is not in one of the given States.'''
 
-    def decorator(meth):
-        async def wrapper(self: 'AsyncDHCPClient', *args, **kwargs):
+    def decorator(
+        meth: Callable[..., Awaitable[None]]
+    ) -> Callable[..., Awaitable[None]]:
+        @functools.wraps(meth)
+        async def wrapper(self, *args: Any, **kwargs: Any) -> None:
             if self.state not in states:
                 LOG.debug(
                     'Ignoring call to %r in %s state',
                     meth.__name__,
                     self.state.name,
                 )
-                return False
-            return await meth(self, *args, **kwargs)
+                return
+            await meth(self, *args, **kwargs)
 
         return wrapper
 

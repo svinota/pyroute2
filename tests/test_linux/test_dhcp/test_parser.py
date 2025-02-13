@@ -21,10 +21,10 @@ def test_decode_simple_lease_process(pcap: PcapFile):
     assert discover.sport, discover.dport == (68, 67)
     assert discover.dhcp['options']['lease_time'] == -1  # infinity
     assert discover.dhcp['options']['parameter_list'] == [
-        dhcp.Parameter.SUBNET_MASK,
-        dhcp.Parameter.ROUTER,
-        dhcp.Parameter.NAME_SERVER,
-        dhcp.Parameter.DOMAIN_NAME,
+        dhcp.Option.SUBNET_MASK,
+        dhcp.Option.ROUTER,
+        dhcp.Option.NAME_SERVER,
+        dhcp.Option.DOMAIN_NAME,
     ]
     assert discover.dhcp['xid'] == 0x22334455
     assert offer.message_type == dhcp.MessageType.OFFER
@@ -70,19 +70,19 @@ def test_android_reboot_request(pcap: PcapFile):
         'max_msg_size': 1500,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
-            dhcp.Parameter.SUBNET_MASK,
-            dhcp.Parameter.ROUTER,
-            dhcp.Parameter.NAME_SERVER,
-            dhcp.Parameter.DOMAIN_NAME,
-            dhcp.Parameter.INTERFACE_MTU,
-            dhcp.Parameter.BROADCAST_ADDRESS,
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.ROUTER,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.INTERFACE_MTU,
+            dhcp.Option.BROADCAST_ADDRESS,
             # TODO: we should ask for these three too
-            dhcp.Parameter.LEASE_TIME,
-            dhcp.Parameter.RENEWAL_TIME,
-            dhcp.Parameter.REBINDING_TIME,
-            dhcp.Parameter.VENDOR_SPECIFIC_INFORMATION,
-            dhcp.Parameter.DHCP_CAPTIVE_PORTAL,
-            dhcp.Parameter.IPV6_ONLY_PREFERRED,
+            dhcp.Option.LEASE_TIME,
+            dhcp.Option.RENEWAL_TIME,
+            dhcp.Option.REBINDING_TIME,
+            dhcp.Option.VENDOR_SPECIFIC_INFORMATION,
+            dhcp.Option.DHCP_CAPTIVE_PORTAL,
+            dhcp.Option.IPV6_ONLY_PREFERRED,
         ],
         'requested_ip': '192.168.94.191',
         'vendor_id': b'android-dhcp-13',
@@ -106,12 +106,12 @@ def test_wii_discover(pcap: PcapFile):
         'host_name': b'Wii',
         'message_type': dhcp.MessageType.DISCOVER,
         'parameter_list': [
-            dhcp.Parameter.SUBNET_MASK,
-            dhcp.Parameter.ROUTER,
-            dhcp.Parameter.NAME_SERVER,
-            dhcp.Parameter.DOMAIN_NAME,
-            dhcp.Parameter.BROADCAST_ADDRESS,
-            dhcp.Parameter.STATIC_ROUTE,
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.ROUTER,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.STATIC_ROUTE,
         ],
         'requested_ip': '192.168.94.147',
     }
@@ -134,10 +134,10 @@ def test_washing_machine_request(pcap: PcapFile):
         'max_msg_size': 1500,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
-            dhcp.Parameter.SUBNET_MASK,
-            dhcp.Parameter.ROUTER,
-            dhcp.Parameter.BROADCAST_ADDRESS,
-            dhcp.Parameter.NAME_SERVER,
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.ROUTER,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.NAME_SERVER,
         ],
         'requested_ip': '192.168.0.33',
         'server_id': '192.168.0.254',
@@ -180,10 +180,10 @@ def test_netatmo_discover_request(pcap: PcapFile):
             'message_type': dhcp.MessageType.DISCOVER,
             'max_msg_size': 1500,
             'parameter_list': [
-                dhcp.Parameter.SUBNET_MASK,
-                dhcp.Parameter.ROUTER,
-                dhcp.Parameter.BROADCAST_ADDRESS,
-                dhcp.Parameter.NAME_SERVER,
+                dhcp.Option.SUBNET_MASK,
+                dhcp.Option.ROUTER,
+                dhcp.Option.BROADCAST_ADDRESS,
+                dhcp.Option.NAME_SERVER,
             ],
         }
     )
@@ -193,10 +193,10 @@ def test_netatmo_discover_request(pcap: PcapFile):
         'requested_ip': '192.168.0.8',
         'server_id': '192.168.0.254',
         'parameter_list': [
-            dhcp.Parameter.SUBNET_MASK,
-            dhcp.Parameter.ROUTER,
-            dhcp.Parameter.BROADCAST_ADDRESS,
-            dhcp.Parameter.NAME_SERVER,
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.ROUTER,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.NAME_SERVER,
         ],
         'host_name': b'Netatmo-Personal-Weather-Station',
     }

@@ -36,7 +36,7 @@ LeaseOptionT = TypeVar('LeaseOptionT')
 class LeaseOption(Generic[LeaseOptionT]):
     '''Descriptor to factorize properties on leases that read DHCP options.'''
 
-    def __init__(self, opt: Option):
+    def __init__(self, opt: Option) -> None:
         '''Create a new instance that looks up the given option.'''
         self.opt = opt
 

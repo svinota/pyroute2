@@ -1,6 +1,14 @@
 import struct
 from socket import AF_INET, inet_ntop, inet_pton
-from typing import Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Literal,
+    NamedTuple,
+    Optional,
+    Union,
+)
 
 from pyroute2.common import basestring, hexdump
 
@@ -117,57 +125,77 @@ def _encode_mac(value: str) -> list[int]:
     return [int(i, 16) for i in value.split(':')]
 
 
+class Policy(NamedTuple):
+    '''Used in option/msg subclasses.
+
+    The format is either a struct format or 'string'.
+    encode is called with the python value to serialize it.
+    decode is called with the result(s) of the unpacking to decode values.
+    '''
+
+    format: str
+    # FIXME: there are so many Any here it's nearly useless,
+    # encode/decode callbacks should have a clean definition instead
+    encode: Callable[[Any], Any] = lambda x: x
+    decode: Union[Callable[[Any], Any], Callable[[tuple[Any, ...]], Any]] = (
+        lambda x: x
+    )
+
+
 class msg(dict):
-    buf = None
-    data_len = None
-    fields = ()
-    _fields_names = ()
-    types = {
+    fields: ClassVar[
+        tuple[Union[tuple[str, str, Union[int, bytes]], tuple[str, str]], ...]
+    ] = ()
+    types: ClassVar[dict[str, Union[str, Policy]]] = {
         'uint8': 'B',
         'uint16': 'H',
         'uint32': 'I',
         'be16': '>H',
         'be32': '>I',
-        'ip4addr': {
-            'format': '4s',
-            'decode': lambda x: inet_ntop(AF_INET, x),
-            'encode': lambda x: [inet_pton(AF_INET, x)],
-        },
-        'l2addr': {
-            'format': '6B',
-            'decode': _decode_mac,
-            'encode': _encode_mac,
-        },
-        'l2paddr': {
-            'format': '6B10s',
-            'decode': lambda x: _decode_mac(x[:6]),
-            'encode': lambda x: _encode_mac(x) + [10 * b'\x00'],
-        },
+        'ip4addr': Policy(
+            format='4s',
+            decode=lambda x: inet_ntop(AF_INET, x),
+            encode=lambda x: [inet_pton(AF_INET, x)],
+        ),
+        'l2addr': Policy(format='6B', decode=_decode_mac, encode=_encode_mac),
+        'l2paddr': Policy(
+            format='6B10s',
+            decode=lambda x: _decode_mac(x[:6]),
+            encode=lambda x: _encode_mac(x) + [10 * b'\x00'],
+        ),
     }
 
-    def __init__(self, content=None, buf=b'', offset=0, value=None):
+    def __init__(
+        self,
+        content: Optional[dict] = None,
+        buf: bytes = b'',
+        offset: int = 0,
+        value: Any = None,
+    ) -> None:
         content = content or {}
         dict.__init__(self, content)
         self.buf = buf
         self.offset = offset
         self.value = value
+        self._fields_names: tuple[str, ...] = ()
         self._register_fields()
 
-    def _register_fields(self):
+    def _register_fields(self) -> None:
         self._fields_names = tuple([x[0] for x in self.fields])
 
-    def _get_routine(self, mode, fmt):
-        fmt = self.types.get(fmt, fmt)
-        if isinstance(fmt, dict):
-            return (fmt['format'], fmt.get(mode, lambda x: x))
+    def _get_routine(
+        self, mode: Literal['encode', 'decode'], fmt: str
+    ) -> tuple[str, Callable[[Any], Any]]:
+        real_fmt = self.types.get(fmt, fmt)
+        if isinstance(real_fmt, Policy):
+            return (real_fmt.format, getattr(real_fmt, mode, lambda x: x))
         else:
-            return (fmt, lambda x: x)
+            return (real_fmt, lambda x: x)
 
-    def reset(self):
+    def reset(self) -> None:
         self.buf = b''
 
-    def decode(self):
-        self._register_fields()
+    def decode(self) -> 'msg':
         for field in self.fields:
             name, sfmt = field[:2]
             fmt, routine = self._get_routine('decode', sfmt)
@@ -177,13 +205,12 @@ class msg(dict):
             )
             if len(value) == 1:
                 value = value[0]
-            if isinstance(value, basestring) and sfmt[-1] == 's':
-                value = value[: value.find(b'\x00')]
-            if isinstance(sfmt, str) and sfmt[-1] == 's':
-                try:
-                    value = value.decode('utf-8')
-                except UnicodeDecodeError:
-                    value = hexdump(value)
+                if isinstance(value, bytes) and sfmt[-1] == 's':
+                    value = value.lstrip(b'\x00')
+                    try:
+                        value = value.decode('utf-8')
+                    except UnicodeDecodeError:
+                        value = hexdump(value)
             self[name] = routine(value)
             self.offset += size
         return self

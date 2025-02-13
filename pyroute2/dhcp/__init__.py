@@ -101,34 +101,46 @@ the code 255 is the end of options code.
 import struct
 import sys
 from array import array
+from typing import ClassVar, NamedTuple, Optional, TypedDict, TypeVar, Union
 
 from pyroute2.common import basestring
-from pyroute2.protocols import _decode_mac, _encode_mac, msg
+from pyroute2.protocols import Policy, _decode_mac, _encode_mac, msg
 
 from .enums.dhcp import MessageType, Option
 
-if not hasattr(array, 'tobytes'):
-    # Python2 and Python3 versions of array differ,
-    # but we need here a consistent API w/o warnings
-    class array(array):
-        tobytes = array.tostring
+# hack because Self is not supported in py39
+_dhcpmsgSelf = TypeVar('_dhcpmsgSelf', bound='dhcpmsg')
+_optionSelf = TypeVar('_optionSelf', bound='option')
 
 
-def _decode_client_id(value: bytes) -> dict:
+class ClientId(TypedDict):
+    '''A dict with 'type' and 'key' keys.
+
+    The types stores the client id type, and the key stores the value.
+    See RFC for their meaning.
+    '''
+
+    type: int
+    key: Union[bytes, str]
+
+
+def _decode_client_id(value: bytes) -> ClientId:
     '''Decode a raw client id option into a dict with type and key.
 
     If the type is 1, the key is decoded as a mac address,
     otherwise it's just the raw bytes.
     '''
-    type_, key = value[0], value[1:]
+    type_ = value[0]
+    key: Union[bytes, str] = value[1:]
 
     if type_ == 1:
         # ethernet
+        assert isinstance(key, bytes)
         key = _decode_mac(value=key)
-    return {'type': type_, 'key': key}
+    return ClientId(type=type_, key=key)
 
 
-def _encode_client_id(value: dict) -> bytes:
+def _encode_client_id(value: ClientId) -> bytes:
     '''Encode a client_id dict into bytes.'''
     type_ = value['type']
     key = value['key']
@@ -140,10 +152,7 @@ def _encode_client_id(value: dict) -> bytes:
 
 
 class option(msg):
-    code = 0
-    data_length = 0
-    policy = None
-    value = None
+    policy: ClassVar[Optional[Policy]] = None
 
     def __init__(self, content=None, buf=b'', offset=0, value=None, code=0):
         msg.__init__(
@@ -152,7 +161,7 @@ class option(msg):
         self.code = code
 
     @property
-    def length(self):
+    def length(self) -> Optional[int]:
         if self.data_length is None:
             return None
         if self.data_length == 0:
@@ -160,7 +169,7 @@ class option(msg):
         else:
             return self.data_length + 2
 
-    def encode(self):
+    def encode(self: _optionSelf) -> _optionSelf:
         # pack code
         self.buf += struct.pack('B', self.code)
         if self.code in (0, 255):
@@ -170,11 +179,11 @@ class option(msg):
         self.buf = b''
         # pack data into the new buf
         if self.policy is not None:
-            value = self.policy.get('encode', lambda x: x)(self.value)
-            if self.policy['format'] == 'string':
+            value = self.policy.encode(self.value)
+            if self.policy.format == 'string':
                 fmt = '%is' % len(value)
             else:
-                fmt = self.policy['format']
+                fmt = self.policy.format
             if sys.version_info[0] == 3 and isinstance(value, str):
                 value = value.encode('utf-8')
             self.buf = struct.pack(fmt, value)
@@ -188,25 +197,25 @@ class option(msg):
         self.buf += data
         return self
 
-    def decode(self):
+    def decode(self: _optionSelf) -> _optionSelf:
         self.data_length = struct.unpack(
             'B', self.buf[self.offset + 1 : self.offset + 2]
         )[0]
         if self.policy is not None:
-            if self.policy['format'] == 'string':
+            if self.policy.format == 'string':
                 fmt = '%is' % self.data_length
             else:
-                fmt = self.policy['format']
+                fmt = self.policy.format
             value = struct.unpack(
                 fmt,
                 self.buf[self.offset + 2 : self.offset + 2 + self.data_length],
             )
             if len(value) == 1:
                 value = value[0]
-            value = self.policy.get('decode', lambda x: x)(value)
+            value = self.policy.decode(value)
             if (
                 isinstance(value, basestring)
-                and self.policy['format'] == 'string'
+                and self.policy.format == 'string'
             ):
                 value = value.lstrip(b"\x00")
             self.value = value
@@ -223,29 +232,35 @@ class option(msg):
         return self
 
 
-class dhcpmsg(msg):
-    options = ()
-    l2addr = None
-    _encode_map = {}
-    _decode_map = {}
+class CodeMapping(NamedTuple):
+    name: str
+    code: int
+    format: str
 
-    def _register_options(self):
+
+class dhcpmsg(msg):
+    options: ClassVar[tuple[tuple[Option, str], ...]] = ()
+
+    def __init__(self, content=None, buf=b'', offset=0, value=None) -> None:
+        super().__init__(content, buf, offset, value)
+        self._encode_map: dict[str, CodeMapping] = {}
+        self._decode_map: dict[int, CodeMapping] = {}
+        self._register_options()
+
+    def _register_options(self) -> None:
         for code, fmt in self.options:
             name = code.name.lower()
-            self._decode_map[code] = self._encode_map[name] = {
-                'name': name,
-                'code': code,
-                'format': fmt,
-            }
+            self._decode_map[code] = self._encode_map[name] = CodeMapping(
+                name=name, code=code, format=fmt
+            )
 
-    def decode(self):
+    def decode(self: _dhcpmsgSelf) -> _dhcpmsgSelf:
         msg.decode(self)
-        self._register_options()
         self['options'] = {}
         while self.offset < len(self.buf):
-            code = struct.unpack('B', self.buf[self.offset : self.offset + 1])[
-                0
-            ]
+            code: int = struct.unpack(
+                'B', self.buf[self.offset : self.offset + 1]
+            )[0]
             if code == Option.PAD:
                 self.offset += 1
                 continue
@@ -260,7 +275,7 @@ class dhcpmsg(msg):
                 continue
 
             # code is known, work on it
-            option_class = getattr(self, self._decode_map[code]['format'])
+            option_class = getattr(self, self._decode_map[code].format)
             option = option_class(buf=self.buf, offset=self.offset)
             option.decode()
             self.offset += option.length
@@ -268,12 +283,11 @@ class dhcpmsg(msg):
                 value = option.value
             else:
                 value = option
-            self['options'][self._decode_map[code]['name']] = value
+            self['options'][self._decode_map[code].name] = value
         return self
 
-    def encode(self):
+    def encode(self: _dhcpmsgSelf) -> _dhcpmsgSelf:
         msg.encode(self)
-        self._register_options()
         # put message type
         options = self.get('options') or {
             'message_type': MessageType.DISCOVER,
@@ -292,19 +306,15 @@ class dhcpmsg(msg):
         for name, value in options.items():
             if name in ('message_type', 'vendor_id'):
                 continue
-            fmt = self._encode_map.get(name, {'format': None})['format']
-            if fmt is None:
+            if (code_mapping := self._encode_map.get(name)) is None:
                 continue
+
             # name is known, ok
-            option_class = getattr(self, fmt)
+            option_class = getattr(self, code_mapping.format)
             if isinstance(value, dict):
-                option = option_class(
-                    value, code=self._encode_map[name]['code']
-                )
+                option = option_class(value, code=code_mapping.code)
             else:
-                option = option_class(
-                    code=self._encode_map[name]['code'], value=value
-                )
+                option = option_class(code=code_mapping.code, value=value)
             self.buf += option.encode().buf
 
         self.buf += self.none(code=Option.END).encode().buf
@@ -314,33 +324,31 @@ class dhcpmsg(msg):
         pass
 
     class be16(option):
-        policy = {'format': '>H'}
+        policy = Policy(format='>H')
 
     class be32(option):
-        policy = {'format': '>I'}
+        policy = Policy(format='>I')
 
     class sbe32(option):
-        policy = {'format': '>i'}
+        policy = Policy(format='>i')
 
     class uint8(option):
-        policy = {'format': 'B'}
+        policy = Policy(format='B')
 
     class string(option):
-        policy = {'format': 'string'}
+        policy = Policy(format='string')
 
     class array8(option):
-        policy = {
-            'format': 'string',
-            'encode': lambda x: array('B', x).tobytes(),
-            'decode': lambda x: array('B', x).tolist(),
-        }
+        policy = Policy(
+            format='string',
+            encode=lambda x: array('B', x).tobytes(),
+            decode=lambda x: array('B', x).tolist(),
+        )
 
     class client_id(option):
-        policy = {
-            'format': 'string',
-            'encode': _encode_client_id,
-            'decode': _decode_client_id,
-        }
+        policy = Policy(
+            format='string', encode=_encode_client_id, decode=_decode_client_id
+        )
 
         def __init__(
             self, content=None, buf=b'', offset=0, value=None, code=0
@@ -351,4 +359,4 @@ class dhcpmsg(msg):
             super().__init__(content, buf, offset, value=content, code=code)
 
     class message_type(option):
-        policy = {'format': 'B', 'decode': MessageType}
+        policy = Policy(format='B', decode=MessageType)
