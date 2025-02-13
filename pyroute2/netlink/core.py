@@ -389,6 +389,10 @@ class AsyncCoreSocket:
                 if sock is not None:
                     sock.close()
                 if self.status['event_loop'] == 'new':
+                    # go to the event loop to really close the transport
+                    event_loop.run_until_complete(
+                        event_loop.shutdown_asyncgens()
+                    )
                     event_loop.stop()
                     event_loop.close()
             self.__all_open_resources = tuple()
