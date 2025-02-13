@@ -41,7 +41,7 @@ Quickstart
         ipr = AsyncIPRoute()
         async for link in await ipr.link("dump"):
             print(link.get("ifname"), link.get("state"), link.get("address"))
-        await ipr.close()
+        ipr.close()
 
     asyncio.run(main())
 

@@ -211,6 +211,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         netns=None,
         flags=os.O_CREAT,
         libc=None,
+        use_event_loop=False,
     ):
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
@@ -234,6 +235,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                 'tag_field': 'sequence_number',
                 'netns': netns,
                 'flags': flags,
+                'use_event_loop': use_event_loop,
             }
         )
         # TODO: merge capabilities to self.status
@@ -243,7 +245,9 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             'create_dummy': True,
             'provide_master': config.kernel[0] > 2,
         }
-        super().__init__(libc=libc, use_socket=use_socket)
+        super().__init__(
+            libc=libc, use_socket=use_socket, use_event_loop=use_event_loop
+        )
         self.marshal = Marshal()
         self.request_proxy = None
         self.batch = None

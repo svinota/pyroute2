@@ -2526,7 +2526,7 @@ class AsyncIPRoute(AsyncIPRSocket, RTNL_API):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        return await self.close()
+        self.close()
 
 
 class IPRoute(NetlinkSocket):
@@ -2577,6 +2577,9 @@ class IPRoute(NetlinkSocket):
             flags=flags,
             libc=libc,
         )
+        self.asyncore.ensure_event_loop()
+        if self.asyncore.status['event_loop'] != 'new':
+            raise RuntimeError()
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.ensure_socket()
         )

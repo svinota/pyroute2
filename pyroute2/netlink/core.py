@@ -165,12 +165,14 @@ class AsyncCoreSocket:
         flags=os.O_CREAT,
         libc=None,
         groups=0,
+        use_event_loop=False,
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
             {
                 'target': target,
                 'use_socket': use_socket,
+                'use_event_loop': use_event_loop,
                 'rcvsize': rcvsize,
                 'netns': netns,
                 'flags': flags,
@@ -180,6 +182,11 @@ class AsyncCoreSocket:
         self.status = self.spec.status
         self.request_proxy = None
         self.local = threading.local()
+        self.lock = threading.Lock()
+        if use_event_loop:
+            self.local.event_loop = use_event_loop
+            self.status['use_event_loop'] = True
+            self.status['thread_id'] = id(threading.current_thread())
         if libc is not None:
             self.libc = libc
         url = parse.urlparse(self.spec['target'])
@@ -234,9 +241,22 @@ class AsyncCoreSocket:
 
     @property
     def event_loop(self):
+        return self.ensure_event_loop()
+
+    def ensure_event_loop(self):
         if not hasattr(self.local, 'event_loop'):
+            if self.status['use_event_loop']:
+                if self.status['use_thread_id'] == id(
+                    threading.current_thread()
+                ):
+                    raise RuntimeError('Lost the event loop')
+                raise RuntimeError(
+                    'Predefined event loop can not be used in another thread'
+                )
             self.local.event_loop = self.setup_event_loop()
             self.local.connection_lost = self.local.event_loop.create_future()
+        if self.local.event_loop.is_closed():
+            raise OSError(errno.EBADF, 'Bad file descriptor')
         return self.local.event_loop
 
     async def ensure_socket(self):
@@ -350,27 +370,36 @@ class AsyncCoreSocket:
         await self.ensure_socket()
         return self.socket.bind(addr)
 
-    async def close(self, code=errno.ECONNRESET):
+    def close(self, code=errno.ECONNRESET):
         '''Terminate the object.'''
 
         def send_terminator(msg_queue):
             msg_queue.put_nowait(0, b'')
 
-        for (
-            sock,
-            msg_queue,
-            event_loop,
-            transport,
-            protocol,
-        ) in self.__all_open_resources:
-            event_loop.call_soon_threadsafe(send_terminator, msg_queue)
-            transport.close()
-            if sock is not None:
-                sock.close()
-        self.__all_open_resources = tuple()
+        with self.lock:
+            for (
+                sock,
+                msg_queue,
+                event_loop,
+                transport,
+                protocol,
+            ) in self.__all_open_resources:
+                event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+                transport.close()
+                if sock is not None:
+                    sock.close()
+                if self.status['event_loop'] == 'new':
+                    event_loop.stop()
+                    event_loop.close()
+            self.__all_open_resources = tuple()
 
     def clone(self):
-        '''Return a copy of itself with a new underlying socket.'''
+        '''Return a copy of itself with a new underlying socket.
+
+        This method can not work if `use_socket` or `event_loop`
+        was used in the object constructor.'''
+        if self.status['use_socket'] or self.status['event_loop']:
+            raise RuntimeError('can not clone socket')
         new_spec = {}
         for key, value in self.spec.items():
             if key in self.__init__.__code__.co_varnames:
@@ -452,7 +481,7 @@ class AsyncCoreSocket:
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        await self.close()
+        self.close()
 
     def register_callback(self, callback, predicate=lambda x: True, args=None):
         '''
@@ -623,9 +652,7 @@ class SyncAPI:
 
     def close(self, code=errno.ECONNRESET):
         '''Correctly close the socket and free all the resources.'''
-        return self.asyncore.event_loop.run_until_complete(
-            self.asyncore.close(code)
-        )
+        self.asyncore.close(code)
 
 
 class CoreSocket(SyncAPI):
