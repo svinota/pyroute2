@@ -119,6 +119,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         netns_path=None,
         flags=os.O_CREAT,
         libc=None,
+        use_event_loop=False,
     ):
         if config.mock_netlink:
             use_socket = IPEngine()
@@ -143,6 +144,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
             netns=netns,
             flags=flags,
             libc=libc,
+            use_event_loop=use_event_loop,
         )
         if sys.platform.startswith('linux') and not config.mock_netlink:
             self.request_proxy = NetlinkProxy(

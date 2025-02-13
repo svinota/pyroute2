@@ -184,7 +184,7 @@ class AsyncCoreSocket:
         self.local = threading.local()
         self.lock = threading.Lock()
         if use_event_loop:
-            self.local.event_loop = use_event_loop
+            self.status['event_loop'] = id(use_event_loop)
             self.status['use_event_loop'] = True
             self.status['thread_id'] = id(threading.current_thread())
         if libc is not None:
@@ -245,11 +245,9 @@ class AsyncCoreSocket:
 
     def ensure_event_loop(self):
         if not hasattr(self.local, 'event_loop'):
-            if self.status['use_event_loop']:
-                if self.status['use_thread_id'] == id(
-                    threading.current_thread()
-                ):
-                    raise RuntimeError('Lost the event loop')
+            if self.status['use_event_loop'] and self.status[
+                'thread_id'
+            ] != id(threading.current_thread()):
                 raise RuntimeError(
                     'Predefined event loop can not be used in another thread'
                 )

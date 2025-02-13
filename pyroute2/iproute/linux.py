@@ -2556,6 +2556,7 @@ class IPRoute(NetlinkSocket):
         netns=None,
         flags=os.O_CREAT,
         libc=None,
+        use_event_loop=False,
     ):
         self.asyncore = AsyncIPRoute(
             port=port,
@@ -2576,9 +2577,10 @@ class IPRoute(NetlinkSocket):
             netns=netns,
             flags=flags,
             libc=libc,
+            use_event_loop=use_event_loop,
         )
         self.asyncore.ensure_event_loop()
-        if self.asyncore.status['event_loop'] != 'new':
+        if self.asyncore.status['event_loop'] != 'new' and not use_event_loop:
             raise RuntimeError()
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.ensure_socket()
