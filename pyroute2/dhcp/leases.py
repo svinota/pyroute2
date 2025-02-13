@@ -65,8 +65,14 @@ class Lease(abc.ABC):
     # Timestamp of when this lease was obtained
     obtained: float = field(default_factory=_now)
 
-    def _seconds_til_timer(self, value: int) -> float:
-        '''Number of seconds to wait until the given timer value expires.'''
+    def _seconds_til_timer(self, value: int) -> Optional[float]:
+        '''Number of seconds to wait until the given timer value expires.
+
+        If the value is -1, that means it is infinite and None is returned.
+        '''
+        if value == -1:
+            # infinite timer
+            return None
         return self.obtained + value - _now()
 
     @property
@@ -81,42 +87,46 @@ class Lease(abc.ABC):
         return self.expiration_in is not None and self.expiration_in <= 0
 
     @property
-    def expiration_in(self) -> float:
+    def expiration_in(self) -> Optional[float]:
         '''The amount of seconds before the lease expires.
 
         Computed from the `lease_time` option.
 
-        Can be negative if it's past due,
+        Can be negative if it's past due, None if infinite,
         or raise MissingOptionError if the server did not give a lease time.
         '''
         return self._seconds_til_timer(self.lease_time)
 
     @property
-    def renewal_in(self) -> float:
+    def renewal_in(self) -> Optional[float]:
         '''The amount of seconds before we have to renew the lease.
 
         Computed from the `renewal_time` option, defaults to ~.5 * lease exp.
 
-        Can be negative if it's past due.
+        Can be negative if it's past due, or None if infinite.
         '''
         try:
             return self._seconds_til_timer(self.renewal_time)
         except MissingOptionError:
             # RFC section 4.4.5 says we need a fuzzy value around 0.5
-            return self.expiration_in * random.uniform(0.4, 0.6)
+            if self.expiration_in:
+                return self.expiration_in * random.uniform(0.4, 0.6)
+        return None
 
     @property
-    def rebinding_in(self) -> float:
+    def rebinding_in(self) -> Optional[float]:
         '''The amount of seconds before we have to rebind the lease.
 
         Computed from the `rebinding_time` option, defaults to ~.8 * lease exp.
 
-        Can be negative if it's past due.
+        Can be negative if it's past due, or None if infinite.
         '''
         try:
             return self._seconds_til_timer(self.rebinding_time)
         except MissingOptionError:
-            return self.expiration_in * random.uniform(0.75, 0.90)
+            if self.expiration_in:
+                return self.expiration_in * random.uniform(0.75, 0.90)
+        return None
 
     @property
     def ip(self) -> str:

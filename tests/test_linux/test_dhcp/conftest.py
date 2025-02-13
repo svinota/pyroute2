@@ -4,6 +4,7 @@ import socket
 from typing import Awaitable, Callable
 
 import pytest
+from fixtures.dhcp_servers import lease_time  # noqa: F401
 from fixtures.interfaces import VethPair
 
 from pyroute2.dhcp.client import ClientConfig

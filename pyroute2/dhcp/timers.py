@@ -50,12 +50,12 @@ class LeaseTimers:
             self._reset_timer(timer_name)
             lease_time = getattr(lease, f'{timer_name}_in')
             if not lease_time:
-                LOG.debug('Lease does not set a %s time', timer_name)
+                LOG.debug('%s time is infinite', timer_name)
                 continue
             if lease_time < 0.0:
-                LOG.debug('Lease %s is in the past', timer_name)
+                LOG.debug('%s is in the past', timer_name)
                 continue
-            LOG.info('Scheduling lease %s in %.2fs', timer_name, lease_time)
+            LOG.info('Scheduling %s in %.2fs', timer_name, lease_time)
             timer = loop.call_later(
                 lease_time, self._create_timer_task, timer_name, async_callback
             )

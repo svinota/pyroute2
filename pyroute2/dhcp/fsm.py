@@ -4,7 +4,7 @@ from enum import IntEnum, auto
 from logging import getLogger
 from typing import TYPE_CHECKING, Final
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .client import AsyncDHCPClient
 
 

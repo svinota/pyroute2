@@ -71,6 +71,7 @@ async def test_get_lease_from_dnsmasq(
     assert JSONFileLease(**json_lease) == lease
 
 
+@pytest.mark.parametrize('lease_time', [5])
 async def test_short_udhcpd_lease(udhcpd: UdhcpdFixture, veth_pair: VethPair):
     '''Test getting a lease from udhcpd and renewing it.'''
     cfg = ClientConfig(interface=veth_pair.client, lease_type=JSONStdoutLease)
@@ -129,10 +130,12 @@ async def test_lease_file(client_config: ClientConfig):
     assert not client_config.pidfile_path.exists()
 
 
+@pytest.mark.parametrize('lease_time', [5])
 async def test_lease_expiration(
     udhcpd: UdhcpdFixture,
     client_config: ClientConfig,
     caplog: pytest.LogCaptureFixture,
+    lease_time: int,
 ):
     '''The client must go back to INIT when the lease expires.'''
     caplog.set_level('INFO', logger='pyroute2.dhcp')
@@ -149,7 +152,21 @@ async def test_lease_expiration(
         # lease expire, we look for a new one
         await cli.wait_for_state(fsm.State.INIT, timeout=5.0)
         await cli.wait_for_state(fsm.State.SELECTING, timeout=5.0)
-
+    # Check the lease scheduling logs are emitted in the right order
+    timer_logs_args = [
+        i.args for i in caplog.records if i.msg.startswith('Scheduling')
+    ]
+    assert timer_logs_args[0][0] == 'renewal'
+    assert timer_logs_args[1][0] == 'rebinding'
+    assert timer_logs_args[2][0] == 'expiration'
+    # check the computed rebinding times are consistent
+    assert (
+        0
+        < timer_logs_args[0][1]
+        < timer_logs_args[1][1]
+        < timer_logs_args[2][1]
+        <= lease_time
+    )
     assert (
         caplog.messages.index('Renewal timer expired')
         < caplog.messages.index('Rebinding timer expired')
@@ -205,6 +222,7 @@ async def test_mac_addr_change_same_client_id(
     assert first_lease.ack['xid'] != second_lease.ack['xid']
 
 
+@pytest.mark.parametrize('lease_time', [5])
 async def test_mac_addr_change(
     udhcpd: UdhcpdFixture,
     client_config: ClientConfig,
@@ -327,3 +345,23 @@ async def test_fixed_client_id_changing_mac(
         # the second run read the existing lease
         assert init_reboot_count == 1
         assert init_count == 1
+
+
+@pytest.mark.parametrize('lease_time', [-1])
+async def test_infinite_lease(
+    dnsmasq: DnsmasqFixture,
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+):
+    '''Infinite leases are supported.'''
+    caplog.set_level('DEBUG', logger='pyroute2.dhcp')
+    async with AsyncDHCPClient(config=client_config) as cli:
+        await cli.bootstrap()
+        await cli.wait_for_state(fsm.State.BOUND, timeout=3.0)
+        lease = cli.lease
+    assert 'renewal time is infinite' in caplog.messages
+    assert lease.lease_time == -1
+    assert lease.expiration_in is None
+    assert lease.rebinding_in is None
+    assert lease.renewal_in is None
+    assert lease.expired is False

@@ -6,7 +6,19 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address
 from typing import ClassVar, DefaultDict, Generic, Literal, Optional, TypeVar
 
+import pytest
+
 from ..interfaces import DHCPRangeConfig
+
+
+@pytest.fixture
+def lease_time() -> int:
+    '''Configures the lease time used by dhcp servers.
+
+    Can be overridden in individual tests with
+    `@pytest.mark.parametrize('lease_time', [5])`
+    '''
+    return 120
 
 
 @dataclass

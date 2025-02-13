@@ -319,6 +319,9 @@ class dhcpmsg(msg):
     class be32(option):
         policy = {'format': '>I'}
 
+    class sbe32(option):
+        policy = {'format': '>i'}
+
     class uint8(option):
         policy = {'format': 'B'}
 
