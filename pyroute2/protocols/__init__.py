@@ -1,6 +1,6 @@
 import struct
 from socket import AF_INET, inet_ntop, inet_pton
-from typing import Union
+from typing import ClassVar, Union
 
 from pyroute2.common import basestring, hexdump
 
@@ -118,9 +118,12 @@ def _encode_mac(value: str) -> list[int]:
 
 
 class msg(dict):
-    buf = None
+    # FIXME: figure out why these are declared as class attributes
+    # buf = None
     data_len = None
-    fields = ()
+    fields: ClassVar[
+        tuple[Union[tuple[str, str, Union[int, bytes]], tuple[str, str]], ...]
+    ] = ()
     _fields_names = ()
     types = {
         'uint8': 'B',

@@ -17,7 +17,8 @@ class MessageType(IntEnum):
 # Parameters that can be requested from DHCP servers.
 
 
-class Parameter(IntEnum):
+class Option(IntEnum):
+    PAD = 0
     SUBNET_MASK = 1
     TIME_OFFSET = 2
     ROUTER = 3
@@ -73,6 +74,7 @@ class Parameter(IntEnum):
     OPTION_OVERLOAD = 52
     MESSAGE_TYPE = 53
     SERVER_ID = 54
+    PARAMETER_LIST = 55
     MESSAGE = 56
     MAX_MSG_SIZE = 57
     RENEWAL_TIME = 58
@@ -113,23 +115,4 @@ class Parameter(IntEnum):
     CLASSLESS_STATIC_ROUTE = 121
     PRIVATE_CLASSIC_ROUTE_MS = 249
     PRIVATE_PROXY_AUTODISCOVERY = 252
-
-
-# Options sent by DHCP servers in response to requested parameters.
-# They have the same values as request parameters,
-# except or a few specific values that cannot be requested.
-
-# we have to use the functional syntax because the enums share most of their
-# values but python does not allow subclassing them.
-# Doing it the standard way would result in a LOT of duplicate values.
-# FIXME: this confuses mypy, it only understands literal dicts
-Option = IntEnum(  # type: ignore[misc]
-    'Option',
-    {
-        **{i.name: i.value for i in Parameter},
-        'PAD': 0,
-        'PARAMETER_LIST': 55,
-        'END': 255,
-    },
-    module=__name__,
-)
+    END = 255

@@ -10,17 +10,17 @@ from typing import AsyncGenerator
 
 from pyroute2.dhcp import messages
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
-from pyroute2.dhcp.enums.dhcp import Parameter
+from pyroute2.dhcp.enums.dhcp import Option
 
 DHCPResponse = tuple[str, messages.ReceivedDHCPMessage]
 
 LOG = logging.getLogger('dhcp-server-detector')
 
 DEFAULT_PARAMETERS = (
-    Parameter.SUBNET_MASK,
-    Parameter.ROUTER,
-    Parameter.BROADCAST_ADDRESS,
-    Parameter.NAME_SERVER,
+    Option.SUBNET_MASK,
+    Option.ROUTER,
+    Option.BROADCAST_ADDRESS,
+    Option.NAME_SERVER,
 )
 
 

@@ -93,7 +93,9 @@ def get_psr() -> ArgumentParser:
     return psr
 
 
-async def run_client(cfg: ClientConfig, exit_timeout: Optional[float] = None):
+async def run_client(
+    cfg: ClientConfig, exit_timeout: Optional[float] = None
+) -> None:
     '''Run the client until interrupted, or a timeout occurs.
 
     The optional `exit_timeout` controls 2 things when provided:

@@ -61,6 +61,12 @@ class AsyncRawSocket(socket):
 
     fprog = None
 
+    def __init__(self, ifname: str, bpf: Optional[list[list[int]]] = None):
+        self.ifname = ifname
+        self.bpf = bpf
+        # start watching for mac addr changes
+        self._l2addr_watcher: Optional[asyncio.Task] = None
+
     async def __aexit__(self, *_):
         self._l2addr_watcher.cancel()
         self.close()
@@ -115,12 +121,6 @@ class AsyncRawSocket(socket):
                             new_l2addr,
                         )
                         self.l2addr = new_l2addr
-
-    def __init__(self, ifname: str, bpf: Optional[list[list[int]]] = None):
-        self.ifname = ifname
-        self.bpf = bpf
-        # start watching for mac addr changes
-        self._l2addr_watcher: Optional[asyncio.Task] = None
 
     def clear_buffer(self, remove_total_filter: bool = False):
         # there is a window of time after the socket has been created and

@@ -26,7 +26,7 @@ Retransmission = Callable[[], Union[Iterator[int], Iterator[float]]]
 
 def randomized_increasing_backoff(
     wait_first: float = 4.0, wait_max: float = 32.0, factor: float = 2.0
-):
+) -> Iterator[float]:
     '''Yields seconds to wait until the next retry, forever.'''
     delay = wait_first
     while True:
@@ -48,14 +48,14 @@ class ClientConfig:
     # A list of hooks that will be called when the required triggers are met.
     hooks: Iterable[Hook] = ()
     # The DHCP parameters requested by the client.
-    requested_parameters: Iterable[dhcp.Parameter] = (
-        dhcp.Parameter.SUBNET_MASK,
-        dhcp.Parameter.ROUTER,
-        dhcp.Parameter.NAME_SERVER,
-        dhcp.Parameter.DOMAIN_NAME,
-        dhcp.Parameter.LEASE_TIME,
-        dhcp.Parameter.RENEWAL_TIME,
-        dhcp.Parameter.REBINDING_TIME,
+    requested_parameters: Iterable[dhcp.Option] = (
+        dhcp.Option.SUBNET_MASK,
+        dhcp.Option.ROUTER,
+        dhcp.Option.NAME_SERVER,
+        dhcp.Option.DOMAIN_NAME,
+        dhcp.Option.LEASE_TIME,
+        dhcp.Option.RENEWAL_TIME,
+        dhcp.Option.REBINDING_TIME,
     )
     # Timeouts for various client states.
     # If the client reaches the specified amount of seconds in one of the
@@ -118,7 +118,7 @@ class AsyncDHCPClient:
 
     '''
 
-    def __init__(self, config: ClientConfig):
+    def __init__(self, config: ClientConfig) -> None:
         self.config = config
         # The raw socket used to send and receive packets
         self._sock: AsyncDHCP4Socket = AsyncDHCP4Socket(self.config.interface)
@@ -144,7 +144,7 @@ class AsyncDHCPClient:
         )
         # Used to compute lease times, taking into account the request time
         self.last_state_change: float = time()
-        self.xid: Optional[Xid] = None
+        self._xid: Optional[Xid] = None
 
     # 'public api'
 
@@ -161,7 +161,7 @@ class AsyncDHCPClient:
             ) from err
 
     @fsm.state_guard(fsm.State.INIT, fsm.State.INIT_REBOOT)
-    async def bootstrap(self):
+    async def bootstrap(self) -> None:
         '''Send a `DISCOVER` or a `REQUEST`,
 
         depending on whether we're initializing or rebooting.
@@ -197,7 +197,7 @@ class AsyncDHCPClient:
         return self._lease
 
     @lease.setter
-    def lease(self, value: Lease):
+    def lease(self, value: Lease) -> None:
         '''Set a fresh lease; only call this when a server grants one.'''
 
         self._lease = value
@@ -215,7 +215,7 @@ class AsyncDHCPClient:
         return self._state
 
     @state.setter
-    def state(self, value: fsm.State):
+    def state(self, value: fsm.State) -> None:
         '''Check the client can transition to the state, and set it.
 
         Only supposed to be called by the client internally.
@@ -239,9 +239,15 @@ class AsyncDHCPClient:
                 self.reset(delay=state_timeout)
             )
 
+    @property
+    def xid(self) -> Xid:
+        if self._xid is None:
+            raise AttributeError('xid is not defined')
+        return self._xid
+
     # Timer callbacks
 
-    async def _renew(self):
+    async def _renew(self) -> None:
         '''Called when the renewal time defined in the lease expires.'''
         # TODO: add a configuration option to force rebinding earlier (?)
         assert self.lease, 'cannot renew without an existing lease'
@@ -256,7 +262,7 @@ class AsyncDHCPClient:
             ),
         )
 
-    async def _rebind(self):
+    async def _rebind(self) -> None:
         '''Called when the rebinding time defined in the lease expires.'''
         assert self.lease, 'cannot rebind without an existing lease'
         LOG.info('Rebinding timer expired')
@@ -270,7 +276,7 @@ class AsyncDHCPClient:
             ),
         )
 
-    async def _expire_lease(self):
+    async def _expire_lease(self) -> None:
         '''Called when the expiration time defined in the lease expires.'''
         LOG.info('Lease expired')
         self.lease_timers._reset_timer('expiration')
@@ -279,7 +285,7 @@ class AsyncDHCPClient:
 
     # DHCP packet sending & receving coroutines
 
-    async def _send_message(self, msg: messages.SentDHCPMessage):
+    async def _send_message(self, msg: messages.SentDHCPMessage) -> None:
         '''Set secs, xid & client id on the message, and send it.'''
 
         # Set secs to the time elapsed since the last state change
@@ -398,7 +404,7 @@ class AsyncDHCPClient:
         fsm.State.REBINDING,
         fsm.State.RENEWING,
     )
-    async def ack_received(self, msg: messages.ReceivedDHCPMessage):
+    async def ack_received(self, msg: messages.ReceivedDHCPMessage) -> None:
         '''Called when an ACK is received.
 
         Stores the lease and puts the client in the BOUND state.
@@ -447,7 +453,7 @@ class AsyncDHCPClient:
         fsm.State.RENEWING,
         fsm.State.REBINDING,
     )
-    async def nak_received(self, msg: messages.ReceivedDHCPMessage):
+    async def nak_received(self, msg: messages.ReceivedDHCPMessage) -> None:
         '''Called when a NAK is received.
 
         Resets the client and starts looking for a new IP.
@@ -455,7 +461,7 @@ class AsyncDHCPClient:
         await self.reset()
 
     @fsm.state_guard(fsm.State.SELECTING)
-    async def offer_received(self, msg: messages.ReceivedDHCPMessage):
+    async def offer_received(self, msg: messages.ReceivedDHCPMessage) -> None:
         '''Called when an OFFER is received.
 
         Sends a REQUEST for the offered IP address.
@@ -471,14 +477,14 @@ class AsyncDHCPClient:
 
     # Async context manager methods
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'AsyncDHCPClient':
         '''Set up the client so it's ready to obtain an IP.
 
         Tries to load a lease for the client's interface,
         opens the socket, starts the sender & receiver tasks
         and allocates a request ID.
         '''
-        self.xid = Xid()
+        self._xid = Xid()
         if self.config.write_pidfile:
             self.config.pidfile_path.write_text(str(os.getpid()))
             LOG.debug('Wrote pidfile to %s', self.config.pidfile_path)
@@ -500,7 +506,7 @@ class AsyncDHCPClient:
         )
         return self
 
-    async def __aexit__(self, *_):
+    async def __aexit__(self, *_) -> None:
         '''Shut down the client.
 
         If there's an active lease, send a RELEASE for it first.
@@ -511,10 +517,12 @@ class AsyncDHCPClient:
             if not self.lease.expired:
                 await self._sendq.put(messages.release(lease=self.lease))
         self.state = fsm.State.OFF
-        await self._sender_task
-        await self._receiver_task
+        if self._sender_task:
+            await self._sender_task
+        if self._receiver_task:
+            await self._receiver_task
         await self._sock.__aexit__()
-        self.xid = None
+        self._xid = None
         if self.config.write_pidfile:
             self.config.pidfile_path.unlink(missing_ok=True)
             LOG.debug('Removed pidfile at %s', self.config.pidfile_path)
@@ -523,7 +531,7 @@ class AsyncDHCPClient:
 
     async def transition(
         self, to: fsm.State, send: Optional[messages.SentDHCPMessage] = None
-    ):
+    ) -> None:
         '''Change the client's state, and start sending a message repeatedly.
 
         If the message is None, any current message will stop being sent.
@@ -531,7 +539,7 @@ class AsyncDHCPClient:
         self.state = to
         await self._sendq.put(send)
 
-    async def reset(self, delay: float = 0.0):
+    async def reset(self, delay: float = 0.0) -> None:
         '''Called internally to restart the lease acquisition process.
 
         - When the client receives a NAK;
@@ -549,10 +557,10 @@ class AsyncDHCPClient:
         # Reset lease & timers and start again
         self._lease = None
         self.lease_timers.cancel()
-        self.xid = Xid()
+        self._xid = Xid()
         await self.bootstrap()
 
-    async def _run_hooks(self, trigger: Trigger):
+    async def _run_hooks(self, trigger: Trigger) -> None:
         '''Run hooks for the given trigger.
 
         Hooks are awaited and not run in the background; that means they could
@@ -567,7 +575,7 @@ class AsyncDHCPClient:
             timeout=self.config.hook_timeout,
         )
 
-    async def _process_msg(self, msg: messages.ReceivedDHCPMessage):
+    async def _process_msg(self, msg: messages.ReceivedDHCPMessage) -> None:
         '''Processes a received DHCP message.
 
         The messages's xid is checked against the client's xid, and the

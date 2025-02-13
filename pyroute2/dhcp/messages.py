@@ -9,7 +9,7 @@ from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.leases import Lease
 from pyroute2.dhcp.xids import Xid
 
-Parameters = Iterable[enums.dhcp.Parameter]
+Parameters = Iterable[enums.dhcp.Option]
 
 
 @dataclass

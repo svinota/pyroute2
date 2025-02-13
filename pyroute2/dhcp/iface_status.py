@@ -15,13 +15,18 @@ class InterfaceStateWatcher:
     Used by the dhcp client to restart itself in such cases.
     '''
 
-    def __init__(self, interface: str):
+    def __init__(self, interface: str) -> None:
         self.interface = interface
         self.up = asyncio.Event()
         self.down = asyncio.Event()
         self._state: Optional[IfaceState] = None
         self._watcher: Optional[asyncio.Task] = None
         self._ipr: Optional[AsyncIPRoute] = None
+
+    @property
+    def ipr(self) -> AsyncIPRoute:
+        assert self._ipr, 'need to use as a context manager'
+        return self._ipr
 
     @property
     def state(self) -> IfaceState:
@@ -42,43 +47,42 @@ class InterfaceStateWatcher:
 
     async def _fetch_current_state(self) -> IfaceState:
         '''Get the initial state before we're notified of changes.'''
-        assert self._ipr, 'need to use as a context manager'
-        lookup_results = await self._ipr.link_lookup(ifname=self.interface)
-        get_results = await self._ipr.link("get", index=lookup_results[0])
+        lookup_results = await self.ipr.link_lookup(ifname=self.interface)
+        get_results = await self.ipr.link("get", index=lookup_results[0])
         return get_results[0].get('state')
 
-    async def _watch_changes(self):
+    async def _watch_changes(self) -> None:
         '''Updates `state` in real time forever.'''
-        assert self._ipr, 'need to use as a context manager'
         while True:
             # TODO: svinota says we should call .link('dump') here
             # to empty the buffer before starting
-            async for msg in self._ipr.get():
+            async for msg in self.ipr.get():
                 if msg.get('IFLA_IFNAME') == self.interface:
                     self.state = msg.get('state')
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'InterfaceStateWatcher':
         self._ipr = await AsyncIPRoute().__aenter__()
-        await self._ipr.bind(RTMGRP_LINK)
+        await self.ipr.bind(RTMGRP_LINK)
         self.state = await self._fetch_current_state()
         self._watcher = asyncio.create_task(self._watch_changes())
         return self
 
-    async def __aexit__(self, *_):
-        self._ipr.close()
-        try:
-            await self._watcher
-        except NetlinkError as exc:
-            if exc.code == 104:
-                # we called close() so that is expected
-                pass
-            else:
-                raise
-        self._watcher = None
+    async def __aexit__(self, *_) -> None:
+        self.ipr.close()
+        if self._watcher:
+            try:
+                await self._watcher
+            except NetlinkError as exc:
+                if exc.code == 104:
+                    # we called close() so that is expected
+                    pass
+                else:
+                    raise
+            self._watcher = None
         self._ipr = None
 
 
-async def main(iface: str, state: str):
+async def main(iface: str, state: str) -> None:
     '''Very basic entrypoint for commandline testing.'''
     assert state in ('up', 'down')
     async with InterfaceStateWatcher(iface) as watcher:

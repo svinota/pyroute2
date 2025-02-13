@@ -1,6 +1,6 @@
 from socket import AF_INET, inet_ntop, inet_pton
 
-from pyroute2.dhcp import dhcpmsg, option
+from pyroute2.dhcp import Policy, dhcpmsg, option
 from pyroute2.dhcp.enums.dhcp import Option
 
 
@@ -29,6 +29,7 @@ class dhcp4msg(dhcpmsg):
     # https://www.ietf.org/rfc/rfc2132.txt
     #
     options = (
+        # TODO: add & test more options
         (Option.PAD, 'none'),
         (Option.SUBNET_MASK, 'ip4addr'),
         (Option.TIME_OFFSET, 'be32'),
@@ -55,18 +56,18 @@ class dhcp4msg(dhcpmsg):
     )
 
     class ip4addr(option):
-        policy = {
-            'format': '4s',
-            'encode': lambda x: inet_pton(AF_INET, x),
-            'decode': lambda x: inet_ntop(AF_INET, x),
-        }
+        policy = Policy(
+            format='4s',
+            encode=lambda x: inet_pton(AF_INET, x),
+            decode=lambda x: inet_ntop(AF_INET, x),
+        )
 
     class ip4list(option):
-        policy = {
-            'format': 'string',
-            'encode': lambda x: ''.join([inet_pton(AF_INET, i) for i in x]),
-            'decode': lambda x: [
+        policy = Policy(
+            format='string',
+            encode=lambda x: b''.join([inet_pton(AF_INET, i) for i in x]),
+            decode=lambda x: [
                 inet_ntop(AF_INET, x[i * 4 : i * 4 + 4])
                 for i in range(len(x) // 4)
             ],
-        }
+        )

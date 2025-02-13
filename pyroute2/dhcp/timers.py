@@ -21,12 +21,12 @@ class LeaseTimers:
     rebinding: Optional[asyncio.TimerHandle] = None
     expiration: Optional[asyncio.TimerHandle] = None
 
-    def cancel(self):
+    def cancel(self) -> None:
         '''Cancel all current timers.'''
         for timer_name in ('renewal', 'rebinding', 'expiration'):
             self._reset_timer(timer_name)
 
-    def _reset_timer(self, timer_name: str):
+    def _reset_timer(self, timer_name: str) -> None:
         '''Cancel a timer and set it to None.'''
         if timer := getattr(self, timer_name):
             assert isinstance(timer, asyncio.TimerHandle)
@@ -37,7 +37,7 @@ class LeaseTimers:
                 timer.cancel()
             setattr(self, timer_name, None)
 
-    def arm(self, lease: Lease, **callbacks: AsyncCallback):
+    def arm(self, lease: Lease, **callbacks: AsyncCallback) -> None:
         '''Reset & arm timers from a `Lease`.
 
         `callbacks` must be async callables with no arguments
