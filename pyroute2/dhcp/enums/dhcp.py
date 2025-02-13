@@ -14,10 +14,23 @@ class MessageType(IntEnum):
     INFORM = 8
 
 
-# Parameters that can be requested from DHCP servers.
-
-
 class Option(IntEnum):
+    '''DHCP options and parameters.
+
+    These constants are used for two purposes:
+
+    - Requesting configuration values from the DHCP server.
+      In this case, they're passed in the `PARAMETER_LIST` request option.
+      Not all values are valid for parameter requests:
+        - `PAD` is only used as padding when decoding server-sent options,
+        - `PARAMETER_LIST` is only sent from client and cannot be requested,
+        - `END` is used as a marker when decoding server-sent options.
+
+    - Reading responses.
+      `Option` numbers are used to parse DHCP options sent by the server.
+      They are translated to their name by the client and stored in leases.
+    '''
+
     PAD = 0
     SUBNET_MASK = 1
     TIME_OFFSET = 2

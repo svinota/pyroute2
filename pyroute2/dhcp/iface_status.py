@@ -25,6 +25,7 @@ class InterfaceStateWatcher:
 
     @property
     def ipr(self) -> AsyncIPRoute:
+        '''The async iproute context. Only useable in the context manager.'''
         assert self._ipr, 'need to use as a context manager'
         return self._ipr
 

@@ -241,6 +241,10 @@ class AsyncDHCPClient:
 
     @property
     def xid(self) -> Xid:
+        '''The xid currently in use by the client.
+
+        Only available when the context manager is running.
+        '''
         if self._xid is None:
             raise AttributeError('xid is not defined')
         return self._xid

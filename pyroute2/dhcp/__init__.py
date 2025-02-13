@@ -101,30 +101,25 @@ the code 255 is the end of options code.
 import struct
 import sys
 from array import array
-from typing import (
-    Any,
-    Callable,
-    NamedTuple,
-    Optional,
-    TypedDict,
-    TypeVar,
-    Union,
-)
+from typing import ClassVar, NamedTuple, Optional, TypedDict, TypeVar, Union
 
 from pyroute2.common import basestring
-from pyroute2.protocols import _decode_mac, _encode_mac, msg
+from pyroute2.protocols import Policy, _decode_mac, _encode_mac, msg
 
 from .enums.dhcp import MessageType, Option
 
-if not hasattr(array, 'tobytes'):
-    # Python2 and Python3 versions of array differ,
-    # but we need here a consistent API w/o warnings
-    # FIXME: we don't support py2, probably not needed
-    class array(array):  # type: ignore[no-redef]
-        tobytes = array.tostring  # type: ignore[attr-defined]
+# hack because Self is not supported in py39
+_dhcpmsgSelf = TypeVar('_dhcpmsgSelf', bound='dhcpmsg')
+_optionSelf = TypeVar('_optionSelf', bound='option')
 
 
 class ClientId(TypedDict):
+    '''A dict with 'type' and 'key' keys.
+
+    The types stores the client id type, and the key stores the value.
+    See RFC for their meaning.
+    '''
+
     type: int
     key: Union[bytes, str]
 
@@ -156,19 +151,8 @@ def _encode_client_id(value: ClientId) -> bytes:
     return struct.pack('B', type_) + key
 
 
-class Policy(NamedTuple):
-    format: str
-    encode: Callable[[Any], bytes] = lambda x: x
-    decode: Union[Callable[[Any], Any], Callable[[tuple[Any, ...]], Any]] = (
-        lambda x: x
-    )
-
-
 class option(msg):
-    code = 0
-    data_length = 0
-    policy: Optional[Policy] = None
-    value = None
+    policy: ClassVar[Optional[Policy]] = None
 
     def __init__(self, content=None, buf=b'', offset=0, value=None, code=0):
         msg.__init__(
@@ -177,7 +161,7 @@ class option(msg):
         self.code = code
 
     @property
-    def length(self):
+    def length(self) -> Optional[int]:
         if self.data_length is None:
             return None
         if self.data_length == 0:
@@ -185,7 +169,7 @@ class option(msg):
         else:
             return self.data_length + 2
 
-    def encode(self):
+    def encode(self: _optionSelf) -> _optionSelf:
         # pack code
         self.buf += struct.pack('B', self.code)
         if self.code in (0, 255):
@@ -213,7 +197,7 @@ class option(msg):
         self.buf += data
         return self
 
-    def decode(self) -> 'option':
+    def decode(self: _optionSelf) -> _optionSelf:
         self.data_length = struct.unpack(
             'B', self.buf[self.offset + 1 : self.offset + 2]
         )[0]
@@ -254,17 +238,16 @@ class CodeMapping(NamedTuple):
     format: str
 
 
-# hack because Self is not supported in py39
-_dhcpmsgSelf = TypeVar('_dhcpmsgSelf', bound='dhcpmsg')
-
-
 class dhcpmsg(msg):
-    options: tuple[tuple[Option, str], ...] = ()
-    l2addr = None
-    _encode_map: dict[str, CodeMapping] = {}
-    _decode_map: dict[int, CodeMapping] = {}
+    options: ClassVar[tuple[tuple[Option, str], ...]] = ()
 
-    def _register_options(self):
+    def __init__(self, content=None, buf=b'', offset=0, value=None) -> None:
+        super().__init__(content, buf, offset, value)
+        self._encode_map: dict[str, CodeMapping] = {}
+        self._decode_map: dict[int, CodeMapping] = {}
+        self._register_options()
+
+    def _register_options(self) -> None:
         for code, fmt in self.options:
             name = code.name.lower()
             self._decode_map[code] = self._encode_map[name] = CodeMapping(
@@ -273,7 +256,6 @@ class dhcpmsg(msg):
 
     def decode(self: _dhcpmsgSelf) -> _dhcpmsgSelf:
         msg.decode(self)
-        self._register_options()
         self['options'] = {}
         while self.offset < len(self.buf):
             code: int = struct.unpack(
@@ -306,7 +288,6 @@ class dhcpmsg(msg):
 
     def encode(self: _dhcpmsgSelf) -> _dhcpmsgSelf:
         msg.encode(self)
-        self._register_options()
         # put message type
         options = self.get('options') or {
             'message_type': MessageType.DISCOVER,
