@@ -217,7 +217,7 @@ def hexdump(payload: bytes, length: int = 0) -> str:
 
 
 def load_dump(
-    f: Union[str, io.StringIO], meta: Union[dict[str, str], None] = None
+    f: Union[str, io.StringIO], meta: Optional[dict[str, str]] = None
 ) -> Union[bytes, str]:
     '''
     Load a packet dump from an open file-like object or a string.
