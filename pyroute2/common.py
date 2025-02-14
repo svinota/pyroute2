@@ -11,7 +11,7 @@ import threading
 import time
 import types
 from functools import partial
-from typing import Any, Callable, Literal, TypeVar, Union
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 basestring = (str, bytes)
 file = io.BytesIO
@@ -73,7 +73,7 @@ rate_suffixes = {
 #
 class Namespace(object):
     def __init__(
-        self, parent: 'Namespace', override: Union[dict[str, Any], None] = None
+        self, parent: 'Namespace', override: Optional[dict[str, Any]] = None
     ):
         self.parent = parent
         self.override = override or {}
