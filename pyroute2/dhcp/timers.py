@@ -3,7 +3,7 @@
 import asyncio
 import dataclasses
 from logging import getLogger
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Literal, Optional
 
 from pyroute2.dhcp.leases import Lease
 
@@ -26,7 +26,9 @@ class LeaseTimers:
         for timer_name in ('renewal', 'rebinding', 'expiration'):
             self._reset_timer(timer_name)
 
-    def _reset_timer(self, timer_name: str) -> None:
+    def _reset_timer(
+        self, timer_name: Literal['renewal', 'rebinding', 'expiration']
+    ) -> None:
         '''Cancel a timer and set it to None.'''
         if timer := getattr(self, timer_name):
             assert isinstance(timer, asyncio.TimerHandle)

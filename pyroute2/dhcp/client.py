@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from logging import getLogger
 from math import floor
 from pathlib import Path
+from signal import Signals
 from time import time
 from typing import Callable, DefaultDict, Iterable, Iterator, Optional, Union
 
@@ -83,6 +84,8 @@ class ClientConfig:
     hook_timeout: Optional[float] = 2.0
     # Custom client id. The mac is used as the client id if not provided.
     client_id: Optional[bytes] = None
+    # Whether to handle USR1 (renew), USR2 (rebind) and HUP (reset)
+    handle_signals: bool = True
 
     @property
     def pidfile_path(self) -> Path:
@@ -251,9 +254,9 @@ class AsyncDHCPClient:
 
     # Timer callbacks
 
+    @fsm.state_guard(fsm.State.BOUND)
     async def _renew(self) -> None:
         '''Called when the renewal time defined in the lease expires.'''
-        # TODO: add a configuration option to force rebinding earlier (?)
         assert self.lease, 'cannot renew without an existing lease'
         LOG.info('Renewal timer expired')
         self.lease_timers._reset_timer('renewal')  # FIXME should be automatic
@@ -266,10 +269,14 @@ class AsyncDHCPClient:
             ),
         )
 
+    @fsm.state_guard(fsm.State.RENEWING, fsm.State.BOUND)
     async def _rebind(self) -> None:
         '''Called when the rebinding time defined in the lease expires.'''
         assert self.lease, 'cannot rebind without an existing lease'
         LOG.info('Rebinding timer expired')
+        # if the user asks for a rebind before the renewal timer expires,
+        # better cancel the renewal timer too
+        self.lease_timers._reset_timer('renewal')
         self.lease_timers._reset_timer('rebinding')  # FIXME
         await self.transition(
             to=fsm.State.REBINDING,
@@ -488,6 +495,8 @@ class AsyncDHCPClient:
         opens the socket, starts the sender & receiver tasks
         and allocates a request ID.
         '''
+        if self.config.handle_signals:
+            self._register_signal_handlers()
         self._xid = Xid()
         if self.config.write_pidfile:
             self.config.pidfile_path.write_text(str(os.getpid()))
@@ -515,6 +524,8 @@ class AsyncDHCPClient:
 
         If there's an active lease, send a RELEASE for it first.
         '''
+        if self.config.handle_signals:
+            self._unregister_signal_handlers()
         self.lease_timers.cancel()
         if self.lease and self.config.release:
             await self._run_hooks(Trigger.UNBOUND)
@@ -601,3 +612,21 @@ class AsyncDHCPClient:
             LOG.debug('DHCP %s messages are not handled', msg_type.name)
         else:
             await handler(msg)
+
+    def _register_signal_handlers(self):
+        add_handler = asyncio.get_running_loop().add_signal_handler
+        LOG.info('Registering signal handlers for USR1, USR2 and HUP')
+        add_handler(
+            Signals.SIGUSR1, lambda: asyncio.create_task(self._renew())
+        )
+        add_handler(
+            Signals.SIGUSR2, lambda: asyncio.create_task(self._rebind())
+        )
+        add_handler(Signals.SIGHUP, lambda: asyncio.create_task(self.reset()))
+
+    def _unregister_signal_handlers(self):
+        remove_handler = asyncio.get_running_loop().remove_signal_handler
+        LOG.info('Removing signal handlers for USR1, USR2 and HUP')
+        remove_handler(Signals.SIGUSR1)
+        remove_handler(Signals.SIGUSR2)
+        remove_handler(Signals.SIGHUP)

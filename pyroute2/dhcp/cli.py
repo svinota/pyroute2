@@ -159,6 +159,7 @@ async def main() -> None:
         hooks=hooks,
         write_pidfile=args.write_pidfile,
         release=not args.no_release,
+        handle_signals=True,
     )
 
     await run_client(cfg, exit_timeout=args.exit_on_timeout)

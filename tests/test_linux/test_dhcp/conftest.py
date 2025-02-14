@@ -15,8 +15,11 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 @pytest.fixture
 def client_config(veth_pair: VethPair) -> ClientConfig:
-    '''Fixture that returns a ClientConfig for the veth_pair.'''
-    return ClientConfig(interface=veth_pair.client)
+    '''Fixture that returns a ClientConfig for the veth_pair.
+
+    Signal handlers are disabled.
+    '''
+    return ClientConfig(interface=veth_pair.client, handle_signals=False)
 
 
 @pytest.fixture

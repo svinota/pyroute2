@@ -130,6 +130,9 @@ def get_psr() -> ArgumentParser:
     psr.add_argument(
         '--netmask', type=IPv4Address, default=IPv4Address("255.255.255.0")
     )
+    psr.add_argument(
+        '--broadcast', type=IPv4Address, default=IPv4Address('192.168.186.255')
+    )
     return psr
 
 
@@ -141,6 +144,7 @@ async def run_fixture_as_main(fixture_cls: type[DHCPServerFixture]):
         end=args.range_end,
         router=args.router,
         netmask=args.netmask,
+        broadcast=args.broadcast,
     )
     conf = config_cls(
         range=range_config,
