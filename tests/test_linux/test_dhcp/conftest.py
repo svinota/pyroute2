@@ -1,5 +1,7 @@
 '''Fixtures only relevant for dhcp tests.'''
 
+import json
+import re
 import socket
 from typing import Awaitable, Callable
 
@@ -69,3 +71,8 @@ def get_ipv4_addrs_for(async_ipr: AsyncIPRoute) -> GetIPv4AddrsFor:
         return await _get_ipv4_addrs(ipr=async_ipr, index=index)
 
     return _wrapped
+
+
+def parse_stdout_leases(data: bytes) -> list[dict]:
+    '''Parses leases written by the client on stdout.'''
+    return [json.loads(i) for i in re.split(b'(?<=\n)(?=\\{\n)', data)]

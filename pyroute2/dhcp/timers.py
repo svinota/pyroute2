@@ -3,14 +3,14 @@
 import asyncio
 import dataclasses
 from logging import getLogger
-from typing import Any, Callable, Coroutine, Literal, Optional
+from typing import Awaitable, Callable, Literal, Optional
 
 from pyroute2.dhcp.leases import Lease
 
 LOG = getLogger(__name__)
 
 
-AsyncCallback = Callable[[], Coroutine[Any, Any, None]]
+AsyncCallback = Callable[[], Awaitable[None]]
 
 
 @dataclasses.dataclass
@@ -49,7 +49,7 @@ class LeaseTimers:
         loop = asyncio.get_running_loop()
 
         for timer_name, async_callback in callbacks.items():
-            self._reset_timer(timer_name)
+            self._reset_timer(timer_name)  # type: ignore[arg-type]
             lease_time = getattr(lease, f'{timer_name}_in')
             if not lease_time:
                 LOG.debug('%s time is infinite', timer_name)
@@ -71,5 +71,6 @@ class LeaseTimers:
         Creates a Task that runs the async_callback.
         '''
         asyncio.create_task(
-            async_callback(), name=f"{timer_name} timer callback"
+            async_callback(),  # type: ignore[arg-type]
+            name=f"{timer_name} timer callback",
         )

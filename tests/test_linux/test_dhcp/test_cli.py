@@ -1,5 +1,4 @@
 import asyncio
-import json
 import signal
 from ipaddress import IPv4Address
 
@@ -8,7 +7,7 @@ from fixtures.dhcp_servers.dnsmasq import DnsmasqFixture
 from fixtures.dhcp_servers.udhcpd import UdhcpdFixture
 from fixtures.interfaces import VethPair
 from pr2test.marks import require_root
-from test_dhcp.conftest import GetIPv4AddrsFor
+from test_dhcp.conftest import GetIPv4AddrsFor, parse_stdout_leases
 
 from pyroute2.iproute.linux import AsyncIPRoute
 
@@ -40,7 +39,9 @@ async def test_client_console(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
         raise AssertionError(f'Timed out. dnsmasq output: {dnsmasq.stderr}')
     assert process.returncode == 0
     assert stdout
-    json_lease = json.loads(stdout)
+    json_leases = parse_stdout_leases(stdout)
+    assert len(json_leases) == 1
+    json_lease = json_leases[0]
     assert json_lease['interface'] == veth_pair.client
     assert (
         dnsmasq.config.range.start
@@ -92,9 +93,9 @@ async def test_interface_flaps(dnsmasq: DnsmasqFixture, veth_pair: VethPair):
     )
 
     # check we got 2 leases
-    middle_of_jsons = stdout.index(b'\n{\n') + 1
-    first_json_lease = json.loads(stdout[:middle_of_jsons])
-    second_json_lease = json.loads(stdout[middle_of_jsons:])
+    leases = parse_stdout_leases(stdout)
+    assert len(leases) == 2
+    first_json_lease, second_json_lease = leases
     assert (
         first_json_lease['ack']['options']
         == second_json_lease['ack']['options']
@@ -154,7 +155,9 @@ async def test_exit_timeout(
     assert process.returncode == 0
     # check the lease
     assert stdout
-    json_lease = json.loads(stdout)
+    json_leases = parse_stdout_leases(stdout)
+    assert len(json_leases) == 1
+    json_lease = json_leases[0]
     assert json_lease['interface'] == veth_pair.client
     ip = json_lease['ack']['yiaddr']
     assert udhcpd.stderr[-2:] == [
@@ -166,3 +169,64 @@ async def test_exit_timeout(
     ips = await get_ipv4_addrs_for(veth_pair.client_idx)
     assert len(ips) == 1
     assert ips[0].get('address') == ip
+
+
+@pytest.mark.parametrize(
+    ('signum', 'expected_signal_log', 'expected_state_change'),
+    (
+        (
+            signal.SIGUSR1,
+            'SIGUSR1 received, renewing lease',
+            'BOUND -> RENEWING',
+        ),
+        (
+            signal.SIGUSR2,
+            'SIGUSR2 received, rebinding lease',
+            'BOUND -> REBINDING',
+        ),
+        (signal.SIGHUP, 'SIGHUP received, resetting', 'BOUND -> INIT'),
+    ),
+)
+async def test_signals(
+    dnsmasq: DnsmasqFixture,
+    veth_pair: VethPair,
+    signum: int,
+    expected_signal_log: str,
+    expected_state_change: str,
+):
+    '''Signals can be sent to the client to rene/rebind/reset its lease'''
+    # Run a dhcp client
+    process = await asyncio.create_subprocess_exec(
+        'pyroute2-dhcp-client',
+        veth_pair.client,
+        '--lease-type',
+        'pyroute2.dhcp.leases.JSONStdoutLease',
+        '--log-level=DEBUG',
+        '--hook',
+        'pyroute2.dhcp.hooks.configure_ip',
+        '--hook',
+        'pyroute2.dhcp.hooks.remove_ip',
+        stderr=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+    )
+    # wait till the client is bound
+    await asyncio.wait_for(dnsmasq.wait_for_log('DHCPACK'), timeout=3)
+    dnsmasq.expected_logs.clear()
+    await asyncio.sleep(0.2)
+    # send a signal to trigger a renewal
+    process.send_signal(signum)
+    # wait till the client is bound again
+    await asyncio.wait_for(dnsmasq.wait_for_log('DHCPACK'), timeout=2)
+    await asyncio.sleep(0.2)
+    # stop the client
+    process.send_signal(signal.SIGINT)
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=2)
+    # check the client received the signal
+    assert expected_signal_log.encode() in stderr
+    assert expected_state_change.encode() in stderr
+
+    # check there are two leases
+    leases = parse_stdout_leases(stdout)
+    assert len(leases) == 2
+    first_lease, second_lease = leases
+    first_lease['ack']['yiaddr'] == second_lease['ack']['yiaddr']

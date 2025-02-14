@@ -43,15 +43,10 @@ def get_psr() -> ArgumentParser:
         '--hook',
         help='Hooks to load. '
         'These are used to run async python code when, '
-        'for example, renewing or expiring a lease.',
-        nargs='+',
+        'for example, renewing or expiring a lease. '
+        'Defaults to adding & removing ip & gateway.',
+        action='append',
         type=str,
-        default=[
-            'pyroute2.dhcp.hooks.configure_ip',
-            'pyroute2.dhcp.hooks.add_default_gw',
-            'pyroute2.dhcp.hooks.remove_default_gw',
-            'pyroute2.dhcp.hooks.remove_ip',
-        ],
         metavar='dotted.name',
     )
     psr.add_argument(
@@ -144,6 +139,13 @@ async def main() -> None:
     # parse hooks
     hooks: list[Hook] = []
     if not args.disable_hooks:
+        if not args.hook:
+            args.hook = [
+                'pyroute2.dhcp.hooks.configure_ip',
+                'pyroute2.dhcp.hooks.add_default_gw',
+                'pyroute2.dhcp.hooks.remove_default_gw',
+                'pyroute2.dhcp.hooks.remove_ip',
+            ]
         LOG.debug('Configured hooks:')
         for dotted_hook_name in args.hook:
             hook = import_dotted_name(dotted_hook_name)
