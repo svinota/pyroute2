@@ -46,7 +46,7 @@ class DHCPServerFixture(abc.ABC, Generic[DHCPServerConfigT]):
         self.stderr: list[str] = []
         self.process: Optional[asyncio.subprocess.Process] = None
         self.output_poller: Optional[asyncio.Task] = None
-        self._expected_logs: DefaultDict[str, asyncio.Event] = defaultdict(
+        self.expected_logs: DefaultDict[str, asyncio.Event] = defaultdict(
             asyncio.Event
         )
 
@@ -58,8 +58,8 @@ class DHCPServerFixture(abc.ABC, Generic[DHCPServerConfigT]):
             line = line.decode().strip()
             # Trigger events for any log substring we're looking for
             # that will wake up `wait_for_log`
-            for sublog in filter(line.__contains__, self._expected_logs):
-                self._expected_logs[sublog].set()
+            for sublog in filter(line.__contains__, self.expected_logs):
+                self.expected_logs[sublog].set()
             output.append(line)
 
     async def _read_outputs(self):
@@ -98,7 +98,7 @@ class DHCPServerFixture(abc.ABC, Generic[DHCPServerConfigT]):
 
     async def wait_for_log(self, substr: str):
         '''Wait for a string to appear in logs, then return.'''
-        await self._expected_logs[substr].wait()
+        await self.expected_logs[substr].wait()
         # wait a tiny bit more so the client has time to react
         await asyncio.sleep(0.1)
 
@@ -130,6 +130,9 @@ def get_psr() -> ArgumentParser:
     psr.add_argument(
         '--netmask', type=IPv4Address, default=IPv4Address("255.255.255.0")
     )
+    psr.add_argument(
+        '--broadcast', type=IPv4Address, default=IPv4Address('192.168.186.255')
+    )
     return psr
 
 
@@ -141,6 +144,7 @@ async def run_fixture_as_main(fixture_cls: type[DHCPServerFixture]):
         end=args.range_end,
         router=args.router,
         netmask=args.netmask,
+        broadcast=args.broadcast,
     )
     conf = config_cls(
         range=range_config,

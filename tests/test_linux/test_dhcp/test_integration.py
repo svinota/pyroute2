@@ -168,8 +168,8 @@ async def test_lease_expiration(
         <= lease_time
     )
     assert (
-        caplog.messages.index('Renewal timer expired')
-        < caplog.messages.index('Rebinding timer expired')
+        caplog.messages.index('T1 expired, renewing lease')
+        < caplog.messages.index('T2 expired, rebinding lease')
         < caplog.messages.index('Lease expired')
     )
 
