@@ -98,6 +98,7 @@ fit into 1..254 (`uint8`) -- the 0 code is used for padding and
 the code 255 is the end of options code.
 '''
 
+import logging
 import struct
 import sys
 from array import array
@@ -107,6 +108,9 @@ from pyroute2.common import basestring
 from pyroute2.protocols import Policy, _decode_mac, _encode_mac, msg
 
 from .enums.dhcp import MessageType, Option
+
+LOG = logging.getLogger(__name__)
+
 
 # hack because Self is not supported in py39
 _dhcpmsgSelf = TypeVar('_dhcpmsgSelf', bound='dhcpmsg')
@@ -206,10 +210,18 @@ class option(msg):
                 fmt = '%is' % self.data_length
             else:
                 fmt = self.policy.format
-            value = struct.unpack(
-                fmt,
-                self.buf[self.offset + 2 : self.offset + 2 + self.data_length],
-            )
+            try:
+                value = struct.unpack(
+                    fmt,
+                    self.buf[
+                        self.offset + 2 : self.offset + 2 + self.data_length
+                    ],
+                )
+            except struct.error as err:
+                raise ValueError(
+                    f'Cannot decode option {self.code} '
+                    f'as {self.policy.format}: {err}'
+                )
             if len(value) == 1:
                 value = value[0]
             value = self.policy.decode(value)
@@ -277,7 +289,11 @@ class dhcpmsg(msg):
             # code is known, work on it
             option_class = getattr(self, self._decode_map[code].format)
             option = option_class(buf=self.buf, offset=self.offset)
-            option.decode()
+            try:
+                option.decode()
+            except ValueError as err:
+                LOG.error("%s", err)
+                break
             self.offset += option.length
             if option.value is not None:
                 value = option.value
@@ -360,3 +376,6 @@ class dhcpmsg(msg):
 
     class message_type(option):
         policy = Policy(format='B', decode=MessageType)
+
+    class bool(option):
+        policy = Policy(format='B', encode=int, decode=bool)

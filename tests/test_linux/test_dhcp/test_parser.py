@@ -1,3 +1,4 @@
+import pytest
 from fixtures.pcap_files import PcapFile
 
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
@@ -199,4 +200,27 @@ def test_netatmo_discover_request(pcap: PcapFile):
             dhcp.Option.NAME_SERVER,
         ],
         'host_name': b'Netatmo-Personal-Weather-Station',
+    }
+
+
+def test_invalid_router_option(
+    pcap: PcapFile, caplog: pytest.LogCaptureFixture
+):
+    '''Last opt. has an invalid length; the rest of the packet is decoded.'''
+    caplog.set_level('ERROR', logger='pyroute2.dhcp')
+    ack = parse_pcap(pcap, 1)[0]
+    assert caplog.messages == [
+        'Cannot decode option 0 as string: '
+        'unpack requires a buffer of 255 bytes'
+    ]
+    assert ack.dhcp['options'] == {
+        'broadcast_address': '192.168.42.255',
+        'domain_name': b'toulouse.fourcot.fr',
+        'lease_time': 604800,
+        'message_type': dhcp.MessageType.ACK,
+        'name_server': ['192.168.42.10'],
+        'rebinding_time': 529200,
+        'renewal_time': 302400,
+        'server_id': '192.168.42.10',
+        'subnet_mask': '255.255.255.0',
     }
