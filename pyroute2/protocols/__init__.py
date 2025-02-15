@@ -118,6 +118,8 @@ ETH_P_CAIF = 0x00F7  # ST-Ericsson CAIF protocol
 def _decode_mac(value: Union[bytes, tuple[int, ...]]) -> str:
     if isinstance(value, tuple):
         value = bytes(value)
+    if not len(value) == 6:
+        raise ValueError('Invalid mac address, must be 6 bytes long')
     return value.hex(sep=':')
 
 

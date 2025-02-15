@@ -224,3 +224,30 @@ def test_invalid_router_option(
         'server_id': '192.168.42.10',
         'subnet_mask': '255.255.255.0',
     }
+
+
+def test_invalid_client_id_option(
+    pcap: PcapFile, caplog: pytest.LogCaptureFixture
+):
+    '''The client id is declared as 8 bytes long instead of 7.'''
+    caplog.set_level('ERROR', logger='pyroute2.dhcp')
+    req = parse_pcap(pcap, 1)[0]
+    # Options before the failed one are still decoded
+    assert req.dhcp['options'] == {
+        'max_msg_size': 1500,
+        'message_type': dhcp.MessageType.REQUEST,
+        'parameter_list': [
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.CLASSLESS_STATIC_ROUTE,
+            dhcp.Option.ROUTER,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.IPV6_ONLY_PREFERRED,
+            dhcp.Option.DHCP_CAPTIVE_PORTAL,
+            dhcp.Option.DOMAIN_SEARCH,
+            dhcp.Option.PRIVATE_PROXY_AUTODISCOVERY,
+            dhcp.Option.LDAP_SERVERS,
+            dhcp.Option.NETBIOS_NAME_SERVER,
+            dhcp.Option.NETBIOS_NODE_TYPE,
+        ],
+    }
