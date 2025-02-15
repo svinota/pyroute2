@@ -202,9 +202,12 @@ class msg(dict):
             name, sfmt = field[:2]
             fmt, routine = self._get_routine('decode', sfmt)
             size = struct.calcsize(fmt)
-            value = struct.unpack(
-                fmt, self.buf[self.offset : self.offset + size]
-            )
+            try:
+                value = struct.unpack_from(fmt, self.buf, self.offset)
+            except struct.error as err:
+                raise ValueError(
+                    f'Cannot decode {type(self).__name__} {name}: {err}'
+                )
             if len(value) == 1:
                 value = value[0]
                 if isinstance(value, bytes) and sfmt[-1] == 's':

@@ -202,9 +202,14 @@ class option(msg):
         return self
 
     def decode(self: _optionSelf) -> _optionSelf:
-        self.data_length = struct.unpack(
-            'B', self.buf[self.offset + 1 : self.offset + 2]
-        )[0]
+        try:
+            self.data_length = struct.unpack(
+                'B', self.buf[self.offset + 1 : self.offset + 2]
+            )[0]
+        except struct.error as err:
+            raise ValueError(
+                f'Cannot decode length for DHCP option {self.code}: {err}'
+            )
         if self.policy is not None:
             if self.policy.format == 'string':
                 fmt = '%is' % self.data_length

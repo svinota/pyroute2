@@ -1,3 +1,5 @@
+from typing import Iterable
+
 import pytest
 from fixtures.pcap_files import PcapFile
 
@@ -7,7 +9,7 @@ from pyroute2.dhcp.messages import ReceivedDHCPMessage
 
 
 def parse_pcap(
-    pcap: PcapFile, expected_packets: int
+    pcap: Iterable[bytes], expected_packets: int
 ) -> list[ReceivedDHCPMessage]:
     decoded_dhcp_messages = [AsyncDHCP4Socket._decode_msg(i) for i in pcap]
     assert len(decoded_dhcp_messages) == expected_packets
@@ -251,3 +253,75 @@ def test_invalid_client_id_option(
             dhcp.Option.NETBIOS_NODE_TYPE,
         ],
     }
+
+
+@pytest.mark.parametrize(
+    ('offset', 'err_msg'),
+    (
+        (
+            0,
+            'Cannot decode ethmsg dst: unpack_from requires a buffer '
+            'of at least 6 bytes for unpacking 6 bytes at offset 0',
+        ),
+        (
+            1,
+            'Cannot decode ethmsg dst: unpack_from requires a buffer '
+            'of at least 6 bytes for unpacking 6 bytes at offset 0',
+        ),
+        (
+            8,
+            'Cannot decode ethmsg src: unpack_from requires a buffer '
+            'of at least 12 bytes for unpacking 6 bytes at offset 6',
+        ),
+        (
+            20,
+            'Cannot decode ip4msg flags: unpack_from requires a buffer '
+            'of at least 22 bytes for unpacking 2 bytes at offset 20',
+        ),
+        (
+            30,
+            'Cannot decode ip4msg dst: unpack_from requires a buffer '
+            'of at least 34 bytes for unpacking 4 bytes at offset 30',
+        ),
+        (
+            40,
+            'Cannot decode udpmsg csum: unpack_from requires a buffer '
+            'of at least 42 bytes for unpacking 2 bytes at offset 40',
+        ),
+        (
+            50,
+            'Cannot decode dhcp4msg secs: unpack_from requires a buffer '
+            'of at least 52 bytes for unpacking 2 bytes at offset 50',
+        ),
+        (
+            60,
+            'Cannot decode dhcp4msg yiaddr: unpack_from requires a buffer '
+            'of at least 62 bytes for unpacking 4 bytes at offset 58',
+        ),
+        (
+            70,
+            'Cannot decode dhcp4msg chaddr: unpack_from requires a buffer '
+            'of at least 86 bytes for unpacking 16 bytes at offset 70',
+        ),
+        (
+            100,
+            'Cannot decode dhcp4msg sname: unpack_from requires a buffer '
+            'of at least 150 bytes for unpacking 64 bytes at offset 86',
+        ),
+        (
+            200,
+            'Cannot decode dhcp4msg file: unpack_from requires a buffer '
+            'of at least 278 bytes for unpacking 128 bytes at offset 150',
+        ),
+        (
+            280,
+            'Cannot decode dhcp4msg cookie: unpack_from requires a buffer '
+            'of at least 282 bytes for unpacking 4 bytes at offset 278',
+        ),
+    ),
+)
+def test_truncated_packet(pcap: PcapFile, offset: int, err_msg: str):
+    '''Truncated packets raise ValueError when decoded.'''
+    with pytest.raises(ValueError) as err_ctx:
+        parse_pcap([i[:offset] for i in pcap], 1)[0]
+    assert str(err_ctx.value) == err_msg + f' (actual buffer size is {offset})'

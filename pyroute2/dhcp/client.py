@@ -644,8 +644,8 @@ class AsyncDHCPClient:
         '''
         loop.add_signal_handler(
             sig=signal,
-            callback=lambda: asyncio.create_task(  # type: ignore[arg-type]
-                callback(signal=signal)
+            callback=lambda: asyncio.create_task(
+                callback(signal=signal)  # type: ignore[arg-type]
             ),
         )
 
