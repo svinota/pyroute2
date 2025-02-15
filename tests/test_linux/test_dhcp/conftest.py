@@ -1,5 +1,7 @@
 '''Fixtures only relevant for dhcp tests.'''
 
+import json
+import re
 import socket
 from typing import Awaitable, Callable
 
@@ -15,8 +17,11 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 @pytest.fixture
 def client_config(veth_pair: VethPair) -> ClientConfig:
-    '''Fixture that returns a ClientConfig for the veth_pair.'''
-    return ClientConfig(interface=veth_pair.client)
+    '''Fixture that returns a ClientConfig for the veth_pair.
+
+    Signal handlers are disabled.
+    '''
+    return ClientConfig(interface=veth_pair.client, handle_signals=False)
 
 
 @pytest.fixture
@@ -66,3 +71,8 @@ def get_ipv4_addrs_for(async_ipr: AsyncIPRoute) -> GetIPv4AddrsFor:
         return await _get_ipv4_addrs(ipr=async_ipr, index=index)
 
     return _wrapped
+
+
+def parse_stdout_leases(data: bytes) -> list[dict]:
+    '''Parses leases written by the client on stdout.'''
+    return [json.loads(i) for i in re.split(b'(?<=\n)(?=\\{\n)', data)]
