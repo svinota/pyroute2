@@ -388,3 +388,6 @@ async def test_corrupted_lease_file(
         assert cli.lease is None
     assert len(caplog.messages) == 1
     assert caplog.messages[0].startswith('Error loading lease: ')
+
+
+# TODO : test client behavior for truncated packets

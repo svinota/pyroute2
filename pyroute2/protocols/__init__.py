@@ -118,6 +118,8 @@ ETH_P_CAIF = 0x00F7  # ST-Ericsson CAIF protocol
 def _decode_mac(value: Union[bytes, tuple[int, ...]]) -> str:
     if isinstance(value, tuple):
         value = bytes(value)
+    if not len(value) == 6:
+        raise ValueError('Invalid mac address, must be 6 bytes long')
     return value.hex(sep=':')
 
 
@@ -200,9 +202,12 @@ class msg(dict):
             name, sfmt = field[:2]
             fmt, routine = self._get_routine('decode', sfmt)
             size = struct.calcsize(fmt)
-            value = struct.unpack(
-                fmt, self.buf[self.offset : self.offset + size]
-            )
+            try:
+                value = struct.unpack_from(fmt, self.buf, self.offset)
+            except struct.error as err:
+                raise ValueError(
+                    f'Cannot decode {type(self).__name__} {name}: {err}'
+                )
             if len(value) == 1:
                 value = value[0]
                 if isinstance(value, bytes) and sfmt[-1] == 's':

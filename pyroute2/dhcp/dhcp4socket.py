@@ -7,6 +7,7 @@ IPv4 DHCP socket
 import asyncio
 import logging
 import socket
+from typing import Optional
 
 from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
@@ -144,9 +145,17 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         to decode it as IPv4 DHCP. No analysis is done here,
         only MAC/IPv4/UDP headers are stripped out, and the
         rest is interpreted as DHCP.
+
+        Packets that cannot be decoded are logged & discarded.
         '''
-        data = await self.loop.sock_recv(self, 4096)
-        return self._decode_msg(data)
+        msg: Optional[ReceivedDHCPMessage] = None
+        while not msg:
+            raw = await self.loop.sock_recv(self, 4096)
+            try:
+                msg = self._decode_msg(raw)
+            except ValueError as err:
+                LOG.error('%s', err)
+        return msg
 
     @classmethod
     def _decode_msg(cls, data: bytes) -> ReceivedDHCPMessage:
