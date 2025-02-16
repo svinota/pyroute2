@@ -11,7 +11,7 @@ from urllib import parse
 from pyroute2 import config, netns
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.requests.main import RequestProcessor
+from pyroute2.requests.main import RequestFilter, RequestProcessor
 
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
@@ -23,7 +23,7 @@ CoreSocketResources = collections.namedtuple(
 
 class CoreSocketSpec(dict):
     defaults = {'closed': False, 'compiled': None, 'uname': config.uname}
-    status_filters = []
+    status_filters: list[RequestFilter] = []
 
     def __init__(self, spec=None):
         super().__init__(spec)
@@ -261,15 +261,15 @@ class AsyncCoreSocket:
             self.local.endpoint_started = False
         return self.local.endpoint_started
 
+    @endpoint_started.setter
+    def endpoint_started(self, value):
+        self.local.endpoint_started = value
+
     @property
     def endpoint(self):
         if not hasattr(self.local, 'endpoint'):
             self.local.endpoint = None
         return self.local.endpoint
-
-    @endpoint_started.setter
-    def endpoint_started(self, value):
-        self.local.endpoint_started = value
 
     @endpoint.setter
     def endpoint(self, value):

@@ -118,6 +118,7 @@ from pyroute2.netlink.core import (
 )
 from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
+from pyroute2.requests.main import RequestFilter
 
 log = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 # 8<-----------------------------------------------------------
 
 
-class NetlinkSocketSpecFilter:
+class NetlinkSocketSpecFilter(RequestFilter):
     def set_target(self, context, value):
         if 'target' in context:
             return {'target': context['target']}
