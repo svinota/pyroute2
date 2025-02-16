@@ -1,7 +1,6 @@
 import asyncio
 import collections
 import errno
-import json
 import logging
 import os
 import socket
@@ -12,7 +11,6 @@ from urllib import parse
 from pyroute2 import config, netns
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.netns import setns
 from pyroute2.requests.main import RequestProcessor
 
 log = logging.getLogger(__name__)
@@ -112,33 +110,6 @@ class CoreDatagramProtocol(CoreProtocol):
     def datagram_received(self, data, addr):
         log.debug('SOCK_DGRAM enqueue %s bytes' % len(data))
         self.enqueue(data, addr)
-
-
-async def netns_main(ctl, nsname, flags, libc, cls):
-    # A simple child process
-    #
-    payload = None
-    fds = None
-    try:
-        # 1. set network namespace
-        setns(nsname, flags=flags, libc=libc)
-        # 2. start the socket object
-        s = cls()
-        await s.ensure_socket()
-        payload = {}
-        fds = [s.socket.fileno()]
-    except Exception as e:
-        # get class name
-        payload = {'name': e.__class__.__name__, 'args': e.args}
-        fds = []
-    finally:
-        # 3. send the feedback
-        socket.send_fds(ctl, [json.dumps(payload).encode('utf-8')], fds, 1)
-    # 4. exit
-
-
-def netns_init(ctl, nsname, flags, libc, cls):
-    asyncio.run(netns_main(ctl, nsname, flags, libc, cls))
 
 
 class AsyncCoreSocket:
