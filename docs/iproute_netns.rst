@@ -64,14 +64,22 @@ will fail, if the network namespace doesn't exist already:
 
 The init routine works now as follows:
 
-* fork a child using `multiprocessing`
+* fork a child using `pyroute2.config.child_process_mode`, which can be
+  either `"fork"` (default) for `os.fork()` or `"mp"` for
+  `multiprocessing.Process()` (safer and slower).
 * start a socket in the child
 * send the socket FD back to the parent
 * init a socket in the parent using the FD from the child
 * exit the child
 
-.. literalinclude:: ../../../../pyroute2/netlink/core.py
-    :caption: pyroute2.netlink.core: netns_main(...)
-    :pyobject: netns_main
-    :linenos:
-    :lineno-match:
+.. testcode:: netns-config
+   :hide:
+
+   from pyroute2 import config
+   assert isinstance(config.child_process_mode, str)
+
+An important note about `pyroute2.config.child_process_mode`: while the
+`"fork"` mode might be significantly faster than `"mp"` on some setups
+and versions, it is not threadsafe, and you will get warnings from Python
+when using it in multithreaded applications. The socket init routine is
+written to be safe even under these circumstances, but ye warned.
