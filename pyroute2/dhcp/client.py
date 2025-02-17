@@ -98,7 +98,11 @@ class ClientConfig:
     @property
     def pidfile_path(self) -> Path:
         '''Where to write the pid file. It's named after the interface.'''
-        return Path.cwd().joinpath(self.interface).with_suffix('.pid')
+        return (
+            Path.cwd()
+            .joinpath(self.interface)
+            .with_name(f"{self.interface}.pid")
+        )
 
 
 class AsyncDHCPClient:

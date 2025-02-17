@@ -211,7 +211,9 @@ class JSONFileLease(Lease):
     def _get_path(cls, interface: str) -> Path:
         '''The lease file, named after the interface.'''
         return (
-            cls._get_lease_dir().joinpath(interface).with_suffix('.lease.json')
+            cls._get_lease_dir()
+            .joinpath(interface)
+            .with_name(f'{interface}.lease.json')
         )
 
     def dump(self) -> None:
