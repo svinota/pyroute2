@@ -7,10 +7,11 @@ import io
 import os
 import socket
 import struct
-import sys
 import threading
 import time
 import types
+from functools import partial
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
 basestring = (str, bytes)
 file = io.BytesIO
@@ -71,11 +72,13 @@ rate_suffixes = {
 # General purpose
 #
 class Namespace(object):
-    def __init__(self, parent, override=None):
+    def __init__(
+        self, parent: 'Namespace', override: Optional[dict[str, Any]] = None
+    ):
         self.parent = parent
         self.override = override or {}
 
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> Union[str, types.MethodType]:
         if key in ('parent', 'override'):
             return object.__getattr__(self, key)
         elif key in self.override:
@@ -93,7 +96,7 @@ class Namespace(object):
                 ret = type(ret)(ret.__func__, self)
             return ret
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: int):
         if key in ('parent', 'override'):
             object.__setattr__(self, key, value)
         elif key in self.override:
@@ -102,7 +105,19 @@ class Namespace(object):
             setattr(self.parent, key, value)
 
 
-def map_namespace(prefix, ns, normalize=None):
+def _no_change(s: str) -> str:
+    return s
+
+
+def _default_normalize(s: str, prefix: str) -> str:
+    return s[len(prefix) :].lower()
+
+
+def map_namespace(
+    prefix: str,
+    ns: dict[str, Any],
+    normalize: Union[None, Literal[True], Callable[[str], str]] = None,
+) -> tuple[dict[str, int], dict[int, str]]:
     '''
     Take the namespace prefix, list all constants and build two
     dictionaries -- straight and reverse mappings. E.g.:
@@ -130,30 +145,34 @@ def map_namespace(prefix, ns, normalize=None):
         - True — cut the prefix and `lower()` the rest
         - lambda x: … — apply the function to every name
     '''
-    nmap = {None: lambda x: x, True: lambda x: x[len(prefix) :].lower()}
+    transform: Callable[[str], str]
 
-    if not isinstance(normalize, types.FunctionType):
-        normalize = nmap[normalize]
+    if normalize is None:
+        transform = _no_change
+    elif normalize is True:
+        transform = partial(_default_normalize, prefix=prefix)
+    elif isinstance(normalize, types.FunctionType):
+        transform = normalize
+    else:
+        raise ValueError("Invalid value for `normalize` parameter")
 
-    by_name = dict(
-        [(normalize(i), ns[i]) for i in ns.keys() if i.startswith(prefix)]
-    )
-    by_value = dict(
-        [(ns[i], normalize(i)) for i in ns.keys() if i.startswith(prefix)]
-    )
+    by_name = {transform(i): ns[i] for i in ns.keys() if i.startswith(prefix)}
+    by_value = {ns[i]: transform(i) for i in ns.keys() if i.startswith(prefix)}
     return (by_name, by_value)
 
 
-def getbroadcast(addr, mask, family=socket.AF_INET):
+def getbroadcast(
+    addr: str, mask: int, family: socket.AddressFamily = socket.AF_INET
+) -> str:
     # 1. convert addr to int
     i = socket.inet_pton(family, addr)
     if family == socket.AF_INET:
-        i = struct.unpack('>I', i)[0]
+        i_unpacked = struct.unpack('>I', i)[0]
         a = 0xFFFFFFFF
         length = 32
     elif family == socket.AF_INET6:
-        i = struct.unpack('>QQ', i)
-        i = i[0] << 64 | i[1]
+        i_unpacked = struct.unpack('>QQ', i)
+        i_unpacked = i_unpacked[0] << 64 | i_unpacked[1]
         a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         length = 128
     else:
@@ -161,7 +180,7 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     # 2. calculate mask
     m = (a << length - mask) & a
     # 3. calculate default broadcast
-    n = (i & m) | a >> mask
+    n = (i_unpacked & m) | a >> mask
     # 4. convert it back to the normal address form
     if family == socket.AF_INET:
         n = struct.pack('>I', n)
@@ -170,7 +189,7 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     return socket.inet_ntop(family, n)
 
 
-def dqn2int(mask, family=socket.AF_INET):
+def dqn2int(mask: str, family: socket.AddressFamily = socket.AF_INET) -> int:
     '''
     IPv4 dotted quad notation to int mask conversion
     '''
@@ -183,21 +202,23 @@ def dqn2int(mask, family=socket.AF_INET):
     return ret
 
 
-def get_address_family(address):
+def get_address_family(address: str) -> socket.AddressFamily:
     if address.find(':') > -1:
         return socket.AF_INET6
     else:
         return socket.AF_INET
 
 
-def hexdump(payload, length=0):
+def hexdump(payload: bytes, length: int = 0) -> str:
     '''
     Represent byte string as hex -- for debug purposes
     '''
     return ':'.join('{0:02x}'.format(c) for c in payload[:length] or payload)
 
 
-def load_dump(f, meta=None):
+def load_dump(
+    f: Union[str, io.StringIO], meta: Optional[dict[str, str]] = None
+) -> Union[bytes, str]:
     '''
     Load a packet dump from an open file-like object or a string.
 
@@ -218,6 +239,7 @@ def load_dump(f, meta=None):
     code = None
     meta_data = None
     meta_label = None
+    io_obj: Union[io.StringIO, str]
     if isinstance(f, str):
         io_obj = io.StringIO()
         io_obj.write(f)
@@ -262,13 +284,10 @@ def load_dump(f, meta=None):
     if isinstance(meta, dict):
         if code is not None:
             meta['code'] = code
-        if meta_data is not None:
+        if meta_data is not None and meta_label is not None:
             meta[meta_label] = meta_data
 
-    if sys.version[0] == '3':
-        return bytes(data, 'iso8859-1')
-    else:
-        return data
+    return bytes(data, 'iso8859-1')
 
 
 class AddrPool(object):
@@ -279,15 +298,17 @@ class AddrPool(object):
     cell = 0xFFFFFFFFFFFFFFFF
 
     def __init__(
-        self, minaddr=0xF, maxaddr=0xFFFFFF, reverse=False, release=False
+        self,
+        minaddr: int = 0xF,
+        maxaddr: int = 0xFFFFFF,
+        reverse: bool = False,
+        release: bool = False,
     ):
         self.cell_size = 0  # in bits
         mx = self.cell
         self.reverse = reverse
         self.release = release
-        if self.release and not isinstance(self.release, int):
-            raise TypeError()
-        self.ban = []
+        self.ban: list[dict[str, int]] = []
         while mx:
             mx >>= 8
             self.cell_size += 1
@@ -300,7 +321,7 @@ class AddrPool(object):
         self.maxaddr = maxaddr
         self.lock = threading.RLock()
 
-    def alloc(self):
+    def alloc(self) -> int:
         with self.lock:
             # gc self.ban:
             for item in tuple(self.ban):
@@ -345,7 +366,7 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
-    def locate(self, addr):
+    def locate(self, addr: int) -> tuple[int, int, bool]:
         if self.reverse:
             addr = self.maxaddr - addr
         else:
@@ -358,12 +379,12 @@ class AddrPool(object):
             is_allocated = False
         return (base, bit, is_allocated)
 
-    def free(self, addr, ban=0):
+    def free(self, addr: int, ban: int = 0):
         with self.lock:
             if ban != 0:
                 self.ban.append({'addr': addr, 'counter': ban})
             else:
-                base, bit, is_allocated = self.locate(addr)
+                base, bit, _ = self.locate(addr)
                 if len(self.addr_map) <= base:
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
@@ -371,15 +392,11 @@ class AddrPool(object):
                 self.addr_map[base] ^= 1 << bit
 
 
-def fnv1(data):
+def fnv1(data: bytes) -> int:
     '''
     FNV1 -- 32bit hash, python3 version
 
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
+    Returns: 32bit int hash
 
     See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
     '''
@@ -390,12 +407,9 @@ def fnv1(data):
     return hval & 0xFFFFFFFF
 
 
-def uuid32():
+def uuid32() -> int:
     '''
     Return 32bit UUID, based on the current time and pid.
-
-    @return: 32bit int uuid
-    @rtype: int
 
     The uuid is guaranteed to be unique within one process.
     '''
@@ -412,23 +426,25 @@ def uuid32():
         return candidate
 
 
-def uifname():
+def uifname() -> str:
     '''
     Return a unique interface name based on a prime function
-
-    @return: interface name
-    @rtype: str
     '''
     return 'pr%x' % uuid32()
 
 
-def map_exception(match, subst):
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def map_exception(
+    match: Callable[[Exception], bool], subst: Callable[[Exception], Exception]
+) -> Callable[[F], F]:
     '''
     Decorator to map exception types
     '''
 
-    def wrapper(f):
-        def decorated(*argv, **kwarg):
+    def wrapper(f: F) -> F:
+        def decorated(*argv: Any, **kwarg: Any) -> Any:
             try:
                 f(*argv, **kwarg)
             except Exception as e:
@@ -436,12 +452,12 @@ def map_exception(match, subst):
                     raise subst(e)
                 raise
 
-        return decorated
+        return decorated  # type: ignore
 
     return wrapper
 
 
-def map_enoent(f):
+def map_enoent(f: F) -> F:
     '''
     Shortcut to map OSError(2) -> OSError(95)
     '''
@@ -451,8 +467,11 @@ def map_enoent(f):
     )(f)
 
 
-def metaclass(mc):
-    def wrapped(cls):
+T = TypeVar('T', bound=type)
+
+
+def metaclass(mc: T) -> Callable[[T], T]:
+    def wrapped(cls: T) -> T:
         nvars = {}
         skip = ['__dict__', '__weakref__']
         slots = cls.__dict__.get('__slots__')
@@ -468,7 +487,7 @@ def metaclass(mc):
     return wrapped
 
 
-def msg_done(msg):
+def msg_done(msg) -> bytes:
     newmsg = struct.pack('IHH', 40, 2, 0)
     newmsg += msg.data[8:16]
     newmsg += struct.pack('I', 0)
