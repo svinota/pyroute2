@@ -6,6 +6,8 @@ import os
 import socket
 import struct
 import threading
+from dataclasses import asdict, dataclass
+from typing import Optional, Type
 from urllib import parse
 
 from pyroute2 import config, netns
@@ -21,26 +23,36 @@ CoreSocketResources = collections.namedtuple(
 )
 
 
-class CoreSocketSpec(dict):
-    defaults = {'closed': False, 'compiled': None, 'uname': config.uname}
-    status_filters: list[RequestFilter] = []
+@dataclass
+class CoreConfig:
+    target: str = 'localhost'
+    use_socket: bool = False
+    use_event_loop: bool = False
+    use_libc: bool = False
+    flags: int = os.O_CREAT
+    groups: int = 0
+    rcvsize: int = 16384
+    netns: Optional[str] = None
 
-    def __init__(self, spec=None):
-        super().__init__(spec)
-        spec = {} if spec is None else spec
+
+class CoreSocketSpec:
+    defaults = {'closed': False, 'compiled': None, 'uname': config.uname}
+    status_filters: list[Type[RequestFilter]] = []
+
+    def __init__(self, config: CoreConfig):
+        self.config = config
         self.status = RequestProcessor()
         for flt in self.status_filters:
             self.status.add_filter(flt())
         self.status.update(self.defaults)
-        self.status.update(self)
+        self.status.update(asdict(self.config))
 
     def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self.status.update(self)
+        setattr(self.config, key, value)
+        self.status.update(asdict(self))
 
-    def __delitem__(self, key):
-        super().__delitem__(key)
-        self.status.update(self)
+    def __getitem__(self, key):
+        return getattr(self.config, key)
 
 
 class CoreMessageQueue:
@@ -140,15 +152,15 @@ class AsyncCoreSocket:
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
-            {
-                'target': target,
-                'use_socket': use_socket,
-                'use_event_loop': use_event_loop,
-                'rcvsize': rcvsize,
-                'netns': netns,
-                'flags': flags,
-                'groups': groups,
-            }
+            CoreConfig(
+                target=target,
+                use_socket=use_socket,
+                use_event_loop=use_event_loop,
+                rcvsize=rcvsize,
+                netns=netns,
+                flags=flags,
+                groups=groups,
+            )
         )
         self.status = self.spec.status
         self.request_proxy = None
