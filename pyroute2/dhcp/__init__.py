@@ -293,7 +293,7 @@ class dhcpmsg(msg):
 
             # code is known, work on it
             option_class = getattr(self, self._decode_map[code].format)
-            option = option_class(buf=self.buf, offset=self.offset)
+            option = option_class(buf=self.buf, offset=self.offset, code=code)
             try:
                 option.decode()
             except ValueError as err:
@@ -320,6 +320,7 @@ class dhcpmsg(msg):
             .encode()
             .buf
         )
+        # TODO: make vendor id configurable
         self.buf += (
             self.string(code=Option.VENDOR_ID, value='pyroute2').encode().buf
         )

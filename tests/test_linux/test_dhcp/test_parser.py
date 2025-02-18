@@ -212,7 +212,7 @@ def test_invalid_router_option(
     caplog.set_level('ERROR', logger='pyroute2.dhcp')
     ack = parse_pcap(pcap, 1)[0]
     assert caplog.messages == [
-        'Cannot decode option 0 as string: '
+        'Cannot decode option 3 as string: '
         'unpack requires a buffer of 255 bytes'
     ]
     assert ack.dhcp['options'] == {
@@ -325,3 +325,56 @@ def test_truncated_packet(pcap: PcapFile, offset: int, err_msg: str):
     with pytest.raises(ValueError) as err_ctx:
         parse_pcap([i[:offset] for i in pcap], 1)[0]
     assert str(err_ctx.value) == err_msg + f' (actual buffer size is {offset})'
+
+
+def test_android_tethering_renew(pcap: PcapFile):
+    '''Renew process for a Debian pc connected to an Android phone.'''
+    client_mac = 'a0:a4:c5:93:ac:60'
+    client_ip = '192.168.72.168'
+    request, ack = parse_pcap(pcap, expected_packets=2)
+    assert request.message_type == dhcp.MessageType.REQUEST
+    assert request.eth_src == request.dhcp['chaddr'] == client_mac
+    assert request.ip_src == request.dhcp['ciaddr'] == client_ip
+    assert request.dhcp['secs'] == 1
+    assert request.dhcp['options'] == {
+        'client_id': {'key': 'a0:a4:c5:93:ac:60', 'type': 1},
+        'host_name': b'thinkpad-eno',
+        'max_msg_size': 0xFFFF,
+        'message_type': dhcp.MessageType.REQUEST,
+        'parameter_list': [
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.TIME_OFFSET,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.HOST_NAME,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.INTERFACE_MTU,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.CLASSLESS_STATIC_ROUTE,
+            dhcp.Option.ROUTER,
+            dhcp.Option.STATIC_ROUTE,
+            dhcp.Option.NIS_DOMAIN,
+            dhcp.Option.NIS_SERVERS,
+            dhcp.Option.NTP_SERVERS,
+            dhcp.Option.DOMAIN_SEARCH,
+            dhcp.Option.PRIVATE_CLASSIC_ROUTE_MS,
+            dhcp.Option.PRIVATE_PROXY_AUTODISCOVERY,
+            dhcp.Option.ROOT_PATH,
+        ],
+    }
+
+    assert ack.message_type == dhcp.MessageType.ACK
+    assert ack.eth_dst == ack.dhcp['chaddr'] == client_mac
+    assert ack.ip_dst == ack.dhcp['ciaddr'] == client_ip
+    assert ack.dhcp['options'] == {
+        'broadcast_address': '192.168.72.255',
+        'host_name': b'thinkpad-eno',
+        'lease_time': 3599,
+        'message_type': dhcp.MessageType.ACK,
+        'name_server': ['192.168.72.238'],
+        'rebinding_time': 3149,
+        'renewal_time': 1799,
+        'router': ['192.168.72.238'],
+        'server_id': '192.168.72.238',
+        'subnet_mask': '255.255.255.0',
+        'vendor_specific_information': b'ANDROID_METERED',
+    }
