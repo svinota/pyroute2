@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import struct
 from ctypes import (
     Structure,
     addressof,
@@ -155,12 +154,11 @@ class AsyncRawSocket(socket):
         '''Compute the "Internet checksum" for the given bytes.'''
         if len(data) % 2:
             data += b'\x00'
-        csum = sum(
-            [
-                struct.unpack('>H', data[x * 2 : x * 2 + 2])[0]
-                for x in range(len(data) // 2)
-            ]
-        )
+        csum: int = 0
+        # pretty much the fastest way to compute this in Python
+        for i in range(len(data) // 2):
+            offset = i * 2
+            csum += (data[offset] << 8) + data[offset + 1]
         csum = (csum >> 16) + (csum & 0xFFFF)
         csum += csum >> 16
         return ~csum & 0xFFFF

@@ -27,6 +27,7 @@ class MockDHCPServerFixture:
         # drops the loop in the middle of the test
         self.loop = event_loop
         self._request_received = asyncio.Event()
+        self.truncate_at: int = 0
 
     async def sock_sendall(self, sock, data: bytes):
         self.requests.append(data)
@@ -38,7 +39,10 @@ class MockDHCPServerFixture:
         await self._request_received.wait()
         self._request_received.clear()
         if self.responses:
-            return self.responses.pop(0)
+            data = self.responses.pop(0)
+            if self.truncate_at:
+                return data[: self.truncate_at]
+            return data
         # make the client timeout, the server is supposed to answer nothing
         await asyncio.sleep(9999)
 

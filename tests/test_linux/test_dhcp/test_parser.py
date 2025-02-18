@@ -1,3 +1,6 @@
+from typing import Iterable
+
+import pytest
 from fixtures.pcap_files import PcapFile
 
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
@@ -6,7 +9,7 @@ from pyroute2.dhcp.messages import ReceivedDHCPMessage
 
 
 def parse_pcap(
-    pcap: PcapFile, expected_packets: int
+    pcap: Iterable[bytes], expected_packets: int
 ) -> list[ReceivedDHCPMessage]:
     decoded_dhcp_messages = [AsyncDHCP4Socket._decode_msg(i) for i in pcap]
     assert len(decoded_dhcp_messages) == expected_packets
@@ -199,4 +202,179 @@ def test_netatmo_discover_request(pcap: PcapFile):
             dhcp.Option.NAME_SERVER,
         ],
         'host_name': b'Netatmo-Personal-Weather-Station',
+    }
+
+
+def test_invalid_router_option(
+    pcap: PcapFile, caplog: pytest.LogCaptureFixture
+):
+    '''Last opt. has an invalid length; the rest of the packet is decoded.'''
+    caplog.set_level('ERROR', logger='pyroute2.dhcp')
+    ack = parse_pcap(pcap, 1)[0]
+    assert caplog.messages == [
+        'Cannot decode option 3 as string: '
+        'unpack requires a buffer of 255 bytes'
+    ]
+    assert ack.dhcp['options'] == {
+        'broadcast_address': '192.168.42.255',
+        'domain_name': b'toulouse.fourcot.fr',
+        'lease_time': 604800,
+        'message_type': dhcp.MessageType.ACK,
+        'name_server': ['192.168.42.10'],
+        'rebinding_time': 529200,
+        'renewal_time': 302400,
+        'server_id': '192.168.42.10',
+        'subnet_mask': '255.255.255.0',
+    }
+
+
+def test_invalid_client_id_option(
+    pcap: PcapFile, caplog: pytest.LogCaptureFixture
+):
+    '''The client id is declared as 8 bytes long instead of 7.'''
+    caplog.set_level('ERROR', logger='pyroute2.dhcp')
+    req = parse_pcap(pcap, 1)[0]
+    # Options before the failed one are still decoded
+    assert req.dhcp['options'] == {
+        'max_msg_size': 1500,
+        'message_type': dhcp.MessageType.REQUEST,
+        'parameter_list': [
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.CLASSLESS_STATIC_ROUTE,
+            dhcp.Option.ROUTER,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.IPV6_ONLY_PREFERRED,
+            dhcp.Option.DHCP_CAPTIVE_PORTAL,
+            dhcp.Option.DOMAIN_SEARCH,
+            dhcp.Option.PRIVATE_PROXY_AUTODISCOVERY,
+            dhcp.Option.LDAP_SERVERS,
+            dhcp.Option.NETBIOS_NAME_SERVER,
+            dhcp.Option.NETBIOS_NODE_TYPE,
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ('offset', 'err_msg'),
+    (
+        (
+            0,
+            'Cannot decode ethmsg dst: unpack_from requires a buffer '
+            'of at least 6 bytes for unpacking 6 bytes at offset 0',
+        ),
+        (
+            1,
+            'Cannot decode ethmsg dst: unpack_from requires a buffer '
+            'of at least 6 bytes for unpacking 6 bytes at offset 0',
+        ),
+        (
+            8,
+            'Cannot decode ethmsg src: unpack_from requires a buffer '
+            'of at least 12 bytes for unpacking 6 bytes at offset 6',
+        ),
+        (
+            20,
+            'Cannot decode ip4msg flags: unpack_from requires a buffer '
+            'of at least 22 bytes for unpacking 2 bytes at offset 20',
+        ),
+        (
+            30,
+            'Cannot decode ip4msg dst: unpack_from requires a buffer '
+            'of at least 34 bytes for unpacking 4 bytes at offset 30',
+        ),
+        (
+            40,
+            'Cannot decode udpmsg csum: unpack_from requires a buffer '
+            'of at least 42 bytes for unpacking 2 bytes at offset 40',
+        ),
+        (
+            50,
+            'Cannot decode dhcp4msg secs: unpack_from requires a buffer '
+            'of at least 52 bytes for unpacking 2 bytes at offset 50',
+        ),
+        (
+            60,
+            'Cannot decode dhcp4msg yiaddr: unpack_from requires a buffer '
+            'of at least 62 bytes for unpacking 4 bytes at offset 58',
+        ),
+        (
+            70,
+            'Cannot decode dhcp4msg chaddr: unpack_from requires a buffer '
+            'of at least 86 bytes for unpacking 16 bytes at offset 70',
+        ),
+        (
+            100,
+            'Cannot decode dhcp4msg sname: unpack_from requires a buffer '
+            'of at least 150 bytes for unpacking 64 bytes at offset 86',
+        ),
+        (
+            200,
+            'Cannot decode dhcp4msg file: unpack_from requires a buffer '
+            'of at least 278 bytes for unpacking 128 bytes at offset 150',
+        ),
+        (
+            280,
+            'Cannot decode dhcp4msg cookie: unpack_from requires a buffer '
+            'of at least 282 bytes for unpacking 4 bytes at offset 278',
+        ),
+    ),
+)
+def test_truncated_packet(pcap: PcapFile, offset: int, err_msg: str):
+    '''Truncated packets raise ValueError when decoded.'''
+    with pytest.raises(ValueError) as err_ctx:
+        parse_pcap([i[:offset] for i in pcap], 1)[0]
+    assert str(err_ctx.value) == err_msg + f' (actual buffer size is {offset})'
+
+
+def test_android_tethering_renew(pcap: PcapFile):
+    '''Renew process for a Debian pc connected to an Android phone.'''
+    client_mac = 'a0:a4:c5:93:ac:60'
+    client_ip = '192.168.72.168'
+    request, ack = parse_pcap(pcap, expected_packets=2)
+    assert request.message_type == dhcp.MessageType.REQUEST
+    assert request.eth_src == request.dhcp['chaddr'] == client_mac
+    assert request.ip_src == request.dhcp['ciaddr'] == client_ip
+    assert request.dhcp['secs'] == 1
+    assert request.dhcp['options'] == {
+        'client_id': {'key': 'a0:a4:c5:93:ac:60', 'type': 1},
+        'host_name': b'thinkpad-eno',
+        'max_msg_size': 0xFFFF,
+        'message_type': dhcp.MessageType.REQUEST,
+        'parameter_list': [
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.TIME_OFFSET,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.HOST_NAME,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.INTERFACE_MTU,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.CLASSLESS_STATIC_ROUTE,
+            dhcp.Option.ROUTER,
+            dhcp.Option.STATIC_ROUTE,
+            dhcp.Option.NIS_DOMAIN,
+            dhcp.Option.NIS_SERVERS,
+            dhcp.Option.NTP_SERVERS,
+            dhcp.Option.DOMAIN_SEARCH,
+            dhcp.Option.PRIVATE_CLASSIC_ROUTE_MS,
+            dhcp.Option.PRIVATE_PROXY_AUTODISCOVERY,
+            dhcp.Option.ROOT_PATH,
+        ],
+    }
+
+    assert ack.message_type == dhcp.MessageType.ACK
+    assert ack.eth_dst == ack.dhcp['chaddr'] == client_mac
+    assert ack.ip_dst == ack.dhcp['ciaddr'] == client_ip
+    assert ack.dhcp['options'] == {
+        'broadcast_address': '192.168.72.255',
+        'host_name': b'thinkpad-eno',
+        'lease_time': 3599,
+        'message_type': dhcp.MessageType.ACK,
+        'name_server': ['192.168.72.238'],
+        'rebinding_time': 3149,
+        'renewal_time': 1799,
+        'router': ['192.168.72.238'],
+        'server_id': '192.168.72.238',
+        'subnet_mask': '255.255.255.0',
+        'vendor_specific_information': b'ANDROID_METERED',
     }

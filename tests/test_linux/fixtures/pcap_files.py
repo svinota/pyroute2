@@ -74,6 +74,6 @@ def pcap(request: pytest.FixtureRequest) -> PcapFile:
     pcap_path = request.path.parent.joinpath(
         'captures',
         request.path.stem,  # test file name without the extension
-        request.node.name,  # name of the test
+        request.node.originalname,  # name of the test
     ).with_suffix('.pcap')
     return PcapFile(pcap_path)

@@ -388,3 +388,35 @@ async def test_corrupted_lease_file(
         assert cli.lease is None
     assert len(caplog.messages) == 1
     assert caplog.messages[0].startswith('Error loading lease: ')
+
+
+@pytest.mark.parametrize(
+    ('truncate_offset', 'err_prefix'),
+    (
+        (30, 'Cannot decode ip4msg dst'),
+        (150, 'Cannot decode dhcp4msg file'),
+        (300, 'Cannot decode option 58 as >i'),
+        (330, 'Cannot decode option 6 as string'),
+    ),
+)
+async def test_truncated_packet(
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+    mock_dhcp_server: MockDHCPServerFixture,
+    set_fixed_xid: Callable[[int], None],
+    truncate_offset: int,
+    err_prefix: str,
+):
+    '''Test the client does not crash on invalid/truncated packets.'''
+    mock_dhcp_server.truncate_at = truncate_offset
+    caplog.set_level('ERROR', logger='pyroute2.dhcp.client')
+    set_fixed_xid(0x8057FB00)
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        await asyncio.sleep(0.2)
+        # check nothing crashed
+        assert cli.state == State.SELECTING
+        assert not cli._receiver_task.done()
+        assert not cli._sender_task.done()
+    assert len(caplog.messages) == 1
+    assert caplog.messages[0].startswith(err_prefix)

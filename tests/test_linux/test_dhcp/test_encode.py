@@ -14,6 +14,10 @@ from pyroute2.dhcp.enums import dhcp
         ('host_name', b'some computer'),
         ('max_msg_size', 1500),
         ('subnet_mask', '255.255.255.0'),
+        ('client_id', {'type': 1, 'key': '16:f4:cb:71:09:a1'}),
+        ('client_id', {'type': 0, 'key': b'some-client-identifier'}),
+        ('perform_mask_discovery', True),
+        ('tcp_keepalive_garbage', False),
     ),
 )
 def test_encode_decode_options(option_name: str, option_value: Any):
@@ -32,3 +36,6 @@ def test_encode_decode_options(option_name: str, option_value: Any):
         == msg['options'][option_name]
         == option_value
     )
+
+
+# TODO: test invalid client id
