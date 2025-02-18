@@ -5,7 +5,6 @@ import socket
 import ssl
 import subprocess
 
-from pyroute2 import netns
 from pyroute2.netlink import nlmsg
 from pyroute2.netlink.exceptions import NetlinkError
 
@@ -119,25 +118,16 @@ def probe_ssl(msg):
             raise NetlinkError(errno.ECOMM, 'probe failed')
 
 
-def proxy_newprobe(msg, nsname, channel):
+def proxy_newprobe(msg):
     kind = msg.get('kind')
-    ret = None
-    try:
-        if nsname is not None:
-            netns.setns(nsname)
-        if kind.startswith('ping'):
-            probe_ping(msg)
-        elif kind == 'tcp':
-            probe_tcp(msg)
-        elif kind == 'ssl':
-            probe_ssl(msg)
-        else:
-            raise NetlinkError(errno.ENOTSUP, 'probe type not supported')
-        msg.reset()
-        msg.encode()
-        ret = msg.data
-    except Exception as e:
-        print(" E ", e)
-        ret = e
-    finally:
-        channel.put(ret)
+    if kind.startswith('ping'):
+        probe_ping(msg)
+    elif kind == 'tcp':
+        probe_tcp(msg)
+    elif kind == 'ssl':
+        probe_ssl(msg)
+    else:
+        raise NetlinkError(errno.ENOTSUP, 'probe type not supported')
+    msg.reset()
+    msg.encode()
+    return msg.data

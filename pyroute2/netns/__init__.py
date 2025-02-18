@@ -403,7 +403,7 @@ def dropns(libc=None):
 def _create_socket_child(nsname, flags, family, socket_type, proto, libc=None):
     setns(nsname, flags=flags, libc=libc, fork=False)
     sock = socket.socket(family, socket_type, proto)
-    return ChildProcessReturnValue(None, [sock])
+    return ChildProcessReturnValue(b'', [sock])
 
 
 @config.mock_if('mock_netns')
@@ -430,7 +430,7 @@ def create_socket(
             target=_create_socket_child,
             args=[netns, flags, family, socket_type, proto, libc],
         ) as proc:
-            if (fds := proc.communicate(timeout=1)) is None:
+            if (fds := proc.get_fds(timeout=1)) is None:
                 continue
             return socket.socket(fileno=fds[0])
 
