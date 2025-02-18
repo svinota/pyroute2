@@ -7,7 +7,7 @@ import socket
 import struct
 import threading
 from dataclasses import asdict, dataclass
-from typing import Optional, Type
+from typing import Optional, Type, Union
 from urllib import parse
 
 from pyroute2 import config, netns
@@ -26,17 +26,23 @@ CoreSocketResources = collections.namedtuple(
 @dataclass
 class CoreConfig:
     target: str = 'localhost'
-    use_socket: bool = False
-    use_event_loop: bool = False
-    use_libc: bool = False
     flags: int = os.O_CREAT
     groups: int = 0
     rcvsize: int = 16384
     netns: Optional[str] = None
+    tag_field: str = ''
+    address: Optional[tuple[str, int]] = None
+    use_socket: bool = False
+    use_event_loop: bool = False
+    use_libc: bool = False
 
 
 class CoreSocketSpec:
-    defaults = {'closed': False, 'compiled': None, 'uname': config.uname}
+    defaults: dict[str, Union[bool, int, str, None, tuple[str, ...]]] = {
+        'closed': False,
+        'compiled': None,
+        'uname': config.uname,
+    }
     status_filters: list[Type[RequestFilter]] = []
 
     def __init__(self, config: CoreConfig):
@@ -49,10 +55,19 @@ class CoreSocketSpec:
 
     def __setitem__(self, key, value):
         setattr(self.config, key, value)
-        self.status.update(asdict(self))
+        self.status.update(asdict(self.config))
 
     def __getitem__(self, key):
         return getattr(self.config, key)
+
+    def serializable(self):
+        return not any(
+            (
+                self.config.use_socket,
+                self.config.use_event_loop,
+                self.config.use_libc,
+            )
+        )
 
 
 class CoreMessageQueue:
@@ -134,7 +149,6 @@ class AsyncCoreSocket:
     are built on top of it.
     '''
 
-    libc = None
     compiled = None
     __spec = None
     __marshal = None
@@ -143,38 +157,40 @@ class AsyncCoreSocket:
         self,
         target='localhost',
         rcvsize=16384,
-        use_socket=False,
+        use_socket=None,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
         groups=0,
-        use_event_loop=False,
+        use_event_loop=None,
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
             CoreConfig(
                 target=target,
-                use_socket=use_socket,
-                use_event_loop=use_event_loop,
                 rcvsize=rcvsize,
                 netns=netns,
                 flags=flags,
                 groups=groups,
+                use_libc=libc is not None,
+                use_socket=use_socket is not None,
+                use_event_loop=use_event_loop is not None,
             )
         )
         self.status = self.spec.status
-        self.request_proxy = None
         self.local = threading.local()
         self.lock = threading.Lock()
+        self.libc = libc
+        self.use_socket = use_socket
+        self.use_event_loop = use_event_loop
+        self.request_proxy = None
         if use_event_loop:
+            self.local.event_loop = use_event_loop
+            self.local.connection_lost = self.local.event_loop.create_future()
             self.status['event_loop'] = id(use_event_loop)
-            self.status['use_event_loop'] = True
             self.status['thread_id'] = id(threading.current_thread())
-        if libc is not None:
-            self.libc = libc
         url = parse.urlparse(self.spec['target'])
         self.scheme = url.scheme if url.scheme else url.path
-        self.use_socket = use_socket
         self.callbacks = []  # [(predicate, callback, args), ...]
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.marshal = None
@@ -298,18 +314,17 @@ class AsyncCoreSocket:
             sock=self.socket,
         )
 
-    def setup_event_loop(self, event_loop=None):
-        if event_loop is None:
-            try:
-                event_loop = asyncio.get_running_loop()
-                self.status['event_loop'] = 'auto'
-            except RuntimeError:
-                event_loop = asyncio.new_event_loop()
-                self.status['event_loop'] = 'new'
+    def setup_event_loop(self):
+        try:
+            event_loop = asyncio.get_running_loop()
+            self.status['event_loop'] = 'auto'
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            self.status['event_loop'] = 'new'
         return event_loop
 
     def setup_socket(self, sock=None):
-        if self.status['use_socket']:
+        if self.use_socket is not None:
             return self.use_socket
         sock = self.socket if sock is None else sock
         if sock is not None:
@@ -406,7 +421,7 @@ class AsyncCoreSocket:
         return self.socket.send(data, flags)
 
     def accept(self):
-        if self.status['use_socket']:
+        if self.use_socket is not None:
             return (self, None)
         (connection, address) = self.socket.accept()
         new_socket = self.clone()

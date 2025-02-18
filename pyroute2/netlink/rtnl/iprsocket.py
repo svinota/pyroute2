@@ -114,12 +114,12 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
         netns=None,
         netns_path=None,
         flags=os.O_CREAT,
         libc=None,
-        use_event_loop=False,
+        use_socket=None,
+        use_event_loop=None,
     ):
         if config.mock_netlink:
             use_socket = IPEngine()
@@ -156,7 +156,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
             )
         if self.spec['groups'] == 0:
             self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
-        self.spec['netns_path'] = netns_path or config.netns_path
+        self.status['netns_path'] = netns_path or config.netns_path
 
     async def bind(self, groups=None, **kwarg):
         return await super().bind(
@@ -264,32 +264,32 @@ class IPRSocket(NetlinkSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
         netns=None,
         netns_path=None,
         flags=os.O_CREAT,
         libc=None,
+        use_socket=None,
+        use_event_loop=None,
     ):
         self.asyncore = AsyncIPRSocket(
-            port,
-            pid,
-            fileno,
-            sndbuf,
-            rcvbuf,
-            rcvsize,
-            all_ns,
-            async_qsize,
-            nlm_generator,
-            target,
-            ext_ack,
-            strict_check,
-            groups,
-            nlm_echo,
-            use_socket,
-            netns,
-            netns_path,
-            flags,
-            libc,
+            port=port,
+            pid=pid,
+            fileno=fileno,
+            sndbuf=sndbuf,
+            rcvbuf=rcvbuf,
+            rcvsize=rcvsize,
+            all_ns=all_ns,
+            target=target,
+            ext_ack=ext_ack,
+            strict_check=strict_check,
+            groups=groups,
+            nlm_echo=nlm_echo,
+            netns=netns,
+            netns_path=netns_path,
+            flags=flags,
+            libc=libc,
+            use_socket=use_socket,
+            use_event_loop=use_event_loop,
         )
         self.asyncore.local = NotLocal()
         self.asyncore.local.event_loop = self.asyncore.setup_event_loop()

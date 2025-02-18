@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from pyroute2.netlink.core import AsyncCoreSocket, CoreSocketSpec
+from pyroute2.netlink.core import AsyncCoreSocket, CoreConfig, CoreSocketSpec
 from pyroute2.plan9 import (
     Marshal9P,
     Plan9Exit,
@@ -249,16 +249,16 @@ class Plan9ServerSocket(AsyncCoreSocket):
 
     '''
 
-    def __init__(self, address=None, use_socket=False, use_event_loop=False):
+    def __init__(self, address=None, use_socket=None, use_event_loop=None):
         self.spec = CoreSocketSpec(
-            {
-                'tag_field': 'tag',
-                'target': 'localhost',
-                'netns': None,
-                'address': address,
-                'use_socket': use_socket,
-                'use_event_loop': use_event_loop,
-            }
+            CoreConfig(
+                tag_field='tag',
+                target='localhost',
+                netns=None,
+                address=address,
+                use_socket=use_socket is not None,
+                use_event_loop=use_event_loop is not None,
+            )
         )
         self.filesystem = Filesystem()
         self.marshal = Marshal9P()
