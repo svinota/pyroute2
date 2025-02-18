@@ -6,6 +6,7 @@ import struct
 from pyroute2.common import AddrPool
 from pyroute2.netlink.core import (
     AsyncCoreSocket,
+    CoreConfig,
     CoreSocketSpec,
     CoreStreamProtocol,
 )
@@ -27,16 +28,16 @@ class Plan9ClientSocket(AsyncCoreSocket):
     * use_socket -- alternatively, provide a connected SOCK_STRAM socket
     '''
 
-    def __init__(self, address=None, use_socket=False, use_event_loop=False):
+    def __init__(self, address=None, use_socket=None, use_event_loop=None):
         self.spec = CoreSocketSpec(
-            {
-                'tag_field': 'tag',
-                'target': 'localhost',
-                'netns': None,
-                'address': address,
-                'use_socket': use_socket,
-                'use_event_loop': use_event_loop,
-            }
+            CoreConfig(
+                tag_field='tag',
+                target='localhost',
+                netns=None,
+                address=address,
+                use_socket=use_socket is not None,
+                use_event_loop=use_event_loop is not None,
+            )
         )
         self.marshal = Marshal9P()
         self.wnames = {'': 0}

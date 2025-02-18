@@ -75,7 +75,7 @@ lab:
 
 .PHONY: format
 format:
-	$(call nox,-e linter)
+	$(call nox,-e linter-$(shell basename ${python}))
 
 .PHONY: test
 test:

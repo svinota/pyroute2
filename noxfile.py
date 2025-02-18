@@ -15,7 +15,7 @@ nox.options.sessions = [
     'ci-self-python3.12',
     'ci-self-python3.13',
     'ci-self-python3.14',
-    'linter',
+    'linter-python3.14',
     'repo',
     'unit',
     'neutron',
@@ -257,13 +257,22 @@ def docs(session, config):
     session.log(f'man pages -> {cwd}/docs/man')
 
 
-@nox.session
+@nox.session(python=['python3.9', 'python3.14'])
 @add_session_config
 def linter(session, config):
     '''Run code checks and linters.'''
     if not config.get('fast'):
         session.install('pre-commit')
+        session.install('mypy')
     session.run('pre-commit', 'run', '-a')
+    with open('.mypy-check-paths', 'r') as f:
+        session.run(
+            'python',
+            '-m',
+            'mypy',
+            *f.read().split(),
+            env={'PYTHONPATH': os.getcwd()},
+        )
 
 
 @nox.session

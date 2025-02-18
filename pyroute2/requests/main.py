@@ -2,8 +2,13 @@
 General request and RTNL object data filters.
 '''
 
+import abc
 import weakref
 from collections import ChainMap
+
+
+class RequestFilter(abc.ABC):
+    pass
 
 
 class RequestProcessor(dict):

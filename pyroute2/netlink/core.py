@@ -1,19 +1,19 @@
 import asyncio
 import collections
 import errno
-import json
 import logging
 import os
 import socket
 import struct
 import threading
+from dataclasses import asdict, dataclass
+from typing import Optional, Type, Union
 from urllib import parse
 
 from pyroute2 import config, netns
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.netns import setns
-from pyroute2.requests.main import RequestProcessor
+from pyroute2.requests.main import RequestFilter, RequestProcessor
 
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
@@ -23,26 +23,51 @@ CoreSocketResources = collections.namedtuple(
 )
 
 
-class CoreSocketSpec(dict):
-    defaults = {'closed': False, 'compiled': None, 'uname': config.uname}
-    status_filters = []
+@dataclass
+class CoreConfig:
+    target: str = 'localhost'
+    flags: int = os.O_CREAT
+    groups: int = 0
+    rcvsize: int = 16384
+    netns: Optional[str] = None
+    tag_field: str = ''
+    address: Optional[tuple[str, int]] = None
+    use_socket: bool = False
+    use_event_loop: bool = False
+    use_libc: bool = False
 
-    def __init__(self, spec=None):
-        super().__init__(spec)
-        spec = {} if spec is None else spec
+
+class CoreSocketSpec:
+    defaults: dict[str, Union[bool, int, str, None, tuple[str, ...]]] = {
+        'closed': False,
+        'compiled': None,
+        'uname': config.uname,
+    }
+    status_filters: list[Type[RequestFilter]] = []
+
+    def __init__(self, config: CoreConfig):
+        self.config = config
         self.status = RequestProcessor()
         for flt in self.status_filters:
             self.status.add_filter(flt())
         self.status.update(self.defaults)
-        self.status.update(self)
+        self.status.update(asdict(self.config))
 
     def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self.status.update(self)
+        setattr(self.config, key, value)
+        self.status.update(asdict(self.config))
 
-    def __delitem__(self, key):
-        super().__delitem__(key)
-        self.status.update(self)
+    def __getitem__(self, key):
+        return getattr(self.config, key)
+
+    def serializable(self):
+        return not any(
+            (
+                self.config.use_socket,
+                self.config.use_event_loop,
+                self.config.use_libc,
+            )
+        )
 
 
 class CoreMessageQueue:
@@ -114,33 +139,6 @@ class CoreDatagramProtocol(CoreProtocol):
         self.enqueue(data, addr)
 
 
-async def netns_main(ctl, nsname, flags, libc, cls):
-    # A simple child process
-    #
-    payload = None
-    fds = None
-    try:
-        # 1. set network namespace
-        setns(nsname, flags=flags, libc=libc)
-        # 2. start the socket object
-        s = cls()
-        await s.ensure_socket()
-        payload = {}
-        fds = [s.socket.fileno()]
-    except Exception as e:
-        # get class name
-        payload = {'name': e.__class__.__name__, 'args': e.args}
-        fds = []
-    finally:
-        # 3. send the feedback
-        socket.send_fds(ctl, [json.dumps(payload).encode('utf-8')], fds, 1)
-    # 4. exit
-
-
-def netns_init(ctl, nsname, flags, libc, cls):
-    asyncio.run(netns_main(ctl, nsname, flags, libc, cls))
-
-
 class AsyncCoreSocket:
     '''Pyroute2 core socket class.
 
@@ -151,7 +149,6 @@ class AsyncCoreSocket:
     are built on top of it.
     '''
 
-    libc = None
     compiled = None
     __spec = None
     __marshal = None
@@ -160,38 +157,40 @@ class AsyncCoreSocket:
         self,
         target='localhost',
         rcvsize=16384,
-        use_socket=False,
+        use_socket=None,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
         groups=0,
-        use_event_loop=False,
+        use_event_loop=None,
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
-            {
-                'target': target,
-                'use_socket': use_socket,
-                'use_event_loop': use_event_loop,
-                'rcvsize': rcvsize,
-                'netns': netns,
-                'flags': flags,
-                'groups': groups,
-            }
+            CoreConfig(
+                target=target,
+                rcvsize=rcvsize,
+                netns=netns,
+                flags=flags,
+                groups=groups,
+                use_libc=libc is not None,
+                use_socket=use_socket is not None,
+                use_event_loop=use_event_loop is not None,
+            )
         )
         self.status = self.spec.status
-        self.request_proxy = None
         self.local = threading.local()
         self.lock = threading.Lock()
+        self.libc = libc
+        self.use_socket = use_socket
+        self.use_event_loop = use_event_loop
+        self.request_proxy = None
         if use_event_loop:
+            self.local.event_loop = use_event_loop
+            self.local.connection_lost = self.local.event_loop.create_future()
             self.status['event_loop'] = id(use_event_loop)
-            self.status['use_event_loop'] = True
             self.status['thread_id'] = id(threading.current_thread())
-        if libc is not None:
-            self.libc = libc
         url = parse.urlparse(self.spec['target'])
         self.scheme = url.scheme if url.scheme else url.path
-        self.use_socket = use_socket
         self.callbacks = []  # [(predicate, callback, args), ...]
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.marshal = None
@@ -290,15 +289,15 @@ class AsyncCoreSocket:
             self.local.endpoint_started = False
         return self.local.endpoint_started
 
+    @endpoint_started.setter
+    def endpoint_started(self, value):
+        self.local.endpoint_started = value
+
     @property
     def endpoint(self):
         if not hasattr(self.local, 'endpoint'):
             self.local.endpoint = None
         return self.local.endpoint
-
-    @endpoint_started.setter
-    def endpoint_started(self, value):
-        self.local.endpoint_started = value
 
     @endpoint.setter
     def endpoint(self, value):
@@ -315,18 +314,17 @@ class AsyncCoreSocket:
             sock=self.socket,
         )
 
-    def setup_event_loop(self, event_loop=None):
-        if event_loop is None:
-            try:
-                event_loop = asyncio.get_running_loop()
-                self.status['event_loop'] = 'auto'
-            except RuntimeError:
-                event_loop = asyncio.new_event_loop()
-                self.status['event_loop'] = 'new'
+    def setup_event_loop(self):
+        try:
+            event_loop = asyncio.get_running_loop()
+            self.status['event_loop'] = 'auto'
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            self.status['event_loop'] = 'new'
         return event_loop
 
     def setup_socket(self, sock=None):
-        if self.status['use_socket']:
+        if self.use_socket is not None:
             return self.use_socket
         sock = self.socket if sock is None else sock
         if sock is not None:
@@ -423,7 +421,7 @@ class AsyncCoreSocket:
         return self.socket.send(data, flags)
 
     def accept(self):
-        if self.status['use_socket']:
+        if self.use_socket is not None:
             return (self, None)
         (connection, address) = self.socket.accept()
         new_socket = self.clone()

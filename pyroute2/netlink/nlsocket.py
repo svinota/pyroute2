@@ -86,7 +86,9 @@ import logging
 import os
 import random
 import struct
+from dataclasses import dataclass
 from socket import SO_RCVBUF, SO_SNDBUF, SOCK_DGRAM, SOL_SOCKET
+from typing import Optional
 
 from pyroute2 import config, netns
 from pyroute2.common import AddrPool, basestring, msg_done
@@ -112,12 +114,14 @@ from pyroute2.netlink import (
 )
 from pyroute2.netlink.core import (
     AsyncCoreSocket,
+    CoreConfig,
     CoreDatagramProtocol,
     CoreSocketSpec,
     SyncAPI,
 )
 from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
+from pyroute2.requests.main import RequestFilter
 
 log = logging.getLogger(__name__)
 
@@ -150,7 +154,21 @@ sockets = AddrPool(minaddr=0x0, maxaddr=0x3FF, reverse=True)
 # 8<-----------------------------------------------------------
 
 
-class NetlinkSocketSpecFilter:
+@dataclass
+class NetlinkConfig(CoreConfig):
+    family: int = NETLINK_GENERIC
+    port: Optional[int] = None
+    pid: Optional[int] = None
+    fileno: Optional[int] = None
+    rcvbuf: int = 1048576
+    sndbuf: int = 1048576
+    all_ns: bool = False
+    ext_ack: bool = False
+    strict_check: bool = False
+    nlm_echo: bool = False
+
+
+class NetlinkSocketSpecFilter(RequestFilter):
     def set_target(self, context, value):
         if 'target' in context:
             return {'target': context['target']}
@@ -207,36 +225,35 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=False,
+        use_socket=None,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
-        use_event_loop=False,
+        use_event_loop=None,
     ):
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
-            {
-                'family': family,
-                'port': port,
-                'pid': pid,
-                'fileno': fileno,
-                'sndbuf': sndbuf,
-                'rcvbuf': rcvbuf,
-                'rcvsize': rcvsize,
-                'all_ns': all_ns,
-                'async_qsize': async_qsize,
-                'target': target,
-                'nlm_generator': True,
-                'ext_ack': ext_ack,
-                'strict_check': strict_check,
-                'groups': groups,
-                'nlm_echo': nlm_echo,
-                'use_socket': use_socket,
-                'tag_field': 'sequence_number',
-                'netns': netns,
-                'flags': flags,
-                'use_event_loop': use_event_loop,
-            }
+            NetlinkConfig(
+                family=family,
+                port=port,
+                pid=pid,
+                fileno=fileno,
+                sndbuf=sndbuf,
+                rcvbuf=rcvbuf,
+                rcvsize=rcvsize,
+                all_ns=all_ns,
+                target=target,
+                ext_ack=ext_ack,
+                strict_check=strict_check,
+                groups=groups,
+                nlm_echo=nlm_echo,
+                tag_field='sequence_number',
+                netns=netns,
+                flags=flags,
+                use_libc=libc is not None,
+                use_socket=use_socket is not None,
+                use_event_loop=use_event_loop is not None,
+            )
         )
         # TODO: merge capabilities to self.status
         self.capabilities = {
@@ -607,31 +624,31 @@ class NetlinkSocket(SyncAPI):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=False,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
+        use_socket=None,
+        use_event_loop=None,
     ):
         self.asyncore = AsyncNetlinkSocket(
-            family,
-            port,
-            pid,
-            fileno,
-            sndbuf,
-            rcvbuf,
-            rcvsize,
-            all_ns,
-            async_qsize,
-            nlm_generator,
-            target,
-            ext_ack,
-            strict_check,
-            groups,
-            nlm_echo,
-            use_socket,
-            netns,
-            flags,
-            libc,
+            family=family,
+            port=port,
+            pid=pid,
+            fileno=fileno,
+            sndbuf=sndbuf,
+            rcvbuf=rcvbuf,
+            rcvsize=rcvsize,
+            all_ns=all_ns,
+            target=target,
+            ext_ack=ext_ack,
+            strict_check=strict_check,
+            groups=groups,
+            nlm_echo=nlm_echo,
+            netns=netns,
+            flags=flags,
+            libc=libc,
+            use_socket=use_socket,
+            use_event_loop=use_event_loop,
         )
 
     @property

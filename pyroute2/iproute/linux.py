@@ -2552,11 +2552,11 @@ class IPRoute(NetlinkSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
-        use_event_loop=False,
+        use_socket=None,
+        use_event_loop=None,
     ):
         self.asyncore = AsyncIPRoute(
             port=port,

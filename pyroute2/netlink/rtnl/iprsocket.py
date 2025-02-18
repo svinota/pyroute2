@@ -1,21 +1,81 @@
+import errno
 import os
-import sys
+import struct
+from collections.abc import Callable
+from typing import Optional
 from unittest import mock
 
 from pyroute2 import config
+from pyroute2.common import msg_done
 from pyroute2.iproute.ipmock import IPEngine
-from pyroute2.netlink import NETLINK_ROUTE, rtnl
+from pyroute2.netlink import NETLINK_ROUTE, nlmsg, rtnl
+from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import (
     AsyncNetlinkSocket,
     ChaoticNetlinkSocket,
     NetlinkSocket,
 )
-from pyroute2.netlink.proxy import NetlinkProxy
+from pyroute2.netlink.rtnl.ifinfmsg.tuntap import manage_tun, manage_tuntap
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
+from pyroute2.netlink.rtnl.probe_msg import proxy_newprobe
+from pyroute2.netns import setns
+from pyroute2.process import ChildProcess, ChildProcessReturnValue
 
-if sys.platform.startswith('linux'):
-    from pyroute2.netlink.rtnl.ifinfmsg.proxy import proxy_newlink
-    from pyroute2.netlink.rtnl.probe_msg import proxy_newprobe
+
+def _run_in_netns(
+    netns: str, target: Callable[[nlmsg], bytes], msg: nlmsg
+) -> ChildProcessReturnValue:
+    setns(netns)
+    return ChildProcessReturnValue(target(msg), [])
+
+
+class IPRouteProxy:
+    route: dict[
+        int,
+        tuple[tuple[Callable[[nlmsg], bool], Callable[[nlmsg], bytes]], ...],
+    ] = {
+        rtnl.RTM_NEWLINK: (
+            (lambda x: x.get(('linkinfo', 'kind')) == 'tuntap', manage_tuntap),
+            (lambda x: x.get(('linkinfo', 'kind')) == 'tun', manage_tun),
+        ),
+        rtnl.RTM_NEWPROBE: ((lambda x: True, proxy_newprobe),),
+    }
+
+    def __init__(self, netns: Optional[str] = None):
+        self.netns = netns
+
+    def handle(self, msg: nlmsg) -> bytes:
+        ret: bytes = b''
+        key = msg['header']['type']
+        if key not in self.route:
+            return ret
+        for predicate, target in self.route[key]:
+            if predicate(msg):
+                try:
+                    if self.netns is not None:
+                        with ChildProcess(
+                            target=_run_in_netns,
+                            args=[self.netns, target, msg],
+                        ) as proc:
+                            ret = proc.get_data(timeout=4)
+                    else:
+                        ret = target(msg)
+                    return ret or msg_done(msg)
+                except Exception as e:
+                    # errmsg
+                    if isinstance(e, (OSError, IOError)):
+                        code = e.errno or errno.ENODATA
+                    elif isinstance(e, NetlinkError):
+                        code = e.code
+                    else:
+                        code = errno.ECOMM
+                    newmsg = struct.pack('HH', 2, 0)
+                    newmsg += msg.data[8:16]
+                    newmsg += struct.pack('I', code)
+                    newmsg += msg.data
+                    newmsg = struct.pack('I', len(newmsg) + 4) + newmsg
+                    return newmsg
+        return b''
 
 
 class AsyncIPRSocket(AsyncNetlinkSocket):
@@ -114,12 +174,12 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
         netns=None,
         netns_path=None,
         flags=os.O_CREAT,
         libc=None,
-        use_event_loop=False,
+        use_socket=None,
+        use_event_loop=None,
     ):
         if config.mock_netlink:
             use_socket = IPEngine()
@@ -146,17 +206,11 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
             libc=libc,
             use_event_loop=use_event_loop,
         )
-        if sys.platform.startswith('linux') and not config.mock_netlink:
-            self.request_proxy = NetlinkProxy(
-                pmap={
-                    rtnl.RTM_NEWLINK: proxy_newlink,
-                    rtnl.RTM_NEWPROBE: proxy_newprobe,
-                },
-                netns=netns,
-            )
+        if not config.mock_netlink:
+            self.request_proxy = IPRouteProxy(netns)
         if self.spec['groups'] == 0:
             self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
-        self.spec['netns_path'] = netns_path or config.netns_path
+        self.status['netns_path'] = netns_path or config.netns_path
 
     async def bind(self, groups=None, **kwarg):
         return await super().bind(
@@ -264,32 +318,32 @@ class IPRSocket(NetlinkSocket):
         strict_check=False,
         groups=0,
         nlm_echo=False,
-        use_socket=None,
         netns=None,
         netns_path=None,
         flags=os.O_CREAT,
         libc=None,
+        use_socket=None,
+        use_event_loop=None,
     ):
         self.asyncore = AsyncIPRSocket(
-            port,
-            pid,
-            fileno,
-            sndbuf,
-            rcvbuf,
-            rcvsize,
-            all_ns,
-            async_qsize,
-            nlm_generator,
-            target,
-            ext_ack,
-            strict_check,
-            groups,
-            nlm_echo,
-            use_socket,
-            netns,
-            netns_path,
-            flags,
-            libc,
+            port=port,
+            pid=pid,
+            fileno=fileno,
+            sndbuf=sndbuf,
+            rcvbuf=rcvbuf,
+            rcvsize=rcvsize,
+            all_ns=all_ns,
+            target=target,
+            ext_ack=ext_ack,
+            strict_check=strict_check,
+            groups=groups,
+            nlm_echo=nlm_echo,
+            netns=netns,
+            netns_path=netns_path,
+            flags=flags,
+            libc=libc,
+            use_socket=use_socket,
+            use_event_loop=use_event_loop,
         )
         self.asyncore.local = NotLocal()
         self.asyncore.local.event_loop = self.asyncore.setup_event_loop()
