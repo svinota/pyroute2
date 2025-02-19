@@ -310,23 +310,15 @@ class dhcpmsg(msg):
     def encode(self: _dhcpmsgSelf) -> _dhcpmsgSelf:
         msg.encode(self)
         # put message type
-        options = self.get('options') or {
-            'message_type': MessageType.DISCOVER,
-            'parameter_list': [1, 3, 6, 12, 15, 28],  # FIXME
-        }
+        options = self.get('options') or {'message_type': MessageType.DISCOVER}
 
         self.buf += (
             self.uint8(code=Option.MESSAGE_TYPE, value=options['message_type'])
             .encode()
             .buf
         )
-        # TODO: make vendor id configurable
-        self.buf += (
-            self.string(code=Option.VENDOR_ID, value='pyroute2').encode().buf
-        )
-
         for name, value in options.items():
-            if name in ('message_type', 'vendor_id'):
+            if name == 'message_type':
                 continue
             if (code_mapping := self._encode_map.get(name)) is None:
                 continue

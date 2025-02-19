@@ -79,7 +79,8 @@ async def test_get_and_renew_lease(
         'parameter_list': list(client_config.requested_parameters),
         'requested_ip': '192.168.186.73',
         'server_id': '192.168.186.1',
-        'vendor_id': b'pyroute2',
+        'vendor_id': client_config.vendor_id.encode(),
+        'host_name': client_config.host_name.encode(),
     }
     assert request.sport, release.dport == (68, 67)
 
@@ -98,7 +99,8 @@ async def test_get_and_renew_lease(
         'client_id': {'key': renew_request.eth_src, 'type': 1},
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': list(client_config.requested_parameters),
-        'vendor_id': b'pyroute2',
+        'vendor_id': client_config.vendor_id.encode(),
+        'host_name': client_config.host_name.encode(),
     }
     assert renew_request.sport, release.dport == (68, 67)
 
@@ -112,7 +114,8 @@ async def test_get_and_renew_lease(
         'client_id': {'key': release.eth_src, 'type': 1},
         'message_type': dhcp.MessageType.RELEASE,
         'server_id': '192.168.186.1',
-        'vendor_id': b'pyroute2',
+        'vendor_id': client_config.vendor_id.encode(),
+        'host_name': client_config.host_name.encode(),
     }
     assert release.sport, release.dport == (68, 67)
 
