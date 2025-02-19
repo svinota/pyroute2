@@ -257,7 +257,16 @@ def docs(session, config):
     session.log(f'man pages -> {cwd}/docs/man')
 
 
-@nox.session(python=['python3.9', 'python3.14'])
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
 @add_session_config
 def linter(session, config):
     '''Run code checks and linters.'''
