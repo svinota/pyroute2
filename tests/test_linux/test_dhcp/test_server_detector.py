@@ -1,11 +1,13 @@
 import asyncio
 import json
+from operator import itemgetter
 
 import pytest
-from fixtures.dhcp_servers.dnsmasq import DnsmasqFixture
+from fixtures.dhcp_servers.dnsmasq import DnsmasqConfig, DnsmasqFixture
 from fixtures.dhcp_servers.udhcpd import UdhcpdFixture
-from fixtures.interfaces import VethPair
+from fixtures.interfaces import DHCPRangeConfig, VethPair
 from pr2test.marks import require_root
+from test_dhcp.conftest import parse_stdout_leases
 
 from pyroute2.dhcp.enums import dhcp
 from pyroute2.iproute.linux import AsyncIPRoute
@@ -143,3 +145,124 @@ async def test_interface_goes_down_during_detection(
     assert (
         f'{veth_pair.client!r}: [Errno 100] Network is down'
     ) in stderr.decode()
+
+
+@pytest.mark.parametrize(
+    ('run_dhcp_server_outside_vlan',), ((True,), (False,))
+)
+async def test_detect_with_vlan(
+    udhcpd: UdhcpdFixture,
+    veth_pair: VethPair,
+    async_ipr: AsyncIPRoute,
+    caplog: pytest.LogCaptureFixture,
+    run_dhcp_server_outside_vlan: bool,
+):
+    '''Get an offer from dnsmasq over a vlan,
+    and maybe another offer from udhcpd outside of it.
+
+    The vlan on which dnsmasq listens is over the veth pair.
+    The socket listening outside of the vlan should *not* receive
+    the response sent by dnsmasq.
+    '''
+
+    if run_dhcp_server_outside_vlan is False:
+        # stop udhcpd, which runs on the veth directly
+        await udhcpd.__aexit__(None, None, None)
+        # now only dnsmasq will remain, listening on the vlan
+
+    # configure a dhcp range for the vlan
+    dnsmasq_range = DHCPRangeConfig(
+        start='192.168.11.10',
+        end='192.168.11.20',
+        router='192.168.11.1',
+        broadcast='192.168.11.255',
+        netmask='255.255.255.0',
+    )
+    # create a pair of vlan interfaces over the veth pair
+    vlan_id = 151
+    srv_vlan_name = f'srv.{vlan_id}'
+    cli_vlan_name = f'cli.{vlan_id}'
+    await async_ipr.link(
+        'add',
+        ifname=srv_vlan_name,
+        kind='vlan',
+        link=veth_pair.server_idx,
+        vlan_id=vlan_id,
+    )
+    await async_ipr.link(
+        'add',
+        ifname=cli_vlan_name,
+        kind='vlan',
+        link=veth_pair.client_idx,
+        vlan_id=vlan_id,
+    )
+    srv_vlan_idx = (await async_ipr.link_lookup(ifname=srv_vlan_name))[0]
+    cli_vlan_idx = (await async_ipr.link_lookup(ifname=cli_vlan_name))[0]
+
+    # add an ip address only on the server end
+    await async_ipr.addr(
+        'add',
+        index=srv_vlan_idx,
+        address=str(dnsmasq_range.router),
+        prefixlen=24,
+    )
+
+    # bring up both interfaces
+    await async_ipr.link('set', index=srv_vlan_idx, state='up')
+    await async_ipr.link('set', index=cli_vlan_idx, state='up')
+
+    # run dnsmasq over the vlan
+    dnsmasq_cfg = DnsmasqConfig(range=dnsmasq_range, interface=srv_vlan_name)
+    async with DnsmasqFixture(dnsmasq_cfg):
+        # start the server detector
+        process = await asyncio.create_subprocess_exec(
+            'dhcp-server-detector',
+            veth_pair.client,
+            cli_vlan_name,
+            # this should send 1 discover and stop
+            '--duration=0.9',
+            '--interval=1.0',
+            '--log-level=DEBUG',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(), timeout=3
+        )
+    # we got at least one offer, so the detector returns 0
+    assert process.returncode == 0
+    # the vlan interface starts with "c" so it's first when sorted this way
+    offers = sorted(parse_stdout_leases(stdout), key=itemgetter('interface'))
+
+    assert offers
+    # we always get an offer from dnsmasq on the vlan
+    vlan_offer = offers[0]
+    assert vlan_offer['interface'] == cli_vlan_name
+    assert vlan_offer['message']['dhcp']['options']['server_id'] == str(
+        dnsmasq_range.router
+    )
+
+    if run_dhcp_server_outside_vlan:
+        # 2 servers, 2 leases
+        assert len(offers) == 2
+        # check the offer sent by udhcpd
+        non_vlan_offer = offers[1]
+        assert non_vlan_offer['interface'] == veth_pair.client
+        assert non_vlan_offer['message']['dhcp']['options'][
+            'server_id'
+        ] == str(udhcpd.config.range.router)
+        assert (
+            vlan_offer['message']['dhcp']['xid']
+            != non_vlan_offer['message']['dhcp']['xid']
+        )
+    else:
+        # we stopped udhcpd so only got an offer from dnsmasq
+        assert len(offers) == 1
+
+    #################################################################
+    # Here is the issue:
+    # the socket listening on the non-vlan interface also receives
+    # the offer sent over the vlan. since we have a different xid per
+    # interface, it is discarded, but should not happen anyway.
+    assert b'Got OFFER with xid mismatch, ignoring' not in stderr
+    #################################################################

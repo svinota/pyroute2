@@ -44,7 +44,7 @@ class SentDHCPMessage(_DHCPMessage):
         type_name = self.message_type.name
         return (
             f'{type_name} to {self.eth_dst}/{self.ip_dst}:{self.dport} '
-            '(xid {self.xid})'
+            f'(xid {self.xid})'
         )
 
 
@@ -55,7 +55,7 @@ class ReceivedDHCPMessage(_DHCPMessage):
         type_name = self.dhcp['options']['message_type'].name
         return (
             f'{type_name} from {self.eth_src}/{self.ip_src}:{self.sport} '
-            '(xid {self.xid})'
+            f'(xid {self.xid})'
         )
 
 

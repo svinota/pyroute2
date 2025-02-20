@@ -97,9 +97,9 @@ class DHCPServerDetector:
                     next_msg = await get_next_msg
                     if next_msg.dhcp['xid'] != expected_xids[sock.ifname]:
                         LOG.debug(
-                            '[%s] Got %r with xid mismatch, ignoring',
+                            '[%s] Got %s with xid mismatch, ignoring',
                             sock.ifname,
-                            next_msg.message_type,
+                            next_msg.message_type.name,
                         )
                         continue
                     LOG.info('[%s] <- %s', sock.ifname, next_msg)
