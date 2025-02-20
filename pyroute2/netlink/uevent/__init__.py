@@ -1,4 +1,5 @@
 import struct
+from typing import Callable, Generator, Optional
 
 from pyroute2.netlink import NETLINK_KOBJECT_UEVENT, nlmsg
 from pyroute2.netlink.nlsocket import (
@@ -17,10 +18,16 @@ class ueventmsg(nlmsg):
 
 
 class MarshalUevent(Marshal):
-    def is_enough(self, _):
+    def is_enough(self, _) -> bool:
         return False
 
-    def parse(self, data, seq=None, callback=None):
+    def parse(
+        self,
+        data: bytes,
+        seq: Optional[int] = None,
+        callback: Optional[Callable] = None,
+        skip_alien_seq: bool = False,
+    ) -> Generator[ueventmsg, None, None]:
         ret = ueventmsg()
         ret['header']['sequence_number'] = 0
 
@@ -33,17 +40,17 @@ class MarshalUevent(Marshal):
             header_length = struct.calcsize(header_format)
 
             if len(data) < header_length:
-                return []
+                return
 
-            data = data[header_length:].split(b'\x00')
+            lines = data[header_length:].split(b'\x00')
             ret['header']['message'] = "libudev"
         else:
-            data = data.split(b'\x00')
-            ret['header']['message'] = data[0].decode('utf-8')
+            lines = data.split(b'\x00')
+            ret['header']['message'] = lines[0].decode('utf-8')
 
         wtf = []
         ret['header']['unparsed'] = b''
-        for line in data[1:]:
+        for line in lines[1:]:
             if line.find(b'=') <= 0:
                 wtf.append(line)
             else:
@@ -52,17 +59,17 @@ class MarshalUevent(Marshal):
                     wtf = []
 
                 try:
-                    line = line.decode('utf-8').split('=')
+                    key, value = line.decode('utf-8').split('=', 1)
                 except UnicodeDecodeError:
                     # should not happen but let's account for it for
                     # robustness' sake
                     wtf.append(line)
                     continue
 
-                ret[line[0]] = '='.join(line[1:])
+                ret[key] = value
 
         del ret['value']
-        return [ret]
+        yield ret
 
 
 class AsyncUeventSocket(AsyncNetlinkSocket):
@@ -70,7 +77,7 @@ class AsyncUeventSocket(AsyncNetlinkSocket):
         super().__init__(NETLINK_KOBJECT_UEVENT)
         self.set_marshal(MarshalUevent())
 
-    async def bind(self, groups=-1):
+    async def bind(self, groups: int = -1) -> None:  # type: ignore[override]
         return await super().bind(groups=groups)
 
 
@@ -79,5 +86,5 @@ class UeventSocket(NetlinkSocket):
         super().__init__(NETLINK_KOBJECT_UEVENT)
         self.set_marshal(MarshalUevent())
 
-    def bind(self, groups=-1):
+    def bind(self, groups: int = -1) -> None:
         return super().bind(groups=groups)
