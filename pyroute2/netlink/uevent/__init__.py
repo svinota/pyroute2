@@ -1,6 +1,9 @@
 from pyroute2.netlink import NETLINK_KOBJECT_UEVENT, nlmsg
-from pyroute2.netlink.nlsocket import Marshal, NetlinkSocket
-
+from pyroute2.netlink.nlsocket import (
+    AsyncNetlinkSocket,
+    Marshal,
+    NetlinkSocket,
+)
 
 class ueventmsg(nlmsg):
     pass
@@ -27,6 +30,15 @@ class MarshalUevent(Marshal):
 
         del ret['value']
         return [ret]
+
+
+class AsyncUeventSocket(AsyncNetlinkSocket):
+    def __init__(self):
+        super().__init__(NETLINK_KOBJECT_UEVENT)
+        self.set_marshal(MarshalUevent())
+
+    async def bind(self):
+        return await super().bind(groups=-1)
 
 
 class UeventSocket(NetlinkSocket):
