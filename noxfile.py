@@ -363,6 +363,13 @@ def core(session, config):
 
 @nox.session
 @add_session_config
+def limits(session, config):
+    '''Run limits & stress testing.'''
+    test_common(session, config, 'test_limits')
+
+
+@nox.session
+@add_session_config
 def process(session, config):
     '''Test child process module.'''
     setup_venv_dev(session)

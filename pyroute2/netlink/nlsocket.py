@@ -274,7 +274,12 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         if self.endpoint is not None:
             return
         self.endpoint = await self.event_loop.create_datagram_endpoint(
-            lambda: CoreDatagramProtocol(self.connection_lost, self.enqueue),
+            lambda: CoreDatagramProtocol(
+                self.connection_lost,
+                self.enqueue,
+                self._error_event,
+                self.status,
+            ),
             sock=self.socket,
         )
 
