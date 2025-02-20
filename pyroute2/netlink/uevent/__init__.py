@@ -7,6 +7,11 @@ from pyroute2.netlink.nlsocket import (
     NetlinkSocket,
 )
 
+MONITOR_GROUP_NONE = 0
+MONITOR_GROUP_KERNEL = 1
+MONITOR_GROUP_UDEV = 2
+
+
 class ueventmsg(nlmsg):
     pass
 
@@ -65,8 +70,8 @@ class AsyncUeventSocket(AsyncNetlinkSocket):
         super().__init__(NETLINK_KOBJECT_UEVENT)
         self.set_marshal(MarshalUevent())
 
-    async def bind(self):
-        return await super().bind(groups=-1)
+    async def bind(self, groups=-1):
+        return await super().bind(groups=groups)
 
 
 class UeventSocket(NetlinkSocket):
@@ -74,5 +79,5 @@ class UeventSocket(NetlinkSocket):
         super(UeventSocket, self).__init__(NETLINK_KOBJECT_UEVENT)
         self.set_marshal(MarshalUevent())
 
-    def bind(self):
-        return super(UeventSocket, self).bind(groups=-1)
+    def bind(self, groups=-1):
+        return super(UeventSocket, self).bind(groups=groups)
