@@ -1,3 +1,5 @@
+import struct
+
 from pyroute2.netlink import NETLINK_KOBJECT_UEVENT, nlmsg
 from pyroute2.netlink.nlsocket import (
     AsyncNetlinkSocket,
@@ -16,9 +18,25 @@ class MarshalUevent(Marshal):
     def parse(self, data, seq=None, callback=None):
         ret = ueventmsg()
         ret['header']['sequence_number'] = 0
-        data = data.split(b'\x00')
+
+        # handle udevd messages which have a binary header
+        if data.startswith(b'libudev\x00'):
+            # prefix, magic, header_size, properties_off, properties_len,
+            #   filter_subsystem_hash, filter_tag_bloom_hi,
+            #   filter_tag_bloom_low
+            header_format = '8sIIIIIIII'
+            header_length = struct.calcsize(header_format)
+
+            if len(data) < header_length:
+                return []
+
+            data = data[header_length:].split(b'\x00')
+            ret['header']['message'] = "libudev"
+        else:
+            data = data.split(b'\x00')
+            ret['header']['message'] = data[0].decode('utf-8')
+
         wtf = []
-        ret['header']['message'] = data[0].decode('utf-8')
         ret['header']['unparsed'] = b''
         for line in data[1:]:
             if line.find(b'=') <= 0:
