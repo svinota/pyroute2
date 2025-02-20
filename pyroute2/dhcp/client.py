@@ -7,6 +7,7 @@ from logging import getLogger
 from math import floor
 from pathlib import Path
 from signal import Signals
+from socket import gethostname
 from time import time
 from typing import (
     Awaitable,
@@ -94,6 +95,9 @@ class ClientConfig:
     client_id: Optional[bytes] = None
     # Whether to handle USR1 (renew), USR2 (rebind) and HUP (reset)
     handle_signals: bool = True
+    # optional vendor_id & hostname options included in requests
+    vendor_id: Optional[str] = 'pyroute2'
+    host_name: Optional[str] = field(default_factory=gethostname)
 
     @property
     def pidfile_path(self) -> Path:
@@ -332,6 +336,11 @@ class AsyncDHCPClient:
             # default behavior, use hw type & hw addr as client id
             client_id = {'type': 1, 'key': self._sock.l2addr}
         msg.dhcp['options']['client_id'] = client_id
+        # set hostname & vendor id if configured to do so
+        if self.config.host_name:
+            msg.dhcp['options']['host_name'] = self.config.host_name
+        if self.config.vendor_id:
+            msg.dhcp['options']['vendor_id'] = self.config.vendor_id
         LOG.info('Sending %s', msg)
         await self._sock.put(msg)
 

@@ -3,12 +3,13 @@
 import json
 import re
 import socket
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Optional
 
 import pytest
 from fixtures.dhcp_servers import lease_time  # noqa: F401
 from fixtures.interfaces import VethPair
 
+from pyroute2.common import uifname
 from pyroute2.dhcp.client import ClientConfig
 from pyroute2.fixtures.iproute import TestContext
 from pyroute2.iproute.linux import AsyncIPRoute
@@ -16,12 +17,33 @@ from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 
 
 @pytest.fixture
-def client_config(veth_pair: VethPair) -> ClientConfig:
+def dhcp_client_host_name() -> str:
+    '''The hostname option sent in dhcp tests.'''
+    return f'test-hostname-{uifname()}'
+
+
+@pytest.fixture
+def dhcp_client_vendor_id() -> str:
+    '''The vendor id option sent in dhcp tests.'''
+    return f'vendor-id-{uifname()}'
+
+
+@pytest.fixture
+def client_config(
+    veth_pair: VethPair,
+    dhcp_client_host_name: Optional[str],
+    dhcp_client_vendor_id: Optional[str],
+) -> ClientConfig:
     '''Fixture that returns a ClientConfig for the veth_pair.
 
     Signal handlers are disabled.
     '''
-    return ClientConfig(interface=veth_pair.client, handle_signals=False)
+    return ClientConfig(
+        interface=veth_pair.client,
+        vendor_id=dhcp_client_vendor_id,
+        host_name=dhcp_client_host_name,
+        handle_signals=False,
+    )
 
 
 @pytest.fixture

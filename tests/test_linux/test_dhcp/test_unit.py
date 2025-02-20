@@ -18,6 +18,12 @@ from pyroute2.dhcp.leases import JSONFileLease
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.mark.parametrize(
+    ('dhcp_client_host_name',), (('nebuchadnezzar',), (None,))
+)
+@pytest.mark.parametrize(
+    ('dhcp_client_vendor_id',), (('fake-vendor-id',), (None,))
+)
 async def test_get_and_renew_lease(
     mock_dhcp_server: MockDHCPServerFixture,
     set_fixed_xid: Callable[[int], None],
@@ -29,6 +35,15 @@ async def test_get_and_renew_lease(
     The test pcap file contains the OFFER & the 2 ACKs.
     '''
     caplog.set_level('INFO')
+
+    expected_vid_and_hostname = {}
+    if vid := client_config.vendor_id:
+        # vendor id must be present only if configured
+        expected_vid_and_hostname['vendor_id'] = vid.encode()
+    if hn := client_config.host_name:
+        # same for host_name
+        expected_vid_and_hostname['host_name'] = hn.encode()
+
     # Make xids non random so they match the ones in the pcap
     set_fixed_xid(0x12345670)
     async with AsyncDHCPClient(client_config) as cli:
@@ -79,7 +94,7 @@ async def test_get_and_renew_lease(
         'parameter_list': list(client_config.requested_parameters),
         'requested_ip': '192.168.186.73',
         'server_id': '192.168.186.1',
-        'vendor_id': b'pyroute2',
+        **expected_vid_and_hostname,
     }
     assert request.sport, release.dport == (68, 67)
 
@@ -98,7 +113,7 @@ async def test_get_and_renew_lease(
         'client_id': {'key': renew_request.eth_src, 'type': 1},
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': list(client_config.requested_parameters),
-        'vendor_id': b'pyroute2',
+        **expected_vid_and_hostname,
     }
     assert renew_request.sport, release.dport == (68, 67)
 
@@ -112,7 +127,7 @@ async def test_get_and_renew_lease(
         'client_id': {'key': release.eth_src, 'type': 1},
         'message_type': dhcp.MessageType.RELEASE,
         'server_id': '192.168.186.1',
-        'vendor_id': b'pyroute2',
+        **expected_vid_and_hostname,
     }
     assert release.sport, release.dport == (68, 67)
 
