@@ -46,7 +46,14 @@ class MarshalUevent(Marshal):
                     ret['header']['unparsed'] = b'\x00'.join(wtf)
                     wtf = []
 
-                line = line.decode('utf-8').split('=')
+                try:
+                    line = line.decode('utf-8').split('=')
+                except UnicodeDecodeError:
+                    # should not happen but let's account for it for
+                    # robustness' sake
+                    wtf.append(line)
+                    continue
+
                 ret[line[0]] = '='.join(line[1:])
 
         del ret['value']
