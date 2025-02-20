@@ -10,6 +10,9 @@ class ueventmsg(nlmsg):
 
 
 class MarshalUevent(Marshal):
+    def is_enough(self, _):
+        return False
+
     def parse(self, data, seq=None, callback=None):
         ret = ueventmsg()
         ret['header']['sequence_number'] = 0
