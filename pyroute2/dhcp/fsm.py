@@ -50,7 +50,7 @@ def state_guard(
     if the associated instance is not in one of the given States.'''
 
     def decorator(
-        meth: Callable[..., Awaitable[None]]
+        meth: Callable[..., Awaitable[None]],
     ) -> Callable[..., Awaitable[None]]:
         @functools.wraps(meth)
         async def wrapper(self, *args: Any, **kwargs: Any) -> None:

@@ -6,7 +6,7 @@ import logging
 import time
 from asyncio.exceptions import CancelledError, TimeoutError
 from secrets import SystemRandom
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Iterable
 
 from pyroute2.dhcp import messages
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
@@ -39,26 +39,41 @@ class DHCPServerDetector:
         self.interval = interval
         self.duration = duration
         self.sport = sport
-        # The DISCOVER that will be sent repeatedly on all interfaces
-        self.discover_msg = messages.discover(
-            parameter_list=requested_parameters
-        )
-        self.discover_msg.dhcp['xid'] = SystemRandom().randint(
-            0xFF, 0xFFFFFFFF
+        # The DISCOVERs that will be sent repeatedly per interface
+        self.discover_messages = self._make_discover_msgs(
+            interfaces=self.interfaces, params=requested_parameters
         )
         # All received responses are put here by the dedicated tasks,
         # along with the name of the interface they were received on.
         self._responses_queue: asyncio.Queue[DHCPResponse] = asyncio.Queue()
 
+    @classmethod
+    def _make_discover_msgs(
+        cls, interfaces: Iterable[str], params: messages.Parameters
+    ) -> dict[str, messages.SentDHCPMessage]:
+        '''Generate DISCOVERs with a different xid for each interface .'''
+        msgs: dict[str, messages.SentDHCPMessage] = {}
+        rand = SystemRandom().randint
+        for i in interfaces:
+            msgs[i] = messages.discover(parameter_list=params)
+            # use a different xid per interface
+            msgs[i].dhcp['xid'] = rand(0xFF, 0xFFFFFFFF)
+        return msgs
+
     async def _send_forever(self, sock: AsyncDHCP4Socket):
         '''Send the `DISCOVER` message at `interval` until cancelled.'''
+        msg = self.discover_messages[sock.ifname]
         while True:
-            LOG.info('[%s] -> %s', sock.ifname, self.discover_msg)
-            await sock.put(self.discover_msg)
+            LOG.info('[%s] -> %s', sock.ifname, msg)
+            await sock.put(msg)
             await asyncio.sleep(self.interval)
 
     async def _get_offers(self, interface: str):
         '''Send DISCOVERs and wait for responses on an interface.'''
+        expected_xids = {
+            ifname: msg.dhcp['xid']
+            for ifname, msg in self.discover_messages.items()
+        }
         async with AsyncDHCP4Socket(ifname=interface, port=self.sport) as sock:
             send_task = asyncio.create_task(
                 self._send_forever(sock), name=f'Send DISCOVERS on {interface}'
@@ -80,9 +95,10 @@ class DHCPServerDetector:
                         continue
                     # we have a new message
                     next_msg = await get_next_msg
-                    if next_msg.dhcp['xid'] != self.discover_msg.dhcp['xid']:
+                    if next_msg.dhcp['xid'] != expected_xids[sock.ifname]:
                         LOG.debug(
-                            'Got %r with xid mismatch, ignoring',
+                            '[%s] Got %r with xid mismatch, ignoring',
+                            sock.ifname,
                             next_msg.message_type,
                         )
                         continue

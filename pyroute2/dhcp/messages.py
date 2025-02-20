@@ -42,7 +42,10 @@ class SentDHCPMessage(_DHCPMessage):
 
     def __str__(self) -> str:
         type_name = self.message_type.name
-        return f"{type_name} to {self.eth_dst}/{self.ip_dst}:{self.dport}"
+        return (
+            f'{type_name} to {self.eth_dst}/{self.ip_dst}:{self.dport} '
+            '(xid {self.xid})'
+        )
 
 
 class ReceivedDHCPMessage(_DHCPMessage):
@@ -50,7 +53,10 @@ class ReceivedDHCPMessage(_DHCPMessage):
 
     def __str__(self) -> str:
         type_name = self.dhcp['options']['message_type'].name
-        return f"{type_name} from {self.eth_src}/{self.ip_src}:{self.sport}"
+        return (
+            f'{type_name} from {self.eth_src}/{self.ip_src}:{self.sport} '
+            '(xid {self.xid})'
+        )
 
 
 def discover(parameter_list: Parameters) -> SentDHCPMessage:
