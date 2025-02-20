@@ -76,8 +76,8 @@ class AsyncUeventSocket(AsyncNetlinkSocket):
 
 class UeventSocket(NetlinkSocket):
     def __init__(self):
-        super(UeventSocket, self).__init__(NETLINK_KOBJECT_UEVENT)
+        super().__init__(NETLINK_KOBJECT_UEVENT)
         self.set_marshal(MarshalUevent())
 
     def bind(self, groups=-1):
-        return super(UeventSocket, self).bind(groups=groups)
+        return super().bind(groups=groups)
