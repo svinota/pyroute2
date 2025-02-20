@@ -1,3 +1,4 @@
+import errno
 import struct
 import threading
 from functools import partial
@@ -61,14 +62,16 @@ class Marshal:
             msg['header']['error'] = e
 
         if isinstance(msg, nlmsgerr) and msg['error'] != 0:
-            error = NetlinkError(
-                abs(msg['error']), msg.get_attr('NLMSGERR_ATTR_MSG')
-            )
-            enc_type = struct.unpack_from('H', data, offset + 24)[0]
-            enc_class = self.msg_map.get(enc_type, nlmsg)
-            enc = enc_class(data, offset=offset + 20)
-            enc.decode()
-            msg['header']['errmsg'] = enc
+            code = abs(msg['error'])
+            if code == errno.ENOBUFS:
+                error = OSError(code, msg.get_attr('NLMSGERR_ATTR_MSG'))
+            else:
+                error = NetlinkError(code, msg.get_attr('NLMSGERR_ATTR_MSG'))
+                enc_type = struct.unpack_from('H', data, offset + 24)[0]
+                enc_class = self.msg_map.get(enc_type, nlmsg)
+                enc = enc_class(data, offset=offset + 20)
+                enc.decode()
+                msg['header']['errmsg'] = enc
 
         msg['header']['error'] = error
         return msg

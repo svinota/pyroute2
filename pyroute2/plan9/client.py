@@ -63,7 +63,12 @@ class Plan9ClientSocket(AsyncCoreSocket):
                 'port': self.status['address'][1],
             }
         self.endpoint = await self.event_loop.create_connection(
-            lambda: CoreStreamProtocol(self.connection_lost, self.enqueue),
+            lambda: CoreStreamProtocol(
+                self.connection_lost,
+                self.enqueue,
+                self._error_event,
+                self.status,
+            ),
             **address,
         )
 

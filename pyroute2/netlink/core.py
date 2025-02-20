@@ -110,10 +110,12 @@ class CoreMessageQueue:
 
 
 class CoreProtocol(asyncio.Protocol):
-    def __init__(self, on_con_lost, enqueue):
+    def __init__(self, on_con_lost, enqueue, error_event, status):
         self.transport = None
         self.enqueue = enqueue
         self.on_con_lost = on_con_lost
+        self.error_event = error_event
+        self.status = status
 
     def connection_made(self, transport):
         self.transport = transport
@@ -122,6 +124,13 @@ class CoreProtocol(asyncio.Protocol):
         self.on_con_lost.set_result(True)
         self.enqueue(
             struct.pack('IHHQIQQ', 28, 2, 0, 0, errno.ECONNRESET, 0, 0), None
+        )
+
+    def error_received(self, exc):
+        self.status['error'] = exc
+        self.error_event.set()
+        self.enqueue(
+            struct.pack('IHHQIQQ', 28, 2, 0, 0, exc.errno, 0, 0), None
         )
 
 
@@ -185,6 +194,7 @@ class AsyncCoreSocket:
         self.use_event_loop = use_event_loop
         self.request_proxy = None
         self._tid = id(threading.current_thread())
+        self._error_event = threading.Event()
         if use_event_loop:
             self.local.event_loop = use_event_loop
             self.local.connection_lost = self.local.event_loop.create_future()
@@ -258,6 +268,8 @@ class AsyncCoreSocket:
         return self.local.event_loop
 
     async def ensure_socket(self):
+        if self._error_event.is_set():
+            raise self.status['error']
         if not hasattr(self.local, 'socket'):
             self.local.socket = None
             self.local.fileno = None
@@ -311,7 +323,12 @@ class AsyncCoreSocket:
         if self.endpoint is not None:
             return
         self.endpoint = await self.event_loop.connect_accepted_socket(
-            lambda: CoreStreamProtocol(self.connection_lost, self.enqueue),
+            lambda: CoreStreamProtocol(
+                self.connection_lost,
+                self.enqueue,
+                self._error_event,
+                self.status,
+            ),
             sock=self.socket,
         )
 
@@ -635,6 +652,8 @@ class SyncAPI:
     def __getattr__(self, key):
         if key in (
             'pid',
+            'spec',
+            'status',
             'send',
             'recv',
             'sendto',
