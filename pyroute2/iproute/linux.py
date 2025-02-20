@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import io
 import logging
 import os
@@ -351,8 +352,8 @@ class RTNL_API:
 
         return ret()
 
-    def poll(self, method, command, timeout=10, interval=0.2, **spec):
-        '''Synchronously wait for a method to succeed.
+    async def poll(self, method, command, timeout=10, interval=0.2, **spec):
+        '''Wait for a method to succeed.
 
         Run `method` with a positional argument `command` and keyword
         arguments `**spec` every `interval` seconds, but not more than
@@ -390,13 +391,15 @@ class RTNL_API:
         ret = tuple()
         while ctime + timeout > time.time():
             try:
-                ret = [x for x in method(command, **spec)]
+                ret = await method(command, **spec)
+                if not isinstance(ret, list):
+                    ret = [x async for x in ret]
                 if ret:
                     return ret
-                time.sleep(interval)
+                await asyncio.sleep(interval)
             except NetlinkDumpInterrupted:
                 pass
-        raise TimeoutError()
+        raise asyncio.TimeoutError()
 
     # 8<---------------------------------------------------------------
     #
@@ -2591,6 +2594,19 @@ class IPRoute(NetlinkSocket):
         ret = cls()
         ret.asyncore = iproute
         return ret
+
+    def poll(self, method, command, timeout=10, interval=0.2, **spec):
+        ctime = time.time()
+        ret = tuple()
+        while ctime + timeout > time.time():
+            try:
+                ret = [x for x in method(command, **spec)]
+                if ret:
+                    return ret
+                time.sleep(interval)
+            except NetlinkDumpInterrupted:
+                pass
+        raise TimeoutError()
 
     def __getattr__(self, name):
         async_generic_methods = [
