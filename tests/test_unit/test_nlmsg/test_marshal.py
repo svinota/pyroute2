@@ -10,6 +10,7 @@ from pyroute2.netlink import NLMSG_ERROR
 from pyroute2.netlink.nl80211 import MarshalNl80211
 from pyroute2.netlink.rtnl import RTM_NEWADDR, RTM_NEWLINK
 from pyroute2.netlink.rtnl.iprsocket import MarshalRtnl
+from pyroute2.netlink.uevent import MarshalUevent
 
 
 def load_sample(sample):
@@ -42,6 +43,8 @@ def run_using_marshal(sample, marshal):
         ('test_unit/test_nlmsg/gre_01.dump', MarshalRtnl()),
         ('test_unit/test_nlmsg/iw_info_rsp.dump', MarshalNl80211()),
         ('test_unit/test_nlmsg/iw_scan_rsp.dump', MarshalNl80211()),
+        ('test_unit/test_nlmsg/uevent_udevd_backlight.dump', MarshalUevent()),
+        ('test_unit/test_nlmsg/uevent_kernel_backlight.dump', MarshalUevent()),
     ),
 )
 def test_marshal(sample, marshal):

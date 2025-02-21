@@ -2,6 +2,7 @@ import errno
 import struct
 import threading
 from functools import partial
+from typing import Callable, Generator, Optional
 
 from pyroute2.netlink import (
     NLM_F_ACK_TLVS,
@@ -82,7 +83,13 @@ class Marshal:
             partial(self.parse_one_message, key, flags, sequence_number),
         )
 
-    def parse(self, data, seq=None, callback=None, skip_alien_seq=False):
+    def parse(
+        self,
+        data: bytes,
+        seq: Optional[int] = None,
+        callback: Optional[Callable] = None,
+        skip_alien_seq: bool = False,
+    ) -> Generator[nlmsg, None, None]:
         '''
         Parse string data.
 
