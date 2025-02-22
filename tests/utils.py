@@ -5,7 +5,6 @@ import pwd
 import re
 import stat
 import subprocess
-import sys
 import uuid
 from socket import AF_INET, AF_INET6
 

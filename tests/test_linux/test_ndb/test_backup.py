@@ -1,8 +1,5 @@
 import sqlite3
-import sys
 import uuid
-
-import pytest
 
 
 def test_file_backup(context):
