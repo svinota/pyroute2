@@ -5,10 +5,6 @@ import uuid
 import pytest
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7),
-    reason='SQLite3 backup not supported on this Python version',
-)
 def test_file_backup(context):
     filename = str(uuid.uuid4()) + '-backup.db'
     context.ndb.backup(filename)

@@ -26,18 +26,4 @@ if sys.platform.startswith('win'):  # noqa: E402
 
 
 def init():
-    try:
-        # probe, if the bytearray can be used in struct.unpack_from()
-        struct.unpack_from('I', bytearray((1, 0, 0, 0)), 0)
-    except Exception:
-        if sys.version_info[0] < 3:
-            # monkeypatch for old Python versions
-            log.warning('patching struct.unpack_from()')
-
-            def wrapped(fmt, buf, offset=0):
-                return struct._u_f_orig(fmt, str(buf), offset)
-
-            struct._u_f_orig = struct.unpack_from
-            struct.unpack_from = wrapped
-        else:
-            raise
+    struct.unpack_from('I', bytearray((1, 0, 0, 0)), 0)

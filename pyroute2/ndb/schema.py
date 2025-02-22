@@ -551,7 +551,7 @@ class DBSchema:
 
     @publish
     def backup(self, spec):
-        if sys.version_info >= (3, 7) and self.provider == DBProvider.sqlite3:
+        if self.provider == DBProvider.sqlite3:
             backup_connection = sqlite3.connect(spec)
             self.connection.backup(backup_connection)
             backup_connection.close()

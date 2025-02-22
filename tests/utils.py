@@ -105,11 +105,6 @@ def require_kernel(major, minor=None):
         pytest.skip('incompatible kernel version')
 
 
-def require_python(target):
-    if sys.version_info[0] != target:
-        pytest.skip('test requires Python %i' % target)
-
-
 def require_8021q():
     try:
         os.stat('/proc/net/vlan/config')

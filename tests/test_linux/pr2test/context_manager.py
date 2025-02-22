@@ -4,7 +4,6 @@ import getpass
 import itertools
 import logging
 import os
-import sys
 import uuid
 from collections import namedtuple
 from socket import AF_INET, AF_INET6
@@ -313,7 +312,7 @@ class NDBContextManager(object):
         2. remove the registered interfaces, ignore not existing
         '''
         # save postmortem DB for SQLite3
-        if self.db_provider == 'sqlite3' and sys.version_info >= (3, 7):
+        if self.db_provider == 'sqlite3':
             self.ndb.backup(f'{self.spec.uid}-post.db')
         self.ndb.close()
         self.ipr.close()

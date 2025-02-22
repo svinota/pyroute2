@@ -273,7 +273,9 @@ import ctypes
 import ctypes.util
 import logging
 import logging.handlers
+import queue
 import threading
+from urllib.parse import urlparse
 
 from pyroute2.common import basestring
 
@@ -286,16 +288,6 @@ from .schema import DBProvider
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
-
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
 
 log = logging.getLogger(__name__)
 

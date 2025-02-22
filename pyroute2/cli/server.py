@@ -1,14 +1,9 @@
 import json
+from http.server import BaseHTTPRequestHandler
+from http.server import HTTPServer as HTTPServer
 
 from pyroute2.cli.session import Session
 from pyroute2.ndb.main import NDB
-
-try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer as HTTPServer
-except ImportError:
-    from http.server import BaseHTTPRequestHandler
-    from http.server import HTTPServer as HTTPServer
 
 
 class ProxyEncoder(object):

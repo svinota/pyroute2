@@ -503,8 +503,7 @@ class NotInitialized(Exception):
 ##
 # That's a hack for the code linter, which works under
 # Python3, see unicode reference in the code below
-if sys.version[0] == '3':
-    unicode = str
+unicode = str
 
 NLMSG_MIN_TYPE = 0x10
 
@@ -2336,11 +2335,10 @@ class nlmsg_atoms(object):
         def decode(self):
             nla_base_string.decode(self)
             self.value = self['value']
-            if sys.version_info[0] >= 3:
-                try:
-                    self.value = self.value.decode('utf-8')
-                except UnicodeDecodeError:
-                    pass  # Failed to decode, keep undecoded value
+            try:
+                self.value = self.value.decode('utf-8')
+            except UnicodeDecodeError:
+                pass  # Failed to decode, keep undecoded value
 
     class asciiz(string):
         '''
