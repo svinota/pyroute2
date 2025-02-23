@@ -2,7 +2,6 @@ import ast
 import collections
 import inspect
 import os
-import sys
 
 import nox
 import pytest
@@ -24,9 +23,6 @@ def session(request):
     )
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8), reason='unsupported Python version'
-)
 @pytest.mark.parametrize('session', nox_sessions, indirect=True)
 def test_options_call(session):
     # walk the AST tree
@@ -53,9 +49,6 @@ def test_session_parameters(session):
         assert args == ['session']
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 8), reason='unsupported Python version'
-)
 @pytest.mark.parametrize('session', nox_sessions, indirect=True)
 def test_requirements_files(session):
     for node in ast.walk(ast.parse(inspect.getsource(session.src_func))):

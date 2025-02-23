@@ -46,6 +46,7 @@ payload and `IPRoute.get(...)` returns parsed RTNL messages.
 
 import errno
 import os
+import queue
 import select
 import struct
 import threading
@@ -70,11 +71,6 @@ from pyroute2.netlink.rtnl.ifinfmsg import IFF_NAMES, ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
 
 
 class IPRoute(object):

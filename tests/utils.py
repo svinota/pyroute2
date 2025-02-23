@@ -5,7 +5,6 @@ import pwd
 import re
 import stat
 import subprocess
-import sys
 import uuid
 from socket import AF_INET, AF_INET6
 
@@ -103,11 +102,6 @@ def kernel_version_ge(major, minor):
 def require_kernel(major, minor=None):
     if not kernel_version_ge(major, minor):
         pytest.skip('incompatible kernel version')
-
-
-def require_python(target):
-    if sys.version_info[0] != target:
-        pytest.skip('test requires Python %i' % target)
 
 
 def require_8021q():

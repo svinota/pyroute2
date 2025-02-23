@@ -18,7 +18,7 @@ Requirements
 ============
 
 * nox
-* python >= 3.8
+* python >= 3.9
 * `-r requirements.dev.txt`
 
 Run tests

@@ -11,10 +11,23 @@ try:
     from pyroute2.config.version import __version__
 except ImportError:
     __version__ = 'unknown'
+import sys
 
-from pyroute2 import loader
 from pyroute2.cli.console import Console
 from pyroute2.cli.server import Server
+
+##
+#
+# Logging setup
+#
+# See the history:
+#  * https://github.com/svinota/pyroute2/issues/246
+#  * https://github.com/svinota/pyroute2/issues/255
+#  * https://github.com/svinota/pyroute2/issues/270
+#  * https://github.com/svinota/pyroute2/issues/573
+#  * https://github.com/svinota/pyroute2/issues/601
+#
+from pyroute2.config import log
 from pyroute2.conntrack import Conntrack, ConntrackEntry
 from pyroute2.devlink import DL
 from pyroute2.ethtool.ethtool import Ethtool
@@ -57,6 +70,17 @@ from pyroute2.nslink.nspopen import NSPopen
 from pyroute2.plan9.client import Plan9ClientSocket
 from pyroute2.plan9.server import Plan9ServerSocket
 from pyroute2.wiset import WiSet
+
+##
+#
+# Windows platform specific: socket module monkey patching
+#
+# To use the library on Windows, run::
+#   pip install win-inet-pton
+#
+if sys.platform.startswith('win'):  # noqa: E402
+    import win_inet_pton  # noqa: F401
+
 
 modules = [
     AcpiEventSocket,
@@ -106,8 +130,8 @@ modules = [
     UeventSocket,
     WireGuard,
     WiSet,
+    log,
 ]
 
-loader.init()
 __all__ = []
 __all__.extend(modules)

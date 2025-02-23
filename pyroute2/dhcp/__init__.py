@@ -100,7 +100,6 @@ the code 255 is the end of options code.
 
 import logging
 import struct
-import sys
 from array import array
 from typing import ClassVar, NamedTuple, Optional, TypedDict, TypeVar, Union
 
@@ -188,7 +187,7 @@ class option(msg):
                 fmt = '%is' % len(value)
             else:
                 fmt = self.policy.format
-            if sys.version_info[0] == 3 and isinstance(value, str):
+            if isinstance(value, str):
                 value = value.encode('utf-8')
             self.buf = struct.pack(fmt, value)
         else:
