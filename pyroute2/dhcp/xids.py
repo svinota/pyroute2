@@ -1,5 +1,5 @@
 from secrets import SystemRandom
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pyroute2.dhcp.fsm import State
 
@@ -25,8 +25,10 @@ class Xid:
     the same value when answering. (see RFC section 4.1)
     '''
 
-    def __init__(self, value: Optional[int] = None):
-        if value is None:
+    def __init__(self, value: Optional[Union[int, 'Xid']] = None):
+        if isinstance(value, Xid):
+            value = value._value
+        elif value is None:
             value = random_xid_prefix()
         else:
             assert value < 0xFFFFFFFF  # we have 32 bits

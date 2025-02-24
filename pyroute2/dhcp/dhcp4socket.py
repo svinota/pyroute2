@@ -12,6 +12,7 @@ from typing import Optional
 from pyroute2.compat import ETHERTYPE_IP
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.messages import ReceivedDHCPMessage, SentDHCPMessage
+from pyroute2.ext.bpf import BPF
 from pyroute2.ext.rawsocket import AsyncRawSocket
 from pyroute2.protocols import ethmsg, ip4msg, udp4_pseudo_header, udpmsg
 
@@ -20,22 +21,40 @@ LOG = logging.getLogger(__name__)
 
 UDP_HEADER_SIZE = 8
 IPV4_HEADER_SIZE = 20
+SKF_AD_OFF = -0x1000
+SKF_AD_VLAN_TAG_PRESENT = 48
 
 
 def listen_udp_port(port: int = 68) -> list[list[int]]:
-    # pre-scripted BPF code that matches UDP port
+    '''BPF filter that matches Ethernet + IPv4 + UDP on the given port.
+
+    Packets tagged on a vlan are also dropped, see
+    https://lore.kernel.org/netdev/51FB6A9D.2050002@redhat.com/T/
+    '''
     bpf_code = [
-        [40, 0, 0, 12],
-        [21, 0, 8, 2048],
-        [48, 0, 0, 23],
-        [21, 0, 6, 17],
-        [40, 0, 0, 20],
-        [69, 4, 0, 8191],
-        [177, 0, 0, 14],
-        [72, 0, 0, 16],
-        [21, 0, 1, port],
-        [6, 0, 0, 65535],
-        [6, 0, 0, 0],
+        # Load vlan presence indicator
+        [BPF.LD + BPF.B + BPF.ABS, 0, 0, SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT],
+        # bail out immediately if there is one and we don't want it
+        [BPF.JMP + BPF.JEQ + BPF.K, 0, 10, 0],
+        # Load eth type at offset 12 and check it's IPv4
+        [BPF.LD + BPF.H + BPF.ABS, 0, 0, 12],
+        [BPF.JMP + BPF.JEQ + BPF.K, 0, 8, 0x0800],
+        # Load IP proto at offset 23 and check it's UDP
+        [BPF.LD + BPF.B + BPF.ABS, 0, 0, 23],
+        [BPF.JMP + BPF.JEQ + BPF.K, 0, 6, socket.IPPROTO_UDP],
+        # load frag offset at offset 20
+        [BPF.LD + BPF.H + BPF.ABS, 0, 0, 20],
+        # Check mask & drop fragmented packets
+        [BPF.JMP + BPF.JSET + BPF.K, 4, 0, 8191],
+        # load ip header length at offset 14
+        [BPF.LDX + BPF.B + BPF.MSH, 0, 0, 14],
+        # load udp dport from that offset + 16 and check it
+        [BPF.LD + BPF.H + BPF.IND, 0, 0, 16],
+        [BPF.JMP + BPF.JEQ + BPF.K, 0, 1, port],
+        # allow packet
+        [BPF.RET + BPF.K, 0, 0, 65535],
+        # drop packet
+        [BPF.RET + BPF.K, 0, 0, 0],
     ]
     return bpf_code
 
