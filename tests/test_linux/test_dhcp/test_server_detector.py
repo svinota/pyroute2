@@ -156,6 +156,7 @@ async def test_detect_with_vlan(
     async_ipr: AsyncIPRoute,
     caplog: pytest.LogCaptureFixture,
     run_dhcp_server_outside_vlan: bool,
+    async_context,
 ):
     '''Get an offer from dnsmasq over a vlan,
     and maybe another offer from udhcpd outside of it.
@@ -259,10 +260,10 @@ async def test_detect_with_vlan(
         # we stopped udhcpd so only got an offer from dnsmasq
         assert len(offers) == 1
 
-    #################################################################
-    # Here is the issue:
-    # the socket listening on the non-vlan interface also receives
-    # the offer sent over the vlan. since we have a different xid per
-    # interface, it is discarded, but should not happen anyway.
+    # The bpf filter drops packets that are intended for vlans; failing that,
+    # we would receive a copy of all packets meant for "upper" vlans when
+    # on a non-vlan interface.
+    # since we have a different xid per  interface, they're discarded,
+    # but should not happen anyway.
+    # So if this assert fails it means the BPF filter does not work
     assert b'Got OFFER with xid mismatch, ignoring' not in stderr
-    #################################################################

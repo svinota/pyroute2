@@ -98,11 +98,11 @@ class DHCPServerDetector:
                     if next_msg.dhcp['xid'] != expected_xids[sock.ifname]:
                         LOG.debug(
                             '[%s] Got %s with xid mismatch, ignoring',
-                            sock.ifname,
+                            interface,
                             next_msg.message_type.name,
                         )
                         continue
-                    LOG.info('[%s] <- %s', sock.ifname, next_msg)
+                    LOG.info('[%s] <- %s', interface, next_msg)
                     await self._responses_queue.put((interface, next_msg))
                 except asyncio.CancelledError:
                     LOG.debug('[%s] stop discovery', interface)

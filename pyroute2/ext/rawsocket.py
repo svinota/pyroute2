@@ -1,49 +1,20 @@
 import asyncio
 import logging
-from ctypes import (
-    Structure,
-    addressof,
-    c_ubyte,
-    c_uint,
-    c_ushort,
-    c_void_p,
-    sizeof,
-    string_at,
-)
 from socket import AF_PACKET, SOCK_RAW, SOL_SOCKET, errno, error, htons, socket
 from typing import Optional
 
+from pyroute2.ext import bpf
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.netlink.rtnl import RTMGRP_LINK
 
 LOG = logging.getLogger(__name__)
-
+ETH_P_IP = 0x0800
 ETH_P_ALL = 3
 SO_ATTACH_FILTER = 26
 SO_DETACH_FILTER = 27
 
 
 total_filter = [[0x06, 0, 0, 0]]
-
-
-class sock_filter(Structure):
-    _fields_ = [
-        ('code', c_ushort),  # u16
-        ('jt', c_ubyte),  # u8
-        ('jf', c_ubyte),  # u8
-        ('k', c_uint),
-    ]  # u32
-
-
-class sock_fprog(Structure):
-    _fields_ = [('len', c_ushort), ('filter', c_void_p)]
-
-
-def compile_bpf(code: list[list[int]]):
-    ProgramType = sock_filter * len(code)
-    program = ProgramType(*[sock_filter(*line) for line in code])
-    sfp = sock_fprog(len(code), addressof(program[0]))
-    return string_at(addressof(sfp), sizeof(sfp)), program
 
 
 class AsyncRawSocket(socket):
@@ -86,7 +57,7 @@ class AsyncRawSocket(socket):
         socket.bind(self, (self.ifname, ETH_P_ALL))
         if self.bpf:
             self.clear_buffer()
-            fstring, self.fprog = compile_bpf(self.bpf)
+            fstring, self.fprog = bpf.compile(self.bpf)
             socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, fstring)
         else:
             # FIXME: should be async
@@ -129,7 +100,7 @@ class AsyncRawSocket(socket):
         # pcap-linux.c. libpcap sets a total filter which does not match any
         # packet.  It then clears what is already in the socket
         # before setting the desired filter
-        total_fstring, prog = compile_bpf(total_filter)
+        total_fstring, prog = bpf.compile(total_filter)
         socket.setsockopt(self, SOL_SOCKET, SO_ATTACH_FILTER, total_fstring)
         while True:
             try:
