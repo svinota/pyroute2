@@ -9,15 +9,7 @@ from pathlib import Path
 from signal import Signals
 from socket import gethostname
 from time import time
-from typing import (
-    Awaitable,
-    Callable,
-    DefaultDict,
-    Iterable,
-    Iterator,
-    Optional,
-    Union,
-)
+from typing import Callable, DefaultDict, Iterable, Iterator, Optional, Union
 
 from pyroute2.dhcp import fsm, messages
 from pyroute2.dhcp.dhcp4socket import AsyncDHCP4Socket
@@ -649,7 +641,7 @@ class AsyncDHCPClient:
         self,
         loop: asyncio.AbstractEventLoop,
         signal: Signals,
-        callback: Callable[..., Awaitable[None]],
+        callback: fsm.AsyncCallback,
     ):
         '''Arranges for `callback` to be called when receiving `signal`.
 
@@ -657,9 +649,7 @@ class AsyncDHCPClient:
         '''
         loop.add_signal_handler(
             sig=signal,
-            callback=lambda: asyncio.create_task(
-                callback(signal=signal)  # type: ignore[arg-type]
-            ),
+            callback=lambda: asyncio.create_task(callback(signal=signal)),
         )
 
     def _register_signal_handlers(self):

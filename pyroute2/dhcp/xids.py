@@ -26,13 +26,16 @@ class Xid:
     '''
 
     def __init__(self, value: Optional[Union[int, 'Xid']] = None):
-        if isinstance(value, Xid):
-            value = value._value
+        if isinstance(value, int):
+            int_value = value
+        elif isinstance(value, Xid):
+            int_value = int(value)
         elif value is None:
-            value = random_xid_prefix()
+            int_value = random_xid_prefix()
         else:
-            assert value < 0xFFFFFFFF  # we have 32 bits
-        self._value = value
+            raise TypeError(f'{value!r} is not an xid')
+        assert int_value < 0xFFFFFFFF  # we have 32 bits
+        self._value = int_value
 
     @property
     def random_part(self) -> int:
