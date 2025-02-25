@@ -3,14 +3,12 @@
 import asyncio
 import dataclasses
 from logging import getLogger
-from typing import Awaitable, Callable, Literal, Optional
+from typing import Optional
 
+from pyroute2.dhcp.fsm import AsyncCallback
 from pyroute2.dhcp.leases import Lease
 
 LOG = getLogger(__name__)
-
-
-AsyncCallback = Callable[[], Awaitable[None]]
 
 
 @dataclasses.dataclass
@@ -26,10 +24,10 @@ class LeaseTimers:
         for timer_name in ('renewal', 'rebinding', 'expiration'):
             self._reset_timer(timer_name)
 
-    def _reset_timer(
-        self, timer_name: Literal['renewal', 'rebinding', 'expiration']
-    ) -> None:
+    def _reset_timer(self, timer_name: str) -> None:
         '''Cancel a timer and set it to None.'''
+        if timer_name not in ('renewal', 'rebinding', 'expiration'):
+            raise ValueError(f'Unknown timer {timer_name!r}')
         if timer := getattr(self, timer_name):
             assert isinstance(timer, asyncio.TimerHandle)
             if not timer.cancelled():
@@ -49,7 +47,7 @@ class LeaseTimers:
         loop = asyncio.get_running_loop()
 
         for timer_name, async_callback in callbacks.items():
-            self._reset_timer(timer_name)  # type: ignore[arg-type]
+            self._reset_timer(timer_name)
             lease_time = getattr(lease, f'{timer_name}_in')
             if not lease_time:
                 LOG.debug('%s time is infinite', timer_name)
@@ -71,6 +69,5 @@ class LeaseTimers:
         Creates a Task that runs the async_callback.
         '''
         asyncio.create_task(
-            async_callback(),  # type: ignore[arg-type]
-            name=f"{timer_name} timer callback",
+            async_callback(), name=f"{timer_name} timer callback"
         )

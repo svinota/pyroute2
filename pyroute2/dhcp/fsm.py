@@ -3,7 +3,7 @@
 import functools
 from enum import IntEnum, auto
 from logging import getLogger
-from typing import Any, Awaitable, Callable, Final
+from typing import Any, Callable, Final, Protocol
 
 LOG = getLogger(__name__)
 
@@ -40,18 +40,19 @@ TRANSITIONS: Final[dict[State, set[State]]] = {
 }
 
 
-def state_guard(
-    *states: State,
-) -> Callable[
-    [Callable[..., Awaitable[None]]], Callable[..., Awaitable[None]]
-]:
+class AsyncCallback(Protocol):
+    __name__: str
+
+    async def __call__(self, *a, **kwds: Any) -> Any:
+        '''Protocol for async methods that makes mypy happy.'''
+
+
+def state_guard(*states: State) -> Callable[[AsyncCallback], AsyncCallback]:
     '''Decorator that prevents a method from running
 
     if the associated instance is not in one of the given States.'''
 
-    def decorator(
-        meth: Callable[..., Awaitable[None]]
-    ) -> Callable[..., Awaitable[None]]:
+    def decorator(meth: AsyncCallback) -> AsyncCallback:
         @functools.wraps(meth)
         async def wrapper(self, *args: Any, **kwargs: Any) -> None:
             if self.state not in states:
