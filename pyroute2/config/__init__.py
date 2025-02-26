@@ -29,6 +29,8 @@ def mock_if(name):
                 return local_mock
             return func(*argv, **kwarg)
 
+        wrapper.__doc__ = func.__doc__
+        wrapper.__name__ = func.__name__
         return wrapper
 
     return decorator
