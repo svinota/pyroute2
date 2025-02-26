@@ -24,38 +24,8 @@ Create veth and move the peer to a netns with IPRoute::
     from pyroute2 import IPRoute
     ipr = IPRoute()
     ipr.link('add', ifname='v0p0', kind='veth', peer='v0p1')
-    idx = ipr.link_lookup(ifname='v0p1')[0]
+    idx = ipr.link_lookup(ifname='v0p1')
     ipr.link('set', index=idx, net_ns_fd='netns_name')
-
-Create veth and move the peer to a netns with IPDB::
-
-    from pyroute2 import IPDB
-    ipdb = IPDB()
-    ipdb.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
-    with ipdb.interfaces.v0p1 as i:
-        i.net_ns_fd = 'netns_name'
-
-Manage interfaces within a netns
---------------------------------
-
-This task can be done with `NetNS` objects. A `NetNS` object
-spawns a child and runs it within a netns, providing the same
-API as `IPRoute` does::
-
-    from pyroute2 import NetNS
-    ns = NetNS('netns_name')
-    # do some stuff within the netns
-    ns.close()
-
-One can even start `IPDB` on the top of `NetNS`::
-
-    from pyroute2 import NetNS
-    from pyroute2 import IPDB
-    ns = NetNS('netns_name')
-    ipdb = IPDB(nl=ns)
-    # do some stuff within the netns
-    ipdb.release()
-    ns.close()
 
 Spawn a process within a netns
 ------------------------------
@@ -63,14 +33,8 @@ Spawn a process within a netns
 For that purpose one can use `NSPopen` API. It works just
 as normal `Popen`, but starts a process within a netns.
 
-List, set, create, attach and remove netns
-------------------------------------------
-
-These functions are described below. To use them, import
-`netns` module::
-
-    from pyroute2 import netns
-    netns.listnetns()
+Network namespace management
+----------------------------
 
 Please be aware, that in order to run system calls the
 library uses `ctypes` module. It can fail on platforms

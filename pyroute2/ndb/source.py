@@ -57,27 +57,6 @@ short form. The full form would be::
      'netns': 'test01'}     #
 
 See also: :ref:`netns`
-
-Remote systems
---------------
-
-It is possible also to connect to remote systems using SSH. In order to
-use this kind of sources it is required to install the
-`mitogen <https://github.com/dw/mitogen>`_ module. The `remote` kind
-of sources uses the `RemoteIPRoute` class. The short form::
-
-    ndb.sources.add(hostname='worker1.example.com')
-
-
-In some more extended form::
-
-    ndb.sources.add(**{'target': 'worker1.example.com',
-                       'kind': 'remote',
-                       'hostname': 'worker1.example.com',
-                       'username': 'jenkins',
-                       'check_host_keys': False})
-
-See also: :ref:`remote`
 '''
 
 import errno

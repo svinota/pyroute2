@@ -14,5 +14,8 @@ RTNL classes
 
 .. autoclass:: pyroute2.IPRSocket
 
-.. automodule:: pyroute2.iproute
-   :members:
+.. autoclass:: pyroute2.AsyncIPRoute
+
+.. autoclass:: pyroute2.IPRoute
+
+.. autoclass:: pyroute2.NetNS

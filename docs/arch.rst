@@ -9,24 +9,29 @@ Sockets
 The idea behind the pyroute2 framework is pretty simple. The
 library provides socket objects, that have:
 
-* shortcuts to establish netlink connections
-* extra methods to run netlink queries
-* some magic to handle packet bursts
-* another magic to transparently mangle netlink messages
+* shortcuts to establish higher level connections (netlink, 9p, ...)
+* extra methods to run queries and protocols
 
-In other sense any netlink socket is just an ordinary socket
-with `fileno()`, `recv()`, `sendto()` etc. Of course, one
-can use it in `poll()`.
+The library core is based on asyncio, and provides both asynchronous
+and synchronous versions of API, where the synchronous one is a
+wrapper around the async code. This way we avoid keeping two separate
+codebase while providing the legacy sync API.
 
-There is an inheritance diagram of Linux netlink sockets, provided
-by the library:
+The library provides asynchronous sockets:
+
+.. inheritance-diagram:: pyroute2.iproute.linux.AsyncIPRoute
+    pyroute2.netlink.rtnl.iprsocket.AsyncIPRSocket
+    pyroute2.plan9.client.Plan9ClientSocket
+    pyroute2.plan9.server.Plan9ServerSocket
+    pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket
+    :parts: 1
+
+And syncronous sockets:
 
 .. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
     pyroute2.iproute.linux.IPRoute
-    pyroute2.iproute.linux.AsyncIPRoute
     pyroute2.iproute.linux.RawIPRoute
     pyroute2.netlink.rtnl.iprsocket.IPRSocket
-    pyroute2.netlink.rtnl.iprsocket.AsyncIPRSocket
     pyroute2.iwutil.IW
     pyroute2.ipset.IPSet
     pyroute2.ipvs.IPVS
@@ -45,70 +50,8 @@ by the library:
     pyroute2.netlink.diag.DiagSocket
     :parts: 1
 
-under the hood
---------------
-
-Let's assume we use an `IPRoute` object to get the
-interface list of the system::
-
-    from pyroute2 import IPRoute
-    ipr = IPRoute()
-    ipr.get_links()
-    ipr.close()
-
-The `get_links()` method is provided by the `IPRouteMixin`
-class. It chooses the message to send (`ifinfmsg`), prepares
-required fields and passes it to the next layer::
-
-    result.extend(self.nlm_request(msg, RTM_GETLINK, msg_flags))
-
-The `nlm_request()` is a method of the `NetlinkSocketBase` class.
-It wraps the pair request/response in one method. The request
-is done via `put()`, response comes with `get()`. These
-methods hide under the hood the asynchronous nature of the
-netlink protocol, where the response can come whenever --
-the time and packet order are not guaranteed. But one can
-use the `sequence_number` field of a netlink message to
-match responses, and the pair `put()/get()` does it.
-
-message mangling
-----------------
-
-An interesting feature of the `IPRSocketBase` is a netlink
-proxy code, that allows to register callbacks for different
-message types. The callback API is simple. The callback
-must accept the message as a binary data, and must return
-a dictionary with two keys, `verdict` and `data`. The
-verdict can be:
-
-    * for `sendto()`: `forward`, `return` or `error`
-    * for `recv()`: `forward` or `error`
-
-E.g.::
-
-    msg = ifinfmsg(data)
-    msg.decode()
-    ...  # mangle msg
-    msg.reset()
-    msg.encode()
-    return {'verdict': 'forward',
-            'data': msg.buf.getvalue()}
-
-The `error` verdict raises an exception from `data`. The
-`forward` verdict causes the `data` to be passed. The
-`return` verdict is valid only in `sendto()` callbacks and
-means that the `data` should not be passed to the kernel,
-but instead it must be returned to the user.
-
-This magic allows the library to transparently support
-ovs, teamd, tuntap calls via netlink. The corresponding
-callbacks transparently route the call to an external
-utility or to `ioctl()` API.
-
-How to register callbacks, see `IPRSocketBase` init.
-The `_sproxy` serves `sendto()` mangling, the `_rproxy`
-serves the `recv()` mangling. Later this API can become
-public.
+Not all the synchronous sockets have got their asynchronous counterpart yet,
+but this work is ongoing.
 
 Netlink messages
 ================
