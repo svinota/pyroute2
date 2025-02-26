@@ -1,20 +1,28 @@
 Changelog
 =========
 
+* 0.9.1
+    * core: rewritten using asyncio
+    * dhcp: a huge upgrade, all the protocol module reimplemented using asyncio
+    * 9p: a basic client / server / fs implementation (no 9p2000.L yet)
+    * fixtures: added public pytest fixtures
+    * NetNS: obsoleted, all the functionality merged into the core
+    * proxy: deprecated and removed, see NetlinkRequest
+
+.. warning::
+
+    0.8.1 is the final minor thread-based version of the library. All updates to
+    the synchronous core will follow as 0.8.x. The asynchronous core will follow
+    as 0.9.x and up.
+
 * 0.8.1
-
-  This is the final minor thread-based version of the library. All updates to
-  the synchronous core will follow as 0.8.x. The asynchronous core will be
-  released later as version 0.9.1.
-
-  * ndb: fix route replace <https://github.com/svinota/pyroute2/pull/1179>
-  * ndb: fix af_bridge_fdb indexes <https://github.com/svinota/pyroute2/pull/1215>
-  * rtnl: probe API <https://github.com/svinota/pyroute2/pull/1175>
-  * tc: htb rate64 <https://github.com/svinota/pyroute2/pull/1182>
-  * ipvs: basic support <https://github.com/svinota/pyroute2/pull/1187>
-  * decoder: support pcap format <https://github.com/svinota/pyroute2/pull/1191>
-  * ethtool: get/set channels <https://github.com/svinota/pyroute2/pull/1192>
-
+    * ndb: fix route replace <https://github.com/svinota/pyroute2/pull/1179>
+    * ndb: fix af_bridge_fdb indexes <https://github.com/svinota/pyroute2/pull/1215>
+    * rtnl: probe API <https://github.com/svinota/pyroute2/pull/1175>
+    * tc: htb rate64 <https://github.com/svinota/pyroute2/pull/1182>
+    * ipvs: basic support <https://github.com/svinota/pyroute2/pull/1187>
+    * decoder: support pcap format <https://github.com/svinota/pyroute2/pull/1191>
+    * ethtool: get/set channels <https://github.com/svinota/pyroute2/pull/1192>
 * 0.7.12
     * cli: move readline import to the script <https://github.com/svinota/pyroute2/pull/1165>
     * ci: update tools versions <https://github.com/svinota/pyroute2/pull/1167>
