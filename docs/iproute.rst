@@ -8,6 +8,10 @@ IPRoute and related modules
 
     iproute_intro
     iproute_netns
-    iproute_platforms
+    iproute_responses
     iproute_linux
+
+..
+    excluded chapters:
+    iproute_platforms
     iproute_tc

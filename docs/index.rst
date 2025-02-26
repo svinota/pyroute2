@@ -59,15 +59,6 @@ Development
     arch
     parser
     netlink
-    nlsocket
-
-Experimental
-------------
-
-.. toctree::
-   :maxdepth: 1
-
-   remote
 
 Indices and tables
 ==================
