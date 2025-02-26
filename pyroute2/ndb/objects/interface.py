@@ -1037,13 +1037,13 @@ class Interface(RTNL_Object):
             if 'alt_ifname_list' in self.changed:
                 self.changed.remove('alt_ifname_list')
             super(Interface, self).apply(rollback, req_filter, mode)
-            if setns:
+            if setns and self['net_ns_fd'] in self.sources:
                 self.load_value('target', self['net_ns_fd'])
                 dict.__setitem__(self, 'net_ns_fd', None)
                 spec = self.load_sql()
                 if spec:
                     self.state.set('system')
-            if not remove:
+            if not remove and self.state != 'invalid':
                 self.apply_altnames(
                     alt_ifname_setup, set(self['alt_ifname_list']), old_ifname
                 )
