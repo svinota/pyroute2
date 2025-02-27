@@ -74,8 +74,7 @@ def get_psr() -> ArgumentParser:
         '--write-pidfile',
         default=False,
         action='store_true',
-        help='Write a pid file in the working directory. '
-        'WARNING: this option might be removed later.',
+        help='Write a pid file in the working directory. ',
     )
     psr.add_argument(
         '-R',

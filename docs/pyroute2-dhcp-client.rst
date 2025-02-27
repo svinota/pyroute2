@@ -9,8 +9,30 @@ Synopsis
 Description
 -----------
 
-**pyroute2-dhcp-client** is a DHCP client based on pyroute2 DHCP protocol
-implementation. Available options:
+**pyroute2-dhcp-client** is a client based on the pyroute2 DHCP implementation.
+
+It is mostly a simple CLI wrapper around the
+`pyroute2.dhcp.client.AsyncDHCPClient` class, which has more flexibility and
+configuration options (see `pyroute2.dhcp.client.ClientConfig`).
+Some options are not (yet) configurable through the commandline, such as the
+client and vendor IDs, the hostname and the requested parameters.
+
+Its default behavior is to try to acquire a lease for the passed interface,
+configuring its IP address and gateway, as long as it is running.
+On exit, it releases its lease and remove the associated IP from the interface.
+If the interface goes down during the client's lifetime, or is not up when
+starting, the client waits until it is up again.
+
+System configuration based on lease options (i.e. IP/gateway configuration)
+is done through hooks. The default hooks add the obtained IP to the interface
+and set the default gateway, but that can be configured, and you can ask the
+client to run your own custom hooks (see `pyroute2.dhcp.hooks`).
+
+The client can also be started in "one-shot" mode (see the `-x` option), where
+it will exit as soon as a lease is obtained.
+
+Available options:
+------------------
 
 --lease-type <type>
     Class to use for leases. Must be a subclass of `pyroute2.dhcp.leases.Lease`.
@@ -30,10 +52,30 @@ implementation. Available options:
 --no-release, -R
     Do not send a DHCPRELEASE on exit.
 
-**Warning**: these options can be removed or changed in next releases:
-
 --write-pidfile, -p
     Write a pid file in the working directory.
+
+Leases
+------
+
+The default behavior is to write the latest obtained lease to a JSON file named
+after the interface in the client's working directory.
+
+On startup, if the client finds such a file, it will request the same IP.
+
+This behavior can be modified with the `--lease-type` option. For example, the
+`pyroute2.dhcp.client.leases.JSONStdoutLease` class just writes leases to
+standard output and does not persist them to disk.
+
+Signals
+-------
+
+**pyroute2-dhcp-client** responds to the following signals:
+
+- `SIGINT` (i.e. Ctrl-C) releases & exits
+- `SIGUSR1` triggers a lease renewal (normally triggered automatically at ~50% of the lease time)
+- `SIGUSR2` triggers a rebinding (normally triggered automatically at ~87% of the lease time)
+- `SIGHUP` forces the current lease to expire and starts looking for a new one
 
 Examples
 --------
