@@ -191,7 +191,7 @@ def get_argparser() -> argparse.ArgumentParser:
     psr.add_argument(
         '-l',
         '--log-level',
-        default=logging.WARNING,
+        default='WARNING',
         help="Log level. Set to INFO to log sent & received messages.",
         metavar='LEVEL',
     )
