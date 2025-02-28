@@ -25,7 +25,11 @@ def import_dotted_name(name: str) -> Any:
 
 def get_psr() -> ArgumentParser:
     psr = ArgumentParser(
-        description='pyroute2 DHCP client',
+        description='A DHCP client based on pyroute2. '
+        'Tries to obtain & keep a lease on an interface, running '
+        'configurable hooks to assign the obtained IP address and gw to it.',
+        epilog='Send a SIGUSR1 to renew the current lease, SIGUSR2 to rebind '
+        'it and SIGHUP to reset & get a new lease.',
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     psr.add_argument(

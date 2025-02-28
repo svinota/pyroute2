@@ -110,7 +110,7 @@ and the UDP source & dest. ports are always 67 and 68.
 Exit codes
 ----------
 
-The programs always exits with `0` if at least one `OFFER` was received,
+The programs always exits with `0` if at least one `OFFER` was received
 in the configured duration, `1` otherwise.
 
 Along with its JSON output, it means it can be used easily in scripts, like:
