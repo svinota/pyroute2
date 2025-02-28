@@ -538,7 +538,6 @@ class IoctlEthtool:
         ifreq_sset.ifr_name = (ctypes.c_uint8 * IFNAMSIZ)(*self.ifname)
         ifreq_sset.info = ctypes.pointer(sset_info)
         fcntl.ioctl(self.sock, SIOCETHTOOL, ifreq_sset)
-        assert sset_info.sset_mask
         return sset_info.data
 
     def get_stringset(
