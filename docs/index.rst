@@ -60,6 +60,14 @@ Development
     parser
     netlink
 
+Deprecated
+----------
+
+.. toctree::
+    :maxdepth: 1
+
+    deprecated
+
 Indices and tables
 ==================
 

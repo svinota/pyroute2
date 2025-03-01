@@ -1,5 +1,17 @@
+'''
+IPDB
+----
+
+Deprecated since 0.7.12, removed from the library.
+
+The current `pyroute2.ipdb` implementation is a wrapper around NDB
+only to provide minimal compatibility for the old legacy code. Do
+NOT use IPDB.
+'''
+
 import errno
 import logging
+import warnings
 
 from pyroute2.ndb.main import NDB
 from pyroute2.netlink.exceptions import NetlinkError
@@ -219,6 +231,16 @@ referenced as `localhost`::
 '''
 
     def __init__(self, *argv, **kwarg):
+        warnings.warn(
+            '''
+            IPDB module is deprecated and removed.
+            This IPDB instance is just a wrapper around
+            NDB. See more:
+
+            https://github.com/svinota/pyroute2/wiki/IPDB-EOL
+            ''',
+            DeprecationWarning,
+        )
         sources = kwarg.pop('sources', [{'target': 'localhost'}])
         if argv or kwarg:
             log.warning(
