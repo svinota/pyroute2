@@ -2626,7 +2626,7 @@ class IPRoute(NetlinkSocket):
         target='localhost',
         ext_ack=False,
         strict_check=False,
-        groups=0,
+        groups=RTMGRP_DEFAULTS,
         nlm_echo=False,
         netns=None,
         flags=os.O_CREAT,

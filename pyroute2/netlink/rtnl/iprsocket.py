@@ -168,7 +168,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         target='localhost',
         ext_ack=False,
         strict_check=False,
-        groups=0,
+        groups=rtnl.RTMGRP_DEFAULTS,
         nlm_echo=False,
         netns=None,
         netns_path=None,
@@ -204,8 +204,6 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         )
         if not config.mock_netlink:
             self.request_proxy = IPRouteProxy(netns)
-        if self.spec['groups'] == 0:
-            self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
         self.status['netns_path'] = netns_path or config.netns_path
 
     async def bind(self, groups=None, **kwarg):
@@ -335,7 +333,7 @@ class IPRSocket(NetlinkSocket):
         target='localhost',
         ext_ack=False,
         strict_check=False,
-        groups=0,
+        groups=rtnl.RTMGRP_DEFAULTS,
         nlm_echo=False,
         netns=None,
         netns_path=None,
