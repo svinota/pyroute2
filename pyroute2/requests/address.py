@@ -65,7 +65,7 @@ class AddressIPRouteFilter(IPRouteFilter):
         cacheinfo = value.copy()
         if self.command != 'dump':
             for i in ('preferred', 'valid'):
-                cacheinfo[f'ifa_{i}'] = cacheinfo.get(i, pow(2, 32) - 1)
+                cacheinfo[f'ifa_{i}'] = context.get(i, pow(2, 32) - 1)
             return {'cacheinfo': cacheinfo}
         return {}
 
@@ -89,6 +89,14 @@ class AddressIPRouteFilter(IPRouteFilter):
 
     def finalize(self, context):
         if self.command != 'dump':
+            if 'cacheinfo' in context:
+                context.pop('preferred', None)
+                context.pop('valid', None)
+                if (
+                    context['cacheinfo']['ifa_valid']
+                    < context['cacheinfo']['ifa_preferred']
+                ):
+                    raise ValueError('preferred_lft is greater than valid_lft')
             if 'family' not in context and 'address' in context:
                 context['family'] = get_address_family(context['address'])
             if 'prefixlen' not in context:
