@@ -17,9 +17,11 @@ For example, it can be used to detect suspected "rogue" servers, or simply to
 probe servers and obtain information about the offered options.
 
 **dhcp-server-detector** sends `DISCOVER` messages on the specified
-interface(s) and prints eventual matching `OFFER`s, and some metadata, as JSON.
+interface(s) and prints eventual matching `OFFER`:s, and some metadata,
+as JSON.
 
-Detection behavior (duration, intervals, ...) can be controlled with a few options.
+Detection behavior (duration, intervals, ...) can be controlled with a few
+options.
 
 Available options
 -----------------
@@ -52,10 +54,10 @@ It contains the following data:
 
 - `interface`, the interface on which the message was received,
 - `message`, a full dump of the `OFFER`, with
-  - `dhcp`: decoded bootp & dhcp data
-  - `eth_src`, `eth_dst`: Link-layer source & destination addresses
-  - `ip_src`, `ip_dst`: IPv4 source & destination addresses
-  - `sport`, `dport`: UDP source & destination ports.
+    - `dhcp`: decoded bootp & dhcp data
+    - `eth_src`, `eth_dst`: Link-layer source & destination addresses
+    - `ip_src`, `ip_dst`: IPv4 source & destination addresses
+    - `sport`, `dport`: UDP source & destination ports.
 
 In proper DHCP, `eth_dst` & `ip_dst` are always broadcast addresses,
 and the UDP source & dest. ports are always 67 and 68.
@@ -116,6 +118,7 @@ in the configured duration, `1` otherwise.
 Along with its JSON output, it means it can be used easily in scripts, like:
 
 .. code-block:: bash
+
     # prints a line for every interface on which a DHCP server is detected.
     # waits 1 second for each interface.
     for ifname in $(ip --json l | jq -r '.[].ifname'); do
@@ -127,6 +130,8 @@ Along with its JSON output, it means it can be used easily in scripts, like:
 or:
 
 .. code-block:: bash
+   
     # does the same as the script above, but polls all interfaces in parallel
     # for 3s max before exiting
-    dhcp-server-detector -d 3 $(ip --json l | jq -r '.[].ifname') | jq -r .interface
+    dhcp-server-detector -d 3 $(ip --json l | jq -r '.[].ifname') |\
+        jq -r .interface

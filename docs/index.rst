@@ -48,6 +48,7 @@ Man pages
 
    pyroute2-cli
    pyroute2-dhcp-client
+   dhcp-server-detector
 
 Development
 -----------
