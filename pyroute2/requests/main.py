@@ -98,11 +98,11 @@ class RequestProcessor(dict):
                     k
                 ):
                     return {}
-                setter = getattr(field_filter, f'set_{key}', None)
+                setter = getattr(field_filter, f'set_{k}', None)
                 if setter is not None:
                     if ret is None:
                         ret = {}
-                    ret.update(setter(self.combined, value))
+                    ret.update(setter(ChainMap(self.combined, ret), v))
             if ret is not None:
                 job = ret
 
