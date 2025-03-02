@@ -87,7 +87,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
     only common netlink methods such as `get()` and `put()`. For
     more details, refer to the `AsyncNetlinkSocket` documentation.
 
-    ,, testcode::
+    .. testcode::
         :hide:
 
         from pyroute2 import AsyncIPRSocket
@@ -104,24 +104,20 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
 
     .. warning::
 
-        Netlink is an asynchronous protocol that does not guarantee
-        message delivery order or even delivery itself.
-
-    Your code must process incoming messages quickly enough to
-    prevent the RCVBUF from overflowing. If the RCVBUF overflows,
-    all subsequent socket operations will raise an OSError:
+        Your code must process incoming messages quickly enough to
+        prevent the RCVBUF from overflowing. If the RCVBUF overflows,
+        all subsequent socket operations will raise an OSError:
 
     .. code::
 
-        >>> iprsock.get()
+        >>> [ x async for x in ipr.get() ]
         Traceback (most recent call last):
-          File "<python-input-12>", line 1, in <module>
-            iprsock.get()
-            ~~~~~~~~^^
-          File ".../pyroute2/netlink/rtnl/iprsocket.py", line 276, in get
-            data = self.socket.recv(16384)
+          File ".../python3.13/futures/_base.py", line 456, in result
+            return self.__get_result()
+                   ~~~~~~~~~~~~~~~~~^^
+          ...
         OSError: [Errno 105] No buffer space available
-        >>>
+
 
     If this exception occurs, the only solution is to close the
     socket and create a new one.
@@ -172,7 +168,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         target='localhost',
         ext_ack=False,
         strict_check=False,
-        groups=0,
+        groups=rtnl.RTMGRP_DEFAULTS,
         nlm_echo=False,
         netns=None,
         netns_path=None,
@@ -208,8 +204,6 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         )
         if not config.mock_netlink:
             self.request_proxy = IPRouteProxy(netns)
-        if self.spec['groups'] == 0:
-            self.spec['groups'] = rtnl.RTMGRP_DEFAULTS
         self.status['netns_path'] = netns_path or config.netns_path
 
     async def bind(self, groups=None, **kwarg):
@@ -232,6 +226,29 @@ class IPRSocket(NetlinkSocket):
     A key feature of `IPRSocket` is that the underlying netlink
     socket operates out of asyncio control, allowing it to be
     used in poll/select loops.
+
+    .. warning::
+
+        Your code must process incoming messages quickly enough to
+        prevent the RCVBUF from overflowing. If the RCVBUF overflows,
+        all subsequent socket operations will raise an OSError:
+
+    .. code::
+
+        >>> iprsock.get()
+        Traceback (most recent call last):
+          File "<python-input-12>", line 1, in <module>
+            iprsock.get()
+            ~~~~~~~~^^
+          File ".../pyroute2/netlink/rtnl/iprsocket.py", line 276, in get
+            data = self.socket.recv(16384)
+        OSError: [Errno 105] No buffer space available
+        >>>
+
+    If this exception occurs, the only solution is to close the
+    socket and create a new one.
+
+    Some usage examples:
 
     .. testcode::
 
@@ -316,7 +333,7 @@ class IPRSocket(NetlinkSocket):
         target='localhost',
         ext_ack=False,
         strict_check=False,
-        groups=0,
+        groups=rtnl.RTMGRP_DEFAULTS,
         nlm_echo=False,
         netns=None,
         netns_path=None,

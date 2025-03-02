@@ -65,8 +65,16 @@ async def run_hooks(
 ):
     '''Called by the client to run the hooks registered for the given trigger.
 
+    The optional `timeout` arguments causes individual hooks to timeout
+    if they exceed it.
+
     Exceptions are handled and printed, but don't prevent the other hooks from
     running.
+
+    .. warning::
+        The timeout is async, which means that hooks that block on non-async
+        code can ignore it and freeze the whole DHCP client !
+
     '''
     if hooks := list(hooks):
         LOG.debug('Running %s hooks', trigger)
@@ -92,10 +100,16 @@ def hook(*triggers: Trigger) -> Callable[[HookFunc], Hook]:
         async def lease_was_renewed(lease: Lease):
             print(lease.server_mac, 'renewed our lease !')
 
+    .. warning::
+        - blocking non-async code in hooks might freeze the client
+        - long-running async hooks might be canceled after a timeout
+
     The decorator returns a `Hook` instance, a utility class storing the hook
     function and its triggers.
 
-    **Warning**: The hooks API might still change.
+    .. warning::
+        The hooks API might still change.
+
     '''
 
     def decorator(hook_func: HookFunc) -> Hook:

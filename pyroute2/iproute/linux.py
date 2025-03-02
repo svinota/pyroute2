@@ -2523,6 +2523,45 @@ class AsyncIPRoute(AsyncIPRSocket, RTNL_API):
     '''
     Regular ordinary async utility class, provides RTNL API using
     AsyncIPRSocket as the transport level.
+
+    .. warning::
+        The project core is currently undergoing refactoring, so
+        some methods may still use the old synchronous API. This
+        will be addressed in future updates.
+
+    The main RTNL API class is built on an asyncio core. All methods
+    that send netlink requests are asynchronous and return awaitables.
+    Dump requests return asynchronous generators, while other requests
+    return iterables, such as tuples or lists.
+
+    This design choice addresses the fact that RTNL dumps, such as
+    routes or neighbors, can return an extremely large number of objects.
+    Buffering the entire response in memory could lead to performance
+    issues.
+
+    .. testcode::
+
+        import asyncio
+
+        from pyroute2 import AsyncIPRoute
+
+
+        async def main():
+            async with AsyncIPRoute() as ipr:
+                # create a link: immediate evaluation
+                await ipr.link("add", ifname="test0", kind="dummy")
+
+                # dump links: lazy evaluation
+                async for link in await ipr.link("dump"):
+                    print(link.get("ifname"))
+
+        asyncio.run(main())
+
+    .. testoutput::
+
+        lo
+        eth0
+        test0
     '''
 
     async def __aenter__(self):
@@ -2537,6 +2576,40 @@ class IPRoute(NetlinkSocket):
     A synchronous version of AsyncIPRoute. All the same API, but
     sync. Provides a legacy API for the old code that is not using
     asyncio.
+
+    This API is designed to be compatible with the old synchronous `IPRoute`
+    from version 0.8.x and earlier:
+
+    .. testcode::
+
+        from pyroute2 import IPRoute
+
+        with IPRoute() as ipr:
+            for msg in ipr.addr("dump"):
+                addr = msg.get("address")
+                mask = msg.get("prefixlen")
+                print(f"{addr}/{mask}")
+
+    .. testoutput::
+
+        127.0.0.1/8
+        192.168.122.28/24
+
+    .. testcode::
+
+        from pyroute2 import IPRoute
+
+        with IPRoute() as ipr:
+
+            # this request returns one match, one interface index
+            eth0 = ipr.link_lookup(ifname="eth0")
+            assert len(eth0) == 1  # 1 if exists else 0
+
+            # this requests uses a lambda to filter interfaces
+            # and returns all interfaces that are up
+            nics_up = set(ipr.link_lookup(lambda x: x.get("flags") & 1))
+            assert len(nics_up) == 2
+            assert nics_up == {1, 2}
     '''
 
     def __init__(
@@ -2553,7 +2626,7 @@ class IPRoute(NetlinkSocket):
         target='localhost',
         ext_ack=False,
         strict_check=False,
-        groups=0,
+        groups=RTMGRP_DEFAULTS,
         nlm_echo=False,
         netns=None,
         flags=os.O_CREAT,
@@ -2717,6 +2790,32 @@ class RawIPRoute(IPRoute):
 
 
 class NetNS(IPRoute):
+    '''
+    The `NetNS` class, prior to version 0.9.1, was used to run the RTNL API
+    in a network namespace. Starting with pyroute2 version 0.9.1, the network
+    namespace functionality has been integrated into the library core. To run
+    an `IPRoute` or `AsyncIPRoute` instance in a network namespace, simply use
+    the `netns` argument:
+
+    .. testcode::
+
+        from pyroute2 import IPRoute
+
+        with IPRoute(netns="test") as ipr:
+            assert ipr.status["netns"] == "test"
+
+    After initialization, the netns name is available as `.status["netns"]`.
+
+    The old synchronous `NetNS` class is still available for compatibility
+    but now serves as a wrapper around `IPRoute`.
+
+    .. testcode::
+
+        from pyroute2 import NetNS
+
+        with NetNS("test") as ns:
+            assert ns.status["netns"] == "test"
+    '''
 
     def __init__(
         self,

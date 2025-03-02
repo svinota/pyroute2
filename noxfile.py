@@ -1,3 +1,4 @@
+import copy
 import getpass
 import json
 import os
@@ -9,30 +10,19 @@ import nox
 nox.options.envdir = f'./.nox-{getpass.getuser()}'
 nox.options.reuse_existing_virtualenvs = False
 nox.options.sessions = [
-    'ci-self-python3.9',
-    'ci-self-python3.10',
-    'ci-self-python3.11',
-    'ci-self-python3.12',
-    'ci-self-python3.13',
-    'ci-self-python3.14',
+    'linter-python3.9',
     'linter-python3.14',
+    'ci-self-python3.9',
+    'ci-self-python3.14',
     'repo',
     'unit',
     'neutron',
     'process',
     'integration',
-    'linux-python3.9',
-    'linux-python3.10',
-    'linux-python3.11',
-    'linux-python3.12',
-    'linux-python3.13',
-    'linux-python3.14',
     'core-python3.9',
-    'core-python3.10',
-    'core-python3.11',
-    'core-python3.12',
-    'core-python3.13',
     'core-python3.14',
+    'linux-python3.9',
+    'linux-python3.14',
     'minimal',
 ]
 
@@ -423,6 +413,7 @@ def neutron(session, config):
 def repo(session, config):
     '''Run repo tests.'''
     setup_venv_repo(session)
+    config = copy.copy(config)
     config['tests_prefix'] = 'tests'
     session.run(*options('test_repo', config))
 

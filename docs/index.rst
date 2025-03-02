@@ -48,6 +48,7 @@ Man pages
 
    pyroute2-cli
    pyroute2-dhcp-client
+   dhcp-server-detector
 
 Development
 -----------
@@ -59,15 +60,14 @@ Development
     arch
     parser
     netlink
-    nlsocket
 
-Experimental
-------------
+Deprecated
+----------
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 1
 
-   remote
+    deprecated
 
 Indices and tables
 ==================

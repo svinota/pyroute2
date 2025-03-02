@@ -108,7 +108,7 @@ class AsyncDHCPClient:
 
     The client will try to acquire and keep a lease as long as it's running.
 
-    It can instead run hooks specified in its configuration to perform various
+    It can run hooks specified in its configuration to perform various
     actions such as adding an IP address to an interface, configuring routing,
     when the specified events are triggered (see the `hook()` decorator.)
 

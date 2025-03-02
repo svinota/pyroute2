@@ -7,30 +7,24 @@
 Netlink parser data flow
 ========================
 
-NetlinkSocketBase: receive the data
------------------------------------
+NetlinkRequest
+--------------
 
-When `NetlinkSocketBase` receives the data from a netlink socket, it can do it
-in two ways:
+In order to run a query and get the response to it, `AsyncNetlinkSocket`
+utilizes `NetlinkRequest` class that calculates required message flags,
+allocates the sequence number, completes the query message, and encodes it.
 
-1. get data directly with `socket.recv()` or `socket.recv_into()`
-2. run a buffer thread that receives the data asap and leaves in the
-   `buffer_queue` to be consumed later by `recv()` or `recv_into()`
+When the message is about to being sent, `NetlinkRequest` first tries a
+proxy, if any registered, and if `NetlinkRequest.proxy()` returns True
+then `NetlinkRequest` stops processing, otherwise sends it using the
+underlying socket.
 
-`NetlinkSocketBase` implements these two receive methods, that choose
-the data source -- directly from the socket or from `buffer_queue` --
-depending on the `buffer_thread` property:
+`NetlinkRequest.response()` collects all the response packets for its
+sequence number, buffered so far, and returns an async iterator over
+the arrived response messages.
 
-**pyroute2.netlink.nlsocket.NetlinkSocketBase**
-
-.. code-include:: :func:`pyroute2.netlink.nlsocket.NetlinkSocketBase.recv`
-    :language: python
-
-.. code-include:: :func:`pyroute2.netlink.nlsocket.NetlinkSocketBase.recv_into`
-    :language: python
-
-.. code-include:: :func:`pyroute2.netlink.nlsocket.NetlinkSocketBase.buffer_thread_routine`
-    :language: python
+Marshal: get and run parsers
+----------------------------
 
 .. aafig::
     :scale: 80
@@ -71,9 +65,6 @@ depending on the `buffer_thread` property:
                                     |         \  `}`
                                     |
                                     v
-
-Marshal: get and run parsers
-----------------------------
 
 Marshal should choose a proper parser depending on the `key`, `flags` and
 `sequence_number`. By default it uses only `nlmsg->type` as the `key` and
@@ -198,10 +189,11 @@ Mandatory message fields, expected by NetlinkSocketBase methods:
 Per-request parsers
 -------------------
 
-Sometimes, it may be reasonable to handle a particular response with a
-specific parser rather than a generic one. An example is
-`IPRoute.get_default_routes()`, which could be slow on systems with
-huge amounts of routes.
+To assign a custom parser to a request/response communication, it is
+enough to provide the parser function to the `NetlinkRequest` object.
+
+An example is `IPRoute.get_default_routes()`, which could be slow on
+systems with huge amounts of routes.
 
 Instead of parsing every route record as `rtmsg`, this method assigns
 a specific parser to its request. The custom parser doesn't parse records
@@ -218,35 +210,9 @@ then parses only matched records with the standard routine:
 .. code-include:: :func:`pyroute2.iproute.parsers.default_routes`
     :language: python
 
-To assign a custom parser to a request/response communication, you should
-know first `sequence_number`, be it allocated dynamically with
-`NetlinkSocketBase.addr_pool.alloc()` or assigned statically. Then you
-can create a record in `NetlinkSocketBase.seq_map`:
 
-.. code-block:: python
-
-    #
-    def my_parser(data, offset, length):
-        ...
-        return parsed_message
-
-    msg_seq = nlsocket.addr_pool.alloc()
-    msg = nlmsg()
-    msg['header'] = {
-        'type': my_type,
-        'flags': NLM_F_REQUEST | NLM_F_ACK,
-        'sequence_number': msg_seq,
-    }
-    msg['data'] = my_data
-    msg.encode()
-    nlsocket.seq_map[msg_seq] = my_parser
-    nlsocket.sendto(msg.data, (0, 0))
-    for reponse_message in nlsocket.get(msg_seq=msg_seq):
-        handle(response_message)
-
-
-NetlinkSocketBase: pick correct messages
-----------------------------------------
+NetlinkRequest: pick correct messages
+-------------------------------------
 
 The netlink protocol is asynchronous, so responses to several requests may
 come simultaneously. Also the kernel may send broadcast messages that are
@@ -297,14 +263,10 @@ The message flow on the diagram features `sequence_number == 0` broadcasts and
 further you can run a request with `sequence_number == 2` before the final
 response with `sequence_number == 1` comes.
 
-To handle that, `NetlinkSocketBase.get()` buffers all the irrelevant messages,
-returns ones with only the requested `sequence_number`, and uses locks to wait
-on the resource.
+To handle that, pyroute2 protocol objects buffer all the messages, and
+`NetlinkRequest` only gets the reponse.
 
-The current implementation is relatively complicated and will be changed in
-the future.
+**pyroute2.netlink.nlsocket.NetlinkRequest**
 
-**pyroute2.netlink.nlsocket.NetlinkSocketBase**
-
-.. code-include:: :func:`pyroute2.netlink.nlsocket.NetlinkSocketBase.get`
+.. code-include:: :func:`pyroute2.netlink.nlsocket.NetlinkRequest.response`
     :language: python
