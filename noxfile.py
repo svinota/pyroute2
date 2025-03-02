@@ -1,3 +1,4 @@
+import copy
 import getpass
 import json
 import os
@@ -423,6 +424,7 @@ def neutron(session, config):
 def repo(session, config):
     '''Run repo tests.'''
     setup_venv_repo(session)
+    config = copy.copy(config)
     config['tests_prefix'] = 'tests'
     session.run(*options('test_repo', config))
 
