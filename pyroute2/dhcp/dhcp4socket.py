@@ -64,14 +64,15 @@ class AsyncDHCP4Socket(AsyncRawSocket):
     Parameters:
 
     * ifname -- interface name to work on
+    * port -- UDP port to listen on
 
-    This raw socket binds to an interface and installs BPF filter
-    to get only its UDP port. It can be used in poll/select and
-    provides also the context manager protocol, so can be used in
-    `with` statements.
+    This raw socket binds to an interface and installs a BPF filter
+    to receive (non-VLAN) messages only on the specified UDP port.
+    It can be used in poll/select and implements the async context manager
+    protocol, so can be used in `aysnc with` statements.
     '''
 
-    def __init__(self, ifname, port: int = 68):
+    def __init__(self, ifname: str, port: int = 68):
         AsyncRawSocket.__init__(self, ifname, listen_udp_port(port))
         self.port = port
         self._loop = asyncio.get_running_loop()
@@ -82,20 +83,32 @@ class AsyncDHCP4Socket(AsyncRawSocket):
         return self._loop
 
     async def put(self, msg: SentDHCPMessage) -> SentDHCPMessage:
-        '''
-        Put DHCP message.
+        '''Send a DHCP message.
 
-        Examples::
+        This encapsulates the `SentDHCPMessage` into Ethernet, IPv4, and UDP.
 
-            sock.put(dhcp4msg({'op': BOOTREQUEST,
-                               'chaddr': 'ff:11:22:33:44:55',
-                               'options': {'message_type': DHCPREQUEST,
-                                           'parameter_list': [1, 3, 6, 12, 15],
-                                           'requested_ip': '172.16.101.2',
-                                           'server_id': '172.16.101.1'}}))
+        If not provided, both the Ethernet source and the DHCP chaddr are set
+        to the MAC address of the underlying socket's interface.
 
-        The method returns the SentDHCPMessage, so one can get from
-        there the `xid` (transaction id) and other details.
+        Example::
+
+            msg = SentDHCPMessage(
+                dhcp=dhcp4msg({
+                    'op': bootp.MessageType.BOOTREQUEST,
+                    'flags': bootp.Flag.BROADCAST,
+                    'options': {
+                        'message_type': dhcp.MessageType.DISCOVER,
+                        'parameter_list': [
+                            dhcp.Option.SUBNET_MASK,
+                            dhcp.Option.ROUTER,
+                            dhcp.Option.NAME_SERVER,
+                            dhcp.Option.LEASE_TIME,
+                        ],
+                    },
+                }),
+            )
+            await sock.put(msg)
+
         '''
 
         if msg.sport != self.port:
@@ -161,11 +174,27 @@ class AsyncDHCP4Socket(AsyncRawSocket):
     async def get(self) -> ReceivedDHCPMessage:
         '''
         Get the next incoming packet from the socket and try
-        to decode it as IPv4 DHCP. No analysis is done here,
-        only MAC/IPv4/UDP headers are stripped out, and the
-        rest is interpreted as DHCP.
+        to decode it as IPv4 DHCP.
 
         Packets that cannot be decoded are logged & discarded.
+        Invalid/truncated packets raise `ValueError`.
+
+        Example::
+
+            # Send a DISCOVER and read an OFFER
+            disco = messages.discover(parameter_list=[
+                dhcp.Option.SUBNET_MASK,
+                dhcp.Option.ROUTER,
+                dhcp.Option.NAME_SERVER,
+                dhcp.Option.LEASE_TIME,
+            ])
+            await sock.put(disco)
+            offer = await sock.get()
+            print('received', offer.message_type,
+                  'from', offer.eth_src,
+                  'lease time', offer.dhcp['options']['lease_time'],
+            )
+
         '''
         msg: Optional[ReceivedDHCPMessage] = None
         while not msg:
@@ -178,7 +207,12 @@ class AsyncDHCP4Socket(AsyncRawSocket):
 
     @classmethod
     def _decode_msg(cls, data: bytes) -> ReceivedDHCPMessage:
-        '''Decode and return an IPv4 DHCP packet from bytes.'''
+        '''Decode an IPv4 DHCP packet from bytes.
+
+        No analysis is done here. The MAC/IPv4/UDP headers are stripped out,
+        the relevant values are stored in the `ReceivedDHCPMessage` metadata,
+        and the rest is interpreted as DHCP.
+        '''
         eth = ethmsg(buf=data).decode()
         ip4 = ip4msg(buf=data, offset=eth.offset).decode()
         udp = udpmsg(buf=data, offset=ip4.offset).decode()

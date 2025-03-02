@@ -151,7 +151,7 @@ def get_argparser() -> argparse.ArgumentParser:
         description='Send DHCP DISCOVER messages on the given interface(s) '
         'and collect all responses. '
         'Responses and their metadata are printed as JSON to stdout.',
-        epilog='Exits successfully only if at least a response was received.',
+        epilog='Exits successfully if at least one response was received.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     psr.add_argument(
@@ -191,7 +191,7 @@ def get_argparser() -> argparse.ArgumentParser:
     psr.add_argument(
         '-l',
         '--log-level',
-        default=logging.WARNING,
+        default='WARNING',
         help="Log level. Set to INFO to log sent & received messages.",
         metavar='LEVEL',
     )
