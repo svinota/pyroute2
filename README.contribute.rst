@@ -22,22 +22,7 @@ Linux
    cd pyroute2
 
    # run the test suite
-   make test
-
-OpenBSD
-+++++++
-
-.. code-block:: sh
-
-   # install required tools
-   pkg_add bash git gmake gsed python rust
-
-   # clone the repo
-   git clone ${pyroute_git_url}
-   cd pyroute2
-
-   # run the test suite
-   gmake test
+   sudo make test
 
 Step 2: plan and implement the change
 -------------------------------------
@@ -56,10 +41,8 @@ So to run pyroute2 even in such environments, the project provides
 two packages, `pyroute2` and `pyroute2.minimal`, with the latter
 providing a minimal distribution, with no sqlite3 or pickle.
 
-Modules `pyroute2` and `pyroute2.minimal` are mutually exclusive.
-
-Each module provides it's own pypi package.
-More details: https://github.com/svinota/pyroute2/discussions/786
+Modules `pyroute2` and `pyroute2.minimal` are mutually exclusive. Each
+module provides it's own pypi package.
 
 Step 3: test the change
 -----------------------
@@ -72,7 +55,7 @@ Assume the environment is already set up on the step 1:
    make format
 
    # run test suite, some tests may require root
-   make test
+   sudo make test
 
 Step 4: submit a PR
 -------------------
@@ -87,5 +70,5 @@ The code must comply some requirements:
 
 * the library **must** work on Python >= 3.9
 * the code **must** pass `make format`
-* the code **must** not break existing unit and functional tests (`make test`)
+* the code **must** not break existing unit and functional tests (`sudo make test`)
 * the `ctypes` usage **must not** break the library on SELinux
