@@ -64,9 +64,23 @@ def wait_for_ip_object(cmd, filters, timeout, retry):
     return found
 
 
-def address_exists(address, ifname=None, netns=None, timeout=1, retry=0.2):
+def address_exists(
+    address,
+    ifname=None,
+    preferred=None,
+    valid=None,
+    netns=None,
+    timeout=1,
+    retry=0.2,
+):
     ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
     filters = [ip_object_filter(query='.addr_info.local', value=address)]
+    if preferred is not None:
+        filters.append(
+            ip_object_filter(
+                query='.addr_info.preferred_life_time', value=preferred
+            )
+        )
     ifspec = ['dev', ifname] if ifname is not None else []
     return wait_for_ip_object(
         ns + ['ip', '-json', 'addr', 'show'] + ifspec, filters, timeout, retry
