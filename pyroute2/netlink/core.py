@@ -384,9 +384,7 @@ class AsyncCoreSocket:
         await self.ensure_socket()
         return self.socket.bind(addr)
 
-    def close(self, code=errno.ECONNRESET):
-        '''Terminate the object.'''
-
+    def _close(self, code=errno.ECONNRESET):
         def send_terminator(msg_queue):
             msg_queue.put_nowait(0, b'')
 
@@ -410,6 +408,15 @@ class AsyncCoreSocket:
                 event_loop.run_until_complete(event_loop.shutdown_asyncgens())
                 event_loop.stop()
                 event_loop.close()
+
+    def close(self, code: int = errno.ECONNRESET) -> None:
+        '''Terminate the object.'''
+        try:
+            return self._close(code)
+        except Exception as e:
+            if e.args is None:
+                e.args = tuple()
+            raise e
 
     def clone(self):
         '''Return a copy of itself with a new underlying socket.
