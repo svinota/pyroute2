@@ -287,7 +287,18 @@ class dhcpmsg(msg):
                 length = struct.unpack(
                     'B', self.buf[self.offset + 1 : self.offset + 2]
                 )[0]
-                self.offset += length + 2
+                self.offset += 2
+                # if we know this option number, get the value as bytes
+                # even if we don't know how to parse it
+                try:
+                    code = Option(code)
+                except ValueError:
+                    pass
+                else:
+                    self['options'][code.name.lower()] = self.buf[
+                        self.offset : self.offset + length
+                    ]
+                self.offset += length
                 continue
 
             # code is known, work on it
@@ -296,6 +307,8 @@ class dhcpmsg(msg):
             try:
                 option.decode()
             except ValueError as err:
+                # FIXME: maybe we would like the raw option data
+                # if we can't decode it ? but that would complicate typing
                 LOG.error("%s", err)
                 break
             self.offset += option.length

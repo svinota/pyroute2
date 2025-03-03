@@ -378,3 +378,59 @@ def test_android_tethering_renew(pcap: PcapFile):
         'subnet_mask': '255.255.255.0',
         'vendor_specific_information': b'ANDROID_METERED',
     }
+
+
+def test_huawei_discover_option_148(pcap: PcapFile):
+    '''A DHCP offer with a non-standard option 148.'''
+    discover, offer = parse_pcap(pcap, expected_packets=2)
+    assert discover.message_type == dhcp.MessageType.DISCOVER
+    assert discover.eth_src == 'a4:7c:c9:aa:20:20'
+    assert discover.eth_dst == 'ff:ff:ff:ff:ff:ff'
+    assert discover.ip_src == '0.0.0.0'
+    assert discover.ip_dst == '255.255.255.255'
+    assert discover.dhcp['flags'] == bootp.Flag.UNICAST
+    assert discover.dhcp['options'] == {
+        'client_id': {'key': 'a4:7c:c9:aa:20:20', 'type': 1},
+        'max_msg_size': 1464,
+        'message_type': dhcp.MessageType.DISCOVER,
+        'parameter_list': [
+            dhcp.Option.SUBNET_MASK,
+            dhcp.Option.ROUTER,
+            dhcp.Option.NAME_SERVER,
+            dhcp.Option.DOMAIN_NAME,
+            dhcp.Option.BROADCAST_ADDRESS,
+            dhcp.Option.STATIC_ROUTE,
+            dhcp.Option.VENDOR_SPECIFIC_INFORMATION,
+            dhcp.Option.NETBIOS_NAME_SERVER,
+            dhcp.Option.CLASSLESS_STATIC_ROUTE,
+            dhcp.Option.DOTS_ADDR,
+            184,  # this option is not assigned, Huawei calls it "option184"...
+        ],
+        'vendor_id': b'huawei AirEngine5761-11',
+    }
+
+    assert offer.message_type == dhcp.MessageType.OFFER
+    assert offer.eth_src == 'b0:41:6f:06:26:14'
+    assert offer.eth_dst == 'a4:7c:c9:aa:20:20'
+    assert offer.ip_src == '10.184.16.1'
+    # since the ap made an unicast DISCOVER, the offer is unicast
+    assert offer.ip_dst == '10.184.27.103'
+    assert offer.dhcp['options'] == {
+        'broadcast_address': '10.184.31.255',
+        # FIXME: this is not the correct format for the DOTS_ADDR option,
+        # which is defined in RFC 8973.
+        # If we implemented a parser for this option, it would crash and skip
+        # the huawei value, which we don't want either...
+        'dots_addr': b'agilemode=agile-cloud;'
+        b'agilemanage-mode=ip;'
+        b'agilemanage-domain=48.194.254.137;'
+        b'agilemanage-port=10021;',
+        'lease_time': 604800,
+        'message_type': dhcp.MessageType.OFFER,
+        'name_server': ['10.184.16.1'],
+        'rebinding_time': 529200,
+        'renewal_time': 302400,
+        'router': ['10.184.16.1'],
+        'server_id': '10.184.16.1',
+        'subnet_mask': '255.255.240.0',
+    }
