@@ -19,11 +19,12 @@ log = logging.getLogger(__name__)
 ChildProcessReturnValue = namedtuple(
     'ChildProcessReturnValue', ('payload', 'fds')
 )
+ChildFuncReturnType = Union[None, ChildProcessReturnValue, bytearray, bytes]
 
 
 def wrapper(
     ctrl: socket.socket,
-    func: Callable[..., Union[ChildProcessReturnValue, bytearray, bytes]],
+    func: Callable[..., ChildFuncReturnType],
     argv: list[Any],
 ) -> None:
     '''Child function wrapper.
@@ -45,6 +46,8 @@ def wrapper(
     sockets: list[socket.socket] = []
     try:
         ret = func(*argv)
+        if isinstance(ret, bytes):
+            ret_data = ret
         if isinstance(ret, ChildProcessReturnValue):
             ret_data, sockets = ret
         if isinstance(ret_data, bytearray):
@@ -65,19 +68,13 @@ def wrapper(
 
 class ChildProcess:
     def __init__(
-        self,
-        target: Callable[
-            ..., Union[ChildProcessReturnValue, bytearray, bytes]
-        ],
-        args: list[Any],
+        self, target: Callable[..., ChildFuncReturnType], args: list[Any]
     ):
         self.ctrl_r, self.ctrl_w = socket.socketpair(
             socket.AF_UNIX, socket.SOCK_DGRAM
         )
         self._mode: str = config.child_process_mode
-        self._target: Callable[
-            ..., Union[ChildProcessReturnValue, bytearray, bytes]
-        ] = target
+        self._target: Callable[..., ChildFuncReturnType] = target
         self._args: list[Any] = args
         self._proc: Optional[multiprocessing.Process] = None
         self._running: bool = False
