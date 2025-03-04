@@ -281,7 +281,7 @@ class AsyncCoreSocket:
                 self.local.socket.flags = self.spec['flags']
                 self.local.socket.initdb()
 
-            self.endpoint_started = await self.setup_endpoint()
+            await self.setup_endpoint()
             self.__all_open_resources[id(threading.current_thread())] = (
                 CoreSocketResources(
                     self.local.socket,
@@ -295,16 +295,6 @@ class AsyncCoreSocket:
     @property
     def socket(self):
         return self.local.socket
-
-    @property
-    def endpoint_started(self):
-        if not hasattr(self.local, 'endpoint_started'):
-            self.local.endpoint_started = False
-        return self.local.endpoint_started
-
-    @endpoint_started.setter
-    def endpoint_started(self, value):
-        self.local.endpoint_started = value
 
     @property
     def endpoint(self):

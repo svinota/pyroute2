@@ -379,7 +379,7 @@ def create_socket(
     fileno=None,
     flags=os.O_CREAT,
     libc=None,
-    timeout=5,
+    timeout=10,
 ):
     if fileno is not None and netns is not None:
         raise TypeError('you can not specify both fileno and netns')
@@ -389,13 +389,14 @@ def create_socket(
         return socket.socket(family, socket_type, proto)
 
     start_time = time.time()
-    while time.time() - start_time < 5:
+    while time.time() - start_time < timeout:
         with ChildProcess(
             target=_create_socket_child,
             args=[netns, flags, family, socket_type, proto, libc],
         ) as proc:
-            if (fds := proc.get_fds(timeout=1)) is None:
+            try:
+                return socket.socket(fileno=proc.get_fds(timeout=3)[0])
+            except TimeoutError:
                 continue
-            return socket.socket(fileno=fds[0])
 
     raise TimeoutError('could not start netns socket within timeout')

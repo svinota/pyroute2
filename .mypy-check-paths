@@ -5,4 +5,6 @@ pyroute2/netlink/nlsocket.py
 pyroute2/netlink/uevent/__init__.py
 pyroute2/netlink/rtnl/iprsocket.py
 pyroute2/netlink/rtnl/ifinfmsg/tuntap.py
+pyroute2/netns/
 pyroute2/plan9/client.py
+pyroute2/process.py

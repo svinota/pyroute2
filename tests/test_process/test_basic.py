@@ -59,3 +59,15 @@ def test_args_fail(exc, args):
     with pytest.raises(exc):
         with ChildProcess(target=_child, args=args) as proc:
             proc.communicate()
+
+
+@pytest.mark.parametrize(
+    'func,args,ret',
+    (
+        (lambda x: b' ' * x, [10], (b'          ', [])),
+        (lambda: None, [], (b'', [])),
+    ),
+)
+def test_simple_args(func, args, ret):
+    with ChildProcess(func, args) as proc:
+        assert proc.communicate() == ret
