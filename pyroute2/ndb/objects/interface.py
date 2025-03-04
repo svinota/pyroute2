@@ -1040,6 +1040,23 @@ class Interface(RTNL_Object):
             if setns and self['net_ns_fd'] in self.sources:
                 self.load_value('target', self['net_ns_fd'])
                 dict.__setitem__(self, 'net_ns_fd', None)
+                for link in self.sources[self['target']].api(
+                    'link', 'get', ifname=self['ifname']
+                ):
+                    # after interface move the name is the same,
+                    # but the index may change
+                    #
+                    # in this case .load_sql() will not update
+                    # the object, and the engine will try to apply
+                    # the interface's attributes to another interface
+                    # with the same index as our old one
+                    #
+                    # so resync the index first
+                    #
+                    # Bug-Url: https://github.com/svinota/pyroute2/issues/1181
+                    #
+                    self.load_value('index', link['index'])
+                    break
                 spec = self.load_sql()
                 if spec:
                     self.state.set('system')
