@@ -9,19 +9,40 @@ import signal
 import socket
 import struct
 from collections import namedtuple
+from typing import Any, Callable, Optional, Union
 
 from pyroute2 import config
 from pyroute2.netlink import exceptions as pyroute2_exceptions
 
 log = logging.getLogger(__name__)
 
+ChildProcessReturnValue = namedtuple(
+    'ChildProcessReturnValue', ('payload', 'fds')
+)
 
-def wrapper(ctrl, func, argv):
+
+def wrapper(
+    ctrl: socket.socket,
+    func: Callable[..., Union[ChildProcessReturnValue, bytearray, bytes]],
+    argv: list[Any],
+) -> None:
+    '''Child function wrapper.
+
+    This code will be executed in the child process after running fork().
+    The internal data structures might be damaged, so the function `func`
+    must be as simple as possible, and use only local variables of simple
+    types.
+
+    The garbage collector should be disabled as well to minimize possible
+    deadlocks.
+
+    If process doesn't response in time, it will get killed.
+    '''
     gc.disable()
-    payload = b''
-    ret_data = b''
-    fds = []
-    sockets = []
+    payload: bytes = b''
+    ret_data: bytes = b''
+    fds: list[int] = []
+    sockets: list[socket.socket] = []
     try:
         ret = func(*argv)
         if isinstance(ret, ChildProcessReturnValue):
@@ -42,21 +63,25 @@ def wrapper(ctrl, func, argv):
         socket.send_fds(ctrl, [payload], fds, len(fds))
 
 
-ChildProcessReturnValue = namedtuple(
-    'ChildProcessReturnValue', ('payload', 'fds')
-)
-
-
 class ChildProcess:
-    def __init__(self, target, args):
+    def __init__(
+        self,
+        target: Callable[
+            ..., Union[ChildProcessReturnValue, bytearray, bytes]
+        ],
+        args: list[Any],
+    ):
         self.ctrl_r, self.ctrl_w = socket.socketpair(
             socket.AF_UNIX, socket.SOCK_DGRAM
         )
-        self._mode = config.child_process_mode
-        self._target = target
-        self._args = args
-        self._proc = None
-        self._running = False
+        self._mode: str = config.child_process_mode
+        self._target: Callable[
+            ..., Union[ChildProcessReturnValue, bytearray, bytes]
+        ] = target
+        self._args: list[Any] = args
+        self._proc: Optional[multiprocessing.Process] = None
+        self._running: bool = False
+        self._exitcode: Optional[int] = None
 
     def close(self):
         self.ctrl_r.close()
@@ -74,11 +99,11 @@ class ChildProcess:
     def mode(self):
         return self._mode
 
-    def communicate(self, timeout=1):
+    def communicate(self, timeout: int = 1) -> tuple[bytes, list[int]]:
         rl, _, _ = select.select([self.ctrl_r], [], [], timeout)
         if not len(rl):
-            self.stop(kill=True, reason='no response from child')
-            return None
+            self.stop(kill=True, reason='no response from the child')
+            raise TimeoutError('no response from the child')
 
         ret_data = b''
         (raw_data, fds, _, _) = socket.recv_fds(self.ctrl_r, 1024, 1)
@@ -106,26 +131,26 @@ class ChildProcess:
             ret_data = raw_data
         return ret_data, fds
 
-    def get_data(self, timeout=1):
+    def get_data(self, timeout: int = 1) -> bytes:
         return self.communicate(timeout)[0]
 
-    def get_fds(self, timeout=1):
+    def get_fds(self, timeout: int = 1) -> list[int]:
         return self.communicate(timeout)[1]
 
     @property
-    def proc(self):
+    def proc(self) -> multiprocessing.Process:
         if self._proc is None:
             raise RuntimeError('not started')
         return self._proc
 
     @proc.setter
-    def proc(self, value):
+    def proc(self, value: Optional[multiprocessing.Process]) -> None:
         self._proc = value
 
-    def _unsupported(self):
-        raise TypeError('unsupported mode')
+    def _unsupported(self) -> Exception:
+        return TypeError('unsupported mode')
 
-    def run(self):
+    def run(self) -> None:
         if self._running:
             return
         self._running = True
@@ -140,9 +165,9 @@ class ChildProcess:
             )
             self.proc.start()
         else:
-            self._unsupported()
+            raise self._unsupported()
 
-    def stop(self, kill=False, reason=None):
+    def stop(self, kill: bool = False, reason: Optional[str] = None) -> None:
         if not self._running:
             return
         self._running = False
@@ -151,7 +176,8 @@ class ChildProcess:
                 os.kill(self.pid, signal.SIGKILL)
             else:
                 os.kill(self.pid, signal.SIGTERM)
-            os.waitpid(self.pid, 0)
+            _, status = os.waitpid(self.pid, 0)
+            self._exitcode = os.waitstatus_to_exitcode(status)
         elif self.mode == 'mp':
             if kill:
                 self.proc.kill()
@@ -159,15 +185,15 @@ class ChildProcess:
                 self.proc.terminate()
             self.proc.join()
         else:
-            self._unsupported()
+            raise self._unsupported()
         if reason is not None:
             log.warning(reason)
 
     @property
-    def exitcode(self):
+    def exitcode(self) -> Optional[int]:
         if self.mode == 'fork':
             return self._exitcode
         elif self.mode == 'mp':
             return self.proc.exitcode
         else:
-            self._unsupported()
+            raise self._unsupported()
