@@ -18,6 +18,8 @@
 CI test fixtures
 ----------------
 
+Added in version 0.9.1.
+
 The library provides a set of fixtures that can be used with pytest
 to setup a simple test environment for functional network tests.
 
