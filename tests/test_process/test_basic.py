@@ -1,5 +1,7 @@
 import errno
 import multiprocessing as mp
+import signal
+import time
 
 import pytest
 
@@ -71,3 +73,15 @@ def test_args_fail(exc, args):
 def test_simple_args(func, args, ret):
     with ChildProcess(func, args) as proc:
         assert proc.communicate() == ret
+
+
+@pytest.mark.parametrize('sl', (1, 7, 23))
+def test_timeout_kill(sl):
+    cp = ChildProcess(lambda x: time.sleep(x), [sl])
+    ts_start = time.time()
+    with pytest.raises(TimeoutError):
+        cp.run()
+        cp.communicate(timeout=0.1)
+    assert time.time() - ts_start < 1
+    assert cp.exitcode in (-signal.SIGTERM, -signal.SIGKILL)
+    cp.close()

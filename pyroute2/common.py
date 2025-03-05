@@ -19,6 +19,7 @@ file = io.BytesIO
 AF_MPLS = 28
 _uuid32 = 0  # (singleton) the last uuid32 value saved to avoid collisions
 _uuid32_lock = threading.Lock()
+USE_DEFAULT_TIMEOUT = -1
 
 size_suffixes = {
     'b': 1,

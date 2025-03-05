@@ -12,6 +12,7 @@ from collections import namedtuple
 from typing import Any, Callable, Optional, Union
 
 from pyroute2 import config
+from pyroute2.common import USE_DEFAULT_TIMEOUT
 from pyroute2.netlink import exceptions as pyroute2_exceptions
 
 log = logging.getLogger(__name__)
@@ -96,7 +97,11 @@ class ChildProcess:
     def mode(self):
         return self._mode
 
-    def communicate(self, timeout: int = 1) -> tuple[bytes, list[int]]:
+    def communicate(
+        self, timeout: int = USE_DEFAULT_TIMEOUT
+    ) -> tuple[bytes, list[int]]:
+        if timeout == USE_DEFAULT_TIMEOUT:
+            timeout = config.default_communicate_timeout
         rl, _, _ = select.select([self.ctrl_r], [], [], timeout)
         if not len(rl):
             self.stop(kill=True, reason='no response from the child')
@@ -128,10 +133,10 @@ class ChildProcess:
             ret_data = raw_data
         return ret_data, fds
 
-    def get_data(self, timeout: int = 1) -> bytes:
+    def get_data(self, timeout: int = USE_DEFAULT_TIMEOUT) -> bytes:
         return self.communicate(timeout)[0]
 
-    def get_fds(self, timeout: int = 1) -> list[int]:
+    def get_fds(self, timeout: int = USE_DEFAULT_TIMEOUT) -> list[int]:
         return self.communicate(timeout)[1]
 
     @property

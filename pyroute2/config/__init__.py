@@ -77,6 +77,9 @@ machine = platform.machine()
 arch = platform.architecture()[0]
 kernel = parse_kernel_version(uname[2])
 
+default_create_socket_timeout = 10
+default_communicate_timeout = 2
+
 AF_BRIDGE = getattr(socket, 'AF_BRIDGE', 7)
 AF_NETLINK = getattr(socket, 'AF_NETLINK', 16)
 
