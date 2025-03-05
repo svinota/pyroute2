@@ -53,9 +53,10 @@ import os
 import os.path
 import socket
 import time
+from typing import Optional
 
 from pyroute2 import config
-from pyroute2.common import basestring
+from pyroute2.common import USE_DEFAULT_TIMEOUT, basestring
 from pyroute2.process import ChildProcess, ChildProcessReturnValue
 
 log = logging.getLogger(__name__)
@@ -372,21 +373,23 @@ def _create_socket_child(nsname, flags, family, socket_type, proto, libc=None):
 
 @config.mock_if('mock_netns')
 def create_socket(
-    netns=None,
-    family=socket.AF_INET,
-    socket_type=socket.SOCK_STREAM,
-    proto=0,
-    fileno=None,
-    flags=os.O_CREAT,
-    libc=None,
-    timeout=10,
-):
+    netns: Optional[str] = None,
+    family: int = socket.AF_INET,
+    socket_type: int = socket.SOCK_STREAM,
+    proto: int = 0,
+    fileno: Optional[int] = None,
+    flags: int = os.O_CREAT,
+    libc: Optional[ctypes.CDLL] = None,
+    timeout: int = USE_DEFAULT_TIMEOUT,
+) -> socket.socket:
     if fileno is not None and netns is not None:
         raise TypeError('you can not specify both fileno and netns')
     if fileno is not None:
         return socket.socket(fileno=fileno)
     if netns is None:
         return socket.socket(family, socket_type, proto)
+    if timeout == USE_DEFAULT_TIMEOUT:
+        timeout = config.default_create_socket_timeout
 
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -395,7 +398,11 @@ def create_socket(
             args=[netns, flags, family, socket_type, proto, libc],
         ) as proc:
             try:
-                return socket.socket(fileno=proc.get_fds(timeout=3)[0])
+                return socket.socket(
+                    fileno=proc.get_fds(
+                        timeout=config.default_communicate_timeout
+                    )[0]
+                )
             except TimeoutError:
                 continue
 

@@ -12,6 +12,7 @@ from collections import namedtuple
 from typing import Any, Callable, Optional, Union
 
 from pyroute2 import config
+from pyroute2.common import USE_DEFAULT_TIMEOUT
 from pyroute2.netlink import exceptions as pyroute2_exceptions
 
 log = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ class ChildProcess:
         self._proc: Optional[multiprocessing.Process] = None
         self._running: bool = False
         self._exitcode: Optional[int] = None
+        self._pid: Optional[int] = None
 
     def close(self):
         self.ctrl_r.close()
@@ -96,15 +98,50 @@ class ChildProcess:
     def mode(self):
         return self._mode
 
-    def communicate(self, timeout: int = 1) -> tuple[bytes, list[int]]:
+    @property
+    def pid(self):
+        return self._pid
+
+    def communicate(
+        self, timeout: int = USE_DEFAULT_TIMEOUT
+    ) -> tuple[bytes, list[int]]:
+        '''Communicate with the child process.
+
+        Raises:
+
+        * struct.error -- error unpacking response from the child process
+        * OSError -- OS level error communicating with the child process
+        * TimeoutError -- the child process is alive, but doesn't response
+        * RuntimeError -- the child process is dead
+        * TypeError -- error loading propagated exception
+        '''
+        if timeout == USE_DEFAULT_TIMEOUT:
+            timeout = config.default_communicate_timeout
         rl, _, _ = select.select([self.ctrl_r], [], [], timeout)
         if not len(rl):
+            # no data received within timeout
+            # 1. the child process is killed
+            # 2. the child process is stuck
+            #
+            # So first check the process, if it is killed, raise
+            # RuntimeError, otherwise raise TimeoutError.
+            #
+            c_pid, w_status = os.waitpid(self.pid, os.WNOHANG)
+            if c_pid != 0:
+                # process is dead
+                self._exitcode = os.waitstatus_to_exitcode(w_status)
+                raise RuntimeError(
+                    f'child process is dead, status: {self.exitcode}'
+                )
+            # process is alive, but stuck, kill it
             self.stop(kill=True, reason='no response from the child')
-            raise TimeoutError('no response from the child')
+            raise TimeoutError(f'no response from the child pid {self.pid}')
 
         ret_data = b''
+        # raises OSError
         (raw_data, fds, _, _) = socket.recv_fds(self.ctrl_r, 1024, 1)
         # get the return type
+        # raises struct.error
         (ret_type,) = struct.unpack('B', raw_data[:1])
         raw_data = raw_data[1:]
         if ret_type == 1:
@@ -128,10 +165,10 @@ class ChildProcess:
             ret_data = raw_data
         return ret_data, fds
 
-    def get_data(self, timeout: int = 1) -> bytes:
+    def get_data(self, timeout: int = USE_DEFAULT_TIMEOUT) -> bytes:
         return self.communicate(timeout)[0]
 
-    def get_fds(self, timeout: int = 1) -> list[int]:
+    def get_fds(self, timeout: int = USE_DEFAULT_TIMEOUT) -> list[int]:
         return self.communicate(timeout)[1]
 
     @property
@@ -152,8 +189,8 @@ class ChildProcess:
             return
         self._running = True
         if self.mode == 'fork':
-            self.pid = os.fork()
-            if self.pid == 0:
+            self._pid = os.fork()
+            if self._pid == 0:
                 wrapper(self.ctrl_w, self._target, self._args)
                 os._exit(0)
         elif self.mode == 'mp':
@@ -161,6 +198,7 @@ class ChildProcess:
                 target=wrapper, args=[self.ctrl_w, self._target, self._args]
             )
             self.proc.start()
+            self._pid = self.proc.pid
         else:
             raise self._unsupported()
 

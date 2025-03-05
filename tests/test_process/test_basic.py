@@ -61,11 +61,19 @@ def test_args_fail(exc, args):
             proc.communicate()
 
 
+def child_process_case_01(x):
+    return b' ' * x
+
+
+def child_process_case_02():
+    return None
+
+
 @pytest.mark.parametrize(
     'func,args,ret',
     (
-        (lambda x: b' ' * x, [10], (b'          ', [])),
-        (lambda: None, [], (b'', [])),
+        (child_process_case_01, [10], (b'          ', [])),
+        (child_process_case_02, [], (b'', [])),
     ),
 )
 def test_simple_args(func, args, ret):
