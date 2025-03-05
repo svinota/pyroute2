@@ -63,21 +63,30 @@ def test_args_fail(exc, args):
             proc.communicate()
 
 
+def cp_case_01(x):
+    return b' ' * x
+
+
+def cp_case_02():
+    return None
+
+
 @pytest.mark.parametrize(
     'func,args,ret',
-    (
-        (lambda x: b' ' * x, [10], (b'          ', [])),
-        (lambda: None, [], (b'', [])),
-    ),
+    ((cp_case_01, [10], (b'          ', [])), (cp_case_02, [], (b'', []))),
 )
 def test_simple_args(func, args, ret):
     with ChildProcess(func, args) as proc:
         assert proc.communicate() == ret
 
 
+def cp_timeout(x):
+    time.sleep(x)
+
+
 @pytest.mark.parametrize('sl', (1, 7, 23))
 def test_timeout_kill(sl):
-    cp = ChildProcess(lambda x: time.sleep(x), [sl])
+    cp = ChildProcess(cp_timeout, [sl])
     ts_start = time.time()
     with pytest.raises(TimeoutError):
         cp.run()
