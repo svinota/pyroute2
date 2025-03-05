@@ -1,6 +1,6 @@
 import os
-import signal
 import time
+from signal import SIGKILL, SIGTERM
 
 import pytest
 
@@ -11,28 +11,39 @@ def child_process_timeout(x):
     time.sleep(x)
 
 
-@pytest.mark.parametrize('sl', (1, 7, 23))
-def test_timeout(sl):
-    cp = ChildProcess(child_process_timeout, [sl])
-    ts_start = time.time()
-    with pytest.raises(TimeoutError):
-        cp.run()
-        cp.communicate(timeout=0.1)
-    assert time.time() - ts_start < 1
-    assert cp.exitcode == -signal.SIGKILL
-    cp.close()
-
-
-def child_process_kill(x):
+def child_process_die(x):
     os.kill(os.getpid(), x)
 
 
-@pytest.mark.parametrize('sg', (signal.SIGTERM, signal.SIGKILL))
-def test_kill(sg):
-    cp = ChildProcess(child_process_kill, [sg])
+@pytest.mark.parametrize(
+    'func,argv,catch,kill,exitcode',
+    (
+        (child_process_timeout, [1], TimeoutError, None, -SIGKILL),
+        (child_process_timeout, [7], TimeoutError, None, -SIGKILL),
+        (child_process_timeout, [23], TimeoutError, None, -SIGKILL),
+        (child_process_die, [SIGTERM], RuntimeError, None, -SIGTERM),
+        (child_process_die, [SIGKILL], RuntimeError, None, -SIGKILL),
+        (child_process_timeout, [30], RuntimeError, SIGTERM, -SIGTERM),
+        (child_process_timeout, [30], RuntimeError, SIGKILL, -SIGKILL),
+    ),
+    ids=[
+        'timeout-1',
+        'timeout-7',
+        'timeout-23',
+        'die-SIGTERM',
+        'die-SIGKILL',
+        'kill-SIGTERM',
+        'kill-SIGKILL',
+    ],
+)
+def test_child_fail(func, argv, catch, kill, exitcode):
+    cp = ChildProcess(func, argv)
     ts_start = time.time()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(catch):
         cp.run()
+        if kill is not None:
+            os.kill(cp.pid, kill)
         cp.communicate(timeout=0.1)
     assert time.time() - ts_start < 1
-    assert cp.exitcode == -sg
+    assert cp.exitcode == exitcode
+    cp.close()
