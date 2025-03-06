@@ -211,7 +211,8 @@ class ChildProcess:
         self._running = False
         self.ctrl_r.close()
         self.ctrl_w.close()
-        gc.collect()
+        if config.force_gc:
+            gc.collect()
         if self.mode == 'fork':
             if kill:
                 os.kill(self.pid, signal.SIGKILL)
