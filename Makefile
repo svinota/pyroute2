@@ -77,10 +77,10 @@ lab:
 format:
 	$(call nox,-e linter-$(shell basename ${python}))
 
-.PHONY: test
-test:
+.PHONY: test nox
+test nox:
 ifeq ($(platform), Linux)
-	$(call nox,)
+	$(call nox,-e ${session})
 else ifeq ($(platform), OpenBSD)
 	$(call nox,-e openbsd)
 else
@@ -134,7 +134,3 @@ uninstall:
 .PHONY: audit-imports
 audit-imports:
 	findimports -n pyroute2 2>/dev/null | awk -f util/imports_dict.awk
-
-.PHONY: nox
-nox:
-	$(call nox,-e ${session})
