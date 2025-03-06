@@ -68,11 +68,12 @@ def wrapper(
 
 
 class ChildProcess:
+    ctrl_r: socket.socket
+    ctrl_w: socket.socket
+
     def __init__(
         self, target: Callable[..., ChildFuncReturnType], args: list[Any]
     ):
-        self.ctrl_r: Optional[socket.socket] = None
-        self.ctrl_w: Optional[socket.socket] = None
         self._mode: str = config.child_process_mode
         self._target: Callable[..., ChildFuncReturnType] = target
         self._args: list[Any] = args
