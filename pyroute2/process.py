@@ -214,12 +214,16 @@ class ChildProcess:
         if config.force_gc:
             gc.collect()
         if self.mode == 'fork':
-            if kill:
-                os.kill(self.pid, signal.SIGKILL)
-            else:
-                os.kill(self.pid, signal.SIGTERM)
-            _, status = os.waitpid(self.pid, 0)
-            self._exitcode = os.waitstatus_to_exitcode(status)
+            try:
+                if kill:
+                    os.kill(self.pid, signal.SIGKILL)
+                else:
+                    os.kill(self.pid, signal.SIGTERM)
+                _, status = os.waitpid(self.pid, 0)
+                self._exitcode = os.waitstatus_to_exitcode(status)
+            except ProcessLookupError:
+                # the child process has already exited
+                pass
         elif self.mode == 'mp':
             if kill:
                 self.proc.kill()
