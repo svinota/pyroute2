@@ -54,6 +54,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: make nox session=process
+  limits:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v4
+      - run: sudo make nox session=limits
   minimal:
     runs-on: Linux
     steps:

@@ -68,12 +68,12 @@ def wrapper(
 
 
 class ChildProcess:
+    ctrl_r: socket.socket
+    ctrl_w: socket.socket
+
     def __init__(
         self, target: Callable[..., ChildFuncReturnType], args: list[Any]
     ):
-        self.ctrl_r, self.ctrl_w = socket.socketpair(
-            socket.AF_UNIX, socket.SOCK_DGRAM
-        )
         self._mode: str = config.child_process_mode
         self._target: Callable[..., ChildFuncReturnType] = target
         self._args: list[Any] = args
@@ -83,8 +83,6 @@ class ChildProcess:
         self._pid: Optional[int] = None
 
     def close(self):
-        self.ctrl_r.close()
-        self.ctrl_w.close()
         self.stop()
 
     def __enter__(self):
@@ -112,9 +110,11 @@ class ChildProcess:
         * struct.error -- error unpacking response from the child process
         * OSError -- OS level error communicating with the child process
         * TimeoutError -- the child process is alive, but doesn't response
-        * RuntimeError -- the child process is dead
+        * RuntimeError -- the child process is dead or not started
         * TypeError -- error loading propagated exception
         '''
+        if not self._running:
+            raise RuntimeError('child process not started yet')
         if timeout == USE_DEFAULT_TIMEOUT:
             timeout = config.default_communicate_timeout
         rl, _, _ = select.select([self.ctrl_r], [], [], timeout)
@@ -188,6 +188,9 @@ class ChildProcess:
         if self._running:
             return
         self._running = True
+        self.ctrl_r, self.ctrl_w = socket.socketpair(
+            socket.AF_UNIX, socket.SOCK_DGRAM
+        )
         if self.mode == 'fork':
             self._pid = os.fork()
             if self._pid == 0:
@@ -206,6 +209,10 @@ class ChildProcess:
         if not self._running:
             return
         self._running = False
+        self.ctrl_r.close()
+        self.ctrl_w.close()
+        if config.force_gc:
+            gc.collect()
         if self.mode == 'fork':
             if kill:
                 os.kill(self.pid, signal.SIGKILL)

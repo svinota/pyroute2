@@ -16,6 +16,7 @@ nox.options.sessions = [
     'ci-self-python3.14',
     'repo',
     'unit',
+    'limits',
     'neutron',
     'process',
     'integration',
