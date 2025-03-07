@@ -421,10 +421,12 @@ def test_huawei_discover_option_148(pcap: PcapFile):
         # which is defined in RFC 8973.
         # If we implemented a parser for this option, it would crash and skip
         # the huawei value, which we don't want either...
-        'dots_addr': b'agilemode=agile-cloud;'
-        b'agilemanage-mode=ip;'
-        b'agilemanage-domain=48.194.254.137;'
-        b'agilemanage-port=10021;',
+        'dots_addr': list(
+            b'agilemode=agile-cloud;'
+            b'agilemanage-mode=ip;'
+            b'agilemanage-domain=48.194.254.137;'
+            b'agilemanage-port=10021;'
+        ),
         'lease_time': 604800,
         'message_type': dhcp.MessageType.OFFER,
         'name_server': ['10.184.16.1'],

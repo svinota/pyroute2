@@ -282,27 +282,22 @@ class dhcpmsg(msg):
                 continue
             if code == Option.END:
                 return self
-            # code is unknown -- bypass it
-            if code not in self._decode_map:
-                length = struct.unpack(
-                    'B', self.buf[self.offset + 1 : self.offset + 2]
-                )[0]
-                self.offset += 2
-                # if we know this option number, get the value as bytes
+            if code in self._decode_map:
+                # use the known decoded & name
+                option_class = getattr(self, self._decode_map[code].format)
+                optname = self._decode_map[code].name
+            else:
+                # code is unknown
+                # if we know this option number, get the value as a list
                 # even if we don't know how to parse it
+                option_class = self.array8
                 try:
+                    # if we know this option name, use it
                     code = Option(code)
+                    optname = code.name.lower()
                 except ValueError:
-                    pass
-                else:
-                    self['options'][code.name.lower()] = self.buf[
-                        self.offset : self.offset + length
-                    ]
-                self.offset += length
-                continue
+                    optname = f"option{code}"
 
-            # code is known, work on it
-            option_class = getattr(self, self._decode_map[code].format)
             option = option_class(buf=self.buf, offset=self.offset, code=code)
             try:
                 option.decode()
@@ -316,7 +311,7 @@ class dhcpmsg(msg):
                 value = option.value
             else:
                 value = option
-            self['options'][self._decode_map[code].name] = value
+            self['options'][optname] = value
         return self
 
     def encode(self: _dhcpmsgSelf) -> _dhcpmsgSelf:
