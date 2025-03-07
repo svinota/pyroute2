@@ -207,7 +207,7 @@ class AsyncCoreSocket:
         self.marshal = None
         self.buffer = []
         self.msg_reschedule = []
-        self.__all_open_resources = {}
+        self.__all_open_resources = set()
 
     def get_loop(self):
         return self.event_loop
@@ -282,7 +282,7 @@ class AsyncCoreSocket:
                 self.local.socket.initdb()
 
             await self.setup_endpoint()
-            self.__all_open_resources[id(threading.current_thread())] = (
+            self.__all_open_resources.add(
                 CoreSocketResources(
                     self.local.socket,
                     self.local.msg_queue,
@@ -380,26 +380,26 @@ class AsyncCoreSocket:
         def send_terminator(msg_queue):
             msg_queue.put_nowait(0, b'')
 
-        tid = id(threading.current_thread())
         with self.lock:
-            for r in self.__all_open_resources.values():
-                r.event_loop.call_soon_threadsafe(send_terminator, r.msg_queue)
-
-            if tid not in self.__all_open_resources:
-                return
-
-            sock, msg_queue, event_loop, transport, protocol = (
-                self.__all_open_resources.pop(tid)
-            )
-            # event_loop.call_soon(send_terminator, msg_queue)
-            transport.close()
-            if sock is not None:
-                sock.close()
-            if self.status['event_loop'] == 'new':
-                # go to the event loop to really close the transport
-                event_loop.run_until_complete(event_loop.shutdown_asyncgens())
-                event_loop.stop()
-                event_loop.close()
+            for (
+                sock,
+                msg_queue,
+                event_loop,
+                transport,
+                protocol,
+            ) in self.__all_open_resources:
+                event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+                transport.close()
+                if sock is not None:
+                    sock.close()
+                if self.status['event_loop'] == 'new':
+                    # go to the event loop to really close the transport
+                    event_loop.run_until_complete(
+                        event_loop.shutdown_asyncgens()
+                    )
+                    event_loop.stop()
+                    event_loop.close()
+            self.__all_open_resources = tuple()
 
     def clone(self):
         '''Return a copy of itself with a new underlying socket.
