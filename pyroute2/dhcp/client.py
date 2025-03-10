@@ -218,7 +218,12 @@ class AsyncDHCPClient:
             rebinding=self._rebind,
             expiration=self._expire_lease,
         )
-        self._lease.dump()
+        # whatever error might happen when writing a lease,
+        # it should never make the client crash
+        try:
+            self._lease.dump()
+        except Exception as exc:
+            LOG.error('Could not dump lease: %s', exc)
 
     @property
     def state(self) -> fsm.State:
