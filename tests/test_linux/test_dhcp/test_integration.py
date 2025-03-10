@@ -366,3 +366,26 @@ async def test_infinite_lease(
     assert lease.rebinding_in is None
     assert lease.renewal_in is None
     assert lease.expired is False
+
+
+async def test_lease_write_failure(
+    dnsmasq: DnsmasqFixture,
+    client_config: ClientConfig,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    '''Failure to write a lease should not crash the client.'''
+    caplog.set_level("ERROR")
+    # Create a temp workdir for the test and delete it
+    # while the client is running
+    wd = tmp_path / "will_be_deleted"
+    wd.mkdir()
+    monkeypatch.chdir(wd)
+    async with AsyncDHCPClient(config=client_config) as cli:
+        await cli.bootstrap()
+        wd.rmdir()
+        await cli.wait_for_state(fsm.State.BOUND, timeout=3.0)
+    assert caplog.messages == [
+        'Could not dump lease: [Errno 2] No such file or directory'
+    ]
