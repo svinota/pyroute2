@@ -236,7 +236,7 @@ class AsyncCoreSocket:
     def _check_tid(self, call: str = '', ext: Optional[str] = None):
         if self._tid != threading.get_ident():
             if ext is None:
-                ext = f'calling ${call}() is not allowed from another thread'
+                ext = f'calling #{call} is not allowed from another thread'
             raise RuntimeError(ext)
 
     def _register_loop_ref(self):
@@ -288,21 +288,22 @@ class AsyncCoreSocket:
 
     @property
     def socket(self):
+        '''socket infrastructure reconciler.'''
         if self._error_event.is_set():
             raise self.status['error']
+        if self.use_socket is not None and not hasattr(self.local, 'socket'):
+            if not hasattr(self.use_socket, '_lock'):
+                self._check_tid('use_socket')
+            self.local.prime = None
+            self.local.socket = self.use_socket
         if not hasattr(self.local, 'prime'):
             self.local.prime = self.setup_socket()
-        if not hasattr(self.local, 'socket'):
+        if not hasattr(self.local, 'msg_queue'):
             self.local.msg_queue = CoreMessageQueue(event_loop=self.event_loop)
             self.__msg_queues.add(self.local.msg_queue)
+        if not hasattr(self.local, 'socket'):
             self.local.socket = NoClose(self.local.prime)
             self.__open_sockets.add(self.local.socket)
-            # 8<-----------------------------------------
-            # Mock netlink
-            if self.spec['netns'] is not None and config.mock_netlink:
-                self.local.socket.netns = self.spec['netns']
-                self.local.socket.flags = self.spec['flags']
-                self.local.socket.initdb()
         return self.local.socket
 
     @property
@@ -358,7 +359,7 @@ class AsyncCoreSocket:
 
     async def setup_endpoint(self):
         # Setup asyncio
-        if self.transport is not None:
+        if getattr(self.local, 'transport', None) is not None:
             return
         self.local.transport, self.local.protocol = (
             await self.event_loop.connect_accepted_socket(
@@ -734,7 +735,7 @@ class CoreSocket(SyncAPI):
         self,
         target='localhost',
         rcvsize=16384,
-        use_socket=False,
+        use_socket=None,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
@@ -743,3 +744,10 @@ class CoreSocket(SyncAPI):
         self.asyncore = AsyncCoreSocket(
             target, rcvsize, use_socket, netns, flags, libc, groups
         )
+        self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.local.keep_event_loop = True
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+        if self.asyncore.socket.fileno() == -1:
+            raise OSError(9, 'Bad file descriptor')

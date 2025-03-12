@@ -332,17 +332,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
     def target(self):
         return self.status['target']
 
-    async def bind(self, groups=0, pid=None, **kwarg):
-        '''
-        Bind the socket to given multicast groups, using
-        given pid.
-
-            - If pid is None, use automatic port allocation
-            - If pid == 0, use process' pid
-            - If pid == <int>, use the value instead of pid
-        '''
-        self._check_tid('bind')
-        await self.setup_endpoint()
+    def _sync_bind(self, groups=0, pid=None, **kwarg):
         self.spec['groups'] = groups
         # if we have pre-defined port, use it strictly
         self.spec['pid'] = pid
@@ -360,6 +350,19 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                     log.debug(e)
             else:
                 raise KeyError('no free address available')
+
+    async def bind(self, groups=0, pid=None, **kwarg):
+        '''
+        Bind the socket to given multicast groups, using
+        given pid.
+
+            - If pid is None, use automatic port allocation
+            - If pid == 0, use process' pid
+            - If pid == <int>, use the value instead of pid
+        '''
+        self._check_tid('bind')
+        await self.setup_endpoint()
+        self._sync_bind(groups, pid, **kwarg)
 
     def add_membership(self, group):
         self.socket.setsockopt(SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, group)

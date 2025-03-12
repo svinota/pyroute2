@@ -70,8 +70,8 @@ Important `AsyncCoreSocket` components:
 
 * `AsyncCoreSocket.socket` -- thread-local socket-like object managed
   by `.endpoint`
-* `AsyncCoreSocket.endpoint` -- thread-local `asyncio` endpoint
-  `(transport, protocol)`
+* `AsyncCoreSocket.transport` -- thread-local `asyncio.Transport`
+* `AsyncCoreSocket.protocol` -- thread-local `asyncio.Protocol`
 * `AsyncCoreSocket.msg_queue` -- thread-local `asyncio` queue for data
   received from the socket
 * `AsyncCoreSocket.enqueue()` -- a synchronous routine to enqueue
@@ -98,12 +98,11 @@ Important `AsyncCoreSocket` components:
         assert callable(ipr.asyncore.socket.recvmsg)
         assert callable(ipr.asyncore.socket.sendmsg)
         assert callable(ipr.asyncore.socket.bind)
-        assert ipr.asyncore.endpoint[0]._sock == ipr.asyncore.socket
+        assert ipr.asyncore.transport._sock == ipr.asyncore.socket
 
         # AsyncCoreSocket.endpoint
-        assert isinstance(ipr.asyncore.endpoint, tuple)
-        assert isinstance(ipr.asyncore.endpoint[0], asyncio.Transport)
-        assert isinstance(ipr.asyncore.endpoint[1], asyncio.Protocol)
+        assert isinstance(ipr.asyncore.transport, asyncio.Transport)
+        assert isinstance(ipr.asyncore.protocol, asyncio.Protocol)
 
         # msg_queue
         assert isinstance(ipr.asyncore.msg_queue, CoreMessageQueue)
