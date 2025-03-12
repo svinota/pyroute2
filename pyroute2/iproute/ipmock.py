@@ -31,6 +31,7 @@ from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
 interface_counter = count(3)
+MAGIC_CLOSE = 0x42
 
 
 class MockLink:
@@ -591,6 +592,7 @@ class IPEngine:
         self.marshal = MarshalRtnl()
         self.netns = netns
         self.flags = flags
+        self.magic = 0
         self._stype = stype
         self._sfamily = sfamily
         self._sproto = sproto
@@ -633,8 +635,9 @@ class IPEngine:
         self.database = copy.deepcopy(presets[self.netns])
 
     def close(self):
-        self.loopback_r.close()
-        self.loopback_w.close()
+        if self.magic == MAGIC_CLOSE:
+            self.loopback_r.close()
+            self.loopback_w.close()
 
     def bind(self, address=None):
         self._broadcast.add(self.loopback_w)

@@ -15,12 +15,25 @@ from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
 from pyroute2.requests.main import RequestFilter, RequestProcessor
 
+MAGIC_CLOSE = 0x42
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 CoreSocketResources = collections.namedtuple(
     'CoreSocketResources',
     ('socket', 'msg_queue', 'event_loop', 'transport', 'protocol'),
 )
+
+
+class NoClose(socket.socket):
+    def __init__(self, sock: socket.socket):
+        self.magic = 0
+        fd = os.dup(sock.fileno())
+        sock.close()
+        super().__init__(fileno=fd)
+
+    def close(self):
+        if self.magic == MAGIC_CLOSE:
+            super().close()
 
 
 @dataclass
@@ -72,7 +85,15 @@ class CoreSocketSpec:
 
 class CoreMessageQueue:
 
-    def __init__(self):
+    def __init__(self, event_loop):
+        # python versions < 3.11 require the event loop
+        # to be running on Queue().__init__(), while
+        # python 3.12+ bind the queue on get()/put()
+        #
+        # so we must require the event loop on __init__()
+        # just to provide the compatibility.
+        #
+        self.event_loop = event_loop
         self.queues = {0: asyncio.Queue()}
         self.root = self.queues[0]
 
@@ -120,18 +141,23 @@ class CoreProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
 
-    def connection_lost(self, exc):
-        self.on_con_lost.set_result(True)
-        self.enqueue(
-            struct.pack('IHHQIQQ', 28, 2, 0, 0, errno.ECONNRESET, 0, 0), None
-        )
+    def enqueue_error(self, code: Optional[int]) -> None:
+        if code is None:
+            code = errno.ECOMM
+        try:
+            self.enqueue(struct.pack('IHHQIQQ', 28, 2, 0, 0, code, 0, 0), None)
+        except AttributeError:
+            # while closing, self.msg_queue can be removed already
+            pass
 
-    def error_received(self, exc):
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        self.on_con_lost.set_result(True)
+        self.enqueue_error(errno.ECONNRESET)
+
+    def error_received(self, exc: OSError) -> None:
         self.status['error'] = exc
         self.error_event.set()
-        self.enqueue(
-            struct.pack('IHHQIQQ', 28, 2, 0, 0, exc.errno, 0, 0), None
-        )
+        self.enqueue_error(exc.errno)
 
 
 class CoreStreamProtocol(CoreProtocol):
@@ -187,19 +213,15 @@ class AsyncCoreSocket:
             )
         )
         self.status = self.spec.status
+        self.status['eids'] = set()
         self.local = threading.local()
         self.lock = threading.Lock()
         self.libc = libc
         self.use_socket = use_socket
         self.use_event_loop = use_event_loop
         self.request_proxy = None
-        self._tid = id(threading.current_thread())
+        self._tid = threading.get_ident()
         self._error_event = threading.Event()
-        if use_event_loop:
-            self.local.event_loop = use_event_loop
-            self.local.connection_lost = self.local.event_loop.create_future()
-            self.status['event_loop'] = id(use_event_loop)
-            self.status['thread_id'] = id(threading.current_thread())
         url = parse.urlparse(self.spec['target'])
         self.scheme = url.scheme if url.scheme else url.path
         self.callbacks = []  # [(predicate, callback, args), ...]
@@ -207,7 +229,18 @@ class AsyncCoreSocket:
         self.marshal = None
         self.buffer = []
         self.msg_reschedule = []
-        self.__all_open_resources = {}
+        self.__open_sockets = set()
+        self.__open_resources = set()
+        self.__msg_queues = set()
+
+    def _check_tid(self, call: str = '', ext: Optional[str] = None):
+        if self._tid != threading.get_ident():
+            if ext is None:
+                ext = f'calling #{call} is not allowed from another thread'
+            raise RuntimeError(ext)
+
+    def _register_loop_ref(self):
+        self.__open_resources.add((self.event_loop, self.msg_queue))
 
     def get_loop(self):
         return self.event_loop
@@ -247,81 +280,60 @@ class AsyncCoreSocket:
 
     @property
     def connection_lost(self):
+        if self._error_event.is_set():
+            raise self.status['error']
+        if not hasattr(self.local, 'connection_lost'):
+            self.local.connection_lost = self.event_loop.create_future()
         return self.local.connection_lost
 
     @property
-    def event_loop(self):
-        return self.ensure_event_loop()
+    def socket(self):
+        '''socket infrastructure reconciler.'''
+        if self._error_event.is_set():
+            raise self.status['error']
+        if self.use_socket is not None and not hasattr(self.local, 'socket'):
+            if not hasattr(self.use_socket, '_lock'):
+                self._check_tid('use_socket')
+            self.local.prime = None
+            self.local.socket = self.use_socket
+        if not hasattr(self.local, 'prime'):
+            self.local.prime = self.setup_socket()
+        if not hasattr(self.local, 'msg_queue'):
+            self.local.msg_queue = CoreMessageQueue(event_loop=self.event_loop)
+            self.__msg_queues.add(self.local.msg_queue)
+        if not hasattr(self.local, 'socket'):
+            self.local.socket = NoClose(self.local.prime)
+            self.__open_sockets.add(self.local.socket)
+        return self.local.socket
 
-    def ensure_event_loop(self):
+    @property
+    def event_loop(self):
+        if self._error_event.is_set():
+            raise self.status['error']
         if not hasattr(self.local, 'event_loop'):
-            if self.status['use_event_loop'] and self.status[
-                'thread_id'
-            ] != id(threading.current_thread()):
-                raise RuntimeError(
-                    'Predefined event loop can not be used in another thread'
+            if self.status['use_event_loop']:
+                self._check_tid(
+                    ext='Predefined event loop can not be used '
+                    'in another thread'
                 )
             self.local.event_loop = self.setup_event_loop()
-            self.local.connection_lost = self.local.event_loop.create_future()
         if self.local.event_loop.is_closed():
             raise OSError(errno.EBADF, 'Bad file descriptor')
         return self.local.event_loop
 
-    async def ensure_socket(self):
-        if self._error_event.is_set():
-            raise self.status['error']
-        if not hasattr(self.local, 'socket'):
-            self.local.socket = None
-            self.local.fileno = None
-            self.local.msg_queue = CoreMessageQueue()
-            # 8<-----------------------------------------
-            self.local.socket = self.setup_socket()
-            if self.spec['netns'] is not None and config.mock_netlink:
-                self.local.socket.netns = self.spec['netns']
-                self.local.socket.flags = self.spec['flags']
-                self.local.socket.initdb()
-
-            await self.setup_endpoint()
-            self.__all_open_resources[id(threading.current_thread())] = (
-                CoreSocketResources(
-                    self.local.socket,
-                    self.local.msg_queue,
-                    self.local.event_loop,
-                    self.local.endpoint[0],
-                    self.local.endpoint[1],
-                )
-            )
+    @property
+    def transport(self):
+        return self.local.transport
 
     @property
-    def socket(self):
-        return self.local.socket
+    def protocol(self):
+        if not hasattr(self.local, 'protocol'):
+            self.local.protocol = None
+        return self.local.protocol
 
-    @property
-    def endpoint(self):
-        if not hasattr(self.local, 'endpoint'):
-            self.local.endpoint = None
-        return self.local.endpoint
-
-    @endpoint.setter
-    def endpoint(self, value):
-        self.local.endpoint = value
-
+    #
     # 8<--------------------------------------------------------------
-
-    async def setup_endpoint(self, loop=None):
-        # Setup asyncio
-        if self.endpoint is not None:
-            return
-        self.endpoint = await self.event_loop.connect_accepted_socket(
-            lambda: CoreStreamProtocol(
-                self.connection_lost,
-                self.enqueue,
-                self._error_event,
-                self.status,
-            ),
-            sock=self.socket,
-        )
-
+    #
     def setup_event_loop(self):
         try:
             event_loop = asyncio.get_running_loop()
@@ -329,14 +341,12 @@ class AsyncCoreSocket:
         except RuntimeError:
             event_loop = asyncio.new_event_loop()
             self.status['event_loop'] = 'new'
+            self.status['eids'].add(id(event_loop))
         return event_loop
 
-    def setup_socket(self, sock=None):
+    def setup_socket(self):
         if self.use_socket is not None:
             return self.use_socket
-        sock = self.socket if sock is None else sock
-        if sock is not None:
-            sock.close()
         sock = netns.create_socket(
             self.spec['netns'],
             socket.AF_INET,
@@ -346,6 +356,24 @@ class AsyncCoreSocket:
         )
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return sock
+
+    async def setup_endpoint(self):
+        # Setup asyncio
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        self.local.transport, self.local.protocol = (
+            await self.event_loop.connect_accepted_socket(
+                lambda: CoreStreamProtocol(
+                    self.connection_lost,
+                    self.enqueue,
+                    self._error_event,
+                    self.status,
+                ),
+                sock=self.socket,
+            )
+        )
+
+    # 8<--------------------------------------------------------------
 
     def __getattr__(self, attr):
         if attr in (
@@ -371,7 +399,7 @@ class AsyncCoreSocket:
 
     async def bind(self, addr):
         '''Bind the socket to the address.'''
-        await self.ensure_socket()
+        await self.setup_endpoint()
         return self.socket.bind(addr)
 
     def close(self, code=errno.ECONNRESET):
@@ -380,26 +408,29 @@ class AsyncCoreSocket:
         def send_terminator(msg_queue):
             msg_queue.put_nowait(0, b'')
 
-        tid = id(threading.current_thread())
         with self.lock:
-            for r in self.__all_open_resources.values():
-                r.event_loop.call_soon_threadsafe(send_terminator, r.msg_queue)
-
-            if tid not in self.__all_open_resources:
-                return
-
-            sock, msg_queue, event_loop, transport, protocol = (
-                self.__all_open_resources.pop(tid)
-            )
-            # event_loop.call_soon(send_terminator, msg_queue)
-            transport.close()
-            if sock is not None:
-                sock.close()
+            for event_loop, msg_queue in self.__open_resources:
+                if not event_loop.is_closed():
+                    event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+            if hasattr(self.local, 'transport'):
+                self.local.transport.abort()
+                self.local.transport.close()
+                del self.local.transport
+                del self.local.protocol
             if self.status['event_loop'] == 'new':
-                # go to the event loop to really close the transport
-                event_loop.run_until_complete(event_loop.shutdown_asyncgens())
-                event_loop.stop()
-                event_loop.close()
+                if (
+                    hasattr(self.local, 'event_loop')
+                    and not self.local.event_loop.is_closed()
+                ):
+                    self.event_loop.run_until_complete(
+                        self.event_loop.shutdown_asyncgens()
+                    )
+                    self.event_loop.stop()
+                    self.event_loop.close()
+                    del self.local.event_loop
+            for sock in tuple(self.__open_sockets):
+                sock.magic = MAGIC_CLOSE
+                sock.close()
 
     def clone(self):
         '''Return a copy of itself with a new underlying socket.
@@ -446,7 +477,7 @@ class AsyncCoreSocket:
         self, msg_seq=0, terminate=None, callback=None, noraise=False
     ):
         '''Get a conversation answer from the socket.'''
-        await self.ensure_socket()
+        await self.setup_endpoint()
         log.debug(
             "get: %s / %s / %s / %s", msg_seq, terminate, callback, noraise
         )
@@ -646,6 +677,7 @@ class SyncAPI:
             'status',
             'send',
             'recv',
+            'lock',
             'sendto',
             'setsockopt',
             'getsockopt',
@@ -655,9 +687,42 @@ class SyncAPI:
             return getattr(self.asyncore, key)
         raise AttributeError(key)
 
+    @property
+    def fileno(self):
+        return self.asyncore.socket.fileno
+
+    def _setup_transport(self):
+        if hasattr(self.asyncore.local, 'event_loop'):
+            return
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+
+    def _cleanup_transport(self) -> None:
+        if hasattr(self.asyncore.local, 'keep_event_loop'):
+            return
+        self.asyncore.transport.abort()
+        self.asyncore.transport.close()
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.event_loop.shutdown_asyncgens()
+        )
+        self.asyncore.event_loop.stop()
+        self.asyncore.event_loop.close()
+        del self.asyncore.local.transport
+        del self.asyncore.local.connection_lost
+        del self.asyncore.local.event_loop
+
+    def _one_time_loop(self, func, *argv, **kwarg):
+        self._setup_transport()
+        ret = self.asyncore.event_loop.run_until_complete(func(*argv, **kwarg))
+        self._cleanup_transport()
+        return ret
+
     def mock_data(self, data):
         if getattr(self.asyncore.local, 'msg_queue', None) is None:
-            self.asyncore.local.msg_queue = CoreMessageQueue()
+            self.asyncore.local.msg_queue = CoreMessageQueue(
+                event_loop=self.event_loop
+            )
         self.asyncore.msg_queue.put_nowait(0, data)
 
     def close(self, code=errno.ECONNRESET):
@@ -670,7 +735,7 @@ class CoreSocket(SyncAPI):
         self,
         target='localhost',
         rcvsize=16384,
-        use_socket=False,
+        use_socket=None,
         netns=None,
         flags=os.O_CREAT,
         libc=None,
@@ -679,3 +744,10 @@ class CoreSocket(SyncAPI):
         self.asyncore = AsyncCoreSocket(
             target, rcvsize, use_socket, netns, flags, libc, groups
         )
+        self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.local.keep_event_loop = True
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+        if self.asyncore.socket.fileno() == -1:
+            raise OSError(9, 'Bad file descriptor')

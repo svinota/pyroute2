@@ -1,7 +1,12 @@
 import asyncio
 import json
 
-from pyroute2.netlink.core import AsyncCoreSocket, CoreConfig, CoreSocketSpec
+from pyroute2.netlink.core import (
+    AsyncCoreSocket,
+    CoreConfig,
+    CoreMessageQueue,
+    CoreSocketSpec,
+)
 from pyroute2.plan9 import (
     Marshal9P,
     Plan9Exit,
@@ -359,18 +364,24 @@ class Plan9ServerSocket(AsyncCoreSocket):
         '''
         return inode.register_function(func, loader, dumper)
 
-    async def setup_endpoint(self, loop=None):
-        if self.endpoint is not None:
+    async def setup_endpoint(self):
+        if getattr(self.local, 'server', None) is not None:
             return
+        self.local.msg_queue = CoreMessageQueue(event_loop=self.event_loop)
         if self.status['use_socket']:
-            self.endpoint = await self.event_loop.create_connection(
-                lambda: Plan9ServerProtocol(
-                    self.connection_lost, self.marshal, self.filesystem
-                ),
-                sock=self.use_socket,
+            self.local.server = None
+            self.local.transport, self.local.protocol = (
+                await self.event_loop.create_connection(
+                    lambda: Plan9ServerProtocol(
+                        self.connection_lost, self.marshal, self.filesystem
+                    ),
+                    sock=self.use_socket,
+                )
             )
         else:
-            self.endpoint = await self.event_loop.create_server(
+            self.local.transport = None
+            self.local.protocol = None
+            self.local.server = await self.event_loop.create_server(
                 lambda: Plan9ServerProtocol(
                     self.connection_lost, self.marshal, self.filesystem
                 ),
@@ -451,9 +462,9 @@ class Plan9ServerSocket(AsyncCoreSocket):
         '''
         await self.setup_endpoint()
         if self.status['use_socket']:
-            return self.endpoint[1].on_con_lost
+            return self.protocol.on_con_lost
         else:
-            return asyncio.create_task(self.endpoint.serve_forever())
+            return asyncio.create_task(self.local.server.serve_forever())
 
     def run(self):
         '''A simple synchronous runner.

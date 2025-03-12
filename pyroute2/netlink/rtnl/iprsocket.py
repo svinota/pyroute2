@@ -8,11 +8,12 @@ from unittest import mock
 from pyroute2 import config
 from pyroute2.common import msg_done
 from pyroute2.iproute.ipmock import IPEngine
-from pyroute2.netlink import NETLINK_ROUTE, nlmsg, rtnl
+from pyroute2.netlink import NETLINK_ROUTE, NLM_F_REQUEST, nlmsg, rtnl
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nlsocket import (
     AsyncNetlinkSocket,
     ChaoticNetlinkSocket,
+    NetlinkRequest,
     NetlinkSocket,
 )
 from pyroute2.netlink.rtnl.ifinfmsg.tuntap import manage_tun, manage_tuntap
@@ -179,6 +180,10 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
     ):
         if config.mock_netlink:
             use_socket = IPEngine()
+            if netns is not None:
+                use_socket.netns = netns
+            use_socket.flags = flags
+            use_socket.initdb()
         self.marshal = MarshalRtnl()
         super().__init__(
             family=NETLINK_ROUTE,
@@ -214,8 +219,6 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
 
 class NotLocal:
     event_loop = None
-    socket = None
-    fileno = None
     msg_queue = mock.Mock()
 
 
@@ -363,16 +366,49 @@ class IPRSocket(NetlinkSocket):
             use_event_loop=use_event_loop,
         )
         self.asyncore.local = NotLocal()
-        self.asyncore.local.event_loop = self.asyncore.setup_event_loop()
-        self.asyncore.local.socket = self.asyncore.setup_socket()
+
+    @property
+    def addr_pool(self):
+        return self.asyncore.addr_pool
+
+    @property
+    def epid(self):
+        return self.asyncore.epid
 
     @property
     def socket(self):
-        return self.asyncore.local.socket
+        return self.asyncore.socket
 
     @property
     def fileno(self):
         return self.asyncore.local.socket.fileno
+
+    def bind(self, groups=None, pid=None, **kwarg):
+        self.asyncore._sync_bind(groups, pid, **kwarg)
+
+    def put(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST,
+        addr=(0, 0),
+        msg_seq=0,
+        msg_pid=None,
+    ):
+        if msg is None:
+            msg_class = self.marshal.msg_map[msg_type]
+            msg = msg_class()
+
+        request = NetlinkRequest(
+            self,
+            msg,
+            msg_type=msg_type,
+            msg_flags=msg_flags,
+            msg_seq=msg_seq,
+            msg_pid=msg_pid,
+        )
+        request.msg.encode()
+        return request.sock.send(request.msg.data)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
         data = self.socket.recv(16384)

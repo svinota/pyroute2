@@ -83,12 +83,11 @@ def options(module, config):
         'python',
         '-m',
         'pytest',
+        f'-r{config.get("summary", "x")}',
+        f'--timeout={config.get("timeout", 60)}',
         '--basetemp',
         './log',
-        '--junitxml=junit.xml',
-        '--html=report.html',
     ]
-    timeout = 60
     if config.get('exitfirst', True):
         ret.append('--exitfirst')
     if config.get('verbose', True):
@@ -96,14 +95,8 @@ def options(module, config):
     if config.get('fail_on_warnings'):
         ret.insert(1, 'error')
         ret.insert(1, '-W')
-    if config.get('timeout'):
-        timeout = config["timeout"]
-    ret.append(f'--timeout={timeout}')
     if config.get('pdb'):
         ret.append('--pdb')
-    if config.get('coverage'):
-        ret.append('--cov-report=html')
-        ret.append('--cov=pyroute2')
     if config.get('tests_prefix'):
         module = f'{config["tests_prefix"]}/{module}'
     if config.get('sub'):
