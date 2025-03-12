@@ -367,7 +367,7 @@ class Plan9ServerSocket(AsyncCoreSocket):
     async def setup_endpoint(self):
         if getattr(self.local, 'server', None) is not None:
             return
-        self.local.msg_queue = CoreMessageQueue()
+        self.local.msg_queue = CoreMessageQueue(event_loop=self.event_loop)
         if self.status['use_socket']:
             self.local.server = None
             self.local.transport, self.local.protocol = (

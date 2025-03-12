@@ -656,6 +656,12 @@ class NetlinkSocket(SyncAPI):
             use_event_loop=use_event_loop,
         )
         self.asyncore.local.keep_event_loop = True
+        self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+        if self.asyncore.socket.fileno() == -1:
+            raise OSError(9, 'Bad file descriptor')
 
     def bind(self, *argv, **kwarg):
         with self.lock:

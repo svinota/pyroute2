@@ -53,7 +53,7 @@ class Plan9ClientSocket(AsyncCoreSocket):
     async def setup_endpoint(self, loop=None):
         if getattr(self.local, 'transport', None) is not None:
             return
-        self.local.msg_queue = CoreMessageQueue()
+        self.local.msg_queue = CoreMessageQueue(event_loop=self.event_loop)
         if self.status['use_socket']:
             address = {'sock': self.use_socket}
         else:

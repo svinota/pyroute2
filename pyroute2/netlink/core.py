@@ -85,7 +85,15 @@ class CoreSocketSpec:
 
 class CoreMessageQueue:
 
-    def __init__(self):
+    def __init__(self, event_loop):
+        # python versions < 3.11 require the event loop
+        # to be running on Queue().__init__(), while
+        # python 3.12+ bind the queue on get()/put()
+        #
+        # so we must require the event loop on __init__()
+        # just to provide the compatibility.
+        #
+        self.event_loop = event_loop
         self.queues = {0: asyncio.Queue()}
         self.root = self.queues[0]
 
@@ -205,6 +213,7 @@ class AsyncCoreSocket:
             )
         )
         self.status = self.spec.status
+        self.status['eids'] = set()
         self.local = threading.local()
         self.lock = threading.Lock()
         self.libc = libc
@@ -284,7 +293,7 @@ class AsyncCoreSocket:
         if not hasattr(self.local, 'prime'):
             self.local.prime = self.setup_socket()
         if not hasattr(self.local, 'socket'):
-            self.local.msg_queue = CoreMessageQueue()
+            self.local.msg_queue = CoreMessageQueue(event_loop=self.event_loop)
             self.__msg_queues.add(self.local.msg_queue)
             self.local.socket = NoClose(self.local.prime)
             self.__open_sockets.add(self.local.socket)
@@ -331,6 +340,7 @@ class AsyncCoreSocket:
         except RuntimeError:
             event_loop = asyncio.new_event_loop()
             self.status['event_loop'] = 'new'
+            self.status['eids'].add(id(event_loop))
         return event_loop
 
     def setup_socket(self):
@@ -681,7 +691,7 @@ class SyncAPI:
         return self.asyncore.socket.fileno
 
     def _setup_transport(self):
-        if hasattr(self.asyncore.local, 'transport'):
+        if hasattr(self.asyncore.local, 'event_loop'):
             return
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()
@@ -709,7 +719,9 @@ class SyncAPI:
 
     def mock_data(self, data):
         if getattr(self.asyncore.local, 'msg_queue', None) is None:
-            self.asyncore.local.msg_queue = CoreMessageQueue()
+            self.asyncore.local.msg_queue = CoreMessageQueue(
+                event_loop=self.event_loop
+            )
         self.asyncore.msg_queue.put_nowait(0, data)
 
     def close(self, code=errno.ECONNRESET):
