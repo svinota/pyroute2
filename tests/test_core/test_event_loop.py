@@ -53,9 +53,9 @@ def test_event_loop_new():
 def test_event_loop_count():
     state = diff_event_loops()
     ipr = IPRoute()
-    assert diff_event_loops(state) == 1
+    assert diff_event_loops(state) == 0
     assert len(list(ipr.get_links())) > 0
-    assert diff_event_loops(state) == 1
+    assert diff_event_loops(state) == 0
     ipr.close()
     assert diff_event_loops(state) == 0
 
@@ -82,7 +82,7 @@ def test_threading_close_noop():
     ipr.close()
     assert len(exc) == 0
     assert len(ret) == 3
-    assert ret == [1, None, 1]
+    assert ret == [0, None, 0]
     assert diff_event_loops(state) == 0
 
 
@@ -110,11 +110,11 @@ def test_threading_close_op():
     ipr.close()
     assert len(exc) == 0
     assert len(ret) == 5
-    assert ret[0] == 1
+    assert ret[0] == 0
     assert ret[1] > 1
-    assert ret[2] == 2
+    assert ret[2] == 0
     assert ret[3] is None
-    assert ret[4] == 1
+    assert ret[4] == 0
     assert diff_event_loops(state) == 0
 
 

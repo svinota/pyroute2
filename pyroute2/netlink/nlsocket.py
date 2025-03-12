@@ -199,6 +199,8 @@ class NetlinkSocketSpec(CoreSocketSpec):
         'port': 0,
         'uname': config.uname,
         'use_socket': False,
+        'event_loop': 'none',
+        'transport_mode': 'none',
     }
     status_filters = [NetlinkSocketSpecFilter]
 
@@ -269,19 +271,42 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         self.request_proxy = None
         self.batch = None
 
-    async def setup_endpoint(self, loop=None):
-        # Setup asyncio
-        if self.endpoint is not None:
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
             return
-        self.endpoint = await self.event_loop.create_datagram_endpoint(
-            lambda: CoreDatagramProtocol(
-                self.connection_lost,
-                self.enqueue,
-                self._error_event,
-                self.status,
-            ),
-            sock=self.socket,
+        self.local.transport, self.local.protocol = (
+            await self.event_loop.create_datagram_endpoint(
+                lambda: CoreDatagramProtocol(
+                    self.connection_lost,
+                    self.enqueue,
+                    self._error_event,
+                    self.status,
+                ),
+                sock=self.socket,
+            )
         )
+
+    def setup_socket(self):
+        if self.status['use_socket']:
+            return self.use_socket
+        sock = netns.create_socket(
+            netns=self.spec['netns'],
+            family=AF_NETLINK,
+            socket_type=SOCK_DGRAM,
+            proto=self.spec['family'],  # netlink family = socket proto
+            fileno=self.spec['fileno'],
+            flags=self.spec['flags'],
+            libc=self.libc,
+        )
+        sock.setsockopt(SOL_SOCKET, SO_SNDBUF, self.status['sndbuf'])
+        sock.setsockopt(SOL_SOCKET, SO_RCVBUF, self.status['rcvbuf'])
+        if self.status['ext_ack']:
+            sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
+        if self.status['all_ns']:
+            sock.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
+        if self.status['strict_check']:
+            sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
+        return sock
 
     @property
     def uname(self):
@@ -307,32 +332,6 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
     def target(self):
         return self.status['target']
 
-    def setup_socket(self, sock=None):
-        """Re-init a netlink socket."""
-        if self.status['use_socket']:
-            return self.use_socket
-        sock = self.socket if sock is None else sock
-        if sock is not None:
-            sock.close()
-        sock = netns.create_socket(
-            self.spec['netns'],
-            AF_NETLINK,
-            SOCK_DGRAM,
-            self.spec['family'],
-            self.spec['fileno'] or self.local.fileno,
-            self.spec['flags'],
-            self.libc,
-        )
-        sock.setsockopt(SOL_SOCKET, SO_SNDBUF, self.status['sndbuf'])
-        sock.setsockopt(SOL_SOCKET, SO_RCVBUF, self.status['rcvbuf'])
-        if self.status['ext_ack']:
-            sock.setsockopt(SOL_NETLINK, NETLINK_EXT_ACK, 1)
-        if self.status['all_ns']:
-            sock.setsockopt(SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, 1)
-        if self.status['strict_check']:
-            sock.setsockopt(SOL_NETLINK, NETLINK_GET_STRICT_CHK, 1)
-        return sock
-
     async def bind(self, groups=0, pid=None, **kwarg):
         '''
         Bind the socket to given multicast groups, using
@@ -342,7 +341,8 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             - If pid == 0, use process' pid
             - If pid == <int>, use the value instead of pid
         '''
-        await self.ensure_socket()
+        self._check_tid('bind')
+        await self.setup_endpoint()
         self.spec['groups'] = groups
         # if we have pre-defined port, use it strictly
         self.spec['pid'] = pid
@@ -567,7 +567,7 @@ class NetlinkRequest:
         return True
 
     async def send(self):
-        await self.sock.ensure_socket()
+        await self.sock.setup_endpoint()
         self.msg.encode()
         self.sock.msg_queue.ensure_tag(self.msg_seq)
         if self.parser is not None:
@@ -655,15 +655,19 @@ class NetlinkSocket(SyncAPI):
             use_socket=use_socket,
             use_event_loop=use_event_loop,
         )
-
-    @property
-    def fileno(self):
-        return self.asyncore.socket.fileno
+        self.asyncore.local.keep_event_loop = True
 
     def bind(self, *argv, **kwarg):
-        return self.asyncore.event_loop.run_until_complete(
-            self.asyncore.bind(*argv, **kwarg)
-        )
+        with self.lock:
+            self._setup_transport()
+            self.asyncore._check_tid()
+            self.asyncore.local.keep_event_loop = True
+            ret = self.asyncore.event_loop.run_until_complete(
+                self.asyncore.bind(*argv, **kwarg)
+            )
+            self.asyncore._register_loop_ref()
+            self._cleanup_transport()
+            return ret
 
     def put(
         self,
@@ -677,8 +681,8 @@ class NetlinkSocket(SyncAPI):
         if msg is None:
             msg_class = self.marshal.msg_map[msg_type]
             msg = msg_class()
-        return self.asyncore.event_loop.run_until_complete(
-            self.asyncore.put(msg, msg_type, msg_flags, addr, msg_seq, msg_pid)
+        return self._one_time_loop(
+            self.asyncore.put, msg, msg_type, msg_flags, addr, msg_seq, msg_pid
         )
 
     def nlm_request(
@@ -699,7 +703,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self.asyncore.event_loop.run_until_complete(collect_data())
+        return self._one_time_loop(collect_data)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
         '''Sync wrapper for async_get().'''
@@ -712,7 +716,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self.asyncore.event_loop.run_until_complete(collect_data())
+        return self._one_time_loop(collect_data)
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):

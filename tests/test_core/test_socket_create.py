@@ -19,5 +19,5 @@ async def test_netns_timeout(monkeypatch):
     ipr = AsyncIPRoute(netns=uifname())
     ts_start = time.time()
     with pytest.raises(TimeoutError):
-        await ipr.ensure_socket()
+        await ipr.setup_endpoint()
     assert time.time() - ts_start < 2
