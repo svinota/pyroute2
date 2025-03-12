@@ -87,8 +87,6 @@ def options(module, config):
         f'--timeout={config.get("timeout", 60)}',
         '--basetemp',
         './log',
-        '--junitxml=junit.xml',
-        '--html=report.html',
     ]
     if config.get('exitfirst', True):
         ret.append('--exitfirst')
@@ -99,9 +97,6 @@ def options(module, config):
         ret.insert(1, '-W')
     if config.get('pdb'):
         ret.append('--pdb')
-    if config.get('coverage'):
-        ret.append('--cov-report=html')
-        ret.append('--cov=pyroute2')
     if config.get('tests_prefix'):
         module = f'{config["tests_prefix"]}/{module}'
     if config.get('sub'):
