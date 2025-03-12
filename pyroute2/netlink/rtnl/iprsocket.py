@@ -395,6 +395,10 @@ class IPRSocket(NetlinkSocket):
         msg_seq=0,
         msg_pid=None,
     ):
+        if msg is None:
+            msg_class = self.marshal.msg_map[msg_type]
+            msg = msg_class()
+
         request = NetlinkRequest(
             self,
             msg,
