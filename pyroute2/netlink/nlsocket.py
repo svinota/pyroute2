@@ -360,7 +360,6 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
             - If pid == 0, use process' pid
             - If pid == <int>, use the value instead of pid
         '''
-        self._check_tid('bind')
         await self.setup_endpoint()
         self._sync_bind(groups, pid, **kwarg)
 
@@ -669,7 +668,7 @@ class NetlinkSocket(SyncAPI):
     def bind(self, *argv, **kwarg):
         with self.lock:
             self._setup_transport()
-            self.asyncore._check_tid()
+            self.asyncore._check_tid(tag='bind', level=logging.WARN)
             self.asyncore.local.keep_event_loop = True
             ret = self.asyncore.event_loop.run_until_complete(
                 self.asyncore.bind(*argv, **kwarg)

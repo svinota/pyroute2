@@ -6,6 +6,7 @@ import os
 import socket
 import struct
 import threading
+import warnings
 from dataclasses import asdict, dataclass
 from typing import Optional, Type, Union
 from urllib import parse
@@ -233,11 +234,22 @@ class AsyncCoreSocket:
         self.__open_resources = set()
         self.__msg_queues = set()
 
-    def _check_tid(self, call: str = '', ext: Optional[str] = None):
+    def _check_tid(
+        self,
+        tag: str = '',
+        level: int = logging.ERROR,
+        message: Optional[str] = None,
+    ):
         if self._tid != threading.get_ident():
-            if ext is None:
-                ext = f'calling #{call} is not allowed from another thread'
-            raise RuntimeError(ext)
+            if message is None:
+                message = (
+                    f'calling #{tag} from another thread may require'
+                    'additional resource cleanup'
+                )
+            if level == logging.ERROR:
+                raise RuntimeError(message)
+            elif level == logging.WARN:
+                warnings.warn(message)
 
     def _register_loop_ref(self):
         self.__open_resources.add((self.event_loop, self.msg_queue))
@@ -293,7 +305,7 @@ class AsyncCoreSocket:
             raise self.status['error']
         if self.use_socket is not None and not hasattr(self.local, 'socket'):
             if not hasattr(self.use_socket, '_lock'):
-                self._check_tid('use_socket')
+                self._check_tid(tag='use_socket', level=logging.ERROR)
             self.local.prime = None
             self.local.socket = self.use_socket
         if not hasattr(self.local, 'prime'):
@@ -313,8 +325,9 @@ class AsyncCoreSocket:
         if not hasattr(self.local, 'event_loop'):
             if self.status['use_event_loop']:
                 self._check_tid(
-                    ext='Predefined event loop can not be used '
-                    'in another thread'
+                    level=logging.ERROR,
+                    message='Predefined event loop can not be used '
+                    'in another thread',
                 )
             self.local.event_loop = self.setup_event_loop()
         if self.local.event_loop.is_closed():
