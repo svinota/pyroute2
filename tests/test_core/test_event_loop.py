@@ -1,6 +1,8 @@
 import asyncio
+import errno
 import gc
 import threading
+import traceback
 import weakref
 
 import pytest
@@ -36,6 +38,8 @@ def threading_target_run(func_list, exc, ret):
         try:
             ret.append(func())
         except Exception as e:
+            e.tb = traceback.format_exc()
+            ret.append(e)
             exc.append(e)
 
 
@@ -136,6 +140,40 @@ def test_threading_sync():
         exc[0].args[0]
         == 'Predefined event loop can not be used in another thread'
     )
+
+
+def test_threading_bind():
+    state = diff_event_loops()
+    ipr = IPRoute()
+    assert diff_event_loops(state) == 1
+    ready_event = threading.Event()
+    close_event = threading.Event()
+    exc = []
+    ret = []
+    tt = threading.Thread(
+        target=threading_target_run,
+        args=[
+            [
+                lambda: ipr.bind(),
+                lambda: diff_event_loops(state),
+                lambda: ready_event.set(),
+                lambda: close_event.wait(),
+                lambda: [x for x in ipr.get()],
+                lambda: diff_event_loops(state),
+            ],
+            exc,
+            ret,
+        ],
+    )
+    tt.start()
+    ready_event.wait()
+    ipr.close()
+    close_event.set()
+    tt.join()
+    assert ret[1] == 2
+    assert isinstance(ret[4], OSError)
+    assert ret[4].errno == errno.EBADF
+    assert ret[5] == 0
 
 
 @pytest.mark.asyncio
