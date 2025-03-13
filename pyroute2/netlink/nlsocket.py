@@ -197,6 +197,7 @@ class NetlinkSocketSpec(CoreSocketSpec):
         'pid': 0,
         'epid': 0,
         'port': 0,
+        'closed': False,
         'uname': config.uname,
         'use_socket': False,
         'event_loop': 'none',
@@ -667,15 +668,10 @@ class NetlinkSocket(SyncAPI):
 
     def bind(self, *argv, **kwarg):
         with self.lock:
-            self._setup_transport()
             self.asyncore._check_tid(tag='bind', level=logging.WARN)
             self.asyncore.local.keep_event_loop = True
-            ret = self.asyncore.event_loop.run_until_complete(
-                self.asyncore.bind(*argv, **kwarg)
-            )
+            self._run_with_cleanup(self.asyncore.bind, *argv, **kwarg)
             self.asyncore._register_loop_ref()
-            self._cleanup_transport()
-            return ret
 
     def put(
         self,
@@ -689,7 +685,7 @@ class NetlinkSocket(SyncAPI):
         if msg is None:
             msg_class = self.marshal.msg_map[msg_type]
             msg = msg_class()
-        return self._one_time_loop(
+        return self._run_with_cleanup(
             self.asyncore.put, msg, msg_type, msg_flags, addr, msg_seq, msg_pid
         )
 
@@ -711,7 +707,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self._one_time_loop(collect_data)
+        return self._run_with_cleanup(collect_data)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
         '''Sync wrapper for async_get().'''
@@ -724,7 +720,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self._one_time_loop(collect_data)
+        return self._run_with_cleanup(collect_data)
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):

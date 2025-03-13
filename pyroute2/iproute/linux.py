@@ -2745,9 +2745,9 @@ class IPRoute(NetlinkSocket):
 
         # create an event loop
         if name in async_generic_methods:
-            return partial(self._one_time_loop, synchronize_generic)
+            return partial(self._run_with_cleanup, synchronize_generic)
         elif name in async_dump_methods:
-            return partial(self._one_time_loop, synchronize_dump)
+            return partial(self._run_with_cleanup, synchronize_dump)
         return symbol
 
 

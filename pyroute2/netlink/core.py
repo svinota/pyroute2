@@ -244,7 +244,7 @@ class AsyncCoreSocket:
             if message is None:
                 message = (
                     f'calling #{tag} from another thread may require'
-                    'additional resource cleanup'
+                    f' additional resource cleanup'
                 )
             if level == logging.ERROR:
                 raise RuntimeError(message)
@@ -705,6 +705,8 @@ class SyncAPI:
         return self.asyncore.socket.fileno
 
     def _setup_transport(self):
+        if self.asyncore.status['closed']:
+            raise OSError(errno.EBADF, 'Bad file descriptor')
         if hasattr(self.asyncore.local, 'event_loop'):
             return
         self.asyncore.event_loop.run_until_complete(
@@ -712,24 +714,33 @@ class SyncAPI:
         )
 
     def _cleanup_transport(self) -> None:
-        if hasattr(self.asyncore.local, 'keep_event_loop'):
+        if not self.asyncore.status['closed'] and hasattr(
+            self.asyncore.local, 'keep_event_loop'
+        ):
             return
-        self.asyncore.transport.abort()
-        self.asyncore.transport.close()
+        if hasattr(self.asyncore, 'transport'):
+            self.asyncore.transport.abort()
+            self.asyncore.transport.close()
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.event_loop.shutdown_asyncgens()
         )
         self.asyncore.event_loop.stop()
         self.asyncore.event_loop.close()
-        del self.asyncore.local.transport
-        del self.asyncore.local.connection_lost
-        del self.asyncore.local.event_loop
+        if hasattr(self.asyncore.local, 'transport'):
+            del self.asyncore.local.transport
+        if hasattr(self.asyncore.local, 'connection_lost'):
+            del self.asyncore.local.connection_lost
+        if hasattr(self.asyncore.local, 'event_loop'):
+            del self.asyncore.local.event_loop
 
-    def _one_time_loop(self, func, *argv, **kwarg):
-        self._setup_transport()
-        ret = self.asyncore.event_loop.run_until_complete(func(*argv, **kwarg))
-        self._cleanup_transport()
-        return ret
+    def _run_with_cleanup(self, func, *argv, **kwarg):
+        try:
+            self._setup_transport()
+            return self.asyncore.event_loop.run_until_complete(
+                func(*argv, **kwarg)
+            )
+        finally:
+            self._cleanup_transport()
 
     def mock_data(self, data):
         if getattr(self.asyncore.local, 'msg_queue', None) is None:
@@ -740,6 +751,7 @@ class SyncAPI:
 
     def close(self, code=errno.ECONNRESET):
         '''Correctly close the socket and free all the resources.'''
+        self.asyncore.status['closed'] = True
         self.asyncore.close(code)
 
 
