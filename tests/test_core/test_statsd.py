@@ -14,8 +14,11 @@ class StatsDServer:
     def __init__(self, tmp_path):
         config = tmp_path / 'statsd.json'
         config.write_text('{}')
+        statsd = shutil.which('statsd')
+        if statsd is None:
+            return pytest.skip('statsd not found')
         self.server = subprocess.Popen(
-            [shutil.which('statsd'), config.as_posix()],
+            [statsd, config.as_posix()],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
