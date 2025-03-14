@@ -1,5 +1,6 @@
 import asyncio
 import collections
+import ctypes
 import errno
 import logging
 import os
@@ -7,14 +8,14 @@ import socket
 import struct
 import threading
 import warnings
-from dataclasses import asdict, dataclass
-from typing import Optional, Type, Union
+from typing import Optional
 from urllib import parse
 
 from pyroute2 import config, netns
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.requests.main import RequestFilter, RequestProcessor
+from pyroute2.netlink.coredata import CoreConfig, CoreSocketSpec
+from pyroute2.statsd import StatsDClientSocket
 
 MAGIC_CLOSE = 0x42
 log = logging.getLogger(__name__)
@@ -23,6 +24,25 @@ CoreSocketResources = collections.namedtuple(
     'CoreSocketResources',
     ('socket', 'msg_queue', 'event_loop', 'transport', 'protocol'),
 )
+
+
+class Telemetry(StatsDClientSocket):
+    def __init__(
+        self,
+        address: Optional[tuple[str, int]] = None,
+        use_socket: Optional[socket.socket] = None,
+        flags: int = os.O_CREAT,
+        libc: Optional[ctypes.CDLL] = None,
+    ):
+        save = config.mock_netns
+        config.mock_netns = False
+        super().__init__(address, use_socket, flags, libc)
+        config.mock_netns = save
+
+    def tag(self, name: str) -> None:
+        self.incr(
+            f'pid{os.getpid()}-id{id(self)}-tid{threading.get_ident()}-{name}'
+        )
 
 
 class NoClose(socket.socket):
@@ -35,53 +55,6 @@ class NoClose(socket.socket):
     def close(self):
         if self.magic == MAGIC_CLOSE:
             super().close()
-
-
-@dataclass
-class CoreConfig:
-    target: str = 'localhost'
-    flags: int = os.O_CREAT
-    groups: int = 0
-    rcvsize: int = 16384
-    netns: Optional[str] = None
-    tag_field: str = ''
-    address: Optional[tuple[str, int]] = None
-    use_socket: bool = False
-    use_event_loop: bool = False
-    use_libc: bool = False
-
-
-class CoreSocketSpec:
-    defaults: dict[str, Union[bool, int, str, None, tuple[str, ...]]] = {
-        'closed': False,
-        'compiled': None,
-        'uname': config.uname,
-    }
-    status_filters: list[Type[RequestFilter]] = []
-
-    def __init__(self, config: CoreConfig):
-        self.config = config
-        self.status = RequestProcessor()
-        for flt in self.status_filters:
-            self.status.add_filter(flt())
-        self.status.update(self.defaults)
-        self.status.update(asdict(self.config))
-
-    def __setitem__(self, key, value):
-        setattr(self.config, key, value)
-        self.status.update(asdict(self.config))
-
-    def __getitem__(self, key):
-        return getattr(self.config, key)
-
-    def serializable(self):
-        return not any(
-            (
-                self.config.use_socket,
-                self.config.use_event_loop,
-                self.config.use_libc,
-            )
-        )
 
 
 class CoreMessageQueue:
@@ -199,6 +172,7 @@ class AsyncCoreSocket:
         libc=None,
         groups=0,
         use_event_loop=None,
+        telemetry=None,
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
@@ -211,6 +185,7 @@ class AsyncCoreSocket:
                 use_libc=libc is not None,
                 use_socket=use_socket is not None,
                 use_event_loop=use_event_loop is not None,
+                telemetry=telemetry,
             )
         )
         self.status = self.spec.status
@@ -229,6 +204,9 @@ class AsyncCoreSocket:
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.marshal = None
         self.buffer = []
+        if telemetry is None and config.telemetry is not None:
+            telemetry = config.telemetry
+        self.telemetry = None if telemetry is None else Telemetry(telemetry)
         self.msg_reschedule = []
         self.__open_sockets = set()
         self.__open_resources = set()
@@ -301,6 +279,8 @@ class AsyncCoreSocket:
     @property
     def socket(self):
         '''socket infrastructure reconciler.'''
+        if self.telemetry is not None:
+            self.telemetry.tag('socket')
         if self._error_event.is_set():
             raise self.status['error']
         if self.use_socket is not None and not hasattr(self.local, 'socket'):
@@ -425,6 +405,8 @@ class AsyncCoreSocket:
             for event_loop, msg_queue in self.__open_resources:
                 if not event_loop.is_closed():
                     event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+            if self.telemetry is not None:
+                self.telemetry.close()
             if hasattr(self.local, 'transport'):
                 self.local.transport.abort()
                 self.local.transport.close()
