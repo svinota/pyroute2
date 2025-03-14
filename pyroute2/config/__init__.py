@@ -14,6 +14,9 @@ class LocalMock:
         self._call_args_list.append((argv, kwarg))
         return self
 
+    def __getattr__(self, key):
+        return lambda *_, **__: None
+
     @property
     def call_args_list(self):
         return self._call_args_list
@@ -58,7 +61,7 @@ commit_barrier = 0
 gc_timeout = 60
 db_transaction_limit = 1
 cache_expire = 60
-
+telemetry = None
 child_process_mode = 'fork'
 force_gc = False
 signal_stop_remote = None

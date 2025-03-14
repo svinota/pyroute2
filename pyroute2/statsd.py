@@ -4,12 +4,12 @@ import socket
 from typing import Literal, Optional, Union
 
 from pyroute2 import netns
-from pyroute2.netlink.core import CoreConfig, CoreSocketSpec
+from pyroute2.netlink.coredata import CoreConfig, CoreSocketSpec
 
 metric_type = Literal['c', 'g', 'ms']
 
 
-class StatsDSocket(socket.socket):
+class StatsDClientSocket(socket.socket):
     '''StatsD client.'''
 
     def __init__(

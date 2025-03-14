@@ -233,6 +233,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         flags=os.O_CREAT,
         libc=None,
         use_event_loop=None,
+        telemetry=None,
     ):
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
@@ -256,6 +257,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                 use_libc=libc is not None,
                 use_socket=use_socket is not None,
                 use_event_loop=use_event_loop is not None,
+                telemetry=telemetry,
             )
         )
         # TODO: merge capabilities to self.status
@@ -637,6 +639,7 @@ class NetlinkSocket(SyncAPI):
         libc=None,
         use_socket=None,
         use_event_loop=None,
+        telemetry=None,
     ):
         self.asyncore = AsyncNetlinkSocket(
             family=family,
@@ -657,6 +660,7 @@ class NetlinkSocket(SyncAPI):
             libc=libc,
             use_socket=use_socket,
             use_event_loop=use_event_loop,
+            telemetry=telemetry,
         )
         self.asyncore.local.keep_event_loop = True
         self.asyncore.status['event_loop'] = 'new'

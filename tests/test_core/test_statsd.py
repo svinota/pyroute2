@@ -6,14 +6,18 @@ from collections import deque
 
 import pytest
 
+from pyroute2 import IPRoute, config
 from pyroute2.common import uifname
-from pyroute2.statsd import StatsDSocket
+from pyroute2.statsd import StatsDClientSocket
+
+PORT_UDP = 8234
+PORT_TCP = 8235
 
 
 class StatsDServer:
     def __init__(self, tmp_path):
         config = tmp_path / 'statsd.json'
-        config.write_text('{}')
+        config.write_text(f'{{"port": {PORT_UDP}, "mgmt_port": {PORT_TCP}}}')
         statsd = shutil.which('statsd')
         if statsd is None:
             return pytest.skip('statsd not found')
@@ -26,7 +30,7 @@ class StatsDServer:
 
     def try_query(self, kind: str) -> str:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(('localhost', 8126))
+            s.connect(('localhost', PORT_TCP))
             s.send(f'{kind}\n'.encode())
 
             response = []
@@ -82,7 +86,24 @@ def statsd(tmp_path):
     ),
 )
 def test_call(statsd, kind, func, ret):
-    with StatsDSocket(address=('localhost', 8125)) as sc:
+    with StatsDClientSocket(address=('localhost', PORT_UDP)) as sc:
         metric = uifname()
         func(sc, metric)
         assert statsd.get(kind, metric) == ret
+
+
+def test_telemetry(statsd, monkeypatch):
+    monkeypatch.setattr(config, 'telemetry', ('localhost', PORT_UDP))
+    with IPRoute() as ipr:
+        assert len(list(ipr.link_lookup(ifname='lo'))) == 1
+    assert (
+        len(
+            list(
+                filter(
+                    lambda x: x.startswith('\'pid'),
+                    statsd.query('counters').split(),
+                )
+            )
+        )
+        > 0
+    )

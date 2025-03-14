@@ -2633,6 +2633,7 @@ class IPRoute(NetlinkSocket):
         libc=None,
         use_socket=None,
         use_event_loop=None,
+        telemetry=None,
     ):
         self.asyncore = AsyncIPRoute(
             port=port,
@@ -2654,6 +2655,7 @@ class IPRoute(NetlinkSocket):
             flags=flags,
             libc=libc,
             use_event_loop=use_event_loop,
+            telemetry=telemetry,
         )
         self.asyncore.status['event_loop'] = 'new'
         self.asyncore.local.keep_event_loop = True
