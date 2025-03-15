@@ -25,6 +25,7 @@ class StatsDClientSocket(socket.socket):
             )
         )
         self.status = self.spec.status
+        self.buffer: str = ''
         if use_socket is not None:
             fd = use_socket.fileno()
         else:
@@ -41,16 +42,23 @@ class StatsDClientSocket(socket.socket):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
+    def commit(self):
+        self.sendto(self.buffer.encode(), self.spec['address'])
+        self.buffer = ''
+
     def put(
         self, name: str, value: Union[int, str], kind: metric_type
     ) -> None:
-        self.sendto(f'{name}:{value}|{kind}'.encode(), self.spec['address'])
+        self.buffer += f'{name}:{value}|{kind}\n'
 
     def incr(self, name: str, value: int = 1) -> None:
         self.put(name, value, 'c')
+        self.commit()
 
     def gauge(self, name: str, value: int) -> None:
         self.put(name, value, 'g')
+        self.commit()
 
     def timing(self, name: str, value: int) -> None:
         self.put(name, value, 'ms')
+        self.commit()

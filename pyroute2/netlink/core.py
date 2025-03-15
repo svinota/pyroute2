@@ -7,7 +7,9 @@ import os
 import socket
 import struct
 import threading
+import time
 import warnings
+from contextlib import contextmanager
 from typing import Optional, Union
 from urllib import parse
 
@@ -33,13 +35,28 @@ class Telemetry:
         libc: Optional[ctypes.CDLL] = None,
     ):
         address = address or config.telemetry
+        self.timings: dict[str, int] = {}
         if address is None:
             self.sock = config.LocalMock()
             return
-        save = config.mock_netns
+        save: bool = config.mock_netns
         config.mock_netns = False
         self.sock = StatsDClientSocket(address, use_socket, flags, libc)
         config.mock_netns = save
+
+    @contextmanager
+    def update(self, name: str):
+        start = int(time.time() * 1000)
+        try:
+            yield self
+        finally:
+            stop = int(time.time() * 1000)
+            if name not in self.timings:
+                self.timings[name] = stop - start
+            self.timings[name] = (self.timings[name] + stop - start) // 2
+            self.sock.put(name, 1, 'c')
+            self.sock.put(name, self.timings[name], 'g')
+            self.sock.commit()
 
     def incr(self, name: str) -> None:
         self.sock.incr(name)
@@ -714,12 +731,15 @@ class SyncAPI:
         if hasattr(self.asyncore.local, 'event_loop'):
             del self.asyncore.local.event_loop
 
-    def _run_with_cleanup(self, func, *argv, **kwarg):
+    def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
+        if len(argv) > 0 and isinstance(argv[0], str):
+            cmd = f'{cmd}-{argv[0]}'
         try:
             self._setup_transport()
-            return self.asyncore.event_loop.run_until_complete(
-                func(*argv, **kwarg)
-            )
+            with self.asyncore.telemetry.update(cmd):
+                return self.asyncore.event_loop.run_until_complete(
+                    func(*argv, **kwarg)
+                )
         finally:
             self._cleanup_transport()
 
