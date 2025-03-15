@@ -1,12 +1,8 @@
 import asyncio
 import json
 
-from pyroute2.netlink.core import (
-    AsyncCoreSocket,
-    CoreConfig,
-    CoreMessageQueue,
-    CoreSocketSpec,
-)
+from pyroute2.netlink.core import AsyncCoreSocket, CoreMessageQueue
+from pyroute2.netlink.coredata import CoreConfig, CoreSocketSpec
 from pyroute2.plan9 import (
     Marshal9P,
     Plan9Exit,

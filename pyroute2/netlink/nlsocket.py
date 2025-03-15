@@ -233,6 +233,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         flags=os.O_CREAT,
         libc=None,
         use_event_loop=None,
+        telemetry=None,
     ):
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
@@ -256,6 +257,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
                 use_libc=libc is not None,
                 use_socket=use_socket is not None,
                 use_event_loop=use_event_loop is not None,
+                telemetry=telemetry,
             )
         )
         # TODO: merge capabilities to self.status
@@ -637,6 +639,7 @@ class NetlinkSocket(SyncAPI):
         libc=None,
         use_socket=None,
         use_event_loop=None,
+        telemetry=None,
     ):
         self.asyncore = AsyncNetlinkSocket(
             family=family,
@@ -657,6 +660,7 @@ class NetlinkSocket(SyncAPI):
             libc=libc,
             use_socket=use_socket,
             use_event_loop=use_event_loop,
+            telemetry=telemetry,
         )
         self.asyncore.local.keep_event_loop = True
         self.asyncore.status['event_loop'] = 'new'
@@ -670,7 +674,9 @@ class NetlinkSocket(SyncAPI):
         with self.lock:
             self.asyncore._check_tid(tag='bind', level=logging.WARN)
             self.asyncore.local.keep_event_loop = True
-            self._run_with_cleanup(self.asyncore.bind, *argv, **kwarg)
+            self._run_with_cleanup(
+                self.asyncore.bind, 'nl-bind', *argv, **kwarg
+            )
             self.asyncore._register_loop_ref()
 
     def put(
@@ -686,7 +692,14 @@ class NetlinkSocket(SyncAPI):
             msg_class = self.marshal.msg_map[msg_type]
             msg = msg_class()
         return self._run_with_cleanup(
-            self.asyncore.put, msg, msg_type, msg_flags, addr, msg_seq, msg_pid
+            self.asyncore.put,
+            'nl-put',
+            msg,
+            msg_type,
+            msg_flags,
+            addr,
+            msg_seq,
+            msg_pid,
         )
 
     def nlm_request(
@@ -707,7 +720,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self._run_with_cleanup(collect_data)
+        return self._run_with_cleanup(collect_data, 'nl-req')
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
         '''Sync wrapper for async_get().'''
@@ -720,7 +733,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self._run_with_cleanup(collect_data)
+        return self._run_with_cleanup(collect_data, 'nl-get')
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):

@@ -6,11 +6,10 @@ import struct
 from pyroute2.common import AddrPool
 from pyroute2.netlink.core import (
     AsyncCoreSocket,
-    CoreConfig,
     CoreMessageQueue,
-    CoreSocketSpec,
     CoreStreamProtocol,
 )
+from pyroute2.netlink.coredata import CoreConfig, CoreSocketSpec
 from pyroute2.plan9 import (
     Marshal9P,
     msg_tattach,

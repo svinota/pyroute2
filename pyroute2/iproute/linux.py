@@ -2633,6 +2633,7 @@ class IPRoute(NetlinkSocket):
         libc=None,
         use_socket=None,
         use_event_loop=None,
+        telemetry=None,
     ):
         self.asyncore = AsyncIPRoute(
             port=port,
@@ -2654,6 +2655,7 @@ class IPRoute(NetlinkSocket):
             flags=flags,
             libc=libc,
             use_event_loop=use_event_loop,
+            telemetry=telemetry,
         )
         self.asyncore.status['event_loop'] = 'new'
         self.asyncore.local.keep_event_loop = True
@@ -2744,10 +2746,11 @@ class IPRoute(NetlinkSocket):
             return collect_dump()
 
         # create an event loop
+        cmd = f'iproute-{name}'
         if name in async_generic_methods:
-            return partial(self._run_with_cleanup, synchronize_generic)
+            return partial(self._run_with_cleanup, synchronize_generic, cmd)
         elif name in async_dump_methods:
-            return partial(self._run_with_cleanup, synchronize_dump)
+            return partial(self._run_with_cleanup, synchronize_dump, cmd)
         return symbol
 
 
