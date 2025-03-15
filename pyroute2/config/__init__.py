@@ -5,21 +5,21 @@ import signal
 import socket
 
 
-class LocalMock:
+class LocalMock(socket.socket):
 
     def __init__(self):
-        self._call_args_list = []
+        self.call_args_list = []
+        super().__init__(socket.AF_INET, socket.SOCK_STREAM)
 
     def __call__(self, *argv, **kwarg):
-        self._call_args_list.append((argv, kwarg))
+        self.call_args_list.append((argv, kwarg))
         return self
 
     def __getattr__(self, key):
         return lambda *_, **__: None
 
-    @property
-    def call_args_list(self):
-        return self._call_args_list
+    def close(self) -> None:
+        super().close()
 
 
 def mock_if(name):
