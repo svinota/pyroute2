@@ -2737,24 +2737,20 @@ class IPRoute(NetlinkSocket):
                 task = collect_dump
             else:
                 task = collect_op
-            cmd = ''
-            if len(argv) > 0 and isinstance(argv[0], str):
-                cmd = f'-{argv[0]}'
-            self.asyncore.telemetry.incr(f'iproute-{name}{cmd}')
             return task()
 
         def synchronize_dump(*argv, **kwarg):
             async def collect_dump():
                 return [i async for i in await symbol(*argv, **kwarg)]
 
-            self.asyncore.telemetry.incr(f'iproute-{name}')
             return collect_dump()
 
         # create an event loop
+        cmd = f'iproute-{name}'
         if name in async_generic_methods:
-            return partial(self._run_with_cleanup, synchronize_generic)
+            return partial(self._run_with_cleanup, synchronize_generic, cmd)
         elif name in async_dump_methods:
-            return partial(self._run_with_cleanup, synchronize_dump)
+            return partial(self._run_with_cleanup, synchronize_dump, cmd)
         return symbol
 
 

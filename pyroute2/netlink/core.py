@@ -7,7 +7,9 @@ import os
 import socket
 import struct
 import threading
+import time
 import warnings
+from contextlib import contextmanager
 from typing import Optional, Union
 from urllib import parse
 
@@ -22,6 +24,19 @@ log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
 
 
+class Average:
+    def __init__(self) -> None:
+        self.total: int = 0
+        self.count: int = 0
+
+    def add(self, value: int) -> None:
+        self.total += value
+        self.count += 1
+
+    def getvalue(self) -> int:
+        return self.total // self.count if self.count > 0 else 0
+
+
 class Telemetry:
     sock: Union[config.LocalMock, StatsDClientSocket]
 
@@ -33,13 +48,28 @@ class Telemetry:
         libc: Optional[ctypes.CDLL] = None,
     ):
         address = address or config.telemetry
+        self.timings: dict[str, Average] = {}
         if address is None:
             self.sock = config.LocalMock()
             return
-        save = config.mock_netns
+        save: bool = config.mock_netns
         config.mock_netns = False
         self.sock = StatsDClientSocket(address, use_socket, flags, libc)
         config.mock_netns = save
+
+    @contextmanager
+    def update(self, name: str):
+        start = time.time_ns()
+        try:
+            yield self
+        finally:
+            stop = time.time_ns()
+            if name not in self.timings:
+                self.timings[name] = Average()
+            self.timings[name].add(stop - start)
+            self.sock.put(name, 1, 'c')
+            self.sock.put(name, self.timings[name].getvalue(), 'g')
+            self.sock.commit()
 
     def incr(self, name: str) -> None:
         self.sock.incr(name)
@@ -714,12 +744,15 @@ class SyncAPI:
         if hasattr(self.asyncore.local, 'event_loop'):
             del self.asyncore.local.event_loop
 
-    def _run_with_cleanup(self, func, *argv, **kwarg):
+    def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
+        if len(argv) > 0 and isinstance(argv[0], str):
+            cmd = f'{cmd}-{argv[0]}'
         try:
             self._setup_transport()
-            return self.asyncore.event_loop.run_until_complete(
-                func(*argv, **kwarg)
-            )
+            with self.asyncore.telemetry.update(cmd):
+                return self.asyncore.event_loop.run_until_complete(
+                    func(*argv, **kwarg)
+                )
         finally:
             self._cleanup_transport()
 
