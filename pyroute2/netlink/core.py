@@ -1,28 +1,81 @@
 import asyncio
 import collections
+import ctypes
 import errno
 import logging
 import os
 import socket
 import struct
 import threading
+import time
 import warnings
-from dataclasses import asdict, dataclass
-from typing import Optional, Type, Union
+from contextlib import contextmanager
+from typing import Optional, Union
 from urllib import parse
 
 from pyroute2 import config, netns
 from pyroute2.common import AddrPool
 from pyroute2.netlink import NLM_F_MULTI
-from pyroute2.requests.main import RequestFilter, RequestProcessor
+from pyroute2.netlink.coredata import CoreConfig, CoreSocketSpec
+from pyroute2.statsd import StatsDClientSocket
 
 MAGIC_CLOSE = 0x42
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
-CoreSocketResources = collections.namedtuple(
-    'CoreSocketResources',
-    ('socket', 'msg_queue', 'event_loop', 'transport', 'protocol'),
-)
+
+
+class Average:
+    def __init__(self) -> None:
+        self.total: int = 0
+        self.count: int = 0
+
+    def add(self, value: int) -> None:
+        self.total += value
+        self.count += 1
+
+    def getvalue(self) -> int:
+        return self.total // self.count if self.count > 0 else 0
+
+
+class Telemetry:
+    sock: Union[config.LocalMock, StatsDClientSocket]
+
+    def __init__(
+        self,
+        address: Optional[tuple[str, int]] = None,
+        use_socket: Optional[socket.socket] = None,
+        flags: int = os.O_CREAT,
+        libc: Optional[ctypes.CDLL] = None,
+    ):
+        address = address or config.telemetry
+        self.timings: dict[str, Average] = {}
+        if address is None:
+            self.sock = config.LocalMock()
+            return
+        save: bool = config.mock_netns
+        config.mock_netns = False
+        self.sock = StatsDClientSocket(address, use_socket, flags, libc)
+        config.mock_netns = save
+
+    @contextmanager
+    def update(self, name: str):
+        start = time.time_ns()
+        try:
+            yield self
+        finally:
+            stop = time.time_ns()
+            if name not in self.timings:
+                self.timings[name] = Average()
+            self.timings[name].add(stop - start)
+            self.sock.put(name, 1, 'c')
+            self.sock.put(name, self.timings[name].getvalue(), 'g')
+            self.sock.commit()
+
+    def incr(self, name: str) -> None:
+        self.sock.incr(name)
+
+    def close(self):
+        self.sock.close()
 
 
 class NoClose(socket.socket):
@@ -35,53 +88,6 @@ class NoClose(socket.socket):
     def close(self):
         if self.magic == MAGIC_CLOSE:
             super().close()
-
-
-@dataclass
-class CoreConfig:
-    target: str = 'localhost'
-    flags: int = os.O_CREAT
-    groups: int = 0
-    rcvsize: int = 16384
-    netns: Optional[str] = None
-    tag_field: str = ''
-    address: Optional[tuple[str, int]] = None
-    use_socket: bool = False
-    use_event_loop: bool = False
-    use_libc: bool = False
-
-
-class CoreSocketSpec:
-    defaults: dict[str, Union[bool, int, str, None, tuple[str, ...]]] = {
-        'closed': False,
-        'compiled': None,
-        'uname': config.uname,
-    }
-    status_filters: list[Type[RequestFilter]] = []
-
-    def __init__(self, config: CoreConfig):
-        self.config = config
-        self.status = RequestProcessor()
-        for flt in self.status_filters:
-            self.status.add_filter(flt())
-        self.status.update(self.defaults)
-        self.status.update(asdict(self.config))
-
-    def __setitem__(self, key, value):
-        setattr(self.config, key, value)
-        self.status.update(asdict(self.config))
-
-    def __getitem__(self, key):
-        return getattr(self.config, key)
-
-    def serializable(self):
-        return not any(
-            (
-                self.config.use_socket,
-                self.config.use_event_loop,
-                self.config.use_libc,
-            )
-        )
 
 
 class CoreMessageQueue:
@@ -199,6 +205,7 @@ class AsyncCoreSocket:
         libc=None,
         groups=0,
         use_event_loop=None,
+        telemetry=None,
     ):
         # 8<-----------------------------------------
         self.spec = CoreSocketSpec(
@@ -211,6 +218,7 @@ class AsyncCoreSocket:
                 use_libc=libc is not None,
                 use_socket=use_socket is not None,
                 use_event_loop=use_event_loop is not None,
+                telemetry=telemetry,
             )
         )
         self.status = self.spec.status
@@ -229,6 +237,7 @@ class AsyncCoreSocket:
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.marshal = None
         self.buffer = []
+        self.telemetry = Telemetry(telemetry)
         self.msg_reschedule = []
         self.__open_sockets = set()
         self.__open_resources = set()
@@ -425,6 +434,8 @@ class AsyncCoreSocket:
             for event_loop, msg_queue in self.__open_resources:
                 if not event_loop.is_closed():
                     event_loop.call_soon_threadsafe(send_terminator, msg_queue)
+            if self.telemetry is not None:
+                self.telemetry.close()
             if hasattr(self.local, 'transport'):
                 self.local.transport.abort()
                 self.local.transport.close()
@@ -733,12 +744,15 @@ class SyncAPI:
         if hasattr(self.asyncore.local, 'event_loop'):
             del self.asyncore.local.event_loop
 
-    def _run_with_cleanup(self, func, *argv, **kwarg):
+    def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
+        if len(argv) > 0 and isinstance(argv[0], str):
+            cmd = f'{cmd}-{argv[0]}'
         try:
             self._setup_transport()
-            return self.asyncore.event_loop.run_until_complete(
-                func(*argv, **kwarg)
-            )
+            with self.asyncore.telemetry.update(cmd):
+                return self.asyncore.event_loop.run_until_complete(
+                    func(*argv, **kwarg)
+                )
         finally:
             self._cleanup_transport()
 
