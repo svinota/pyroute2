@@ -2721,6 +2721,8 @@ class IPRoute(NetlinkSocket):
             'get_default_routes',
         ]
         symbol = getattr(self.asyncore, name)
+        if self.asyncore.telemetry is not None:
+            self.asyncore.telemetry.incr(f'iproute-{name}')
 
         def synchronize_generic(*argv, **kwarg):
             async def collect_dump():

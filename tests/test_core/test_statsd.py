@@ -100,7 +100,7 @@ def test_telemetry(statsd, monkeypatch):
         len(
             list(
                 filter(
-                    lambda x: x.startswith('\'pid'),
+                    lambda x: x.startswith('\'iproute-'),
                     statsd.query('counters').split(),
                 )
             )
