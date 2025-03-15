@@ -26,7 +26,7 @@ CoreSocketResources = collections.namedtuple(
 )
 
 
-class Telemetry(StatsDClientSocket):
+class Telemetry:
     def __init__(
         self,
         address: Optional[tuple[str, int]] = None,
@@ -34,15 +34,20 @@ class Telemetry(StatsDClientSocket):
         flags: int = os.O_CREAT,
         libc: Optional[ctypes.CDLL] = None,
     ):
+        address = address or config.telemetry
+        if address is None:
+            self.socket = config.LocalMock()
+            return
         save = config.mock_netns
         config.mock_netns = False
-        super().__init__(address, use_socket, flags, libc)
+        self.socket = StatsDClientSocket(address, use_socket, flags, libc)
         config.mock_netns = save
 
-    def tag(self, name: str) -> None:
-        self.incr(
-            f'pid{os.getpid()}-id{id(self)}-tid{threading.get_ident()}-{name}'
-        )
+    def incr(self, name: str) -> None:
+        return self.socket.incr(name)
+
+    def close(self):
+        self.socket.close()
 
 
 class NoClose(socket.socket):
@@ -204,9 +209,7 @@ class AsyncCoreSocket:
         self.addr_pool = AddrPool(minaddr=0x000000FF, maxaddr=0x0000FFFF)
         self.marshal = None
         self.buffer = []
-        if telemetry is None and config.telemetry is not None:
-            telemetry = config.telemetry
-        self.telemetry = None if telemetry is None else Telemetry(telemetry)
+        self.telemetry = Telemetry(telemetry)
         self.msg_reschedule = []
         self.__open_sockets = set()
         self.__open_resources = set()
