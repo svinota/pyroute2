@@ -279,8 +279,6 @@ class AsyncCoreSocket:
     @property
     def socket(self):
         '''socket infrastructure reconciler.'''
-        if self.telemetry is not None:
-            self.telemetry.tag('socket')
         if self._error_event.is_set():
             raise self.status['error']
         if self.use_socket is not None and not hasattr(self.local, 'socket'):
