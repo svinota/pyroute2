@@ -8,7 +8,7 @@ import socket
 import struct
 import threading
 import warnings
-from typing import Optional
+from typing import Optional, Union
 from urllib import parse
 
 from pyroute2 import config, netns
@@ -20,13 +20,11 @@ from pyroute2.statsd import StatsDClientSocket
 MAGIC_CLOSE = 0x42
 log = logging.getLogger(__name__)
 Stats = collections.namedtuple('Stats', ('qsize', 'delta', 'delay'))
-CoreSocketResources = collections.namedtuple(
-    'CoreSocketResources',
-    ('socket', 'msg_queue', 'event_loop', 'transport', 'protocol'),
-)
 
 
 class Telemetry:
+    sock: Union[config.LocalMock, StatsDClientSocket]
+
     def __init__(
         self,
         address: Optional[tuple[str, int]] = None,
@@ -36,18 +34,18 @@ class Telemetry:
     ):
         address = address or config.telemetry
         if address is None:
-            self.socket = config.LocalMock()
+            self.sock = config.LocalMock()
             return
         save = config.mock_netns
         config.mock_netns = False
-        self.socket = StatsDClientSocket(address, use_socket, flags, libc)
+        self.sock = StatsDClientSocket(address, use_socket, flags, libc)
         config.mock_netns = save
 
     def incr(self, name: str) -> None:
-        return self.socket.incr(name)
+        self.sock.incr(name)
 
     def close(self):
-        self.socket.close()
+        self.sock.close()
 
 
 class NoClose(socket.socket):
