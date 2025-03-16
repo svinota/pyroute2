@@ -115,6 +115,7 @@ def get_default_request_filters(mode, command):
         'brport': [BridgePortFieldFilter(command)],
         'vlan_filter': [BridgeFieldFilter(), BridgeIPRouteFilter(command)],
         'probe': [ProbeFieldFilter()],
+        'stats': [],
     }
     return filters[mode]
 
@@ -662,13 +663,15 @@ class RTNL_API:
         '''
         return await self.neigh('dump', family=family, match=match or kwarg)
 
-    def get_ntables(self, family=AF_UNSPEC):
+    async def get_ntables(self, family=AF_UNSPEC):
         '''
         Get neighbour tables
         '''
         msg = ndtmsg()
         msg['family'] = family
-        return tuple(self.nlm_request(msg, RTM_GETNEIGHTBL))
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETNEIGHTBL)
+        await request.send()
+        return request.response()
 
     async def get_addr(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
@@ -2485,36 +2488,24 @@ class RTNL_API:
             return request.response()
         return [x async for x in request.response()]
 
-    def stats(self, command, **kwarg):
+    async def stats(self, command, **kwarg):
         '''
         Stats prototype.
         '''
-        if (command == 'dump') and ('match' not in kwarg):
-            match = kwarg
-        else:
-            match = kwarg.pop('match', None)
-
         command_map = {
             'dump': (RTM_GETSTATS, 'dump'),
             'get': (RTM_GETSTATS, 'get'),
         }
-        command, flags = self.make_request_type(command, command_map)
 
         msg = ifstatsmsg()
         msg['filter_mask'] = kwarg.get('filter_mask', 31)
         msg['ifindex'] = kwarg.get('ifindex', 0)
-
-        ret = self.nlm_request(msg, msg_type=command, msg_flags=flags)
-        if match is not None:
-            ret = self.filter_messages(match, ret)
-
-        if (
-            self.status['nlm_generator']
-            and not flags & NLM_F_DUMP == NLM_F_DUMP
-        ):
-            ret = tuple(ret)
-
-        return ret
+        dump_filter, kwarg = get_dump_filter('stats', command, kwarg)
+        request = NetlinkRequest(self, msg, command, command_map, dump_filter)
+        await request.send()
+        if command == 'dump':
+            return request.response()
+        return [x async for x in request.response()]
 
     # 8<---------------------------------------------------------------
 
@@ -2695,6 +2686,7 @@ class IPRoute(NetlinkSocket):
             'fdb',
             'brport',
             'probe',
+            'stats',
             'link_lookup',
             'vlan_filter',
             'flush_addr',
@@ -2719,6 +2711,7 @@ class IPRoute(NetlinkSocket):
             'get_netns_info',
             'get_vlans',
             'get_default_routes',
+            'get_ntables',
         ]
         symbol = getattr(self.asyncore, name)
 

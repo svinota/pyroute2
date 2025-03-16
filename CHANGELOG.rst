@@ -2,12 +2,16 @@ Changelog
 =========
 
 * 0.9.1
-    * core: rewritten using asyncio
+    * core: rewritten using asyncio, and the async API is now first class
+    * core: provide compatibility synchronous API classes
+    * telemetry: a basic internal implementation using statsd protocol
     * dhcp: a huge upgrade, all the protocol module reimplemented using asyncio
     * 9p: a basic client / server / fs implementation (no 9p2000.L yet)
     * fixtures: added public pytest fixtures
     * NetNS: obsoleted, all the functionality merged into the core
     * proxy: deprecated and removed, see NetlinkRequest
+    * netns: provide unified socket creation function, netns.create_socket()
+    * process: separate class to manage external processes
 
 .. warning::
 
