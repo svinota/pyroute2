@@ -662,13 +662,15 @@ class RTNL_API:
         '''
         return await self.neigh('dump', family=family, match=match or kwarg)
 
-    def get_ntables(self, family=AF_UNSPEC):
+    async def get_ntables(self, family=AF_UNSPEC):
         '''
         Get neighbour tables
         '''
         msg = ndtmsg()
         msg['family'] = family
-        return tuple(self.nlm_request(msg, RTM_GETNEIGHTBL))
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETNEIGHTBL)
+        await request.send()
+        return request.response()
 
     async def get_addr(self, family=AF_UNSPEC, match=None, **kwarg):
         '''
@@ -2719,6 +2721,7 @@ class IPRoute(NetlinkSocket):
             'get_netns_info',
             'get_vlans',
             'get_default_routes',
+            'get_ntables',
         ]
         symbol = getattr(self.asyncore, name)
 
