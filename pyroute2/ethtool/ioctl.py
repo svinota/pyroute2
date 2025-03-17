@@ -524,7 +524,7 @@ class IoctlEthtool:
             cmd=ETHTOOL_GSTATS
         )
         self.ifreq.gstats = ctypes.cast(
-            ctypes.pointer(gstats), ctypes.POINTER(None)
+            ctypes.byref(gstats), ctypes.POINTER(None)
         )
         self.ioctl()
         assert len(self.stat_names) == len(gstats.data)
@@ -551,7 +551,7 @@ class IoctlEthtool:
             cmd=ETHTOOL_GSTRINGS, string_set=set_id, len=gstrings_length
         )
         self.ifreq.gstrings = ctypes.cast(
-            ctypes.pointer(gstrings), ctypes.POINTER(None)
+            ctypes.byref(gstrings), ctypes.POINTER(None)
         )
         self.ioctl()
 
