@@ -1,7 +1,7 @@
 Changelog
 =========
 
-* 0.9.1
+* 0.9.1rc1
     * core: rewritten using asyncio, and the async API is now first class
     * core: provide compatibility synchronous API classes
     * telemetry: a basic internal implementation using statsd protocol
