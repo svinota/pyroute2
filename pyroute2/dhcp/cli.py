@@ -7,7 +7,7 @@ from typing import Any, Optional
 from pyroute2.dhcp.client import AsyncDHCPClient, ClientConfig
 from pyroute2.dhcp.fsm import State
 from pyroute2.dhcp.hooks import Hook
-from pyroute2.dhcp.iface_status import InterfaceStateWatcher
+from pyroute2.dhcp.iface_status import InterfaceNotFound, InterfaceStateWatcher
 from pyroute2.dhcp.leases import Lease
 
 LOG = logging.getLogger(__name__)
@@ -167,7 +167,10 @@ async def main() -> None:
         handle_signals=True,
     )
 
-    await run_client(cfg, exit_timeout=args.exit_on_timeout)
+    try:
+        await run_client(cfg, exit_timeout=args.exit_on_timeout)
+    except InterfaceNotFound as err:
+        psr.error(f"Interface not found: {err}")
 
 
 def run():

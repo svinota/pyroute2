@@ -230,3 +230,19 @@ async def test_signals(
     assert len(leases) == 2
     first_lease, second_lease = leases
     first_lease['ack']['yiaddr'] == second_lease['ack']['yiaddr']
+
+
+async def test_interface_does_not_exist():
+    '''The client raises a meaninfgul error
+    if the interface does not exist.'''
+
+    process = await asyncio.create_subprocess_exec(
+        'pyroute2-dhcp-client', 'doesn0texist', stderr=asyncio.subprocess.PIPE
+    )
+    _, stderr = await process.communicate()
+    assert process.returncode and process.returncode > 0
+    assert stderr
+    assert (
+        stderr.splitlines()[-1].decode()
+        == 'pyroute2-dhcp-client: error: Interface not found: doesn0texist'
+    )
