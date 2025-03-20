@@ -9,6 +9,10 @@ from pyroute2.netlink.rtnl import RTMGRP_LINK
 IfaceState = Literal['up', 'down']
 
 
+class InterfaceNotFound(LookupError):
+    '''Raised when an interface is not found.'''
+
+
 class InterfaceStateWatcher:
     '''Async context manager, fires events when an interface changes state.
 
@@ -49,6 +53,8 @@ class InterfaceStateWatcher:
     async def _fetch_current_state(self) -> IfaceState:
         '''Get the initial state before we're notified of changes.'''
         lookup_results = await self.ipr.link_lookup(ifname=self.interface)
+        if not lookup_results:
+            raise InterfaceNotFound(self.interface)
         get_results = await self.ipr.link("get", index=lookup_results[0])
         return get_results[0].get('state')
 
