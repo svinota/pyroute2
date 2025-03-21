@@ -21,6 +21,7 @@ Usage
 
     usage
     asyncio
+    threading
     iproute
     ndb
     fixtures
