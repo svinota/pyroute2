@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.9.1rc2
+    * nftables: fix work with the new core, add basic masq and comment support
+    * nlsocket: fix batch requests
+    * dhcp client: add InterfaceNotFound exception
+    * ethtool: use byref instead of cpointer
 * 0.9.1rc1
     * core: rewritten using asyncio, and the async API is now first class
     * core: provide compatibility synchronous API classes
