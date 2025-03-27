@@ -431,18 +431,23 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         return request
 
     async def nlm_request_batch(self, msgs, noraise=False):
-        requests = []
+        expected_responses = []
         data = b''
         for message in msgs:
-            req = NetlinkRequest(self, message)
-            requests.append(req)
-            await req.prepare()
-            data += req.msg.data
+            request = NetlinkRequest(self, message)
+            await request.prepare()
+            data += request.msg.data
+            if (request.msg['header']['flags'] & NLM_F_ACK) or (
+                request.msg['header']['flags'] & NLM_F_DUMP
+            ):
+                expected_responses.append(request)
+            else:
+                request.cleanup()
 
         self.send(data)
-        for req in requests:
+        for request in expected_responses:
             try:
-                async for msg in req.response():
+                async for msg in request.response():
                     yield msg
             except NetlinkError:
                 if not noraise:
@@ -509,8 +514,12 @@ class NetlinkRequest:
             msg_type, msg_flags = self.calculate_request_type(
                 command, command_map, self.status['nlm_echo']
             )
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
+            msg['header'].pop('type', None)
+            msg['header'].pop('flags', None)
+        if msg['header'].get('type') is None:
+            msg['header']['type'] = msg_type
+        if msg['header'].get('flags') is None:
+            msg['header']['flags'] = msg_flags
         msg['header']['sequence_number'] = self.msg_seq
         msg['header']['pid'] = self.epid or os.getpid()
         msg.reset()
@@ -726,10 +735,7 @@ class NetlinkSocket(SyncAPI):
     def nlm_request_batch(self, msgs, noraise=False):
         async def collect_data():
             return [
-                x
-                async for x in self.asyncore.nlm_request_batch(
-                    msgs, noraise
-                )
+                x async for x in self.asyncore.nlm_request_batch(msgs, noraise)
             ]
 
         return self._run_with_cleanup(collect_data, 'nl-req-batch')
