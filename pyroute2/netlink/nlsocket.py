@@ -430,6 +430,24 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         await request.send()
         return request
 
+    async def nlm_request_batch(self, msgs, noraise=False):
+        requests = []
+        data = b''
+        for message in msgs:
+            req = NetlinkRequest(self, message)
+            requests.append(req)
+            await req.prepare()
+            data += req.msg.data
+
+        self.send(data)
+        for req in requests:
+            try:
+                async for msg in req.response():
+                    yield msg
+            except NetlinkError:
+                if not noraise:
+                    raise
+
     async def nlm_request(
         self,
         msg,
@@ -552,6 +570,13 @@ class NetlinkRequest:
                     matches.append(dump_filter[key] == value)
             return all(matches)
 
+    async def prepare(self):
+        await self.sock.setup_endpoint()
+        self.msg.encode()
+        self.sock.msg_queue.ensure_tag(self.msg_seq)
+        if self.parser is not None:
+            self.marshal.seq_map[self.msg_seq] = self.parser
+
     def cleanup(self):
         self.addr_pool.free(self.msg_seq, ban=0xFF)
         self.sock.msg_queue.free_tag(self.msg_seq)
@@ -572,11 +597,7 @@ class NetlinkRequest:
         return True
 
     async def send(self):
-        await self.sock.setup_endpoint()
-        self.msg.encode()
-        self.sock.msg_queue.ensure_tag(self.msg_seq)
-        if self.parser is not None:
-            self.marshal.seq_map[self.msg_seq] = self.parser
+        await self.prepare()
         if await self.proxy():
             return len(self.msg.data)
         count = 0
@@ -701,6 +722,17 @@ class NetlinkSocket(SyncAPI):
             msg_seq,
             msg_pid,
         )
+
+    def nlm_request_batch(self, msgs, noraise=False):
+        async def collect_data():
+            return [
+                x
+                async for x in self.asyncore.nlm_request_batch(
+                    msgs, noraise
+                )
+            ]
+
+        return self._run_with_cleanup(collect_data, 'nl-req-batch')
 
     def nlm_request(
         self,
