@@ -430,6 +430,29 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         await request.send()
         return request
 
+    async def nlm_request_batch(self, msgs, noraise=False):
+        expected_responses = []
+        data = b''
+        for message in msgs:
+            request = NetlinkRequest(self, message)
+            await request.prepare()
+            data += request.msg.data
+            if (request.msg['header']['flags'] & NLM_F_ACK) or (
+                request.msg['header']['flags'] & NLM_F_DUMP
+            ):
+                expected_responses.append(request)
+            else:
+                request.cleanup()
+
+        self.send(data)
+        for request in expected_responses:
+            try:
+                async for msg in request.response():
+                    yield msg
+            except NetlinkError:
+                if not noraise:
+                    raise
+
     async def nlm_request(
         self,
         msg,
@@ -472,8 +495,8 @@ class NetlinkRequest:
         terminate=None,
         callback=None,
         parser=None,
-        msg_type=0,
-        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        msg_type=None,
+        msg_flags=None,
         msg_seq=None,
         msg_pid=None,
     ):
@@ -487,12 +510,26 @@ class NetlinkRequest:
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
         self.msg_seq = self.addr_pool.alloc() if msg_seq is None else msg_seq
+
+        # prio 3: message object
+        # prio 2: direct msg_type & msg_flags arguments
+        # prio 1: command map
         if command_map is not None:
             msg_type, msg_flags = self.calculate_request_type(
                 command, command_map, self.status['nlm_echo']
             )
-        msg['header']['type'] = msg_type
-        msg['header']['flags'] = msg_flags
+        if msg_type is not None:
+            msg['header']['type'] = msg_type
+        if msg_flags is not None:
+            msg['header']['flags'] = msg_flags
+
+        # if there is no type & flags yet, set defaults
+        # FIXME: collect usecases
+        if msg['header'].get('type') is None:
+            msg['header']['type'] = 0
+        if msg['header'].get('flags') is None:
+            msg['header']['flags'] = NLM_F_REQUEST | NLM_F_DUMP
+
         msg['header']['sequence_number'] = self.msg_seq
         msg['header']['pid'] = self.epid or os.getpid()
         msg.reset()
@@ -552,6 +589,13 @@ class NetlinkRequest:
                     matches.append(dump_filter[key] == value)
             return all(matches)
 
+    async def prepare(self):
+        await self.sock.setup_endpoint()
+        self.msg.encode()
+        self.sock.msg_queue.ensure_tag(self.msg_seq)
+        if self.parser is not None:
+            self.marshal.seq_map[self.msg_seq] = self.parser
+
     def cleanup(self):
         self.addr_pool.free(self.msg_seq, ban=0xFF)
         self.sock.msg_queue.free_tag(self.msg_seq)
@@ -572,11 +616,7 @@ class NetlinkRequest:
         return True
 
     async def send(self):
-        await self.sock.setup_endpoint()
-        self.msg.encode()
-        self.sock.msg_queue.ensure_tag(self.msg_seq)
-        if self.parser is not None:
-            self.marshal.seq_map[self.msg_seq] = self.parser
+        await self.prepare()
         if await self.proxy():
             return len(self.msg.data)
         count = 0
@@ -701,6 +741,14 @@ class NetlinkSocket(SyncAPI):
             msg_seq,
             msg_pid,
         )
+
+    def nlm_request_batch(self, msgs, noraise=False):
+        async def collect_data():
+            return [
+                x async for x in self.asyncore.nlm_request_batch(msgs, noraise)
+            ]
+
+        return self._run_with_cleanup(collect_data, 'nl-req-batch')
 
     def nlm_request(
         self,
