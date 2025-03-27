@@ -5,12 +5,13 @@ import os
 import pwd
 import time
 from functools import partial
+from dataclasses import dataclass
 
 from pyroute2.plan9 import Plan9Exit, Qid, Stat, Tcall, Tread, Twrite
 
 
 def _publish_function_w(session, inode, request, response):
-    inode.metadata['dirty'] = True
+    inode.metadata.dirty = True
     inode.data.seek(0)
     inode.data.truncate()
     inode.data.write(request['data'])
@@ -21,11 +22,11 @@ def _publish_function_w(session, inode, request, response):
 def _publish_function_r(
     func, loader, dumper, session, inode, request, response
 ):
-    if request['offset'] == 0 and inode.metadata.get('dirty'):
+    if request['offset'] == 0 and (inode.metadata.dirty or inode.metadata.run_on_read):
         try:
             kwarg = loader(inode.data.getvalue())
             ret = func(**kwarg)
-            inode.metadata['dirty'] = False
+            inode.metadata.dirty = False
         except Plan9Exit:
             raise
         except Exception as e:
@@ -62,6 +63,12 @@ def _publish_function_c(
     return response
 
 
+@dataclass
+class Metadata:
+    run_on_read: bool = False
+    dirty: bool = False
+
+
 class Inode:
     children = None
     parents = None
@@ -86,7 +93,7 @@ class Inode:
         self.parents = parents if parents is not None else set()
         self.children = children if children is not None else set()
         self.callbacks = {}
-        self.metadata = {}
+        self.metadata = Metadata()
         self.stat = Stat()
         self.qid = Qid(qtype, 0, path)
         self.stat['uid'] = (
