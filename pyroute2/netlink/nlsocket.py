@@ -495,8 +495,8 @@ class NetlinkRequest:
         terminate=None,
         callback=None,
         parser=None,
-        msg_type=0,
-        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        msg_type=None,
+        msg_flags=None,
         msg_seq=None,
         msg_pid=None,
     ):
@@ -510,16 +510,26 @@ class NetlinkRequest:
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
         self.msg_seq = self.addr_pool.alloc() if msg_seq is None else msg_seq
+
+        # prio 3: message object
+        # prio 2: direct msg_type & msg_flags arguments
+        # prio 1: command map
         if command_map is not None:
             msg_type, msg_flags = self.calculate_request_type(
                 command, command_map, self.status['nlm_echo']
             )
-            msg['header'].pop('type', None)
-            msg['header'].pop('flags', None)
-        if msg['header'].get('type') is None:
+        if msg_type is not None:
             msg['header']['type'] = msg_type
-        if msg['header'].get('flags') is None:
+        if msg_flags is not None:
             msg['header']['flags'] = msg_flags
+
+        # if there is no type & flags yet, set defaults
+        # FIXME: collect usecases
+        if msg['header'].get('type') is None:
+            msg['header']['type'] = 0
+        if msg['header'].get('flags') is None:
+            msg['header']['flags'] = NLM_F_REQUEST | NLM_F_DUMP
+
         msg['header']['sequence_number'] = self.msg_seq
         msg['header']['pid'] = self.epid or os.getpid()
         msg.reset()
