@@ -31,6 +31,10 @@ def genex(name, kwarg):
     }
 
 
+def masq():
+    return [genex('masq', {})]
+
+
 def verdict(code):
     kwarg = OrderedDict()
     kwarg['dreg'] = 0  # NFT_REG_VERDICT
