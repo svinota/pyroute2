@@ -228,7 +228,31 @@ class nft_gen_msg(nfgen_msg):
     )
 
 
-class nft_chain_msg(nfgen_msg):
+class CData:
+    @staticmethod
+    def decode_from(data, offset=0):
+        (length,) = struct.unpack_from('>H', data, offset)
+        (data,) = struct.unpack_from(f'{length - 1}s', data, offset + 2)
+        return (data.decode('utf-8'), offset + 2 + length)
+
+    @staticmethod
+    def encode_into(data, offset, value):
+        encoded = value.encode('utf-8')
+        length = 2 + len(encoded) + 1
+        data.extend([0] * length)
+        struct.pack_into(
+            f'>H{len(encoded) + 1}s', data, offset, length, encoded
+        )
+        return offset + length
+
+
+class nft_has_comment:
+
+    class comment(nla):
+        fields = [('value', CData)]
+
+
+class nft_chain_msg(nfgen_msg, nft_has_comment):
     prefix = 'NFTA_CHAIN_'
     nla_map = (
         ('NFTA_CHAIN_UNSPEC', 'none'),
@@ -243,7 +267,7 @@ class nft_chain_msg(nfgen_msg):
         ('NFTA_CHAIN_PAD', 'hex'),
         ('NFTA_CHAIN_FLAGS', 'flags'),
         ('NFTA_CHAIN_ID', 'be32'),
-        ('NFTA_CHAIN_USERDATA', 'hex'),
+        ('NFTA_CHAIN_USERDATA', 'comment'),
     )
 
     class counters(nla):
@@ -941,7 +965,7 @@ class nft_contains_expr:
             return expr
 
 
-class nft_rule_msg(nfgen_msg, nft_contains_expr):
+class nft_rule_msg(nfgen_msg, nft_contains_expr, nft_has_comment):
     prefix = 'NFTA_RULE_'
     nla_map = (
         ('NFTA_RULE_UNSPEC', 'none'),
@@ -951,7 +975,7 @@ class nft_rule_msg(nfgen_msg, nft_contains_expr):
         ('NFTA_RULE_EXPRESSIONS', '*nft_expr'),
         ('NFTA_RULE_COMPAT', 'hex'),
         ('NFTA_RULE_POSITION', 'be64'),
-        ('NFTA_RULE_USERDATA', 'hex'),
+        ('NFTA_RULE_USERDATA', 'comment'),
         ('NFTA_RULE_PAD', 'hex'),
         ('NFTA_RULE_ID', 'be32'),
         ('NFTA_RULE_POSITION_ID', 'be32'),
@@ -1030,7 +1054,7 @@ class nft_set_msg(nfgen_msg, nft_contains_expr):
                 )
 
 
-class nft_table_msg(nfgen_msg, nft_contains_expr):
+class nft_table_msg(nfgen_msg, nft_contains_expr, nft_has_comment):
     prefix = 'NFTA_TABLE_'
     nla_map = (
         ('NFTA_TABLE_UNSPEC', 'none'),
@@ -1039,7 +1063,7 @@ class nft_table_msg(nfgen_msg, nft_contains_expr):
         ('NFTA_TABLE_USE', 'be32'),
         ('NFTA_TABLE_HANDLE', 'be64'),
         ('NFTA_TABLE_PAD', 'hex'),
-        ('NFTA_TABLE_USERDATA', 'hex'),
+        ('NFTA_TABLE_USERDATA', 'comment'),
     )
 
 
