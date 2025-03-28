@@ -21,7 +21,7 @@ from pyroute2.netlink import (
     nlmsg_atoms,
 )
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_NFTABLES, nfgen_msg
-from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, NetlinkSocket
 
 NFT_MSG_NEWTABLE = 0
 NFT_MSG_GETTABLE = 1
@@ -1157,6 +1157,57 @@ class nft_flowtable_msg(nfgen_msg):
 
 
 class NFTSocket(NetlinkSocket):
+    def __init__(self, version=1, attr_revision=0, nfgen_family=2):
+        self.asyncore = AsyncNFTSocket(version, attr_revision, nfgen_family)
+        self.asyncore.local.keep_event_loop = True
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+
+    def begin(self):
+        return self.asyncore.begin()
+
+    def commit(self):
+        return self.asyncore.commit()
+
+    def request_get(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+    ):
+        async def collect_data():
+            return [
+                x
+                async for x in await self.asyncore.request_get(
+                    msg, msg_type, msg_flags, terminate
+                )
+            ]
+
+        return self._run_with_cleanup(collect_data, 'ntfsocket-get')
+
+    def request_put(self, msg, msg_type, msg_flags=NLM_F_REQUEST):
+        return self._run_with_cleanup(
+            self.asyncore.request_put,
+            'nftsocket-put',
+            msg,
+            msg_type,
+            msg_flags,
+        )
+
+    def _command(self, msg_class, commands, cmd, kwarg):
+        return self._run_with_cleanup(
+            self.asyncore._command,
+            'nftsocket-cmd',
+            msg_class,
+            commands,
+            cmd,
+            kwarg,
+        )
+
+
+class AsyncNFTSocket(AsyncNetlinkSocket):
     '''
     NFNetlink socket (family=NETLINK_NETFILTER).
 
@@ -1187,7 +1238,7 @@ class NFTSocket(NetlinkSocket):
     }
 
     def __init__(self, version=1, attr_revision=0, nfgen_family=2):
-        super(NFTSocket, self).__init__(family=NETLINK_NETFILTER)
+        super().__init__(family=NETLINK_NETFILTER)
         policy = dict(
             [
                 (x | (NFNL_SUBSYS_NFTABLES << 8), y)
@@ -1236,7 +1287,7 @@ class NFTSocket(NetlinkSocket):
                 self.addr_pool.free(seqnum, ban=10)
             del self._ts.data
 
-    def request_get(
+    async def request_get(
         self,
         msg,
         msg_type,
@@ -1248,16 +1299,14 @@ class NFTSocket(NetlinkSocket):
         the request and get an answer.
         '''
         msg['nfgen_family'] = self._nfgen_family
-        return tuple(
-            self.nlm_request(
-                msg,
-                msg_type | (NFNL_SUBSYS_NFTABLES << 8),
-                msg_flags,
-                terminate=terminate,
-            )
+        return await self.nlm_request(
+            msg,
+            msg_type | (NFNL_SUBSYS_NFTABLES << 8),
+            msg_flags,
+            terminate=terminate,
         )
 
-    def request_put(self, msg, msg_type, msg_flags=NLM_F_REQUEST):
+    async def request_put(self, msg, msg_type, msg_flags=NLM_F_REQUEST):
         '''
         Read-write requests.
         '''
@@ -1271,7 +1320,7 @@ class NFTSocket(NetlinkSocket):
         if one_shot:
             self.commit()
 
-    def _command(self, msg_class, commands, cmd, kwarg):
+    async def _command(self, msg_class, commands, cmd, kwarg):
         flags = kwarg.pop('flags', NLM_F_ACK)
         cmd_name = cmd
         cmd_flags = {
@@ -1316,7 +1365,12 @@ class NFTSocket(NetlinkSocket):
             trans_end['header']['flags'] = NLM_F_REQUEST
 
             messages = [trans_start, msg, trans_end]
-            self.nlm_request_batch(messages, noraise=(flags & NLM_F_ACK) == 0)
+            return [
+                x
+                async for x in self.nlm_request_batch(
+                    messages, noraise=(flags & NLM_F_ACK) == 0
+                )
+            ]
             # Only throw an error when the request fails. For now,
             # do not return anything.
         else:
