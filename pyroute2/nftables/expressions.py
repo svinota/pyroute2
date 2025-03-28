@@ -46,7 +46,7 @@ def verdict(code):
     return [genex('immediate', kwarg)]
 
 
-def ipv4addr(src=None, dst=None):
+def ipv4addr(src=None, dst=None, op=0):
     if not src and not dst:
         raise ValueError('must be at least one of src, dst')
 
@@ -93,7 +93,9 @@ def ipv4addr(src=None, dst=None):
         packed += socket.inet_aton(dst)
     kwarg = OrderedDict()
     kwarg['sreg'] = 1  # read from NFT_REG_1
-    kwarg['op'] = 0  # NFT_CMP_EQ
+    # NFT_CMP_EQ = 0
+    # NFT_CMP_NEQ = 1
+    kwarg['op'] = op  # nftsocket.nft_contains_expr.nft_expr.nft_cmp.ops
     kwarg['data'] = {'attrs': [('NFTA_DATA_VALUE', packed)]}
     ret.append(genex('cmp', kwarg))
     return ret
