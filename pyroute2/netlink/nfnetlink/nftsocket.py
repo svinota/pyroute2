@@ -4,6 +4,7 @@ NFTSocket -- low level nftables API
 See also: pyroute2.nftables
 """
 
+import enum
 import struct
 import threading
 
@@ -105,6 +106,77 @@ NFPROTO_ARP = 3
 NFPROTO_NETDEV = 5
 NFPROTO_BRIDGE = 7
 NFPROTO_IPV6 = 10
+
+
+class Cmp(enum.IntEnum):
+    NFT_CMP_EQ: int = 0
+    NFT_CMP_NEQ: int = 1
+    NFT_CMP_LT: int = 2
+    NFT_CMP_LTE: int = 3
+    NFT_CMP_GT: int = 4
+    NFT_CMP_GTE: int = 5
+
+
+class Meta(enum.IntEnum):
+    NFT_META_LEN: int = 0
+    NFT_META_PROTOCOL: int = 1
+    NFT_META_PRIORITY: int = 2
+    NFT_META_MARK: int = 3
+    NFT_META_IIF: int = 4
+    NFT_META_OIF: int = 5
+    NFT_META_IIFNAME: int = 6
+    NFT_META_OIFNAME: int = 7
+    NFT_META_IIFTYPE: int = 8
+    NFT_META_OIFTYPE: int = 9
+    NFT_META_SKUID: int = 10
+    NFT_META_SKGID: int = 11
+    NFT_META_NFTRACE: int = 12
+    NFT_META_RTCLASSID: int = 13
+    NFT_META_SECMARK: int = 14
+    NFT_META_NFPROTO: int = 15
+    NFT_META_L4PROTO: int = 16
+    NFT_META_BRI_IIFNAME: int = 17
+    NFT_META_BRI_OIFNAME: int = 18
+    NFT_META_PKTTYPE: int = 19
+    NFT_META_CPU: int = 20
+    NFT_META_IIFGROUP: int = 21
+    NFT_META_OIFGROUP: int = 22
+    NFT_META_CGROUP: int = 23
+    NFT_META_PRANDOM: int = 24
+    NFT_META_SECPATH: int = 25
+    NFT_META_IIFKIND: int = 26
+    NFT_META_OIFKIND: int = 27
+    NFT_META_BRI_IIFPVID: int = 28
+    NFT_META_BRI_IIFVPROTO: int = 29
+    NFT_META_TIME_NS: int = 30
+    NFT_META_TIME_DAY: int = 31
+    NFT_META_TIME_HOUR: int = 32
+    NFT_META_SDIF: int = 33
+    NFT_META_SDIFNAME: int = 34
+
+
+class Regs(enum.IntEnum):
+    NFT_REG_VERDICT: int = 0x00
+    NFT_REG_1: int = 0x01
+    NFT_REG_2: int = 0x02
+    NFT_REG_3: int = 0x03
+    NFT_REG_4: int = 0x04
+    NFT_REG32_00: int = 0x08
+    NFT_REG32_01: int = 0x09
+    NFT_REG32_02: int = 0x0A
+    NFT_REG32_03: int = 0x0B
+    NFT_REG32_04: int = 0x0C
+    NFT_REG32_05: int = 0x0D
+    NFT_REG32_06: int = 0x0E
+    NFT_REG32_07: int = 0x0F
+    NFT_REG32_08: int = 0x10
+    NFT_REG32_09: int = 0x11
+    NFT_REG32_10: int = 0x12
+    NFT_REG32_11: int = 0x13
+    NFT_REG32_12: int = 0x14
+    NFT_REG32_13: int = 0x15
+    NFT_REG32_14: int = 0x16
+    NFT_REG32_15: int = 0x17
 
 
 class nftnl_udata(nla_base_string):
@@ -303,29 +375,7 @@ class nat_flags(nla):
 
 class nft_regs(nla):
     class regs(nft_map_be32):
-        ops = {
-            0x00: 'NFT_REG_VERDICT',
-            0x01: 'NFT_REG_1',
-            0x02: 'NFT_REG_2',
-            0x03: 'NFT_REG_3',
-            0x04: 'NFT_REG_4',
-            0x08: 'NFT_REG32_00',
-            0x09: 'NFT_REG32_01',
-            0x0A: 'NFT_REG32_02',
-            0x0B: 'NFT_REG32_03',
-            0x0C: 'NFT_REG32_04',
-            0x0D: 'NFT_REG32_05',
-            0x0E: 'NFT_REG32_06',
-            0x0F: 'NFT_REG32_07',
-            0x10: 'NFT_REG32_08',
-            0x11: 'NFT_REG32_09',
-            0x12: 'NFT_REG32_10',
-            0x13: 'NFT_REG32_11',
-            0x14: 'NFT_REG32_12',
-            0x15: 'NFT_REG32_13',
-            0x16: 'NFT_REG32_14',
-            0x17: 'NFT_REG32_15',
-        }
+        ops = {x.value: x.name for x in Regs}
 
 
 class nft_data(nla):
@@ -411,14 +461,7 @@ class nft_contains_expr:
             )
 
             class ops(nft_map_be32):
-                ops = {
-                    0: 'NFT_CMP_EQ',
-                    1: 'NFT_CMP_NEQ',
-                    2: 'NFT_CMP_LT',
-                    3: 'NFT_CMP_LTE',
-                    4: 'NFT_CMP_GT',
-                    5: 'NFT_CMP_GTE',
-                }
+                ops = {x.value: x.name for x in Cmp}
 
         class nft_match(nla):
             nla_map = (
@@ -658,43 +701,7 @@ class nft_contains_expr:
             )
 
             class meta_key(nft_map_be32):
-                ops = {
-                    0: 'NFT_META_LEN',
-                    1: 'NFT_META_PROTOCOL',
-                    2: 'NFT_META_PRIORITY',
-                    3: 'NFT_META_MARK',
-                    4: 'NFT_META_IIF',
-                    5: 'NFT_META_OIF',
-                    6: 'NFT_META_IIFNAME',
-                    7: 'NFT_META_OIFNAME',
-                    8: 'NFT_META_IIFTYPE',
-                    9: 'NFT_META_OIFTYPE',
-                    10: 'NFT_META_SKUID',
-                    11: 'NFT_META_SKGID',
-                    12: 'NFT_META_NFTRACE',
-                    13: 'NFT_META_RTCLASSID',
-                    14: 'NFT_META_SECMARK',
-                    15: 'NFT_META_NFPROTO',
-                    16: 'NFT_META_L4PROTO',
-                    17: 'NFT_META_BRI_IIFNAME',
-                    18: 'NFT_META_BRI_OIFNAME',
-                    19: 'NFT_META_PKTTYPE',
-                    20: 'NFT_META_CPU',
-                    21: 'NFT_META_IIFGROUP',
-                    22: 'NFT_META_OIFGROUP',
-                    23: 'NFT_META_CGROUP',
-                    24: 'NFT_META_PRANDOM',
-                    25: 'NFT_META_SECPATH',
-                    26: 'NFT_META_IIFKIND',
-                    27: 'NFT_META_OIFKIND',
-                    28: 'NFT_META_BRI_IIFPVID',
-                    29: 'NFT_META_BRI_IIFVPROTO',
-                    30: 'NFT_META_TIME_NS',
-                    31: 'NFT_META_TIME_DAY',
-                    32: 'NFT_META_TIME_HOUR',
-                    33: 'NFT_META_SDIF',
-                    34: 'NFT_META_SDIFNAME',
-                }
+                ops = {x.value: x.name for x in Meta}
 
         class nft_nat(nft_regs, nat_flags):
             nla_map = (
