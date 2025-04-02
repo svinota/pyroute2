@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.9.1
+    * nftables: fix comment size
 * 0.9.1rc2
     * nftables: fix work with the new core, add basic masq and comment support
     * nlsocket: fix batch requests
