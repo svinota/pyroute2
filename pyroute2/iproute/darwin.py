@@ -1,6 +1,6 @@
 import os
-import subprocess
 import socket
+import subprocess
 from socket import AF_INET, AF_INET6
 
 from pyroute2.common import dqn2int
@@ -111,8 +111,9 @@ class IPRoute(object):
         ret = {'interfaces': [], 'addresses': []}
 
         try:
-            output = (subprocess.check_output(["ifconfig"])
-                      .decode("utf-8", errors="replace"))
+            output = subprocess.check_output(["ifconfig"]).decode(
+                "utf-8", errors="replace"
+            )
         except (subprocess.CalledProcessError, FileNotFoundError):
             return ret
 
@@ -176,8 +177,7 @@ class IPRoute(object):
                                 nm_value = int(mask_hex, 16)
                                 dotted_mask = []
                                 for _ in range(4):
-                                    dotted_mask.insert(0,
-                                                       str(nm_value & 0xFF))
+                                    dotted_mask.insert(0, str(nm_value & 0xFF))
                                     nm_value >>= 8
                                 mask_str = ".".join(dotted_mask)
 
@@ -243,8 +243,9 @@ class IPRoute(object):
         """
         routes = []
         try:
-            output = (subprocess.check_output(["netstat", "-rn"])
-                      .decode("utf-8", errors="replace"))
+            output = subprocess.check_output(["netstat", "-rn"]).decode(
+                "utf-8", errors="replace"
+            )
         except (subprocess.CalledProcessError, FileNotFoundError):
             return routes
 
@@ -309,10 +310,11 @@ class IPRoute(object):
         neighbors = []
         # IPv4 neighbors (ARP)
         try:
-            output = (subprocess.check_output(["arp", "-an"])
-                      .decode("utf-8", errors="replace"))
+            output = subprocess.check_output(["arp", "-an"]).decode(
+                "utf-8", errors="replace"
+            )
             # Lines look like:
-            #"? (192.168.1.10) at 00:1c:42:xx:yy:zz on en0 ifscope [ethernet]"
+            # "? (192.168.1.10) at 00:1c:42:xx:yy:zz on en0 ifscope [ethernet]"
             for line in output.strip().splitlines():
                 line = line.strip()
                 if not line:
@@ -354,9 +356,9 @@ class IPRoute(object):
 
         # Optional: IPv6 neighbors (NDP)
         try:
-            output = (subprocess.check_output(["ndp", "-an"])
-                                .decode("utf-8",
-                                        errors="replace"))
+            output = subprocess.check_output(["ndp", "-an"]).decode(
+                "utf-8", errors="replace"
+            )
             # Lines look like:
             # "fe80::1%lo0            lladdr 00:00:00:...  router  STALE"
             for line in output.strip().splitlines():
