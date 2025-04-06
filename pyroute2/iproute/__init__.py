@@ -22,6 +22,13 @@ if sys.platform.startswith('win'):
         NetNS,
         RawIPRoute,
     )
+elif sys.platform.startswith('darwin'):
+    from pyroute2.iproute.darwin import (
+        ChaoticIPRoute,
+        IPRoute,
+        NetNS,
+        RawIPRoute,
+    )
 elif config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import ChaoticIPRoute, IPRoute, NetNS, RawIPRoute
 else:
