@@ -238,12 +238,10 @@ class CData:
     @staticmethod
     def encode_into(data, offset, value):
         encoded = value.encode('utf-8')
-        length = 2 + len(encoded) + 1
-        data.extend([0] * length)
-        struct.pack_into(
-            f'>H{len(encoded) + 1}s', data, offset, length, encoded
-        )
-        return offset + length
+        length = len(encoded) + 1
+        data.extend([0] * (length + 2))
+        struct.pack_into(f'>H{length}s', data, offset, length, encoded)
+        return offset + length + 2
 
 
 class nft_has_comment:
