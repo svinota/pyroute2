@@ -366,8 +366,14 @@ class IPRoute(object):
                 parts = line.split()
                 if len(parts) < 4:
                     continue
-                # typical parts: ["fe80::1%lo0", "lladdr", "00:00:00:..", "router", "STALE"]
-                # or ["2001:db8::1234%en0", "lladdr", "00:11:22:33:44:55", "REACHABLE"]
+                # typical parts:
+                # ["fe80::1%lo0",
+                # "lladdr", "00:00:00:..",
+                # "router", "STALE"]
+                # or ["2001:db8::1234%en0",
+                # "lladdr",
+                # "00:11:22:33:44:55",
+                # "REACHABLE"]
                 addr_part = parts[0]
                 # separate out the interface from the IP
                 if "%" in addr_part:
