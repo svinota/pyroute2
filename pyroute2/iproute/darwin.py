@@ -89,7 +89,8 @@ class IPRoute(object):
         done_msg['header']['sequence_number'] = seq
         ret.append(done_msg)
 
-        # If using an output queue (as done in Windows code), write data there
+        # If using an output queue (as done in Windows code),
+        # write data there
         if self._outq and self._pfdw:
             data = b''
             for r in ret:
@@ -110,7 +111,8 @@ class IPRoute(object):
         ret = {'interfaces': [], 'addresses': []}
 
         try:
-            output = subprocess.check_output(["ifconfig"]).decode("utf-8", errors="replace")
+            output = (subprocess.check_output(["ifconfig"])
+                      .decode("utf-8", errors="replace"))
         except (subprocess.CalledProcessError, FileNotFoundError):
             return ret
 
@@ -133,7 +135,8 @@ class IPRoute(object):
 
             mac_addr = "00:00:00:00:00:00"
             for line in lines:
-                # Lines with "ether " on macOS contain MAC, e.g.: "ether 00:1c:42:aa:bb:cc"
+                # Lines with "ether " on macOS contain MAC, e.g.:
+                # "ether 00:1c:42:aa:bb:cc"
                 if line.strip().startswith("ether "):
                     parts = line.strip().split()
                     if len(parts) >= 2:
@@ -173,7 +176,8 @@ class IPRoute(object):
                                 nm_value = int(mask_hex, 16)
                                 dotted_mask = []
                                 for _ in range(4):
-                                    dotted_mask.insert(0, str(nm_value & 0xFF))
+                                    dotted_mask.insert(0,
+                                                       str(nm_value & 0xFF))
                                     nm_value >>= 8
                                 mask_str = ".".join(dotted_mask)
 
@@ -203,7 +207,8 @@ class IPRoute(object):
                         ip_addr = parts[ip_idx]
                         prefix_len = 64  # default if not found
 
-                        # On macOS you'll often see "inet6 fe80::xxxx prefixlen 64 ..."
+                        # On macOS you'll often see
+                        # "inet6 fe80::xxxx prefixlen 64 ..."
                         if "prefixlen" in parts:
                             pre_idx = parts.index("prefixlen") + 1
                             prefix_len = int(parts[pre_idx])
@@ -238,7 +243,8 @@ class IPRoute(object):
         """
         routes = []
         try:
-            output = subprocess.check_output(["netstat", "-rn"]).decode("utf-8", errors="replace")
+            output = (subprocess.check_output(["netstat", "-rn"])
+                      .decode("utf-8", errors="replace"))
         except (subprocess.CalledProcessError, FileNotFoundError):
             return routes
 
@@ -268,12 +274,15 @@ class IPRoute(object):
             except OSError:
                 idx = 0
 
-            # We'll store the route as ifinfmsg for demonstration, but real netlink
-            # code would use `rtmsg`. We'll keep it consistent with the rest of this
+            # We'll store the route as ifinfmsg for
+            # demonstration, but real netlink
+            # code would use `rtmsg`. We'll keep it
+            # consistent with the rest of this
             # POC approach.
             spec_route = {
                 'index': idx,
-                # not strictly correct, but placing them in attrs for demonstration
+                # not strictly correct, but placing
+                # them in attrs for demonstration
                 'attrs': (
                     ['ROUTE_DST', destination],
                     ['ROUTE_GATEWAY', gateway],
@@ -292,14 +301,18 @@ class IPRoute(object):
 
     def _parse_arp_neighbors(self):
         """
-        Parse `arp -an` for IPv4 neighbors and (optionally) `ndp -an` for IPv6.
-        Returns a list of ifinfmsg (or ifaddrmsg) objects simulating neighbor entries.
+        Parse `arp -an` for IPv4 neighbors and (optionally)
+        `ndp -an` for IPv6.
+        Returns a list of ifinfmsg (or ifaddrmsg)
+        objects simulating neighbor entries.
         """
         neighbors = []
         # IPv4 neighbors (ARP)
         try:
-            output = subprocess.check_output(["arp", "-an"]).decode("utf-8", errors="replace")
-            # Lines look like: "? (192.168.1.10) at 00:1c:42:xx:yy:zz on en0 ifscope [ethernet]"
+            output = (subprocess.check_output(["arp", "-an"])
+                      .decode("utf-8", errors="replace"))
+            # Lines look like:
+            #"? (192.168.1.10) at 00:1c:42:xx:yy:zz on en0 ifscope [ethernet]"
             for line in output.strip().splitlines():
                 line = line.strip()
                 if not line:
@@ -309,7 +322,10 @@ class IPRoute(object):
                 # 2) MAC after "at"
                 # 3) interface name after "on"
                 parts = line.split()
-                # example parts: ["?", "(192.168.1.10)", "at", "00:1c:42:xx:yy:zz", "on", "en0", ...]
+                # example parts:
+                # ["?", "(192.168.1.10)",
+                # "at", "00:1c:42:xx:yy:zz",
+                # "on", "en0", ...]
                 if len(parts) < 7:
                     continue
                 ip_str = parts[1].strip("()")
@@ -338,8 +354,11 @@ class IPRoute(object):
 
         # Optional: IPv6 neighbors (NDP)
         try:
-            output = subprocess.check_output(["ndp", "-an"]).decode("utf-8", errors="replace")
-            # Lines look like: "fe80::1%lo0            lladdr 00:00:00:...  router  STALE"
+            output = (subprocess.check_output(["ndp", "-an"])
+                                .decode("utf-8",
+                                        errors="replace"))
+            # Lines look like:
+            # "fe80::1%lo0            lladdr 00:00:00:...  router  STALE"
             for line in output.strip().splitlines():
                 line = line.strip()
                 if not line:
