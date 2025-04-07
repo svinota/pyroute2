@@ -1,6 +1,8 @@
 '''
 '''
 
+from functools import partial
+
 from pyroute2.netlink.nfnetlink import nfgen_msg
 from pyroute2.netlink.nfnetlink.nftsocket import (
     DATA_TYPE_ID_TO_NAME,
@@ -21,6 +23,7 @@ from pyroute2.netlink.nfnetlink.nftsocket import (
     NFT_MSG_NEWSETELEM,
     NFT_MSG_NEWTABLE,
     AsyncNFTSocket,
+    NFTSocket,
     nft_chain_msg,
     nft_rule_msg,
     nft_set_elem_list_msg,
@@ -415,3 +418,36 @@ class AsyncNFTables(AsyncNFTSocket):
             elements.append(elem.as_netlink(modifier))
         kwarg["elements"] = elements
         return await self._command(nft_set_elem_list_msg, commands, cmd, kwarg)
+
+
+class NFTables(NFTSocket):
+    def __init__(self, version=1, attr_version=0, nfgen_family=2):
+        self.asyncore = AsyncNFTables(version, attr_version, nfgen_family)
+        self.asyncore.local.keep_event_loop = True
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+
+    @staticmethod
+    async def _collect_dump(func):
+        return [x async for x in await func()]
+
+    def __getattr__(self, name):
+        async_dump_methods = [
+            'get_tables',
+            'get_chains',
+            'get_rules',
+            'get_sets',
+        ]
+        async_cmd_methods = ['table', 'chain', 'rule', 'sets', 'set_elems']
+        symbol = getattr(self.asyncore, name)
+        tag = f'nftables-{name}'
+        if name in async_dump_methods:
+            return partial(
+                self._run_with_cleanup,
+                partial(self._collect_dump, symbol),
+                tag,
+            )
+        elif name in async_cmd_methods:
+            return partial(self._run_with_cleanup, symbol, tag)
+        return symbol
