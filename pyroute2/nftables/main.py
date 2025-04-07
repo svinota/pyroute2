@@ -1,6 +1,8 @@
 '''
 '''
 
+from functools import partial
+
 from pyroute2.netlink.nfnetlink import nfgen_msg
 from pyroute2.netlink.nfnetlink.nftsocket import (
     DATA_TYPE_ID_TO_NAME,
@@ -20,6 +22,7 @@ from pyroute2.netlink.nfnetlink.nftsocket import (
     NFT_MSG_NEWSET,
     NFT_MSG_NEWSETELEM,
     NFT_MSG_NEWTABLE,
+    AsyncNFTSocket,
     NFTSocket,
     nft_chain_msg,
     nft_rule_msg,
@@ -217,22 +220,22 @@ class NFTSetElem:
         return str(self.as_dict())
 
 
-class NFTables(NFTSocket):
+class AsyncNFTables(AsyncNFTSocket):
     # TODO: documentation
     # TODO: tests
     # TODO: dump()/load() with support for json and xml
 
-    def get_tables(self):
-        return self.request_get(nfgen_msg(), NFT_MSG_GETTABLE)
+    async def get_tables(self):
+        return await self.request_get(nfgen_msg(), NFT_MSG_GETTABLE)
 
-    def get_chains(self):
-        return self.request_get(nfgen_msg(), NFT_MSG_GETCHAIN)
+    async def get_chains(self):
+        return await self.request_get(nfgen_msg(), NFT_MSG_GETCHAIN)
 
-    def get_rules(self):
-        return self.request_get(nfgen_msg(), NFT_MSG_GETRULE)
+    async def get_rules(self):
+        return await self.request_get(nfgen_msg(), NFT_MSG_GETRULE)
 
-    def get_sets(self):
-        return self.request_get(nfgen_msg(), NFT_MSG_GETSET)
+    async def get_sets(self):
+        return await self.request_get(nfgen_msg(), NFT_MSG_GETSET)
 
     #
     # The nft API is in the prototype stage and may be
@@ -240,7 +243,7 @@ class NFTables(NFTSocket):
     # the API is 0.5.2
     #
 
-    def table(self, cmd, **kwarg):
+    async def table(self, cmd, **kwarg):
         '''
         Example::
 
@@ -252,9 +255,9 @@ class NFTables(NFTSocket):
             'del': NFT_MSG_DELTABLE,
             'get': NFT_MSG_GETTABLE,
         }
-        return self._command(nft_table_msg, commands, cmd, kwarg)
+        return await self._command(nft_table_msg, commands, cmd, kwarg)
 
-    def chain(self, cmd, **kwarg):
+    async def chain(self, cmd, **kwarg):
         '''
         Example::
 
@@ -291,9 +294,9 @@ class NFTables(NFTSocket):
             }
         if 'type' not in kwarg:
             kwarg['type'] = 'filter'
-        return self._command(nft_chain_msg, commands, cmd, kwarg)
+        return await self._command(nft_chain_msg, commands, cmd, kwarg)
 
-    def rule(self, cmd, **kwarg):
+    async def rule(self, cmd, **kwarg):
         '''
         Example::
 
@@ -321,9 +324,9 @@ class NFTables(NFTSocket):
             for exp in kwarg['expressions']:
                 expressions.extend(exp)
             kwarg['expressions'] = expressions
-        return self._command(nft_rule_msg, commands, cmd, kwarg)
+        return await self._command(nft_rule_msg, commands, cmd, kwarg)
 
-    def sets(self, cmd, **kwarg):
+    async def sets(self, cmd, **kwarg):
         '''
         Example::
             nft.sets("add", table="filter", name="test0", key_type="ipv4_addr",
@@ -346,12 +349,17 @@ class NFTables(NFTSocket):
         else:
             nft_set = NFTSet(**kwarg)
         kwarg = nft_set.as_netlink()
-        msg = self._command(nft_set_msg, commands, cmd, kwarg)
+        msg = [
+            x
+            async for x in await self._command(
+                nft_set_msg, commands, cmd, kwarg
+            )
+        ]
         if cmd == "get":
             return NFTSet.from_netlink(msg)
         return nft_set
 
-    def set_elems(self, cmd, **kwarg):
+    async def set_elems(self, cmd, **kwarg):
         '''
         Example::
             nft.set_elems("add", table="filter", set="test0",
@@ -392,7 +400,10 @@ class NFTables(NFTSocket):
                 ["NFTA_SET_ELEM_LIST_TABLE", kwarg["table"]],
                 ["NFTA_SET_ELEM_LIST_SET", kwarg["set"]],
             ]
-            msg = self.request_get(msg, NFT_MSG_GETSETELEM)[0]
+            msg = [
+                x
+                async for x in await self.request_get(msg, NFT_MSG_GETSETELEM)
+            ][0]
             elements = set()
             for elem in msg.get_attr('NFTA_SET_ELEM_LIST_ELEMENTS'):
                 elements.add(NFTSetElem.from_netlink(elem, modifier))
@@ -406,4 +417,37 @@ class NFTables(NFTSocket):
                 elem = NFTSetElem(value=elem)
             elements.append(elem.as_netlink(modifier))
         kwarg["elements"] = elements
-        return self._command(nft_set_elem_list_msg, commands, cmd, kwarg)
+        return await self._command(nft_set_elem_list_msg, commands, cmd, kwarg)
+
+
+class NFTables(NFTSocket):
+    def __init__(self, version=1, attr_version=0, nfgen_family=2):
+        self.asyncore = AsyncNFTables(version, attr_version, nfgen_family)
+        self.asyncore.local.keep_event_loop = True
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+
+    @staticmethod
+    async def _collect_dump(func):
+        return [x async for x in await func()]
+
+    def __getattr__(self, name):
+        async_dump_methods = [
+            'get_tables',
+            'get_chains',
+            'get_rules',
+            'get_sets',
+        ]
+        async_cmd_methods = ['table', 'chain', 'rule', 'sets', 'set_elems']
+        symbol = getattr(self.asyncore, name)
+        tag = f'nftables-{name}'
+        if name in async_dump_methods:
+            return partial(
+                self._run_with_cleanup,
+                partial(self._collect_dump, symbol),
+                tag,
+            )
+        elif name in async_cmd_methods:
+            return partial(self._run_with_cleanup, symbol, tag)
+        return symbol
