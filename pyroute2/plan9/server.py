@@ -182,14 +182,9 @@ class Plan9ServerProtocol(asyncio.Protocol):
         r_message['header']['tag'] = req['header']['tag']
         return r_message
 
-    def error(self, e, tag=0):
+    def error(self, error_string, tag=0):
         r_message = msg_rerror()
-        spec = {
-            'class': e.__class__.__name__,
-            'argv': get_exception_args(e),
-            'str': str(e),
-        }
-        r_message['ename'] = json.dumps(spec)
+        r_message['ename'] = error_string
         r_message['header']['tag'] = tag
         r_message.encode()
         self.transport.write(r_message.data)
@@ -208,8 +203,16 @@ class Plan9ServerProtocol(asyncio.Protocol):
                 self.transport.abort()
                 self.transport.close()
                 return
+            except KeyError:
+                self.error('No such file or directory', tag)
+                return
             except Exception as e:
-                self.error(e, tag)
+                spec = {
+                    'class': e.__class__.__name__,
+                    'argv': get_exception_args(e),
+                    'str': str(e),
+                }
+                self.error(json.dumps(spec), tag)
                 return
             self.transport.write(r_message.data)
 
