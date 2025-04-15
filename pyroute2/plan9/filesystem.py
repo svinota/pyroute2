@@ -118,6 +118,12 @@ class Inode:
         self.stat['name'] = name
         self.sync()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
     def sync(self):
         self.stat['length'] = len(self.data.getvalue())
 

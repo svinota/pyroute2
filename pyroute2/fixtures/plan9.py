@@ -24,11 +24,11 @@ class AsyncPlan9Context:
         self.server = Plan9ServerSocket(use_socket=self.server_sock)
         self.client = Plan9ClientSocket(use_socket=self.client_sock)
         self._task = None
-        inode_static = self.server.filesystem.create('test_file')
-        inode_static.data.write(self.sample_data)
-        inode_dynamic = self.server.filesystem.create('test_time')
-        inode_dynamic.metadata.call_on_read = True
-        inode_dynamic.register_function(test_time, loader=lambda x: {})
+        with self.server.filesystem.create('test_file') as i:
+            i.data.write(self.sample_data)
+        with self.server.filesystem.create('test_time') as i:
+            i.metadata.call_on_read = True
+            i.register_function(test_time, loader=lambda x: {})
 
     async def ensure_session(self):
         self._task = await self.server.async_run()
