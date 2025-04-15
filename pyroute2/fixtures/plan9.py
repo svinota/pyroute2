@@ -1,3 +1,4 @@
+import time
 from collections.abc import AsyncGenerator
 from socket import socketpair
 
@@ -5,6 +6,10 @@ import pytest_asyncio
 
 from pyroute2.plan9.client import Plan9ClientSocket
 from pyroute2.plan9.server import Plan9ServerSocket
+
+
+def test_time():
+    return time.time_ns()
 
 
 class AsyncPlan9Context:
@@ -19,8 +24,11 @@ class AsyncPlan9Context:
         self.server = Plan9ServerSocket(use_socket=self.server_sock)
         self.client = Plan9ClientSocket(use_socket=self.client_sock)
         self._task = None
-        inode = self.server.filesystem.create('test_file')
-        inode.data.write(self.sample_data)
+        with self.server.filesystem.create('test_file') as i:
+            i.data.write(self.sample_data)
+        with self.server.filesystem.create('test_time') as i:
+            i.metadata.call_on_read = True
+            i.register_function(test_time, loader=lambda x: {})
 
     async def ensure_session(self):
         self._task = await self.server.async_run()
