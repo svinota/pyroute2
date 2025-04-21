@@ -184,24 +184,3 @@ such as `GenericNetlinkSocket`, or using custom wrappers, like in
 `IPRoute`. The plan is to refactor all components to provide an asynchronous
 API, keeping the synchronous API for compatibility with existing projects
 that use pyroute2.
-
-Thread safety
--------------
-
-Is the current core thread-safe? Yes and no at the same time. While there
-are no locks in the core, components like sockets and message queues are 
-now thread-local.
-
-This means that the same pyroute2 socket object manages as many
-underlying netlink sockets as there are threads accessing it.
-
-Pros:
-
-* Simplicity and absence of mutexes, which eliminates the risk of deadlocks.
-
-Cons:
-
-* Race conditions are still possible if shared data is not thread-local.
-* Debugging existing netlink flows at runtime is limited because any
-  debugger session will create its own underlying netlink socket. This
-  makes logging and post-mortem analysis more important.
