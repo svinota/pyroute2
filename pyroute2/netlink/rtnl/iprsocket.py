@@ -374,10 +374,6 @@ class IPRSocket(NetlinkSocket):
         return self.asyncore.addr_pool
 
     @property
-    def epid(self):
-        return self.asyncore.epid
-
-    @property
     def socket(self):
         return self.asyncore.socket
 
