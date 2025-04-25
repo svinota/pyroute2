@@ -1,7 +1,6 @@
 build
 twine
 flake8
-eventlet
 netaddr
 pytest
 pytest-asyncio
