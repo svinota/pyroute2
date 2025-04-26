@@ -399,6 +399,7 @@ def windows(session, config):
 def neutron(session, config):
     '''Run Neutron integration tests.'''
     setup_venv_dev(session)
+    session.install('eventlet')
     session.run(*options('test_neutron', config))
 
 

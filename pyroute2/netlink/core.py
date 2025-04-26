@@ -696,6 +696,7 @@ class SyncAPI:
 
     def __getattr__(self, key):
         if key in (
+            'epid',
             'pid',
             'spec',
             'status',
