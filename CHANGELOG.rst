@@ -1,6 +1,12 @@
 Changelog
 =========
 
+* 0.9.2
+    * iproute: basic Darwin support <https://github.com/svinota/pyroute2/pull/1328>
+    * nftables: asynchronous API <https://github.com/svinota/pyroute2/pull/1327>
+    * plan9: Inode class context manager API
+    * plan9: support call on read
+    * code: provide again .epid <https://github.com/svinota/pyroute2/pull/1337>
 * 0.9.1
     * nftables: fix comment size
 * 0.9.1rc2
