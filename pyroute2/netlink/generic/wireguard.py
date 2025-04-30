@@ -339,7 +339,7 @@ class WireGuard(GenericNetlinkSocket):
 
         # If peer removal is set to True
         if 'remove' in peer and peer['remove']:
-            attrs.append(['WGPEER_A_FLAGS', WGDEVICE_F_REPLACE_PEERS])
+            attrs.append(['WGPEER_A_FLAGS', WGPEER_F_REMOVE_ME])
             msg['attrs'].append(['WGDEVICE_A_PEERS', wg_peer])
             return
 
