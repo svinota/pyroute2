@@ -55,10 +55,12 @@ NOTES:
     struct peer_s {
         public_key:            # Base64 public key - required
         remove:                # Boolean - optional
+        update_only:           # Boolean - optional
         preshared_key:         # Base64 preshared key - optional
         endpoint_addr:         # IPv4 or IPv6 endpoint - optional
         endpoint_port :        # endpoint Port - required only if endpoint_addr
         persistent_keepalive:  # time in seconds to send keep alive - optional
+        replace_allowed_ips:   # Boolean - optional
         allowed_ips:           # list of CIDRs allowed - optional
     }
 '''
@@ -102,7 +104,7 @@ WGDEVICE_A_FWMARK = 7
 WGDEVICE_A_PEERS = 8
 
 # WireGuard Device flags
-WGDEVICE_F_REPLACE_PEERS = 1
+WGDEVICE_F_REPLACE_PEERS = 0x1
 
 # WireGuard Allowed IP attributes
 WGALLOWEDIP_A_UNSPEC = 0
@@ -111,9 +113,9 @@ WGALLOWEDIP_A_IPADDR = 2
 WGALLOWEDIP_A_CIDR_MASK = 3
 
 # WireGuard Peer flags
-WGPEER_F_REMOVE_ME = 0
-WGPEER_F_REPLACE_ALLOWEDIPS = 1
-WGPEER_F_UPDATE_ONLY = 2
+WGPEER_F_REMOVE_ME = 0x1
+WGPEER_F_REPLACE_ALLOWEDIPS = 0x2
+WGPEER_F_UPDATE_ONLY = 0x4
 
 # Specific defines
 WG_MAX_PEERS = 1000
@@ -337,7 +339,7 @@ class WireGuard(GenericNetlinkSocket):
 
         # If peer removal is set to True
         if 'remove' in peer and peer['remove']:
-            attrs.append(['WGPEER_A_FLAGS', WGDEVICE_F_REPLACE_PEERS])
+            attrs.append(['WGPEER_A_FLAGS', WGPEER_F_REMOVE_ME])
             msg['attrs'].append(['WGDEVICE_A_PEERS', wg_peer])
             return
 
@@ -365,7 +367,12 @@ class WireGuard(GenericNetlinkSocket):
             attrs.append(['WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', keepalive])
 
         # Set Peer flags
-        attrs.append(['WGPEER_A_FLAGS', WGPEER_F_UPDATE_ONLY])
+        flags = 0
+        if 'update_only' in peer and peer['update_only']:
+            flags |= WGPEER_F_UPDATE_ONLY
+        if 'replace_allowed_ips' in peer and peer['replace_allowed_ips']:
+            flags |= WGPEER_F_REPLACE_ALLOWEDIPS
+        attrs.append(['WGPEER_A_FLAGS', flags])
 
         # Set allowed IPs
         if 'allowed_ips' in peer:
