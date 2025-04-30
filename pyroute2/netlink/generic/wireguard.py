@@ -55,10 +55,12 @@ NOTES:
     struct peer_s {
         public_key:            # Base64 public key - required
         remove:                # Boolean - optional
+        update_only:           # Boolean - optional
         preshared_key:         # Base64 preshared key - optional
         endpoint_addr:         # IPv4 or IPv6 endpoint - optional
         endpoint_port :        # endpoint Port - required only if endpoint_addr
         persistent_keepalive:  # time in seconds to send keep alive - optional
+        replace_allowed_ips:   # Boolean - optional
         allowed_ips:           # list of CIDRs allowed - optional
     }
 '''
@@ -365,7 +367,12 @@ class WireGuard(GenericNetlinkSocket):
             attrs.append(['WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL', keepalive])
 
         # Set Peer flags
-        attrs.append(['WGPEER_A_FLAGS', WGPEER_F_UPDATE_ONLY])
+        flags = 0
+        if 'update_only' in peer and peer['update_only']:
+            flags |= WGPEER_F_UPDATE_ONLY
+        if 'replace_allowed_ips' in peer and peer['replace_allowed_ips']:
+            flags |= WGPEER_F_REPLACE_ALLOWEDIPS
+        attrs.append(['WGPEER_A_FLAGS', flags])
 
         # Set allowed IPs
         if 'allowed_ips' in peer:
