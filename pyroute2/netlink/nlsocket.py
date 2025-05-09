@@ -668,7 +668,7 @@ class NetlinkSocket(SyncAPI):
         rcvsize=16384,
         all_ns=False,
         async_qsize=None,
-        nlm_generator=None,
+        nlm_generator=True,
         target='localhost',
         ext_ack=False,
         strict_check=False,
@@ -704,6 +704,7 @@ class NetlinkSocket(SyncAPI):
         )
         self.asyncore.local.keep_event_loop = True
         self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.status['nlm_generator'] = nlm_generator
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()
         )
@@ -759,19 +760,21 @@ class NetlinkSocket(SyncAPI):
         callback=None,
         parser=None,
     ):
-
-        async def collect_data():
-            return [
-                x
-                async for x in await self.asyncore.nlm_request(
-                    msg, msg_type, msg_flags, terminate, callback, parser
-                )
-            ]
-
-        return self._run_with_cleanup(collect_data, 'nl-req')
+        ret = self._generate_with_cleanup(
+            self.asyncore.nlm_request,
+            'nl-req',
+            msg,
+            msg_type,
+            msg_flags,
+            terminate,
+            callback,
+            parser,
+        )
+        if self.status['nlm_generator']:
+            return ret
+        return tuple(ret)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-        '''Sync wrapper for async_get().'''
 
         async def collect_data():
             return [

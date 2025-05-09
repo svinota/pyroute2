@@ -181,6 +181,24 @@ class CoreDatagramProtocol(CoreProtocol):
         self.enqueue(data, addr)
 
 
+class RequestWrapper:
+    def __init__(self, event_loop, func):
+        self.event_loop = event_loop
+        request = self.event_loop.run_until_complete(func)
+        self.response = request.__aiter__()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return self.event_loop.run_until_complete(
+                self.response.__anext__()
+            )
+        except StopAsyncIteration:
+            raise StopIteration
+
+
 class AsyncCoreSocket:
     '''Pyroute2 core socket class.
 
@@ -744,6 +762,20 @@ class SyncAPI:
             del self.asyncore.local.connection_lost
         if hasattr(self.asyncore.local, 'event_loop'):
             del self.asyncore.local.event_loop
+
+    def _generate_with_cleanup(self, func, cmd: str, *argv, **kwarg):
+        if len(argv) > 0 and isinstance(argv[0], str):
+            cmd = f'{cmd}-{argv[0]}'
+        try:
+            self._setup_transport()
+            with self.asyncore.telemetry.update(cmd):
+                for item in RequestWrapper(
+                    event_loop=self.asyncore.event_loop,
+                    func=func(*argv, **kwarg),
+                ):
+                    yield item
+        finally:
+            self._cleanup_transport()
 
     def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
         if len(argv) > 0 and isinstance(argv[0], str):
