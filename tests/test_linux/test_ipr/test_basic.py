@@ -24,7 +24,7 @@ def test_close():
     ipr.close()
     # Shouldn't be able to use the socket after closing
     with pytest.raises(socket.error):
-        ipr.get_links()
+        ipr.link('get', index=1)
 
 
 def test_fileno():
