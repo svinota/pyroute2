@@ -23,7 +23,7 @@ def test_drr(context):
     context.ipr.tc('add-class', 'drr', index=index, handle='1:20', quantum=20)
     context.ipr.tc('add-class', 'drr', index=index, handle='1:30', quantum=30)
     assert qdisc_exists(context.netns, 'drr', ifname=ifname)
-    cls = context.ipr.get_classes(index=index)
+    cls = tuple(context.ipr.get_classes(index=index))
     assert len(cls) == 2
     assert cls[0].get_attr('TCA_KIND') == 'drr'
     assert cls[1].get_attr('TCA_KIND') == 'drr'
@@ -46,7 +46,7 @@ def test_hfsc(context):
         parent='1:0',
         rsc={'m2': '3mbit'},
     )
-    cls = context.ipr.get_classes(index=index)
+    cls = tuple(context.ipr.get_classes(index=index))
     assert len(cls) == 2  # implicit root class + the defined one
     assert cls[0].get_attr('TCA_KIND') == 'hfsc'
     assert cls[1].get_attr('TCA_KIND') == 'hfsc'

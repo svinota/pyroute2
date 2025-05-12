@@ -15,9 +15,9 @@ def test_updown_link(context):
     index, ifname = context.default_interface
 
     context.ipr.link('set', index=index, state='up')
-    assert context.ipr.get_links(ifname=ifname)[0]['flags'] & 1
+    assert tuple(context.ipr.get_links(ifname=ifname))[0]['flags'] & 1
     context.ipr.link('set', index=index, state='down')
-    assert not (context.ipr.get_links(ifname=ifname)[0]['flags'] & 1)
+    assert not (tuple(context.ipr.get_links(ifname=ifname))[0]['flags'] & 1)
 
 
 @skip_if_not_supported
@@ -99,19 +99,19 @@ def test_link_arp_flag(context):
     index, _ = context.default_interface
 
     # by default dummy interface have NOARP set
-    assert context.ipr.get_links(index)[0]['flags'] & IFF_NOARP
+    assert tuple(context.ipr.get_links(index))[0]['flags'] & IFF_NOARP
 
     context.ipr.link('set', index=index, arp=True)
-    assert not context.ipr.get_links(index)[0]['flags'] & IFF_NOARP
+    assert not tuple(context.ipr.get_links(index))[0]['flags'] & IFF_NOARP
 
     context.ipr.link('set', index=index, arp=False)
-    assert context.ipr.get_links(index)[0]['flags'] & IFF_NOARP
+    assert tuple(context.ipr.get_links(index))[0]['flags'] & IFF_NOARP
 
     context.ipr.link('set', index=index, noarp=False)
-    assert not context.ipr.get_links(index)[0]['flags'] & IFF_NOARP
+    assert not tuple(context.ipr.get_links(index))[0]['flags'] & IFF_NOARP
 
     context.ipr.link('set', index=index, noarp=True)
-    assert context.ipr.get_links(index)[0]['flags'] & IFF_NOARP
+    assert tuple(context.ipr.get_links(index))[0]['flags'] & IFF_NOARP
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -119,11 +119,11 @@ def test_symbolic_flags_ifinfmsg(context):
     index, _ = context.default_interface
 
     context.ipr.link('set', index=index, flags=['IFF_UP'])
-    iface = context.ipr.get_links(index)[0]
+    iface = tuple(context.ipr.get_links(index))[0]
     assert iface['flags'] & 1
     assert 'IFF_UP' in iface.flags2names(iface['flags'])
     context.ipr.link('set', index=index, flags=['!IFF_UP'])
-    assert not (context.ipr.get_links(index)[0]['flags'] & 1)
+    assert not (tuple(context.ipr.get_links(index))[0]['flags'] & 1)
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)

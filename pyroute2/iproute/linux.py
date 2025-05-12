@@ -9,9 +9,8 @@ import warnings
 from functools import partial
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 
-from pyroute2 import netns
+from pyroute2 import config, netns
 from pyroute2.common import AF_MPLS, basestring
-from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_ERROR
 from pyroute2.netlink.exceptions import (
     NetlinkDumpInterrupted,
@@ -603,7 +602,7 @@ class RTNL_API:
         # maybe place it as mapping into ifinfomsg.py?
         #
         return await self.link(
-            'dump', family=AF_BRIDGE, ext_mask=2, match=kwarg
+            'dump', family=config.AF_BRIDGE, ext_mask=2, match=kwarg
         )
 
     async def get_links(self, *argv, **kwarg):
@@ -1299,7 +1298,7 @@ class RTNL_API:
             'add': (RTM_SETLINK, 'req'),
             'del': (RTM_DELLINK, 'req'),
         }
-        kwarg['family'] = AF_BRIDGE
+        kwarg['family'] = config.AF_BRIDGE
         kwarg['command_map'] = command_map
         kwarg['dump_filter'] = None
         kwarg['request_filter'] = get_arguments_processor(
@@ -1384,7 +1383,7 @@ class RTNL_API:
             ip.fdb('dump', vlan=200)
 
         '''
-        kwarg['family'] = AF_BRIDGE
+        kwarg['family'] = config.AF_BRIDGE
         # nud -> state
         if 'nud' in kwarg:
             kwarg['state'] = kwarg.pop('nud')
@@ -2675,75 +2674,64 @@ class IPRoute(NetlinkSocket):
                 pass
         raise TimeoutError()
 
+    def _run_force_sync(self, func, tag, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
+
+    def _run_generic_rtnl(self, func, tag, *argv, **kwarg):
+        if len(argv) and argv[0] in ('dump', 'show'):
+            if not config.nlm_generator:
+                return tuple(
+                    self._generate_with_cleanup(func, tag, *argv, **kwarg)
+                )
+            return self._generate_with_cleanup(func, tag, *argv, **kwarg)
+        return self._run_with_cleanup(func, tag, *argv, **kwarg)
+
     def __getattr__(self, name):
-        async_generic_methods = [
-            'addr',
-            'link',
-            'neigh',
-            'route',
-            'rule',
-            'tc',
-            'fdb',
-            'brport',
-            'probe',
-            'stats',
-            'link_lookup',
-            'vlan_filter',
-            'flush_addr',
-            'flush_rules',
-            'flush_routes',
-            'get_netnsid',
-            'route_dump',
-            'route_dumps',
-            'route_load',
-            'route_loads',
-        ]
-        async_dump_methods = [
-            'dump',
-            'get_qdiscs',
-            'get_filters',
-            'get_classes',
-            'get_links',
-            'get_addr',
-            'get_neighbours',
-            'get_routes',
-            'get_rules',
-            'get_netns_info',
-            'get_vlans',
-            'get_default_routes',
-            'get_ntables',
-        ]
+        generic_methods = set(
+            (
+                'addr',
+                'link',
+                'neigh',
+                'route',
+                'rule',
+                'tc',
+                'fdb',
+                'brport',
+                'probe',
+                'stats',
+                'link_lookup',
+                'vlan_filter',
+                'flush_addr',
+                'flush_rules',
+                'flush_routes',
+                'get_netnsid',
+                'route_dump',
+                'route_dumps',
+                'route_load',
+                'route_loads',
+            )
+        )
+        sync_methods = set(
+            (
+                'list_link_kind',
+                'unregister_link_kind',
+                'register_link_kind',
+                'get_pid',
+                'close_file',
+                'open_file',
+                'filter_messages',
+                'set_netnsid',
+            )
+        )
+
         symbol = getattr(self.asyncore, name)
-
-        def synchronize_generic(*argv, **kwarg):
-            async def collect_dump():
-                return [i async for i in await symbol(*argv, **kwarg)]
-
-            async def collect_op():
-                return await symbol(*argv, **kwarg)
-
-            if (
-                len(argv) > 0
-                and isinstance(argv[0], str)
-                and (argv[0].startswith('dump') or argv[0].startswith('show'))
-            ):
-                task = collect_dump
-            else:
-                task = collect_op
-            return task()
-
-        def synchronize_dump(*argv, **kwarg):
-            async def collect_dump():
-                return [i async for i in await symbol(*argv, **kwarg)]
-
-            return collect_dump()
-
-        # create an event loop
-        cmd = f'iproute-{name}'
-        if name in async_generic_methods:
-            return partial(self._run_with_cleanup, synchronize_generic, cmd)
-        elif name in async_dump_methods:
-            return partial(self._run_with_cleanup, synchronize_dump, cmd)
+        if name in set(RTNL_API.__dict__.keys()) - sync_methods:
+            tag = f'iproute-{name}'
+            if name in generic_methods:
+                return partial(self._run_generic_rtnl, symbol, tag)
+            if not config.nlm_generator:
+                return partial(self._run_force_sync, symbol, tag)
+            return partial(self._generate_with_cleanup, symbol, tag)
         return symbol
 
 
