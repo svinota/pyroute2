@@ -39,10 +39,10 @@ async def test_get_and_renew_lease(
     expected_vid_and_hostname = {}
     if vid := client_config.vendor_id:
         # vendor id must be present only if configured
-        expected_vid_and_hostname['vendor_id'] = vid.encode()
+        expected_vid_and_hostname['vendor_id'] = vid
     if hn := client_config.host_name:
         # same for host_name
-        expected_vid_and_hostname['host_name'] = hn.encode()
+        expected_vid_and_hostname['host_name'] = hn
 
     # Make xids non random so they match the ones in the pcap
     set_fixed_xid(0x12345670)

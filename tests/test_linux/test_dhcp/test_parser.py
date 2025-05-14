@@ -69,7 +69,7 @@ def test_android_reboot_request(pcap: PcapFile):
             'key': client_mac,
             'type': 1,  # TODO use constant/enum ?
         },
-        'host_name': b'TFY-LX1',
+        'host_name': 'TFY-LX1',
         'max_msg_size': 1500,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
@@ -88,7 +88,7 @@ def test_android_reboot_request(pcap: PcapFile):
             dhcp.Option.IPV6_ONLY_PREFERRED,
         ],
         'requested_ip': '192.168.94.191',
-        'vendor_id': b'android-dhcp-13',
+        'vendor_id': 'android-dhcp-13',
     }
     assert request.eth_src == client_mac
     assert request.eth_dst == 'ff:ff:ff:ff:ff:ff'
@@ -106,7 +106,7 @@ def test_wii_discover(pcap: PcapFile):
     assert discover.dhcp['flags'] == bootp.Flag.UNICAST
     assert discover.dhcp['options'] == {
         'client_id': {'key': client_mac, 'type': 1},
-        'host_name': b'Wii',
+        'host_name': 'Wii',
         'message_type': dhcp.MessageType.DISCOVER,
         'parameter_list': [
             dhcp.Option.SUBNET_MASK,
@@ -133,7 +133,7 @@ def test_washing_machine_request(pcap: PcapFile):
     assert request.dhcp['chaddr'] == washing_mac
     assert request.dhcp['flags'] == bootp.Flag.UNICAST
     assert request.dhcp['options'] == {
-        'host_name': b'LG_Smart_Laundry2_open',
+        'host_name': 'LG_Smart_Laundry2_open',
         'max_msg_size': 1500,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
@@ -201,7 +201,7 @@ def test_netatmo_discover_request(pcap: PcapFile):
             dhcp.Option.BROADCAST_ADDRESS,
             dhcp.Option.NAME_SERVER,
         ],
-        'host_name': b'Netatmo-Personal-Weather-Station',
+        'host_name': 'Netatmo-Personal-Weather-Station',
     }
 
 
@@ -217,7 +217,7 @@ def test_invalid_router_option(
     ]
     assert ack.dhcp['options'] == {
         'broadcast_address': '192.168.42.255',
-        'domain_name': b'toulouse.fourcot.fr',
+        'domain_name': 'toulouse.fourcot.fr',
         'lease_time': 604800,
         'message_type': dhcp.MessageType.ACK,
         'name_server': ['192.168.42.10'],
@@ -338,7 +338,7 @@ def test_android_tethering_renew(pcap: PcapFile):
     assert request.dhcp['secs'] == 1
     assert request.dhcp['options'] == {
         'client_id': {'key': 'a0:a4:c5:93:ac:60', 'type': 1},
-        'host_name': b'thinkpad-eno',
+        'host_name': 'thinkpad-eno',
         'max_msg_size': 0xFFFF,
         'message_type': dhcp.MessageType.REQUEST,
         'parameter_list': [
@@ -367,7 +367,7 @@ def test_android_tethering_renew(pcap: PcapFile):
     assert ack.ip_dst == ack.dhcp['ciaddr'] == client_ip
     assert ack.dhcp['options'] == {
         'broadcast_address': '192.168.72.255',
-        'host_name': b'thinkpad-eno',
+        'host_name': 'thinkpad-eno',
         'lease_time': 3599,
         'message_type': dhcp.MessageType.ACK,
         'name_server': ['192.168.72.238'],
@@ -376,7 +376,7 @@ def test_android_tethering_renew(pcap: PcapFile):
         'router': ['192.168.72.238'],
         'server_id': '192.168.72.238',
         'subnet_mask': '255.255.255.0',
-        'vendor_specific_information': b'ANDROID_METERED',
+        'vendor_specific_information': 'ANDROID_METERED',
     }
 
 
@@ -406,7 +406,7 @@ def test_huawei_discover_option_148(pcap: PcapFile):
             dhcp.Option.DOTS_ADDR,
             184,  # this option is not assigned, Huawei calls it "option184"...
         ],
-        'vendor_id': b'huawei AirEngine5761-11',
+        'vendor_id': 'huawei AirEngine5761-11',
     }
 
     assert offer.message_type == dhcp.MessageType.OFFER
