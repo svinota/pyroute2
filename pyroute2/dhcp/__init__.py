@@ -103,7 +103,6 @@ import struct
 from array import array
 from typing import ClassVar, NamedTuple, Optional, TypedDict, TypeVar, Union
 
-from pyroute2.common import basestring
 from pyroute2.protocols import Policy, _decode_mac, _encode_mac, msg
 
 from .enums.dhcp import MessageType, Option
@@ -185,6 +184,9 @@ class option(msg):
             value = self.policy.encode(self.value)
             if self.policy.format == 'string':
                 fmt = '%is' % len(value)
+                if isinstance(value, list):
+                    # Byte strings can be provided as a list of bytes
+                    value = bytes(value)
             else:
                 fmt = self.policy.format
             if isinstance(value, str):
@@ -229,11 +231,19 @@ class option(msg):
             if len(value) == 1:
                 value = value[0]
             value = self.policy.decode(value)
-            if (
-                isinstance(value, basestring)
-                and self.policy.format == 'string'
-            ):
-                value = value.lstrip(b"\x00")
+            if self.policy.format == 'string':
+                if isinstance(value, bytes):
+                    try:
+                        # Try to decode as a string
+                        value = value.decode()
+                    except ValueError:
+                        pass
+                if isinstance(value, str):
+                    # Strip trailing zeroes for strings
+                    value = value.rstrip("\x00")
+            if isinstance(value, bytes):
+                # Turn bytes to lists of bytes so they're JSON-encodable
+                value = list(value)
             self.value = value
         else:
             # remember current offset as msg.decode() will advance it
