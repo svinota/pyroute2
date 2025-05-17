@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import errno
 import io
 import logging
 import os
@@ -352,7 +353,28 @@ class RTNL_API:
 
         return ret()
 
-    async def poll(self, method, command, timeout=10, interval=0.2, **spec):
+    async def ensure(
+        self, method, present=True, timeout=10, interval=0.2, **spec
+    ):
+        '''Run the method and ensure the state of the object'''
+        if present:
+            try:
+                await method('add', **spec)
+            except NetlinkError as e:
+                if e.code == errno.EEXIST:
+                    await method('set', **spec)
+        else:
+            try:
+                await method('del', **spec)
+            except NetlinkError:
+                pass
+        return await self.poll(
+            method, 'dump', present, timeout, interval, **spec
+        )
+
+    async def poll(
+        self, method, command, present=True, timeout=10, interval=0.2, **spec
+    ):
         '''Wait for a method to succeed.
 
         Run `method` with a positional argument `command` and keyword
@@ -394,7 +416,7 @@ class RTNL_API:
                 ret = await method(command, **spec)
                 if not isinstance(ret, list):
                     ret = [x async for x in ret]
-                if ret:
+                if (ret and present) or (not ret and not present):
                     return ret
                 await asyncio.sleep(interval)
             except NetlinkDumpInterrupted:
