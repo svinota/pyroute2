@@ -4,6 +4,7 @@ from collections import OrderedDict
 from socket import AF_INET, AF_INET6
 
 from pyroute2.common import AF_MPLS, dqn2int, get_address_family
+from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 
 class MPLSTarget(OrderedDict):
@@ -131,6 +132,8 @@ class Index:
     def set_index(self, context, value):
         if isinstance(value, (list, tuple)):
             value = value[0]
+        if isinstance(value, ifinfmsg):
+            value = value['index']
         return {'index': value}
 
 
