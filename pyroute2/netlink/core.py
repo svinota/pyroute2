@@ -10,6 +10,7 @@ import threading
 import time
 import warnings
 from contextlib import contextmanager
+from dataclasses import asdict
 from typing import Optional, Union
 from urllib import parse
 
@@ -479,12 +480,16 @@ class AsyncCoreSocket:
 
         This method can not work if `use_socket` or `event_loop`
         was used in the object constructor.'''
-        if self.status['use_socket'] or self.status['event_loop']:
+        if self.status['use_socket'] or self.status['event_loop'] != 'none':
             raise RuntimeError('can not clone socket')
         new_spec = {}
-        for key, value in self.spec.items():
+        for key, value in asdict(self.spec.config).items():
             if key in self.__init__.__code__.co_varnames:
                 new_spec[key] = value
+        # post fix
+        new_spec['use_socket'] = self.use_socket
+        new_spec['use_event_loop'] = self.use_event_loop
+        new_spec['libc'] = self.libc
         return type(self)(**new_spec)
 
     def setsockopt(self, level, optname, value):
