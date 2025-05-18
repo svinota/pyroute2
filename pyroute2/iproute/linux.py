@@ -356,7 +356,40 @@ class RTNL_API:
     async def ensure(
         self, method, present=True, timeout=10, interval=0.2, **spec
     ):
-        '''Run the method and ensure the state of the object'''
+        '''Ensure object's state.
+
+        The issue with RTNL calls is that they are not synchronous:
+        even if the kernel returns success for a call, the changes
+        may become visible after some short time. Because of that
+        adding dependant object immediately one after another may fail.
+        Say, adding a route directly after the required interface
+        address.
+
+        Since pyroute2 RTNL API is more or less one to one mapping
+        of the kernel RTNL, it has the same problem.
+
+        This method aims to mitigate this issue.
+
+        * if `present == True`, try to add/set an object by the spec.
+        * if `present == False`, try to remove
+        * and finally wait up to `timeout` for the changes to be applied.
+
+        Example:
+
+        .. testcode::
+
+            interface = ipr.ensure(ipr.link,
+                present=True,
+                ifname='test0',
+                kind='dummy',
+                state='up',
+            )
+            ipr.ensure(ipr.addr,
+                present=True,
+                index=interface,
+                address='192.168.0.2/24',
+            )
+        '''
         if present:
             try:
                 await method('add', **spec)
@@ -2682,6 +2715,20 @@ class IPRoute(NetlinkSocket):
         ret = cls()
         ret.asyncore = iproute
         return ret
+
+    def ensure(self, method, present=True, timeout=10, interval=0.2, **spec):
+        # method points to the sync API, and is a partial() wrapper
+        # extract async method from the wrapper's arguments
+        method = method.args[0]
+        return self._run_with_cleanup(
+            self.asyncore.ensure,
+            'iproute-ensure',
+            method,
+            present,
+            timeout,
+            interval,
+            **spec,
+        )
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
         ctime = time.time()
