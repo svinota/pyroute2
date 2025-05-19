@@ -390,13 +390,18 @@ class RTNL_API:
                 address='192.168.0.2/24',
             )
         '''
+        state = [x async for x in await method('dump', **spec)]
         if present:
+            if state:
+                return state
             try:
                 await method('add', **spec)
             except NetlinkError as e:
                 if e.code == errno.EEXIST:
                     await method('set', **spec)
         else:
+            if not state:
+                return state
             try:
                 await method('del', **spec)
             except NetlinkError:
