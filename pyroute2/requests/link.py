@@ -108,6 +108,7 @@ class LinkIPRouteFilter(IPRouteFilter):
                 self.specific[nla[len(prefix) :].lower()] = nla
 
         if self.command == 'dump':
+            context.pop('peer', None)
             context[('linkinfo', 'kind')] = self.kind
             for key, value in tuple(context.items()):
                 if key in self.specific:
