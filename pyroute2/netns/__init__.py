@@ -52,11 +52,10 @@ import logging
 import os
 import os.path
 import socket
-import time
 from typing import Optional
 
 from pyroute2 import config
-from pyroute2.common import USE_DEFAULT_TIMEOUT, basestring
+from pyroute2.common import USE_DEFAULT_TIMEOUT, basestring, get_boottime
 from pyroute2.process import ChildProcess, ChildProcessReturnValue
 
 log = logging.getLogger(__name__)
@@ -391,8 +390,8 @@ def create_socket(
     if timeout == USE_DEFAULT_TIMEOUT:
         timeout = config.default_create_socket_timeout
 
-    start_time = time.time()
-    while time.time() - start_time < timeout:
+    start_time = get_boottime()
+    while get_boottime() - start_time < timeout:
         with ChildProcess(
             target=_create_socket_child,
             args=[netns, flags, family, socket_type, proto, libc],
