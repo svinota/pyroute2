@@ -397,15 +397,22 @@ class RTNL_API:
             try:
                 await method('add', **spec)
             except NetlinkError as e:
-                if e.code == errno.EEXIST:
-                    await method('set', **spec)
+                if e.code != errno.EEXIST:
+                    raise
+                await method('set', **spec)
         else:
             if not state:
                 return state
             try:
                 await method('del', **spec)
-            except NetlinkError:
-                pass
+            except NetlinkError as e:
+                if e.code not in (
+                    errno.ENODEV,
+                    errno.ENOENT,
+                    errno.ENONET,
+                    errno.EADDRNOTAVAIL,
+                ):
+                    raise
         return await self.poll(
             method, 'dump', present, timeout, interval, **spec
         )
