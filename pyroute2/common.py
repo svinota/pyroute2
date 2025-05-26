@@ -466,3 +466,14 @@ def msg_done(msg) -> bytes:
     # nlmsgerr struct alignment
     newmsg += b'\0' * 20
     return newmsg
+
+
+def get_time() -> float:
+    '''
+    Return seconds since arbitrary start point.
+
+    It cannot go backward. It includes any time that the system is suspended.
+    You should use this instead of time.time() to measure time between two
+    execution points, like a timeout.
+    '''
+    return time.monotonic()

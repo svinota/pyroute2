@@ -11,7 +11,7 @@ from functools import partial
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 
 from pyroute2 import config, netns
-from pyroute2.common import AF_MPLS, basestring
+from pyroute2.common import AF_MPLS, basestring, get_time
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_ERROR
 from pyroute2.netlink.exceptions import (
     NetlinkDumpInterrupted,
@@ -454,9 +454,9 @@ class RTNL_API:
             except TimeoutError:
                 pass
         '''
-        ctime = time.time()
+        ctime = get_time()
         ret = tuple()
-        while ctime + timeout > time.time():
+        while ctime + timeout > get_time():
             try:
                 ret = await method(command, **spec)
                 if not isinstance(ret, list):
@@ -2743,9 +2743,9 @@ class IPRoute(NetlinkSocket):
         )
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
-        ctime = time.time()
+        ctime = get_time()
         ret = tuple()
-        while ctime + timeout > time.time():
+        while ctime + timeout > get_time():
             try:
                 ret = [x for x in method(command, **spec)]
                 if ret:
