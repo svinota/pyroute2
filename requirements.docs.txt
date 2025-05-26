@@ -5,5 +5,5 @@ sphinx==6.2.0
 sphinx-code-include
 pre-commit
 pytest
-pytest_asyncio
+pytest-asyncio==0.26.0
 docutils
