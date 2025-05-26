@@ -468,12 +468,12 @@ def msg_done(msg) -> bytes:
     return newmsg
 
 
-def get_boottime() -> float:
+def get_time() -> float:
     '''
-    Return seconds since arbitrary start point (boot)
+    Return seconds since arbitrary start point.
 
     It cannot go backward. It includes any time that the system is suspended.
     You should use this instead of time.time() to measure time between two
     execution points, like a timeout.
     '''
-    return time.clock_gettime(time.CLOCK_BOOTTIME)
+    return time.monotonic()
