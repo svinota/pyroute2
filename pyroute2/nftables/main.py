@@ -384,7 +384,9 @@ class AsyncNFTables(AsyncNFTSocket):
             kwarg["table"] = nft_set.table
             kwarg["set"] = nft_set.name
         else:
-            nft_set = self.sets("get", table=kwarg["table"], name=kwarg["set"])
+            nft_set = await self.sets(
+                "get", table=kwarg["table"], name=kwarg["set"]
+            )
 
         found = DATA_TYPE_NAME_TO_INFO.get(nft_set.key_type)
         if found:
