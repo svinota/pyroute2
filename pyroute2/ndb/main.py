@@ -509,18 +509,20 @@ class NDB:
             'auto_netns': auto_netns,
             'recordset_pipe': 'false',
         }
+        #
+        for vtable, vname in NDB_VIEWS_SPECS:
+            view = View(self, vtable, auth_managers=[am])
+            setattr(self, vname, view)
+        #
         self.task_manager = TaskManager(self)
         self._dbm_thread = threading.Thread(
-            target=self.task_manager.run, name='NDB main loop'
+            target=self.task_manager.main, name='NDB main loop'
         )
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
         if self._dbm_error is not None:
             raise self._dbm_error
-        for vtable, vname in NDB_VIEWS_SPECS:
-            view = View(self, vtable, auth_managers=[am])
-            setattr(self, vname, view)
         # self.query = Query(self.schema)
 
     def _get_view(self, table, chain=None, auth_managers=None):

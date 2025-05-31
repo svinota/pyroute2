@@ -70,9 +70,8 @@ import time
 import uuid
 
 from pyroute2.common import basestring
-from pyroute2.iproute import IPRoute
+from pyroute2.iproute import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import NetlinkSocket
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 from .events import ShutdownException, State
@@ -134,20 +133,20 @@ class Source(dict):
     summary_header = None
     view = None
     table = 'sources'
-    vmap = {'local': IPRoute, 'netns': NetNS, 'nsmanager': NetNSManager}
+    vmap = {'local': AsyncIPRoute, 'netns': NetNS, 'nsmanager': NetNSManager}
 
     def __init__(self, ndb, **spec):
         self.th = None
+        self.task = None
         self.nl = None
         self.ndb = ndb
-        self.evq = self.ndb._event_queue
+        self.evq = self.ndb.task_manager.event_queue
         # the target id -- just in case
         self.target = spec['target']
         self.kind = spec.pop('kind', 'local')
         self.max_errors = spec.pop('max_errors', SOURCE_MAX_ERRORS)
         self.event = spec.pop('event')
         # RTNL API
-        self.nl_prime = self.get_prime(self.kind)
         self.nl_kwarg = spec
         #
         if self.ndb.messenger is not None:
@@ -162,14 +161,12 @@ class Source(dict):
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log, wait_list=['running'])
         self.state.set('init')
-        self.ndb.task_manager.db_add_nl_source(self.target, self.kind, spec)
+        self.ndb.schema.add_nl_source(self.target, self.kind, spec)
         self.load_sql()
 
     @classmethod
     def _count(cls, view):
-        return view.ndb.task_manager.db_fetchone(
-            "SELECT count(*) FROM %s" % view.table
-        )
+        return view.ndb.schema.fetchone("SELECT count(*) FROM %s" % view.table)
 
     @property
     def must_restart(self):
@@ -221,12 +218,7 @@ class Source(dict):
         return ret
 
     def __repr__(self):
-        if isinstance(self.nl_prime, NetlinkSocket):
-            name = self.nl_prime.__class__.__name__
-        elif isinstance(self.nl_prime, type):
-            name = self.nl_prime.__name__
-
-        return '[%s] <%s %s>' % (self.state.get(), name, self.nl_kwarg)
+        return '[%s] <%s>' % (self.state.get(), self.nl_kwarg)
 
     @classmethod
     def nla2name(cls, name):
@@ -257,12 +249,12 @@ class Source(dict):
             importlib.import_module('pyroute2'), self.kind
         )
 
-    def api(self, name, *argv, **kwarg):
+    async def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
             with self.lock:
                 try:
                     self.log.debug(f'source api run {name} {argv} {kwarg}')
-                    return getattr(self.nl, name)(*argv, **kwarg)
+                    return await getattr(self.nl, name)(*argv, **kwarg)
                 except (
                     NetlinkError,
                     AttributeError,
@@ -280,7 +272,7 @@ class Source(dict):
                     time.sleep(1)
         raise RuntimeError('api call failed')
 
-    def fake_zero_if(self):
+    async def fake_zero_if(self):
         url = 'https://github.com/svinota/pyroute2/issues/737'
         zero_if = ifinfmsg()
         zero_if['index'] = 0
@@ -296,141 +288,47 @@ class Source(dict):
             ('IFLA_ADDRESS', '00:00:00:00:00:00'),
         ]
         zero_if.encode()
-        self.evq.put([zero_if], source=self.target)
+        await self.evq.put(zero_if)
 
-    def receiver(self):
+    async def receiver(self):
         #
         # The source thread routine -- get events from the
         # channel and forward them into the common event queue
         #
         # The routine exists on an event with error code == 104
         #
-        while self.state.get() != 'stop':
-            if self.shutdown.is_set():
-                break
+        if self.nl is not None:
+            try:
+                self.nl.close(code=0)
+            except Exception as e:
+                self.log.warning('source restart: %s' % e)
 
-            with self.lock:
-                if self.nl is not None:
-                    try:
-                        self.nl.close(code=0)
-                    except Exception as e:
-                        self.log.warning('source restart: %s' % e)
-                try:
-                    self.state.set('connecting')
-                    if isinstance(self.nl_prime, type):
-                        spec = {}
-                        spec.update(self.nl_kwarg)
-                        if self.kind in ('nsmanager',):
-                            spec['libc'] = self.ndb.libc
-                        self.nl = self.nl_prime(**spec)
-                    else:
-                        raise TypeError('source channel not supported')
-                    self.state.set('loading')
-                    #
-                    self.nl.bind(**self.bind_arguments)
-                    #
-                    # Initial load -- enqueue the data
-                    #
-                    try:
-                        self.ndb.task_manager.db_flush(self.target)
-                        if self.kind in ('local', 'netns', 'remote'):
-                            self.fake_zero_if()
-                        self.evq.put(tuple(self.nl.dump()), source=self.target)
-                    finally:
-                        pass
-                    self.errors_counter = 0
-                except Exception as e:
-                    self.errors_counter += 1
-                    self.started.set()
-                    self.state.set(f'failed, counter {self.errors_counter}')
-                    self.log.error(f'source error: {type(e)} {e}')
-                    try:
-                        self.evq.put(
-                            (cmsg_failed(self.target),), source=self.target
-                        )
-                    except ShutdownException:
-                        self.state.set('stop')
-                        break
-                    if self.must_restart:
-                        self.log.debug('sleeping before restart')
-                        self.state.set('restart')
-                        self.shutdown.wait(SOURCE_FAIL_PAUSE)
-                        if self.shutdown.is_set():
-                            self.log.debug('source shutdown')
-                            self.state.set('stop')
-                            break
-                    else:
-                        return self.set_ready()
-                    continue
-
-            with self.lock:
-                if self.state.get() == 'loading':
-                    if not self.set_ready():
-                        break
-                    self.started.set()
-                    self.shutdown.clear()
-                    self.state.set('running')
-
-            while self.state.get() not in ('stop', 'restart'):
-                try:
-                    msg = tuple(self.nl.get())
-                    self.log.debug(f'received message {msg}')
-                except Exception as e:
-                    self.errors_counter += 1
-                    self.log.error('source error: %s %s' % (type(e), e))
-                    msg = None
-                    if self.must_restart:
-                        self.state.set('restart')
-                    else:
-                        self.state.set('stop')
-                    break
-
-                code = 0
-                if msg and msg[0]['header']['error']:
-                    code = msg[0]['header']['error'].code
-
-                if not msg or code == errno.ECONNRESET:
-                    self.state.set('stop')
-                    break
-
-                try:
-                    self.evq.put(msg, source=self.target)
-                except ShutdownException:
-                    self.state.set('stop')
-                    break
-
-        # thus we make sure that all the events from
-        # this source are consumed by the main loop
-        # in __dbm__() routine
-        try:
-            self.sync()
-            self.log.debug('flush DB for the target')
-            self.ndb.task_manager.db_flush(self.target)
-        except ShutdownException:
-            self.log.debug('shutdown handled by the main thread')
-            pass
-        self.state.set('stopped')
-
-    def sync(self):
-        self.log.debug('sync')
-        sync = threading.Event()
-        self.evq.put((cmsg_event(self.target, sync),), source=self.target)
-        sync.wait()
-
-    def start(self):
+        self.state.set('connecting')
+        spec = {}
+        spec.update(self.nl_kwarg)
+        self.nl = AsyncIPRoute(**spec)
+        self.state.set('loading')
         #
-        # Start source thread
-        with self.lock:
-            self.log.debug('starting the source')
-            if (self.th is not None) and self.th.is_alive():
-                raise RuntimeError('source is running')
+        await self.nl.setup_endpoint()
+        await self.nl.bind(**self.bind_arguments)
+        #
+        # Initial load -- enqueue the data
+        #
+        self.ndb.schema.flush(self.target)
+        if self.kind in ('local', 'netns', 'remote'):
+            await self.fake_zero_if()
+        async for x in await self.nl.dump():
+            await self.evq.put(x)
 
-            self.th = threading.Thread(
-                target=self.receiver,
-                name='NDB event source: %s' % (self.target),
-            )
-            self.th.start()
-            return self
+        self.state.set('running')
+        await self.evq.put(cmsg_sstart(target=self.target))
+
+        while self.state.get() not in ('stop', 'restart'):
+            async for msg in self.nl.get():
+                error = msg['header']['error']
+                if error:
+                    raise error
+                await self.evq.put(msg)
 
     def close(self, code=errno.ECONNRESET, sync=True):
         with self.shutdown_lock:
@@ -474,7 +372,7 @@ class Source(dict):
 
     def load_sql(self):
         #
-        spec = self.ndb.task_manager.db_fetchone(
+        spec = self.ndb.schema.fetchone(
             '''
                                         SELECT * FROM sources
                                         WHERE f_target = %s
@@ -483,7 +381,7 @@ class Source(dict):
             (self.target,),
         )
         self['target'], self['kind'] = spec
-        for spec in self.ndb.task_manager.db_fetch(
+        for spec in self.ndb.schema.fetch(
             '''
                                           SELECT * FROM sources_options
                                           WHERE f_target = %s

@@ -9,7 +9,7 @@ from ..events import RescheduleException
 from ..objects import RTNL_Object
 
 
-def load_ndmsg(schema, target, event):
+async def load_ndmsg(schema, target, event):
     #
     # ignore events with ifindex == 0
     #
@@ -26,12 +26,12 @@ def load_ndmsg(schema, target, event):
         # bypass for now
         #
         try:
-            schema.load_netlink('af_bridge_fdb', target, event, propagate=True)
+            await schema.load_netlink('af_bridge_fdb', target, event, propagate=True)
         except Exception:
             raise RescheduleException()
 
     else:
-        schema.load_netlink('neighbours', target, event)
+        await schema.load_netlink('neighbours', target, event)
 
 
 ndmsg_schema = (
@@ -85,13 +85,13 @@ class Neighbour(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s WHERE f_ifindex = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -129,7 +129,7 @@ class Neighbour(RTNL_Object):
               '''
         yield ('target', 'tflags', 'ifname', 'lladdr', 'dst')
         where, values = cls._dump_where(view)
-        for record in view.ndb.task_manager.db_fetch(req + where, values):
+        for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
     def __init__(self, *argv, **kwarg):

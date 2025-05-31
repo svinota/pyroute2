@@ -145,7 +145,7 @@ class View(dict):
             return {}
 
     def getmany(self, spec, table=None):
-        return self.ndb.task_manager.db_get(table or self.table, spec)
+        return self.ndb.schema.get(table or self.table, spec)
 
     def getone(self, spec, table=None):
         for obj in self.getmany(spec, table):
@@ -384,7 +384,7 @@ class View(dict):
                 if isinstance(value, (dict, list, tuple, set)):
                     value = json.dumps(value)
                 values.append(value)
-        spec = task_manager.db_fetchone(
+        spec = schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (self.table, ' AND '.join(keys)),
             values,
         )
@@ -510,7 +510,9 @@ class SourcesView(View):
             spec['event'] = threading.Event()
         else:
             sync = False
-        self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        source = Source(self.ndb, **spec)
+        self.cache[spec['target']] = source
+        self.ndb.task_manager.create_task(source.receiver)
         if sync:
             self.cache[spec['target']].event.wait()
         return self.cache[spec['target']]

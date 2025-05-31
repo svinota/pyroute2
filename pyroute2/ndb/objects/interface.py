@@ -200,7 +200,7 @@ from ..auth_manager import AuthManager, check_auth
 from ..objects import RTNL_Object
 
 
-def load_ifinfmsg(schema, target, event):
+async def load_ifinfmsg(schema, target, event):
     #
     # link goes down: flush all related routes
     #
@@ -231,7 +231,7 @@ def load_ifinfmsg(schema, target, event):
     #
     if event['family'] == AF_BRIDGE:
         #
-        schema.load_netlink('af_bridge_ifs', target, event)
+        await schema.load_netlink('af_bridge_ifs', target, event)
         try:
             vlans = event.get_attr('IFLA_AF_SPEC').get_attrs(
                 'IFLA_BRIDGE_VLAN_INFO'
@@ -255,11 +255,11 @@ def load_ifinfmsg(schema, target, event):
         for v in vlans:
             v['index'] = event['index']
             v['header'] = {'type': event['header']['type']}
-            schema.load_netlink('af_bridge_vlans', target, v)
+            await schema.load_netlink('af_bridge_vlans', target, v)
 
         return
 
-    schema.load_netlink('interfaces', target, event)
+    await schema.load_netlink('interfaces', target, event)
     #
     # load ifinfo, if exists
     #
@@ -276,7 +276,7 @@ def load_ifinfmsg(schema, target, event):
                 p2p['index'] = event['index']
                 p2p['family'] = 2
                 p2p['attrs'] = [('P2P_LOCAL', local), ('P2P_REMOTE', remote)]
-                schema.load_netlink('p2p', target, p2p)
+                await schema.load_netlink('p2p', target, p2p)
             elif iftype == 'veth':
                 link = event.get_attr('IFLA_LINK')
                 ifname = event.get_attr('IFLA_IFNAME')
@@ -287,11 +287,11 @@ def load_ifinfmsg(schema, target, event):
                 ):
                     schema.log.debug('reload veth %s' % event['index'])
                     try:
-                        update = schema.sources[target].api(
+                        update = await schema.sources[target].api(
                             'link', 'get', index=event['index']
                         )
                         update = tuple(update)[0]
-                        return schema.load_netlink(
+                        return await schema.load_netlink(
                             'interfaces', target, update
                         )
                     except NetlinkError as e:
@@ -303,7 +303,7 @@ def load_ifinfmsg(schema, target, event):
                 if ifdata is not None:
                     ifdata['header'] = {}
                     ifdata['index'] = event['index']
-                    schema.load_netlink(table, target, ifdata)
+                    await schema.load_netlink(table, target, ifdata)
 
 
 ip_tunnels = ('gre', 'gretap', 'ip6gre', 'ip6gretap', 'ip6tnl', 'sit', 'ipip')
@@ -417,13 +417,13 @@ class Vlan(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s WHERE f_index = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -461,7 +461,7 @@ class Vlan(RTNL_Object):
               '''
         yield ('target', 'tflags', 'vid', 'ifname')
         where, values = cls._dump_where(view)
-        for record in view.ndb.task_manager.db_fetch(req + where, values):
+        for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
     @staticmethod
@@ -510,13 +510,13 @@ class Interface(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s WHERE f_IFLA_MASTER = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -558,7 +558,7 @@ class Interface(RTNL_Object):
             'kind',
         )
         where, values = cls._dump_where(view)
-        for record in view.ndb.task_manager.db_fetch(req + where, values):
+        for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
     def mark_tflags(self, mark):
@@ -909,7 +909,7 @@ class Interface(RTNL_Object):
             ret_key['index'] = key
         return super(Interface, self).complete_key(ret_key)
 
-    def is_peer(self, other):
+    async def is_peer(self, other):
         '''Evaluate whether the given interface "points at" this one.'''
         if other['kind'] == 'vlan':
             return (
@@ -933,9 +933,9 @@ class Interface(RTNL_Object):
             if other_link_netnsid is not None:
                 self_source = self.sources[self['target']]
                 other_source = other.sources[other['target']]
-                info = other_source.api(
+                info = await other_source.api(
                     'get_netnsid',
-                    pid=self_source.api('get_pid'),
+                    pid=os.getpid(),
                     target_nsid=other_link_netnsid,
                 )
                 return info['current_nsid'] == other_link_netnsid
@@ -947,9 +947,9 @@ class Interface(RTNL_Object):
             'link', 'set', index=self['index'], xdp_fd=fd
         )
 
-    def snapshot(self, ctxid=None):
+    async def snapshot(self, ctxid=None):
         # 1. make own snapshot
-        snp = super(Interface, self).snapshot(ctxid=ctxid)
+        snp = await super().snapshot(ctxid=ctxid)
         # 2. collect dependencies and store in self.snapshot_deps
         for spec in self.ndb.interfaces.getmany(
             {'IFLA_MASTER': self['index']}
@@ -958,14 +958,14 @@ class Interface(RTNL_Object):
             link = type(self)(
                 self.view, spec, auth_managers=self.auth_managers
             )
-            snp.snapshot_deps.append((link, link.snapshot()))
+            snp.snapshot_deps.append((link, await link.snapshot()))
         for spec in self.ndb.interfaces.getmany({'IFLA_LINK': self['index']}):
             link = type(self)(
                 self.view, spec, auth_managers=self.auth_managers
             )
             # vlans & veth
-            if self.is_peer(link) and not link.is_peer(self):
-                snp.snapshot_deps.append((link, link.snapshot()))
+            if await self.is_peer(link) and not await link.is_peer(self):
+                snp.snapshot_deps.append((link, await link.snapshot()))
         # return the root node
         return snp
 
@@ -990,29 +990,29 @@ class Interface(RTNL_Object):
         return req
 
     @check_auth('obj:modify')
-    def apply_altnames(
+    async def apply_altnames(
         self, alt_ifname_setup, alt_ifname_current, old_ifname=None
     ):
         if 'alt_ifname_list' in self.changed:
             self.changed.remove('alt_ifname_list')
         if alt_ifname_current is None:
             # load the current state
-            self.load_from_system()
+            await self.load_from_system()
             self.load_sql(set_state=False)
             alt_ifname_current = set(self['alt_ifname_list'])
 
         alt_ifname_remove = alt_ifname_current - alt_ifname_setup
         alt_ifname_add = alt_ifname_setup - alt_ifname_current
         for ifname in alt_ifname_remove:
-            self.sources[self['target']].api(
+            await self.sources[self['target']].api(
                 'link', 'property_del', index=self['index'], altname=ifname
             )
         for ifname in alt_ifname_add:
-            self.sources[self['target']].api(
+            await self.sources[self['target']].api(
                 'link', 'property_add', index=self['index'], altname=ifname
             )
         # reload alt ifnames from the system to check the state
-        self.load_from_system()
+        await self.load_from_system()
         self.load_sql(set_state=False)
         if old_ifname is not None and old_ifname in self['alt_ifname_list']:
             alt_ifname_setup.add(old_ifname)
@@ -1020,7 +1020,7 @@ class Interface(RTNL_Object):
             raise Exception('could not setup alt ifnames')
 
     @check_auth('obj:modify')
-    def apply(self, rollback=False, req_filter=None, mode='apply'):
+    async def apply(self, rollback=False, req_filter=None, mode='apply'):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
@@ -1033,14 +1033,14 @@ class Interface(RTNL_Object):
             if 'index' in self and (
                 self.old_ifname or 'alt_ifname_list' in self.changed
             ):
-                self.apply_altnames(alt_ifname_setup, None)
+                await self.apply_altnames(alt_ifname_setup, None)
             if 'alt_ifname_list' in self.changed:
                 self.changed.remove('alt_ifname_list')
-            super(Interface, self).apply(rollback, req_filter, mode)
+            await super().apply(rollback, req_filter, mode)
             if setns and self['net_ns_fd'] in self.sources:
                 self.load_value('target', self['net_ns_fd'])
                 dict.__setitem__(self, 'net_ns_fd', None)
-                for link in self.sources[self['target']].api(
+                for link in await self.sources[self['target']].api(
                     'link', 'get', ifname=self['ifname']
                 ):
                     # after interface move the name is the same,
@@ -1061,7 +1061,7 @@ class Interface(RTNL_Object):
                 if spec:
                     self.state.set('system')
             if not remove and self.state != 'invalid':
-                self.apply_altnames(
+                await self.apply_altnames(
                     alt_ifname_setup, set(self['alt_ifname_list']), old_ifname
                 )
 
@@ -1085,8 +1085,8 @@ class Interface(RTNL_Object):
                         ]
                     )
 
-                self.apply(rollback, req_filter, mode)
-                self.apply(rollback, None, mode)
+                await self.apply(rollback, req_filter, mode)
+                await self.apply(rollback, None, mode)
 
             elif (
                 e.code == 95
@@ -1106,7 +1106,7 @@ class Interface(RTNL_Object):
                         ]
                     )
 
-                self.apply(rollback, req_filter, mode)
+                await self.apply(rollback, req_filter, mode)
             else:
                 raise
         finally:
@@ -1123,7 +1123,7 @@ class Interface(RTNL_Object):
             )
         return self
 
-    def hook_apply(self, method, **spec):
+    async def hook_apply(self, method, **spec):
         if method == 'set':
             if self['kind'] == 'bridge':
                 keys = filter(lambda x: x.startswith('br_'), self.changed)
@@ -1135,28 +1135,28 @@ class Interface(RTNL_Object):
                     }
                     for key in keys:
                         req[key] = self[key]
-                    self.sources[self['target']].api(self.api, method, **req)
+                    await self.sources[self['target']].api(self.api, method, **req)
                     # FIXME: make a reasonable shortcut for this
-                    self.load_from_system()
+                    await self.load_from_system()
             elif self['kind'] in ip_tunnels and self['state'] == 'down':
                 # force reading attributes for tunnels in the down state
-                self.load_from_system()
+                await self.load_from_system()
         elif method == 'add':
             if self['kind'] == 'tun':
                 self.load_sql()
                 self.load_event.wait(0.1)
                 if 'index' not in self:
                     raise NetlinkError(errno.EAGAIN)
-                update = self.sources[self['target']].api(
+                update = await self.sources[self['target']].api(
                     self.api, 'get', index=self['index']
                 )
                 self.ndb._event_queue.put(update)
 
-    def load_from_system(self):
+    async def load_from_system(self):
         self.load_event.clear()
         (
             self.ndb._event_queue.put(
-                self.sources[self['target']].api(
+                await self.sources[self['target']].api(
                     self.api, 'get', index=self['index']
                 )
             )
@@ -1169,7 +1169,7 @@ class Interface(RTNL_Object):
             tname = 'ifinfo_%s' % self['kind']
             if tname in self.schema.compiled:
                 names = self.schema.compiled[tname]['norm_names']
-                spec = self.ndb.task_manager.db_fetchone(
+                spec = self.ndb.schema.fetchone(
                     'SELECT * from %s WHERE f_index = %s'
                     % (tname, self.schema.plch),
                     (self['index'],),
@@ -1178,8 +1178,8 @@ class Interface(RTNL_Object):
                     self.update(dict(zip(names, spec)))
         return spec
 
-    def load_rtnlmsg(self, *argv, **kwarg):
-        super(Interface, self).load_rtnlmsg(*argv, **kwarg)
+    async def load_rtnlmsg(self, *argv, **kwarg):
+        await super(Interface, self).load_rtnlmsg(*argv, **kwarg)
 
     def key_repr(self):
         return '%s/%s' % (

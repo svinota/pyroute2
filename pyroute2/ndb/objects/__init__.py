@@ -70,11 +70,10 @@ import traceback
 import weakref
 from functools import partial
 
-from pyroute2 import cli
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.requests.main import RequestProcessor
 
-from ..auth_manager import AuthManager, check_auth
+from ..auth_manager import AuthManager
 from ..events import InvalidateHandlerException, State
 from ..messages import cmsg_event
 from ..report import Record
@@ -214,7 +213,7 @@ class RTNL_Object(dict):
     #
     @classmethod
     def _count(cls, view):
-        return view.ndb.task_manager.db_fetchone(
+        return view.ndb.schema.fetchone(
             'SELECT count(*) FROM %s' % view.table
         )
 
@@ -232,7 +231,7 @@ class RTNL_Object(dict):
         )
         yield names
         where, values = cls._dump_where(view)
-        for record in view.ndb.task_manager.db_fetch(req + where, values):
+        for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
     @classmethod
@@ -419,11 +418,9 @@ class RTNL_Object(dict):
     def __hash__(self):
         return id(self)
 
-    @check_auth('obj:read')
     def __getitem__(self, key):
         return dict.__getitem__(self, key)
 
-    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         for nkey, nvalue in self.object_data.filter(key, value).items():
             if self.get(nkey) == nvalue:
@@ -456,7 +453,6 @@ class RTNL_Object(dict):
     def key_repr(self):
         return repr(self.key)
 
-    @cli.change_pointer
     def create(self, **spec):
         '''
         Create an RTNL object of the same type, and add it to the
@@ -490,8 +486,6 @@ class RTNL_Object(dict):
         spec['ndb_chain'] = self
         return self.view[spec]
 
-    @cli.show_result
-    @check_auth('obj:read')
     def show(self, fmt=None):
         '''
         Return the object in a specified format. The format may be
@@ -565,8 +559,7 @@ class RTNL_Object(dict):
                 )
             )
 
-    @check_auth('obj:modify')
-    def snapshot(self, ctxid=None):
+    async def snapshot(self, ctxid=None):
         '''
         Create and return a snapshot of the object. The method creates
         corresponding SQL tables for the object itself and for detected
@@ -583,7 +576,7 @@ class RTNL_Object(dict):
         snp = type(self)(
             self.view, key, ctxid=ctxid, auth_managers=self.auth_managers
         )
-        self.ndb.task_manager.db_save_deps(
+        self.ndb.schema.save_deps(
             ctxid, weakref.ref(snp), self.iclass
         )
         snp.changed = set(self.changed)
@@ -630,7 +623,7 @@ class RTNL_Object(dict):
                 if value is not None and name in self.spec:
                     keys.append('f_%s = %s' % (name, self.schema.plch))
                     values.append(value)
-            spec = self.ndb.task_manager.db_fetchone(
+            spec = self.ndb.schema.fetchone(
                 'SELECT %s FROM %s WHERE %s'
                 % (' , '.join(fetch), self.etable, ' AND '.join(keys)),
                 values,
@@ -650,8 +643,7 @@ class RTNL_Object(dict):
         '''
         return self.view.exists(key)
 
-    @check_auth('obj:modify')
-    def rollback(self, snapshot=None):
+    async def rollback(self, snapshot=None):
         '''
         Try to rollback the object state using the snapshot provided as
         an argument or using `self.last_save`.
@@ -674,9 +666,9 @@ class RTNL_Object(dict):
         else:
             snapshot.state.set(self.state.get())
             snapshot.rollback_chain = self._apply_script_snapshots
-            snapshot.apply(rollback=True)
+            await snapshot.apply(rollback=True)
             for link, snp in snapshot.snapshot_deps:
-                link.rollback(snapshot=snp)
+                await link.rollback(snapshot=snp)
             return self
 
     def clear(self):
@@ -690,8 +682,7 @@ class RTNL_Object(dict):
             and not self._apply_script
         )
 
-    @check_auth('obj:modify')
-    def commit(self):
+    async def commit(self):
         '''
         Commit the pending changes. If an exception is raised during
         `commit()`, automatically `rollback()` to the latest saved snapshot.
@@ -708,7 +699,7 @@ class RTNL_Object(dict):
             save = dict(self)
             self.last_save = -1
             try:
-                return self.apply(mode='commit')
+                return await self.apply(mode='commit')
             except Exception as e_i:
                 # Save the debug info
                 e_i.trace = traceback.format_exc()
@@ -728,17 +719,17 @@ class RTNL_Object(dict):
         # variable will be saved in the traceback, so the tables will be
         # available to debug. If the traceback will be saved somewhere then
         # the tables will never be dropped by the GC, so you can do it
-        # manually by `ndb.task_manager.db_purge_snapshots()` -- to invalidate
+        # manually by `ndb.schema.purge_snapshots()` -- to invalidate
         # all the snapshots and to drop the associated tables.
 
-        self.last_save = self.snapshot()
+        self.last_save = await self.snapshot()
         # Apply the changes
         try:
-            self.apply(mode='commit')
+            await self.apply(mode='commit')
         except Exception as e_c:
             # Rollback in the case of any error
             try:
-                self.rollback()
+                await self.rollback()
             except Exception as e_r:
                 e_c.chain = [e_r]
                 if hasattr(e_r, 'chain'):
@@ -800,7 +791,7 @@ class RTNL_Object(dict):
             conditions.append('f_%s = %s' % (name, self.schema.plch))
             values.append(self.get(self.iclass.nla2name(name), None))
         return (
-            self.ndb.task_manager.db_fetchone(
+            self.ndb.schema.fetchone(
                 '''
                           SELECT count(*) FROM %s WHERE %s
                           '''
@@ -809,31 +800,29 @@ class RTNL_Object(dict):
             )
         )[0]
 
-    def hook_apply(self, method, **spec):
+    async def hook_apply(self, method, **spec):
         pass
 
-    @check_auth('obj:modify')
-    def save_context(self):
+    async def save_context(self):
         if self.state == 'invalid':
             self.last_save = -1
         else:
-            self.last_save = self.snapshot()
+            self.last_save = await self.snapshot()
         return self
 
-    @check_auth('obj:modify')
-    def apply(self, rollback=False, req_filter=None, mode='apply'):
+    async def apply(self, rollback=False, req_filter=None, mode='apply'):
         '''
         Apply the pending changes. If an exception is raised during
         `apply()`, no `rollback()` is called. No automatic snapshots
-        are madre.
+        are made.
 
         In order to properly revert the changes, you have to run::
 
-            obj.save_context()
+            await obj.save_context()
             try:
-                obj.apply()
+                await obj.apply()
             except Exception:
-                obj.rollback()
+                await obj.rollback()
         '''
 
         # Resolve the fields
@@ -851,7 +840,7 @@ class RTNL_Object(dict):
 
         # Load the current state
         try:
-            self.task_manager.db_commit()
+            self.schema.commit()
         except Exception:
             pass
         self.load_sql(set_state=False)
@@ -981,7 +970,7 @@ class RTNL_Object(dict):
                     continue
                 table = cls.table
                 # comprare the tables
-                diff = self.ndb.task_manager.db_fetch(
+                diff = self.ndb.schema.fetch(
                     '''
                     SELECT * FROM %s_%s
                       EXCEPT
@@ -1045,7 +1034,7 @@ class RTNL_Object(dict):
                 self.log.debug('criteria matched')
                 return ret
             self.log.debug(f'resync the DB attempt {attempt}')
-            self.ndb.task_manager.db_flush(self['target'])
+            self.ndb.schema.flush(self['target'])
             self.load_event.clear()
             (
                 self.ndb._event_queue.put(
@@ -1121,7 +1110,7 @@ class RTNL_Object(dict):
                 value = json.dumps(value)
             values.append(value)
 
-        spec = self.ndb.task_manager.db_fetchone(
+        spec = self.ndb.schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(keys)), values
         )
         self.log.debug('load_sql load: %s' % str(spec))

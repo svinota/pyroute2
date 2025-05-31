@@ -55,7 +55,7 @@ from pyroute2.netlink.rtnl.probe_msg import probe_msg
 from ..objects import RTNL_Object
 
 
-def load_probe_msg(schema, target, event):
+async def load_probe_msg(schema, target, event):
     pass
 
 

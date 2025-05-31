@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import logging
 import queue
@@ -55,9 +56,11 @@ class TaskManager:
         self.ndb = ndb
         self.log = ndb.log
         self.event_map = {}
-        self.event_queue = ndb._event_queue
+        self.task_map = {}
+        self.event_queue = asyncio.Queue()
         self.thread = None
         self.ctime = self.gctime = time.time()
+        self.ready = asyncio.Event()
 
     def register_handler(self, event, handler):
         if event not in self.event_map:
@@ -72,10 +75,10 @@ class TaskManager:
             raise event.payload
         log.debug('unsupported event ignored: %s' % type(event))
 
-    def check_sources_started(self, _locals, target, event):
+    async def check_sources_started(self, _locals, target, event):
         _locals['countdown'] -= 1
         if _locals['countdown'] == 0:
-            self.ndb._dbm_ready.set()
+            self.ready.set()
 
     def wrap_method(self, method):
         #
@@ -163,7 +166,72 @@ class TaskManager:
                 setattr(self, name, partial(proxy, self))
                 self.event_map[event] = [handler]
 
-    def run(self):
+    def main(self):
+        asyncio.run(self.run())
+
+    def create_task(self, coro):
+        task = asyncio.create_task(coro())
+        self.task_map[task] = ['running', coro]
+
+    async def task_watch(self):
+        while True:
+            tasks = list(self.task_map.keys())
+            self.log.debug("task list %s", tasks)
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_COMPLETED
+            )
+            self.log.debug("done %s", done)
+            self.log.debug("pending %s", pending)
+            for task in done:
+                target_state, init = self.task_map.pop(task)
+                if target_state == 'running':
+                    self.create_task(init)
+
+    async def receiver(self):
+        while True:
+            event = await self.event_queue.get()
+            self.log.debug("event %s", type(event))
+            handlers = self.event_map.get(
+                event.__class__, [self.default_handler]
+            )
+
+            for handler in tuple(handlers):
+                try:
+                    target = event['header']['target']
+                    print(handler, target, event)
+                    await handler(target, event)
+                except RescheduleException:
+                    if 'rcounter' not in event['header']:
+                        event['header']['rcounter'] = 0
+                    if event['header']['rcounter'] < 3:
+                        event['header']['rcounter'] += 1
+                        self.log.debug('reschedule %s' % (event,))
+                        reschedule.append(event)
+                    else:
+                        self.log.error('drop %s' % (event,))
+                except InvalidateHandlerException:
+                    try:
+                        handlers.remove(handler)
+                    except Exception:
+                        self.log.error(
+                            'could not invalidate '
+                            'event handler:\n%s'
+                            % traceback.format_exc()
+                        )
+                except ShutdownException:
+                    stop = True
+                    break
+                except DBMExitException:
+                    return
+                except Exception:
+                    self.log.error(
+                        'could not load event:\n%s\n%s'
+                        % (event, traceback.format_exc())
+                    )
+            if time.time() - self.gctime > config.gc_timeout:
+                self.gctime = time.time()
+
+    async def run(self):
         _locals = {'countdown': len(self.ndb._nl)}
         self.thread = id(threading.current_thread())
 
@@ -188,90 +256,23 @@ class TaskManager:
 
         except Exception as e:
             self.ndb._dbm_error = e
-            self.ndb._dbm_ready.set()
+            self.ready.set()
             return
-
-        for spec in self.ndb._nl:
-            spec['event'] = None
-            self.ndb.sources.add(**spec)
 
         for event, handlers in self.ndb.schema.event_map.items():
             for handler in handlers:
                 self.register_handler(event, handler)
 
-        stop = False
-        source = None
-        reschedule = []
-        while not stop:
-            source, events = self.event_queue.get()
-            events = Events(events, reschedule)
-            reschedule = []
-            try:
-                for event in events:
-                    handlers = event_map.get(
-                        event.__class__, [self.default_handler]
-                    )
+        # create an event loop
+        self.event_loop = asyncio.get_event_loop()
+        self.ndb.event_loop = self.event_loop
 
-                    for handler in tuple(handlers):
-                        try:
-                            target = event['header']['target']
-                            handler(target, event)
-                        except RescheduleException:
-                            if 'rcounter' not in event['header']:
-                                event['header']['rcounter'] = 0
-                            if event['header']['rcounter'] < 3:
-                                event['header']['rcounter'] += 1
-                                self.log.debug('reschedule %s' % (event,))
-                                reschedule.append(event)
-                            else:
-                                self.log.error('drop %s' % (event,))
-                        except InvalidateHandlerException:
-                            try:
-                                handlers.remove(handler)
-                            except Exception:
-                                self.log.error(
-                                    'could not invalidate '
-                                    'event handler:\n%s'
-                                    % traceback.format_exc()
-                                )
-                        except ShutdownException:
-                            stop = True
-                            break
-                        except DBMExitException:
-                            return
-                        except Exception:
-                            self.log.error(
-                                'could not load event:\n%s\n%s'
-                                % (event, traceback.format_exc())
-                            )
-                    if time.time() - self.gctime > config.gc_timeout:
-                        self.gctime = time.time()
-            except Exception as e:
-                self.log.error(f'exception <{e}> in source {source}')
-                # restart the target
-                try:
-                    self.log.debug(f'requesting source {source} restart')
-                    self.ndb.sources[source].state.set('restart')
-                except KeyError:
-                    self.log.debug(f'key error for {source}')
-                    pass
+        for spec in self.ndb._nl:
+            spec['event'] = None
+            self.ndb.sources.add(**spec)
 
-        # release all the sources
-        for target in tuple(self.ndb.sources.cache):
-            source = self.ndb.sources.remove(target, sync=False)
-            if source is not None and source.th is not None:
-                self.log.debug(f'closing source {source}')
-                source.close()
-                if self.ndb.schema.config['db_cleanup']:
-                    self.log.debug('flush DB for the target %s' % target)
-                    self.ndb.schema.flush(target)
-                else:
-                    self.log.debug('leave DB for debug')
-
-        # close the database
-        self.ndb.schema.commit()
-        self.ndb.schema.close()
-
-        # close the logging
-        for handler in self.log.logger.handlers:
-            handler.close()
+        self.create_task(self.receiver)
+        await self.ready.wait()
+        self.ndb.schema.export()
+        return
+        await self.task_watch()

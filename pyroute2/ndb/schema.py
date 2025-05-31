@@ -843,7 +843,7 @@ class DBSchema:
             values,
         )
 
-    def load_netlink(self, table, target, event, ctable=None, propagate=False):
+    async def load_netlink(self, table, target, event, ctable=None, propagate=False):
         #
         if self.rtnl_log:
             self.log_netlink(table, target, event, ctable)

@@ -153,7 +153,7 @@ def get_route_id(schema, target, event):
     return str(uuid.uuid4())
 
 
-def load_rtmsg(schema, target, event):
+async def load_rtmsg(schema, target, event):
     route_id = None
     post = []
 
@@ -249,10 +249,10 @@ def load_rtmsg(schema, target, event):
     #
     if route_id is not None:
         event['route_id'] = route_id
-    schema.load_netlink('routes', target, event)
+    await schema.load_netlink('routes', target, event)
     #
     for procedure in post:
-        procedure()
+        await procedure()
 
 
 def rtmsg_gc_mark(schema, target, event, gc_mark=None):
@@ -415,13 +415,13 @@ class Route(RTNL_Object):
     @classmethod
     def _count(cls, view):
         if view.chain:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s WHERE f_RTA_OIF = %s'
                 % (view.table, view.ndb.schema.plch),
                 [view.chain['index']],
             )
         else:
-            return view.ndb.task_manager.db_fetchone(
+            return view.ndb.schema.fetchone(
                 'SELECT count(*) FROM %s' % view.table
             )
 
@@ -485,7 +485,7 @@ class Route(RTNL_Object):
             'gateway',
         )
         where, values = cls._dump_where(view)
-        for record in view.ndb.task_manager.db_fetch(req + where, values):
+        for record in view.ndb.schema.fetch(req + where, values):
             yield record
 
     @classmethod
@@ -508,14 +508,14 @@ class Route(RTNL_Object):
         yield header
         plch = view.ndb.schema.plch
         where, values = cls._dump_where(view)
-        for record in view.ndb.task_manager.db_fetch(req + where, values):
+        for record in view.ndb.schema.fetch(req + where, values):
             route_id = record[-1]
             record = list(record[:-1])
             if route_id is not None:
                 #
                 # fetch metrics
                 metrics = tuple(
-                    view.ndb.task_manager.db_fetch(
+                    view.ndb.schema.fetch(
                         '''
                     SELECT * FROM metrics WHERE f_route_id = %s
                 '''
@@ -539,7 +539,7 @@ class Route(RTNL_Object):
                 #
                 # fetch encap
                 enc_mpls = tuple(
-                    view.ndb.task_manager.db_fetch(
+                    view.ndb.schema.fetch(
                         '''
                     SELECT * FROM enc_mpls WHERE f_route_id = %s
                 '''
@@ -758,7 +758,7 @@ class Route(RTNL_Object):
         if self['deps'] & F_RTA_ENCAP:
             for _ in range(5):
                 enc = tuple(
-                    self.task_manager.db_fetch(
+                    self.schema.fetch(
                         'SELECT * FROM enc_mpls WHERE f_route_id = %s'
                         % (self.schema.plch,),
                         (self['route_id'],),
@@ -780,7 +780,7 @@ class Route(RTNL_Object):
         if self['deps'] & F_RTA_METRICS:
             for _ in range(5):
                 metrics = tuple(
-                    self.task_manager.db_fetch(
+                    self.schema.fetch(
                         'SELECT * FROM metrics WHERE f_route_id = %s'
                         % (self.schema.plch,),
                         (self['route_id'],),
@@ -804,7 +804,7 @@ class Route(RTNL_Object):
         #
         # FIXME: use self['deps']
         if 'nh_id' not in self and self.get('route_id') is not None:
-            nhs = self.task_manager.db_fetch(
+            nhs = self.schema.fetch(
                 'SELECT * FROM nh WHERE f_route_id = %s' % (self.schema.plch,),
                 (self['route_id'],),
             )
