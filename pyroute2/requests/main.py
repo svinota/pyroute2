@@ -18,10 +18,10 @@ class RequestProcessor(dict):
     combined = None
     parameters = None
 
-    def __init__(self, context=None, prime=None):
+    def __init__(self, context=None, prime=None, parameters=None):
         self.reset_filters()
         self.reset_mark()
-        self.parameters = {}
+        self.parameters = dict(parameters) if parameters else {}
         prime = {} if prime is None else prime
         self.context = (
             context if isinstance(context, (dict, weakref.ProxyType)) else {}
@@ -102,7 +102,12 @@ class RequestProcessor(dict):
                 if setter is not None:
                     if ret is None:
                         ret = {}
-                    ret.update(setter(ChainMap(self.combined, ret), v))
+                    ret.update(setter(ChainMap(
+                        self.combined,
+                        ret,
+                        {'_parameters': self.parameters}
+                    ), v))
+
             if ret is not None:
                 job = ret
 
