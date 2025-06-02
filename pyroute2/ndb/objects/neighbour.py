@@ -26,7 +26,9 @@ async def load_ndmsg(schema, target, event):
         # bypass for now
         #
         try:
-            await schema.load_netlink('af_bridge_fdb', target, event, propagate=True)
+            await schema.load_netlink(
+                'af_bridge_fdb', target, event, propagate=True
+            )
         except Exception:
             raise RescheduleException()
 

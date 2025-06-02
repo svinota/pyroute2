@@ -187,8 +187,10 @@ way as with `IPRoute`:
 
 import errno
 import json
+import os
 import traceback
 
+from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink.exceptions import NetlinkError
@@ -951,7 +953,7 @@ class Interface(RTNL_Object):
         # 1. make own snapshot
         snp = await super().snapshot(ctxid=ctxid)
         # 2. collect dependencies and store in self.snapshot_deps
-        for spec in self.ndb.interfaces.getmany(
+        for spec in self.ndb.views.interfaces.getmany(
             {'IFLA_MASTER': self['index']}
         ):
             # bridge ports
@@ -959,7 +961,9 @@ class Interface(RTNL_Object):
                 self.view, spec, auth_managers=self.auth_managers
             )
             snp.snapshot_deps.append((link, await link.snapshot()))
-        for spec in self.ndb.interfaces.getmany({'IFLA_LINK': self['index']}):
+        for spec in self.ndb.views.interfaces.getmany(
+            {'IFLA_LINK': self['index']}
+        ):
             link = type(self)(
                 self.view, spec, auth_managers=self.auth_managers
             )
@@ -989,7 +993,6 @@ class Interface(RTNL_Object):
                         req[key] = self[key]
         return req
 
-    @check_auth('obj:modify')
     async def apply_altnames(
         self, alt_ifname_setup, alt_ifname_current, old_ifname=None
     ):
@@ -1024,7 +1027,7 @@ class Interface(RTNL_Object):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
-                self[key] = self.ndb.interfaces[self[key]]['index']
+                self[key] = self.ndb.views.interfaces[self[key]]['index']
         setns = self.state.get() == 'setns'
         remove = self.state.get() == 'remove'
         alt_ifname_setup = set(self['alt_ifname_list'])
@@ -1135,7 +1138,9 @@ class Interface(RTNL_Object):
                     }
                     for key in keys:
                         req[key] = self[key]
-                    await self.sources[self['target']].api(self.api, method, **req)
+                    await self.sources[self['target']].api(
+                        self.api, method, **req
+                    )
                     # FIXME: make a reasonable shortcut for this
                     await self.load_from_system()
             elif self['kind'] in ip_tunnels and self['state'] == 'down':
@@ -1144,7 +1149,7 @@ class Interface(RTNL_Object):
         elif method == 'add':
             if self['kind'] == 'tun':
                 self.load_sql()
-                self.load_event.wait(0.1)
+                await self.load_event.wait()
                 if 'index' not in self:
                     raise NetlinkError(errno.EAGAIN)
                 update = await self.sources[self['target']].api(
@@ -1154,14 +1159,11 @@ class Interface(RTNL_Object):
 
     async def load_from_system(self):
         self.load_event.clear()
-        (
-            self.ndb._event_queue.put(
-                await self.sources[self['target']].api(
-                    self.api, 'get', index=self['index']
-                )
-            )
+        interface = await self.sources[self['target']].api(
+            self.api, 'get', index=self['index']
         )
-        self.load_event.wait(1)
+        self.ndb._event_queue.put(interface)
+        await self.load_event.wait()
 
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
@@ -1179,7 +1181,7 @@ class Interface(RTNL_Object):
         return spec
 
     async def load_rtnlmsg(self, *argv, **kwarg):
-        await super(Interface, self).load_rtnlmsg(*argv, **kwarg)
+        await super().load_rtnlmsg(*argv, **kwarg)
 
     def key_repr(self):
         return '%s/%s' % (

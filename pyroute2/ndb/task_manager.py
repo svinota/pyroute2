@@ -70,15 +70,21 @@ class TaskManager:
     def unregister_handler(self, event, handler):
         self.event_map[event].remove(handler)
 
-    def default_handler(self, target, event):
+    async def handler_default(self, target, event):
         if isinstance(getattr(event, 'payload', None), Exception):
             raise event.payload
         log.debug('unsupported event ignored: %s' % type(event))
 
-    async def check_sources_started(self, _locals, target, event):
+    async def handler_check_sources(self, _locals, target, event):
         _locals['countdown'] -= 1
         if _locals['countdown'] == 0:
             self.ready.set()
+
+    async def handler_event(self, target, event):
+        event.payload.set()
+
+    async def handler_failed(self, target, event):
+        self.ndb.schema.mark(target, 1)
 
     def wrap_method(self, method):
         #
@@ -192,13 +198,12 @@ class TaskManager:
             event = await self.event_queue.get()
             self.log.debug("event %s", type(event))
             handlers = self.event_map.get(
-                event.__class__, [self.default_handler]
+                event.__class__, [self.handler_default]
             )
 
             for handler in tuple(handlers):
                 try:
                     target = event['header']['target']
-                    print(handler, target, event)
                     await handler(target, event)
                 except RescheduleException:
                     if 'rcounter' not in event['header']:
@@ -215,8 +220,7 @@ class TaskManager:
                     except Exception:
                         self.log.error(
                             'could not invalidate '
-                            'event handler:\n%s'
-                            % traceback.format_exc()
+                            'event handler:\n%s' % traceback.format_exc()
                         )
                 except ShutdownException:
                     stop = True
@@ -237,9 +241,9 @@ class TaskManager:
 
         # init the events map
         event_map = {
-            cmsg_event: [lambda t, x: x.payload.set()],
-            cmsg_failed: [lambda t, x: (self.ndb.schema.mark(t, 1))],
-            cmsg_sstart: [partial(self.check_sources_started, _locals)],
+            cmsg_event: [self.handler_event],
+            cmsg_failed: [self.handler_failed],
+            cmsg_sstart: [partial(self.handler_check_sources, _locals)],
         }
         self.event_map = event_map
 
@@ -274,5 +278,10 @@ class TaskManager:
         self.create_task(self.receiver)
         await self.ready.wait()
         self.ndb.schema.export()
+        # print(self.ndb.views.interfaces['test0'])
+        i = self.ndb.views.interfaces['test0']
+        i.set('state', 'up')
+        await i.commit()
+        print('FIN')
         return
         await self.task_watch()

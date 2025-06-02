@@ -271,10 +271,12 @@ Change an interface property:
 import atexit
 import ctypes
 import ctypes.util
+import inspect
 import logging
 import logging.handlers
 import queue
 import threading
+from functools import reduce
 from urllib.parse import urlparse
 
 from pyroute2.common import basestring
@@ -383,6 +385,24 @@ class Log:
     def channel(self, name):
         return logging.getLogger('pyroute2.ndb.%s.%s' % (self.log_id, name))
 
+    def callstack(self, *argv, **kwarg):
+        # frame 0: self.debug()
+        # frame 1: the function that sends the logging
+        # frame 2: the caller function
+        self.main.debug(
+            'call stack: %s:%s %s() -> %s:%s %s()',
+            *reduce(
+                lambda x, y: x + y,
+                reversed(
+                    [
+                        (x.filename, x.lineno, x.function)
+                        for x in inspect.stack()[1:3]
+                    ]
+                ),
+            )
+        )
+        return self.debug(*argv, **kwarg)
+
     def debug(self, *argv, **kwarg):
         return self.main.debug(*argv, **kwarg)
 
@@ -431,6 +451,13 @@ class AuthProxy:
 
         for vtable, vname in NDB_VIEWS_SPECS:
             view = View(self._ndb, vtable, auth_managers=self._auth_managers)
+            setattr(self, vname, view)
+
+
+class Views:
+    def __init__(self, ndb, auth_managers):
+        for vtable, vname in NDB_VIEWS_SPECS:
+            view = View(ndb, vtable, auth_managers=auth_managers)
             setattr(self, vname, view)
 
 
@@ -510,9 +537,7 @@ class NDB:
             'recordset_pipe': 'false',
         }
         #
-        for vtable, vname in NDB_VIEWS_SPECS:
-            view = View(self, vtable, auth_managers=[am])
-            setattr(self, vname, view)
+        self.views = Views(self, [am])
         #
         self.task_manager = TaskManager(self)
         self._dbm_thread = threading.Thread(

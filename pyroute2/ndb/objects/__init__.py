@@ -61,6 +61,7 @@ API
 ===
 '''
 
+import asyncio
 import collections
 import errno
 import json
@@ -213,9 +214,7 @@ class RTNL_Object(dict):
     #
     @classmethod
     def _count(cls, view):
-        return view.ndb.schema.fetchone(
-            'SELECT count(*) FROM %s' % view.table
-        )
+        return view.ndb.schema.fetchone('SELECT count(*) FROM %s' % view.table)
 
     @classmethod
     def _dump_where(cls, view):
@@ -289,7 +288,7 @@ class RTNL_Object(dict):
         self.state = State()
         self.state.set('invalid')
         self.snapshot_deps = []
-        self.load_event = threading.Event()
+        self.load_event = asyncio.Event()
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
@@ -576,9 +575,7 @@ class RTNL_Object(dict):
         snp = type(self)(
             self.view, key, ctxid=ctxid, auth_managers=self.auth_managers
         )
-        self.ndb.schema.save_deps(
-            ctxid, weakref.ref(snp), self.iclass
-        )
+        self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
 
@@ -890,11 +887,11 @@ class RTNL_Object(dict):
         for itn in range(10):
             try:
                 self.log.debug('API call %s (%s)' % (method, req))
-                (self.sources[self['target']].api(self.api, method, **req))
+                await self.sources[self['target']].api(self.api, method, **req)
                 first_call_success = True
-                (self.hook_apply(method, **req))
+                await self.hook_apply(method, **req)
             except NetlinkError as e:
-                (self.log.debug('error: %s' % e))
+                self.log.debug('error: %s' % e)
                 if not first_call_success:
                     self.log.debug('error on the first API call, escalate')
                     raise
@@ -917,13 +914,13 @@ class RTNL_Object(dict):
                             if isinstance(
                                 self.fallback_for[method][e.code], str
                             ):
-                                self.sources[self['target']].api(
+                                await self.sources[self['target']].api(
                                     self.api,
                                     self.fallback_for[method][e.code],
                                     **req,
                                 )
                             else:
-                                self.fallback_for[method][e.code](
+                                await self.fallback_for[method][e.code](
                                     self, idx_req, req
                                 )
                         except NetlinkError:
@@ -948,11 +945,11 @@ class RTNL_Object(dict):
                 self.log.debug('checked')
                 break
             self.log.debug('check failed')
-            self.load_event.wait(wtime)
+            await self.load_event.wait()
             self.load_event.clear()
         else:
             self.log.debug('stats: %s apply %s fail' % (id(self), method))
-            if not self.use_db_resync(lambda x: x, self.check):
+            if not await self.use_db_resync(lambda x: x, self.check):
                 self._apply_script = []
                 raise Exception('could not apply the changes')
 
@@ -960,7 +957,7 @@ class RTNL_Object(dict):
         #
         if state == 'replace':
             self._replace.remove()
-            self._replace.apply()
+            await self._replace.apply()
         #
         if rollback:
             #
@@ -1002,14 +999,14 @@ class RTNL_Object(dict):
                     except Exception as e:
                         self.errors.append((time.time(), obj, e))
             for obj in reversed(self.rollback_chain):
-                obj.rollback()
+                await obj.rollback()
         else:
             apply_script = self._apply_script
             self._apply_script = []
             for op, kwarg in apply_script:
                 kwarg['self'] = self
                 kwarg['mode'] = mode
-                ret = self.use_db_resync(
+                ret = await self.use_db_resync(
                     lambda x: not isinstance(x, KeyError), op, tuple(), kwarg
                 )
                 if not isinstance(ret, list):
@@ -1021,7 +1018,7 @@ class RTNL_Object(dict):
                         self._apply_script_snapshots.append(obj)
         return self
 
-    def use_db_resync(self, criteria, method, argv=None, kwarg=None):
+    async def use_db_resync(self, criteria, method, argv=None, kwarg=None):
         ret = None
         argv = argv or []
         kwarg = kwarg or {}
@@ -1048,7 +1045,7 @@ class RTNL_Object(dict):
                     source=self['target'],
                 )
             )
-            self.load_event.wait(self.wtime(1))
+            await self.load_event.wait()
             self.load_event.clear()
         return ret
 
@@ -1127,7 +1124,7 @@ class RTNL_Object(dict):
                     self.state.set('system')
         return spec
 
-    def load_rtnlmsg(self, target, event):
+    async def load_rtnlmsg(self, target, event):
         '''
         Check if the RTNL event matches the object and load the
         data from the database if it does.

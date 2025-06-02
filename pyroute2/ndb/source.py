@@ -254,7 +254,11 @@ class Source(dict):
             with self.lock:
                 try:
                     self.log.debug(f'source api run {name} {argv} {kwarg}')
-                    return await getattr(self.nl, name)(*argv, **kwarg)
+                    ret = []
+                    for msg in await getattr(self.nl, name)(*argv, **kwarg):
+                        await self.evq.put(msg)
+                        ret.append(msg)
+                    return ret
                 except (
                     NetlinkError,
                     AttributeError,
