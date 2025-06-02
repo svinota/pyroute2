@@ -96,6 +96,11 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
             return {'type': rt_type[value]}
         return {'type': value}
 
+    def set_table(self, context, value):
+        if not context["_parameters"]['strict_check']:
+            return {'table': value if value <= 255 else 252}
+        return {}
+
 
 class RouteIPRouteFilter(IPRouteFilter):
 
