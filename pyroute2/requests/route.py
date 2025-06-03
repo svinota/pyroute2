@@ -3,6 +3,7 @@ from socket import AF_INET, AF_INET6
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rt_files import RtDsfieldFile
 from pyroute2.netlink.rt_files import RtProtosFile
+from pyroute2.netlink.rt_files import RtRealmsFile
 from pyroute2.netlink.rt_files import RtScopesFile
 from pyroute2.netlink.rt_files import RtTablesFile
 from pyroute2.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
@@ -132,6 +133,13 @@ class RouteIPRouteFilter(IPRouteFilter):
                 return 0
             return table if 0 < table < 255 else 254
         return table
+
+    def set_flow(self, context, value):
+        if isinstance(value, str):
+            value = RtRealmsFile().get_rt_id(value)
+        return {"flow": value}
+
+    set_realms = set_flow
 
     def set_metrics(self, context, value):
         if value and 'attrs' not in value:
