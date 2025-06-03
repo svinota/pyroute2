@@ -2,6 +2,7 @@ import ipaddress
 from socket import AF_INET, AF_INET6
 
 from pyroute2.common import dqn2int, get_address_family, getbroadcast
+from pyroute2.netlink.rt_files import RtAddrProtosFile
 
 from .common import Index, IPRouteFilter, NLAKeyTransform
 
@@ -68,6 +69,11 @@ class AddressIPRouteFilter(IPRouteFilter):
                 cacheinfo[f'ifa_{i}'] = context.get(i, pow(2, 32) - 1)
             return {'cacheinfo': cacheinfo}
         return {}
+
+    def set_proto(self, context, value):
+        if isinstance(value, str):
+            value = RtAddrProtosFile().get_rt_id(value)
+        return {'proto': value}
 
     def set_broadcast(self, context, value):
         ret = {}
