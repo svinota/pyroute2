@@ -52,6 +52,13 @@ class IPRouteRtFile:
 
                     if rt_id_as_str.startswith("0x"):
                         rt_id = int(rt_id_as_str[2:], 16)
+                    elif ':' in rt_id_as_str:
+                        # tc handle as class_id string
+                        (major, minor) = [
+                            int(x if x else '0', 16)
+                            for x in rt_id_as_str.split(':')
+                        ]
+                        rt_id = (major << 16) | minor
                     else:
                         rt_id = int(rt_id_as_str)
 
