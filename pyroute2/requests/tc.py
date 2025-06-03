@@ -1,5 +1,6 @@
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
+from pyroute2.netlink.rt_files import TcClsFile
 
 from .common import IPRouteFilter
 
@@ -7,10 +8,13 @@ from .common import IPRouteFilter
 class TcRequestFilter:
     def transform_handle(self, key, context, handle):
         if isinstance(handle, str):
-            (major, minor) = [
-                int(x if x else '0', 16) for x in handle.split(':')
-            ]
-            handle = (major << 8 * 2) | minor
+            if ':' not in handle:
+                handle = TcClsFile().get_rt_id(handle)
+            else:
+                (major, minor) = [
+                    int(x if x else '0', 16) for x in handle.split(':')
+                ]
+                handle = (major << 8 * 2) | minor
         return {key: handle}
 
     def set_handle(self, context, value):
