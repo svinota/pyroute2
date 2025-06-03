@@ -2,6 +2,7 @@ from socket import AF_INET, AF_INET6
 
 from pyroute2.common import AF_MPLS
 from pyroute2.netlink.rt_files import RtDsfieldFile
+from pyroute2.netlink.rt_files import RtProtosFile
 from pyroute2.netlink.rt_files import RtScopesFile
 from pyroute2.netlink.rt_files import RtTablesFile
 from pyroute2.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
@@ -90,7 +91,11 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
 
     def set_proto(self, context, value):
         if isinstance(value, str):
-            return {'proto': rt_proto[value]}
+            try:
+                value = rt_proto[value]
+            except KeyError:
+                # lookup with rt_proto* files
+                value = RtProtosFile().get_rt_id(value)
         return {'proto': value}
 
     def set_encap_type(self, context, value):
