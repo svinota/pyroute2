@@ -196,6 +196,7 @@ class TaskManager:
     async def receiver(self):
         while True:
             event = await self.event_queue.get()
+            reschedule = []
             self.log.debug("event %s", type(event))
             handlers = self.event_map.get(
                 event.__class__, [self.handler_default]
@@ -223,8 +224,7 @@ class TaskManager:
                             'event handler:\n%s' % traceback.format_exc()
                         )
                 except ShutdownException:
-                    stop = True
-                    break
+                    return
                 except DBMExitException:
                     return
                 except Exception:
@@ -278,10 +278,6 @@ class TaskManager:
         self.create_task(self.receiver)
         await self.ready.wait()
         self.ndb.schema.export()
-        # print(self.ndb.views.interfaces['test0'])
-        i = self.ndb.views.interfaces['test0']
-        i.set('state', 'up')
-        await i.commit()
         print('FIN')
-        return
+        self.ndb._dbm_ready.set()
         await self.task_watch()

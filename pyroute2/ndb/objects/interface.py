@@ -190,7 +190,6 @@ import json
 import os
 import traceback
 
-from pyroute2 import config
 from pyroute2.common import basestring
 from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink.exceptions import NetlinkError
@@ -933,7 +932,6 @@ class Interface(RTNL_Object):
 
             other_link_netnsid = other.get('link_netnsid')
             if other_link_netnsid is not None:
-                self_source = self.sources[self['target']]
                 other_source = other.sources[other['target']]
                 info = await other_source.api(
                     'get_netnsid',

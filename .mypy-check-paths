@@ -10,3 +10,4 @@ pyroute2/netns/
 pyroute2/plan9/client.py
 pyroute2/process.py
 pyroute2/statsd.py
+pyroute2/ndb/sync_api.py

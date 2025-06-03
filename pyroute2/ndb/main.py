@@ -287,6 +287,7 @@ from .auth_manager import AuthManager
 from .events import ShutdownException
 from .messages import cmsg
 from .schema import DBProvider
+from .sync_api import Sync_View
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
@@ -459,6 +460,8 @@ class Views:
         for vtable, vname in NDB_VIEWS_SPECS:
             view = View(ndb, vtable, auth_managers=auth_managers)
             setattr(self, vname, view)
+            sview = Sync_View(ndb.task_manager.event_loop, view)
+            setattr(ndb, vname, sview)
 
 
 class NDB:
@@ -537,15 +540,15 @@ class NDB:
             'recordset_pipe': 'false',
         }
         #
-        self.views = Views(self, [am])
-        #
         self.task_manager = TaskManager(self)
+        #
         self._dbm_thread = threading.Thread(
             target=self.task_manager.main, name='NDB main loop'
         )
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
+        self.views = Views(self, [am])
         if self._dbm_error is not None:
             raise self._dbm_error
         # self.query = Query(self.schema)

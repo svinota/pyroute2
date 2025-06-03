@@ -55,7 +55,7 @@ import time
 from collections import OrderedDict
 from functools import partial
 
-from pyroute2 import cli, config
+from pyroute2 import config
 from pyroute2.common import basestring
 
 ##
@@ -151,8 +151,6 @@ class View(dict):
         for obj in self.getmany(spec, table):
             return obj
 
-    @cli.change_pointer
-    @check_auth('obj:read')
     def get(self, spec=None, table=None, **kwarg):
         spec = spec or kwarg
         try:
@@ -175,8 +173,6 @@ class View(dict):
             auth_managers=self.auth_managers,
         )
 
-    @cli.change_pointer
-    @check_auth('obj:modify')
     def create(self, *argspec, **kwspec):
         iclass = self.classes[self.table]
         if self.chain:
@@ -191,8 +187,6 @@ class View(dict):
         spec['create'] = True
         return self[spec]
 
-    @cli.change_pointer
-    @check_auth('obj:modify')
     def ensure(self, *argspec, **kwspec):
         try:
             obj = self.locate(**kwspec)
@@ -202,8 +196,6 @@ class View(dict):
             obj[key] = value
         return obj
 
-    @cli.change_pointer
-    @check_auth('obj:modify')
     def add(self, *argspec, **kwspec):
         self.log.warning(
             '''\n
@@ -218,7 +210,6 @@ class View(dict):
         )
         return self.create(*argspec, **kwspec)
 
-    @check_auth('obj:read')
     def wait(self, **spec):
         ret = None
         timeout = spec.pop('timeout', -1)
@@ -256,7 +247,6 @@ class View(dict):
                     if ctime + timeout < time.time():
                         raise TimeoutError()
 
-    @check_auth('obj:read')
     def locate(self, spec=None, table=None, **kwarg):
         '''
         This method works like `__getitem__()`, but the important
@@ -294,7 +284,6 @@ class View(dict):
             raise KeyError('got an empty key')
         return self[request]
 
-    @check_auth('obj:read')
     def __getitem__(self, key, table=None):
         ret = self.template(key, table)
 
@@ -369,7 +358,6 @@ class View(dict):
 
         table = table or self.table
         schema = self.ndb.schema
-        task_manager = self.ndb.task_manager
         names = schema.compiled[self.table]['all_names']
 
         self.log.debug('check if the key %s exists in table %s' % (key, table))
@@ -407,22 +395,18 @@ class View(dict):
     def __contains__(self, key):
         return key in self.dump()
 
-    @check_auth('obj:list')
     def keys(self):
         for record in self.dump():
             yield record
 
-    @check_auth('obj:list')
     def values(self):
         for key in self.keys():
             yield self[key]
 
-    @check_auth('obj:list')
     def items(self):
         for key in self.keys():
             yield (key, self[key])
 
-    @cli.show_result
     def count(self):
         return self.classes[self.table]._count(self)[0]
 
@@ -439,8 +423,6 @@ class View(dict):
         for record in dump:
             yield Record(fnames, record, self.classes[self.table])
 
-    @cli.show_result
-    @check_auth('obj:list')
     def dump(self):
         iclass = self.classes[self.table]
         return RecordSet(
@@ -452,8 +434,6 @@ class View(dict):
             },
         )
 
-    @cli.show_result
-    @check_auth('obj:list')
     def summary(self):
         iclass = self.classes[self.table]
         return RecordSet(
