@@ -285,7 +285,6 @@ from pyroute2.common import basestring
 # NDB stuff
 from .auth_manager import AuthManager
 from .events import ShutdownException
-from .messages import cmsg
 from .schema import DBProvider
 from .sync_api import Sync_View
 from .task_manager import TaskManager
@@ -590,8 +589,10 @@ class NDB:
                 except ValueError:
                     pass
             # shutdown the _dbm_thread
-            self._event_queue.shutdown()
-            self._event_queue.bypass((cmsg(None, ShutdownException()),))
+            self.task_manager.event_loop.call_soon_threadsafe(
+                self.task_manager.stop_event.set
+            )
+            self._dbm_shutdown.wait()
             self._dbm_thread.join()
             # shutdown the logger -- free the resources
             self.log.close()

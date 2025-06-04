@@ -58,6 +58,7 @@ class TaskManager:
         self.event_map = {}
         self.task_map = {}
         self.event_queue = asyncio.Queue()
+        self.stop_event = asyncio.Event()
         self.thread = None
         self.ctime = self.gctime = time.time()
         self.ready = asyncio.Event()
@@ -175,9 +176,12 @@ class TaskManager:
     def main(self):
         asyncio.run(self.run())
 
-    def create_task(self, coro):
+    def create_task(self, coro, state='running'):
         task = asyncio.create_task(coro())
-        self.task_map[task] = ['running', coro]
+        self.task_map[task] = [state, coro]
+
+    async def stop(self):
+        await self.stop_event.wait()
 
     async def task_watch(self):
         while True:
@@ -188,6 +192,8 @@ class TaskManager:
             )
             self.log.debug("done %s", done)
             self.log.debug("pending %s", pending)
+            if self.stop_event.is_set():
+                return
             for task in done:
                 target_state, init = self.task_map.pop(task)
                 if target_state == 'running':
@@ -276,8 +282,8 @@ class TaskManager:
             self.ndb.sources.add(**spec)
 
         self.create_task(self.receiver)
+        self.create_task(self.stop)
         await self.ready.wait()
-        self.ndb.schema.export()
-        print('FIN')
         self.ndb._dbm_ready.set()
         await self.task_watch()
+        self.ndb._dbm_shutdown.set()
