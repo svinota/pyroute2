@@ -7,6 +7,7 @@ this module is an helper for all files
 from pathlib import Path
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import fields
 
 
 @dataclass(slots=True)
@@ -21,6 +22,15 @@ class IPRouteRtFile:
 
     def __post_init__(self):
         self.load_files()
+
+    @classmethod
+    def get_rt_filename(cls):
+        """Helper to get filename when dataclass is not instancied
+        """
+        for rt_field in fields(cls):
+            if rt_field.name == 'filename':
+                return rt_field.default
+        raise KeyError(f"no filename in {cls}")
 
     def _iter_files(self, filepath):
         d_folder = Path(f'{filepath}.d')
