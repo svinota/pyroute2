@@ -186,12 +186,9 @@ class TaskManager:
     async def task_watch(self):
         while True:
             tasks = list(self.task_map.keys())
-            self.log.debug("task list %s", tasks)
             done, pending = await asyncio.wait(
                 tasks, return_when=asyncio.FIRST_COMPLETED
             )
-            self.log.debug("done %s", done)
-            self.log.debug("pending %s", pending)
             if self.stop_event.is_set():
                 return
             for task in done:
@@ -203,7 +200,6 @@ class TaskManager:
         while True:
             event = await self.event_queue.get()
             reschedule = []
-            self.log.debug("event %s", type(event))
             handlers = self.event_map.get(
                 event.__class__, [self.handler_default]
             )
