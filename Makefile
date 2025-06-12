@@ -47,6 +47,7 @@ git-clean:
 
 .PHONY: clean
 clean:
+	@for i in `ip -o link | awk -F : '($$2 ~ /^ pr/) {print($$2)}'`; do sudo ip link del $$i; done
 	@rm -f lab/*html
 	@rm -f lab/_static/conf.js
 	@rm -rf lab/_build
