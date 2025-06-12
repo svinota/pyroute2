@@ -197,7 +197,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.requests.link import LinkFieldFilter
 
-from ..auth_manager import AuthManager, check_auth
+from ..auth_manager import AuthManager
 from ..objects import RTNL_Object
 
 
@@ -642,7 +642,6 @@ class Interface(RTNL_Object):
         if isinstance(right, basestring):
             return right == left['ifname'] or right == left['address']
 
-    @check_auth('obj:modify')
     def add_vlan(self, spec):
         def do_add_vlan(self, mode, spec):
             try:
@@ -655,7 +654,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_vlan, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def ensure_vlan(self, spec):
         def do_ensure_vlan(self, mode, spec):
             try:
@@ -670,7 +668,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_ensure_vlan, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def del_vlan(self, spec):
         def do_del_vlan(self, mode, spec):
             try:
@@ -683,7 +680,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_vlan, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def add_neighbour(self, spec=None, **kwarg):
         spec = spec or kwarg
 
@@ -698,7 +694,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_neighbour, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def ensure_neighbour(self, spec=None, **kwarg):
         spec = spec or kwarg
 
@@ -715,7 +710,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_ensure_neighbour, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def del_neighbour(self, spec=None, **kwarg):
         spec = spec or dict(kwarg)
 
@@ -745,7 +739,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_neighbour, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def add_ip(self, spec=None, **kwarg):
         spec = spec or kwarg
 
@@ -760,7 +753,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_ip, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def ensure_ip(self, spec=None, **kwarg):
         spec = spec or kwarg
 
@@ -777,7 +769,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_ensure_ip, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def del_ip(self, spec=None, **kwarg):
         spec = spec or kwarg
 
@@ -807,7 +798,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_ip, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def add_port(self, spec):
         def do_add_port(self, mode, spec):
             try:
@@ -824,7 +814,6 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_add_port, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def del_port(self, spec):
         def do_del_port(self, mode, spec):
             try:
@@ -843,21 +832,18 @@ class Interface(RTNL_Object):
         self._apply_script.append((do_del_port, {'spec': spec}))
         return self
 
-    @check_auth('obj:modify')
     def add_altname(self, ifname):
         new_list = set(self['alt_ifname_list'])
         new_list.add(ifname)
         self['alt_ifname_list'] = list(new_list)
         return self
 
-    @check_auth('obj:modify')
     def del_altname(self, ifname):
         new_list = set(self['alt_ifname_list'])
         new_list.remove(ifname)
         self['alt_ifname_list'] = list(new_list)
         return self
 
-    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if key == 'peer':
             dict.__setitem__(self, key, value)
@@ -1020,7 +1006,6 @@ class Interface(RTNL_Object):
         if set(self['alt_ifname_list']) != alt_ifname_setup:
             raise Exception('could not setup alt ifnames')
 
-    @check_auth('obj:modify')
     async def apply(self, rollback=False, req_filter=None, mode='apply'):
         # translate string link references into numbers
         for key in ('link', 'master'):

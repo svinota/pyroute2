@@ -48,6 +48,7 @@ API
 
 import errno
 import gc
+import asyncio
 import json
 import queue
 import threading
@@ -210,16 +211,16 @@ class View(dict):
         )
         return self.create(*argspec, **kwspec)
 
-    def wait(self, **spec):
+    async def wait(self, **spec):
         ret = None
         timeout = spec.pop('timeout', -1)
         action = spec.pop('action', 'add')
         ctime = time.time()
 
         # install a limited events queue -- for a possible immediate reaction
-        evq = queue.Queue(maxsize=100)
+        evq = asyncio.Queue(maxsize=100)
 
-        def handler(evq, target, event):
+        async def handler(evq, target, event):
             # ignore the "queue full" exception
             #
             # if we miss some events here, nothing bad happens: we just
@@ -229,7 +230,7 @@ class View(dict):
             # the most important here is not to allocate too much memory
             try:
                 evq.put_nowait((target, event))
-            except queue.Full:
+            except asyncio.queues.QueueFull:
                 pass
 
         with TmpHandler(self.ndb, self.event, partial(handler, evq)):
@@ -240,8 +241,8 @@ class View(dict):
                 ):
                     return ret
                 try:
-                    target, msg = evq.get(timeout=1)
-                except queue.Empty:
+                    target, msg = await asyncio.wait_for(evq.get(), 1)
+                except asyncio.TimeoutError:
                     pass
                 if timeout > -1:
                     if ctime + timeout < time.time():
@@ -506,7 +507,6 @@ class SourcesView(View):
                 source.close(code=code, sync=sync)
                 return self.cache.pop(target)
 
-    @check_auth('obj:list')
     def keys(self):
         for key in self.cache:
             yield key

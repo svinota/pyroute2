@@ -549,7 +549,6 @@ class DBSchema:
             for row in row_set:
                 yield row
 
-    @publish
     def backup(self, spec):
         if self.provider == DBProvider.sqlite3:
             backup_connection = sqlite3.connect(spec)
@@ -558,7 +557,6 @@ class DBSchema:
         else:
             raise NotImplementedError()
 
-    @publish
     def export(self, f='stdout'):
         close = False
         if f in ('stdout', 'stderr'):

@@ -286,7 +286,7 @@ from pyroute2.common import basestring
 from .auth_manager import AuthManager
 from .events import ShutdownException
 from .schema import DBProvider
-from .sync_api import Sync_View
+from .sync_api import Sync_View, Sync_DB
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
@@ -548,6 +548,7 @@ class NDB:
         self._dbm_thread.start()
         self._dbm_ready.wait()
         self.views = Views(self, [am])
+        self.db = Sync_DB(self.task_manager.event_loop, self)
         if self._dbm_error is not None:
             raise self._dbm_error
         # self.query = Query(self.schema)

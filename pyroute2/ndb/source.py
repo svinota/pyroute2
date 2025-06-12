@@ -148,6 +148,7 @@ class Source(dict):
         self.event = spec.pop('event')
         # RTNL API
         self.nl_kwarg = spec
+        self.nl_kwarg['nlm_echo'] = True
         #
         if self.ndb.messenger is not None:
             self.ndb.messenger.targets.add(self.target)

@@ -51,13 +51,24 @@ class NDBConfig(dict):
         return self.task_manager.config_values()
 
 
+class LoggingQueue(asyncio.Queue):
+
+    def __init__(self, log):
+        super().__init__()
+        self.log = log
+
+    async def put(self, item):
+        self.log.debug(f'put {type(item)} = {item}')
+        await super().put(item)
+
+
 class TaskManager:
     def __init__(self, ndb):
         self.ndb = ndb
         self.log = ndb.log
         self.event_map = {}
         self.task_map = {}
-        self.event_queue = asyncio.Queue()
+        self.event_queue = LoggingQueue(log=self.ndb.log.channel('queue'))
         self.stop_event = asyncio.Event()
         self.thread = None
         self.ctime = self.gctime = time.time()
@@ -207,6 +218,7 @@ class TaskManager:
             for handler in tuple(handlers):
                 try:
                     target = event['header']['target']
+                    # self.log.debug(f'await {handler} for {event}')
                     await handler(target, event)
                 except RescheduleException:
                     if 'rcounter' not in event['header']:
@@ -256,7 +268,6 @@ class TaskManager:
                 self.event_map,
                 self.log.channel('schema'),
             )
-            self.register_api(self.ndb.schema, 'db_')
             self.register_api(self.ndb.schema.config, 'config_')
             self.ndb.config = NDBConfig(self)
 

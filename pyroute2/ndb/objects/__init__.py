@@ -85,25 +85,15 @@ RSLV_NONE = 2
 RSLV_DELETE = 3
 
 
-def fallback_add(self, idx_req, req):
+async def fallback_add(self, idx_req, req):
     # ignore all set/get for objects with incomplete idx_req
     if set(idx_req.keys()) != set(self.kspec):
         self.log.debug('ignore incomplete idx_req in the fallback')
         return
     # try to set the object
-    (
-        self.ndb._event_queue.put(
-            self.sources[self['target']].api(self.api, 'set', **req),
-            source=self['target'],
-        )
-    )
+    self.sources[self['target']].api(self.api, 'set', **req)
     # try to get the object
-    (
-        self.ndb._event_queue.put(
-            self.sources[self['target']].api(self.api, 'get', **idx_req),
-            source=self['target'],
-        )
-    )
+    self.sources[self['target']].api(self.api, 'get', **idx_req)
     # reload the collected data
     self.load_sql()
 
@@ -289,6 +279,7 @@ class RTNL_Object(dict):
         self.state.set('invalid')
         self.snapshot_deps = []
         self.load_event = asyncio.Event()
+        self.evq = self.ndb.task_manager.event_queue
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
@@ -688,7 +679,7 @@ class RTNL_Object(dict):
             return self
 
         if self.chain:
-            self.chain.commit()
+            await self.chain.commit()
         self.log.debug('commit: %s' % str(self.state.events))
         # Is it a new object?
         if self.state == 'invalid':
@@ -945,7 +936,10 @@ class RTNL_Object(dict):
                 self.log.debug('checked')
                 break
             self.log.debug('check failed')
-            await self.load_event.wait()
+            try:
+                await asyncio.wait_for(self.load_event.wait(), 1)
+            except asyncio.TimeoutError:
+                pass
             self.load_event.clear()
         else:
             self.log.debug('stats: %s apply %s fail' % (id(self), method))
@@ -1025,7 +1019,7 @@ class RTNL_Object(dict):
         self.log.debug(f'criteria {criteria}')
         self.log.debug(f'method {method}, {argv}, {kwarg}')
         for attempt in range(3):
-            ret = method(*argv, **kwarg)
+            ret = [ await x for x in method(*argv, **kwarg) ]
             self.log.debug(f'ret {ret}')
             if criteria(ret):
                 self.log.debug('criteria matched')
@@ -1033,18 +1027,8 @@ class RTNL_Object(dict):
             self.log.debug(f'resync the DB attempt {attempt}')
             self.ndb.schema.flush(self['target'])
             self.load_event.clear()
-            (
-                self.ndb._event_queue.put(
-                    self.sources[self['target']].api('dump'),
-                    source=self['target'],
-                )
-            )
-            (
-                self.ndb._event_queue.put(
-                    (cmsg_event(self['target'], self.load_event),),
-                    source=self['target'],
-                )
-            )
+            await self.sources[self['target']].api('dump')
+            # await self.evq.put(cmsg_event(self['target'], self.load_event))
             await self.load_event.wait()
             self.load_event.clear()
         return ret
@@ -1135,6 +1119,8 @@ class RTNL_Object(dict):
         # full match
         for norm, name in zip(self.knorm, self.kspec):
             value = self.get(norm)
+            if value is None:
+                continue
             if name == 'target':
                 if value != target:
                     return

@@ -804,10 +804,10 @@ class Route(RTNL_Object):
         #
         # FIXME: use self['deps']
         if 'nh_id' not in self and self.get('route_id') is not None:
-            nhs = self.schema.fetch(
+            nhs = iter(tuple(self.schema.fetch(
                 'SELECT * FROM nh WHERE f_route_id = %s' % (self.schema.plch,),
                 (self['route_id'],),
-            )
+            )))
 
             flush = False
             idx = 0
