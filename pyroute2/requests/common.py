@@ -108,11 +108,11 @@ class IPTargets:
 
     def set_dst(self, context, value):
         if value in ('', 'default'):
-            return {'dst': ''}
-        elif value in ('0', '0.0.0.0'):
-            return {'dst': '', 'family': AF_INET}
+            return {}
+        elif value in ('0', '0.0.0.0', '0.0.0.0/0'):
+            return {'family': AF_INET}
         elif value in ('::', '::/0'):
-            return {'dst': '', 'family': AF_INET6}
+            return {'family': AF_INET6}
         return self.parse_target('dst', context, value)
 
     def set_src(self, context, value):
