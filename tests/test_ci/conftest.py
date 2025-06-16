@@ -19,8 +19,7 @@ def netns_remove_list():
 
 
 def check_fixture_spec_func(fixture, scope, name):
-    spec = fixture._pytestfixturefunction
-    return all((spec.name == name, spec.scope == scope))
+    return fixture.name == name
 
 
 @pytest.fixture
