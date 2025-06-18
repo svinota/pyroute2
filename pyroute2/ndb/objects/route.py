@@ -153,7 +153,7 @@ def get_route_id(schema, target, event):
     return str(uuid.uuid4())
 
 
-async def load_rtmsg(schema, target, event):
+async def load_rtmsg(schema, sources, target, event):
     route_id = None
     post = []
 
@@ -209,7 +209,7 @@ async def load_rtmsg(schema, target, event):
                 mp[idx]['nh_id'] = idx  # add NH number
                 post.append(
                     partial(
-                        schema.load_netlink, 'nh', target, mp[idx], 'routes'
+                        schema.load_netlink, 'nh', sources, target, mp[idx], 'routes'
                     )
                 )
                 event['deps'] |= F_RTA_MULTIPATH
@@ -225,7 +225,7 @@ async def load_rtmsg(schema, target, event):
             encap['route_id'] = route_id
             post.append(
                 partial(
-                    schema.load_netlink, 'enc_mpls', target, encap, 'routes'
+                    schema.load_netlink, 'enc_mpls', sources, target, encap, 'routes'
                 )
             )
             event['deps'] |= F_RTA_ENCAP
@@ -242,14 +242,14 @@ async def load_rtmsg(schema, target, event):
             metrics['route_id'] = route_id
             post.append(
                 partial(
-                    schema.load_netlink, 'metrics', target, metrics, 'routes'
+                    schema.load_netlink, 'metrics', sources, target, metrics, 'routes'
                 )
             )
             event['deps'] |= F_RTA_METRICS
     #
     if route_id is not None:
         event['route_id'] = route_id
-    await schema.load_netlink('routes', target, event)
+    await schema.load_netlink('routes', sources, target, event)
     #
     for procedure in post:
         await procedure()
@@ -804,10 +804,15 @@ class Route(RTNL_Object):
         #
         # FIXME: use self['deps']
         if 'nh_id' not in self and self.get('route_id') is not None:
-            nhs = iter(tuple(self.schema.fetch(
-                'SELECT * FROM nh WHERE f_route_id = %s' % (self.schema.plch,),
-                (self['route_id'],),
-            )))
+            nhs = iter(
+                tuple(
+                    self.schema.fetch(
+                        'SELECT * FROM nh WHERE f_route_id = %s'
+                        % (self.schema.plch,),
+                        (self['route_id'],),
+                    )
+                )
+            )
 
             flush = False
             idx = 0

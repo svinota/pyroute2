@@ -46,11 +46,10 @@ API
 ===
 '''
 
+import asyncio
 import errno
 import gc
-import asyncio
 import json
-import queue
 import threading
 import time
 from collections import OrderedDict
@@ -61,7 +60,6 @@ from pyroute2.common import basestring
 
 ##
 # NDB stuff
-from .auth_manager import check_auth
 from .objects import RSLV_DELETE
 from .objects.address import Address
 from .objects.interface import Interface, Vlan
@@ -481,21 +479,23 @@ class SourcesView(View):
         self.cache[spec['target']] = Source(self.ndb, **spec).start()
         return self.cache[spec['target']]
 
-    def add(self, **spec):
+    async def add(self, **spec):
         spec = dict(Source.defaults(spec))
         target = spec['target']
         if target in self:
             raise KeyError(f'source {target} exists')
-        if 'event' not in spec:
+        if spec.get('event') is None:
             sync = True
-            spec['event'] = threading.Event()
+            spec['event'] = asyncio.Event()
         else:
             sync = False
         source = Source(self.ndb, **spec)
         self.cache[spec['target']] = source
         self.ndb.task_manager.create_task(source.receiver)
         if sync:
-            self.cache[spec['target']].event.wait()
+            print("S1")
+            await self.cache[spec['target']].event.wait()
+        print("SS")
         return self.cache[spec['target']]
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):

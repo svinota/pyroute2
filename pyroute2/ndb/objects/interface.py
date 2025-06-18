@@ -201,7 +201,7 @@ from ..auth_manager import AuthManager
 from ..objects import RTNL_Object
 
 
-async def load_ifinfmsg(schema, target, event):
+async def load_ifinfmsg(schema, sources, target, event):
     #
     # link goes down: flush all related routes
     #
@@ -232,7 +232,7 @@ async def load_ifinfmsg(schema, target, event):
     #
     if event['family'] == AF_BRIDGE:
         #
-        await schema.load_netlink('af_bridge_ifs', target, event)
+        await schema.load_netlink('af_bridge_ifs', sources, target, event)
         try:
             vlans = event.get_attr('IFLA_AF_SPEC').get_attrs(
                 'IFLA_BRIDGE_VLAN_INFO'
@@ -256,11 +256,11 @@ async def load_ifinfmsg(schema, target, event):
         for v in vlans:
             v['index'] = event['index']
             v['header'] = {'type': event['header']['type']}
-            await schema.load_netlink('af_bridge_vlans', target, v)
+            await schema.load_netlink('af_bridge_vlans', sources, target, v)
 
         return
 
-    await schema.load_netlink('interfaces', target, event)
+    await schema.load_netlink('interfaces', sources, target, event)
     #
     # load ifinfo, if exists
     #
@@ -277,7 +277,7 @@ async def load_ifinfmsg(schema, target, event):
                 p2p['index'] = event['index']
                 p2p['family'] = 2
                 p2p['attrs'] = [('P2P_LOCAL', local), ('P2P_REMOTE', remote)]
-                await schema.load_netlink('p2p', target, p2p)
+                await schema.load_netlink('p2p', sources, target, p2p)
             elif iftype == 'veth':
                 link = event.get_attr('IFLA_LINK')
                 ifname = event.get_attr('IFLA_IFNAME')
@@ -288,12 +288,12 @@ async def load_ifinfmsg(schema, target, event):
                 ):
                     schema.log.debug('reload veth %s' % event['index'])
                     try:
-                        update = await schema.sources[target].api(
+                        update = await sources[target].api(
                             'link', 'get', index=event['index']
                         )
                         update = tuple(update)[0]
                         return await schema.load_netlink(
-                            'interfaces', target, update
+                            'interfaces', sources, target, update
                         )
                     except NetlinkError as e:
                         if e.code == errno.ENODEV:
@@ -304,7 +304,7 @@ async def load_ifinfmsg(schema, target, event):
                 if ifdata is not None:
                     ifdata['header'] = {}
                     ifdata['index'] = event['index']
-                    await schema.load_netlink(table, target, ifdata)
+                    await schema.load_netlink(table, sources, target, ifdata)
 
 
 ip_tunnels = ('gre', 'gretap', 'ip6gre', 'ip6gretap', 'ip6tnl', 'sit', 'ipip')
@@ -720,9 +720,11 @@ class Interface(RTNL_Object):
             elif callable(spec):
                 specs = self.ipaddr.dump()
                 specs.select_records(spec)
+                specs.materialize()
             else:
                 specs = self.ipaddr.dump()
                 specs.select_records(**spec)
+                specs.materialize()
             for sp in specs:
                 try:
                     method = getattr(self.neighbours.locate(sp).remove(), mode)
@@ -779,9 +781,11 @@ class Interface(RTNL_Object):
             elif callable(spec):
                 specs = self.ipaddr.dump()
                 specs.select_records(spec)
+                specs.materialize()
             else:
                 specs = self.ipaddr.dump()
                 specs.select_records(**spec)
+                specs.materialize()
             for sp in specs:
                 try:
                     method = getattr(self.ipaddr.locate(sp).remove(), mode)
@@ -792,7 +796,7 @@ class Interface(RTNL_Object):
                     e_s.trace = traceback.format_stack()
                     ret.append(e_s)
             if not ret:
-                ret = KeyError('no address records matched')
+                ret = [KeyError('no address records matched')]
             return ret
 
         self._apply_script.append((do_del_ip, {'spec': spec}))
@@ -1142,10 +1146,9 @@ class Interface(RTNL_Object):
 
     async def load_from_system(self):
         self.load_event.clear()
-        interface = await self.sources[self['target']].api(
+        await self.sources[self['target']].api(
             self.api, 'get', index=self['index']
         )
-        self.ndb._event_queue.put(interface)
         await self.load_event.wait()
 
     def load_sql(self, *argv, **kwarg):

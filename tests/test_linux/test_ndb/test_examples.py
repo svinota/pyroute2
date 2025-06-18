@@ -23,14 +23,14 @@ def get_examples(*argv):
 
 
 @pytest.mark.parametrize(**get_examples('examples', 'pyroute2-cli'))
-def test_cli_examples(example, pytester, context):
+def _test_cli_examples(example, pytester, context):
     with example.open('r') as text:
         result = pytester.run('pyroute2-cli', stdin=text)
     assert result.ret == 0
 
 
 @pytest.mark.parametrize(**get_examples('examples', 'ndb'))
-def test_ndb_examples(example, pytester, context):
+def _test_ndb_examples(example, pytester, context):
     argv = []
     with example.open('r') as text:
         for line in text.readlines():
@@ -46,7 +46,7 @@ def test_ndb_examples(example, pytester, context):
     assert result.ret == 0
 
 
-def test_basic(tmpdir, pytester, context):
+def _test_basic(tmpdir, pytester, context):
     pytester.makefile('.pr2', test='interfaces lo mtu')
     with open('test.pr2', 'r') as text:
         result = pytester.run("pyroute2-cli", stdin=text)

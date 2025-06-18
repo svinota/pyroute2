@@ -184,8 +184,11 @@ class BaseRecordSet(object):
     def __init__(self, generator, ellipsis='(...)'):
         self.generator = generator
         self.ellipsis = ellipsis
+        self.materialized = None
 
     def __iter__(self):
+        if self.materialized is not None:
+            return iter(self.materialized)
         return self
 
     def __next__(self):
@@ -213,6 +216,9 @@ class BaseRecordSet(object):
         if ret:
             ret.pop()
         return ''.join(ret)
+
+    def materialize(self):
+        self.materialized = tuple(self)
 
 
 class RecordSetConfig(dict):

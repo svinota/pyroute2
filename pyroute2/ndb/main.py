@@ -286,7 +286,7 @@ from pyroute2.common import basestring
 from .auth_manager import AuthManager
 from .events import ShutdownException
 from .schema import DBProvider
-from .sync_api import Sync_View, Sync_DB
+from .sync_api import Sync_DB, Sync_Sources, Sync_View
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
@@ -454,13 +454,15 @@ class AuthProxy:
             setattr(self, vname, view)
 
 
-class Views:
+class Asyncore:
     def __init__(self, ndb, auth_managers):
         for vtable, vname in NDB_VIEWS_SPECS:
             view = View(ndb, vtable, auth_managers=auth_managers)
             setattr(self, vname, view)
             sview = Sync_View(ndb.task_manager.event_loop, view)
             setattr(ndb, vname, sview)
+        self.sources = SourcesView(ndb, auth_managers=auth_managers)
+        ndb.sources = Sync_Sources(ndb.task_manager.event_loop, self.sources)
 
 
 class NDB:
@@ -524,7 +526,7 @@ class NDB:
             {'obj:list': True, 'obj:read': True, 'obj:modify': True},
             self.log.channel('auth'),
         )
-        self.sources = SourcesView(self, auth_managers=[am])
+        # self.sources = SourcesView(self, auth_managers=[am])
         self._call_registry = {}
         self._nl = sources
         atexit.register(self.close)
@@ -547,10 +549,14 @@ class NDB:
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self.views = Views(self, [am])
+        self.views = Asyncore(self, [am])
         self.db = Sync_DB(self.task_manager.event_loop, self)
+        for spec in self._nl:
+            spec['event'] = None
+            self.sources.add(**spec)
         if self._dbm_error is not None:
             raise self._dbm_error
+        print("B")
         # self.query = Query(self.schema)
 
     def _get_view(self, table, chain=None, auth_managers=None):

@@ -162,11 +162,11 @@ from pyroute2.requests.address import AddressFieldFilter
 from ..objects import RTNL_Object
 
 
-async def load_ifaddrmsg(schema, target, event):
+async def load_ifaddrmsg(schema, sources, target, event):
     #
     # bypass
     #
-    await schema.load_netlink('addresses', target, event)
+    await schema.load_netlink('addresses', sources, target, event)
     #
     # last address removal should trigger routes flush
     # Bug-Url: https://github.com/svinota/pyroute2/issues/849

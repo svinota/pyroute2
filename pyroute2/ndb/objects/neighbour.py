@@ -9,7 +9,7 @@ from ..events import RescheduleException
 from ..objects import RTNL_Object
 
 
-async def load_ndmsg(schema, target, event):
+async def load_ndmsg(schema, sources, target, event):
     #
     # ignore events with ifindex == 0
     #
@@ -27,13 +27,13 @@ async def load_ndmsg(schema, target, event):
         #
         try:
             await schema.load_netlink(
-                'af_bridge_fdb', target, event, propagate=True
+                'af_bridge_fdb', sources, target, event, propagate=True
             )
         except Exception:
             raise RescheduleException()
 
     else:
-        await schema.load_netlink('neighbours', target, event)
+        await schema.load_netlink('neighbours', sources, target, event)
 
 
 ndmsg_schema = (

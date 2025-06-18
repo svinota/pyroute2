@@ -8,7 +8,7 @@ from pyroute2.requests.netns import NetNSFieldFilter
 from ..objects import RTNL_Object
 
 
-async def load_nsinfmsg(schema, target, event):
+async def load_nsinfmsg(schema, sources, target, event):
     #
     # check if there is corresponding source
     #
@@ -20,7 +20,7 @@ async def load_nsinfmsg(schema, target, event):
         warnings.warn(
             'automatic netns sourcing is being refactored', DeprecationWarning
         )
-    await schema.load_netlink('netns', target, event)
+    await schema.load_netlink('netns', sources, target, event)
 
 
 schema = nsinfmsg.sql_schema().unique_index('NSINFO_PATH')

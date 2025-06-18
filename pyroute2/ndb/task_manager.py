@@ -16,7 +16,7 @@ from .events import (
     RescheduleException,
     ShutdownException,
 )
-from .messages import cmsg, cmsg_event, cmsg_failed, cmsg_sstart
+from .messages import cmsg, cmsg_event, cmsg_failed
 
 log = logging.getLogger(__name__)
 
@@ -82,20 +82,15 @@ class TaskManager:
     def unregister_handler(self, event, handler):
         self.event_map[event].remove(handler)
 
-    async def handler_default(self, target, event):
+    async def handler_default(self, sources, target, event):
         if isinstance(getattr(event, 'payload', None), Exception):
             raise event.payload
         log.debug('unsupported event ignored: %s' % type(event))
 
-    async def handler_check_sources(self, _locals, target, event):
-        _locals['countdown'] -= 1
-        if _locals['countdown'] == 0:
-            self.ready.set()
-
-    async def handler_event(self, target, event):
+    async def handler_event(self, sources, target, event):
         event.payload.set()
 
-    async def handler_failed(self, target, event):
+    async def handler_failed(self, sources, target, event):
         self.ndb.schema.mark(target, 1)
 
     def wrap_method(self, method):
@@ -219,7 +214,7 @@ class TaskManager:
                 try:
                     target = event['header']['target']
                     # self.log.debug(f'await {handler} for {event}')
-                    await handler(target, event)
+                    await handler(self.ndb.views.sources, target, event)
                 except RescheduleException:
                     if 'rcounter' not in event['header']:
                         event['header']['rcounter'] = 0
@@ -250,23 +245,18 @@ class TaskManager:
                 self.gctime = time.time()
 
     async def run(self):
-        _locals = {'countdown': len(self.ndb._nl)}
         self.thread = id(threading.current_thread())
 
         # init the events map
         event_map = {
             cmsg_event: [self.handler_event],
             cmsg_failed: [self.handler_failed],
-            cmsg_sstart: [partial(self.handler_check_sources, _locals)],
         }
         self.event_map = event_map
 
         try:
             self.ndb.schema = schema.DBSchema(
-                self.ndb.config,
-                self.ndb.sources,
-                self.event_map,
-                self.log.channel('schema'),
+                self.ndb.config, self.event_map, self.log.channel('schema')
             )
             self.register_api(self.ndb.schema.config, 'config_')
             self.ndb.config = NDBConfig(self)
@@ -283,14 +273,9 @@ class TaskManager:
         # create an event loop
         self.event_loop = asyncio.get_event_loop()
         self.ndb.event_loop = self.event_loop
-
-        for spec in self.ndb._nl:
-            spec['event'] = None
-            self.ndb.sources.add(**spec)
-
         self.create_task(self.receiver)
         self.create_task(self.stop)
-        await self.ready.wait()
         self.ndb._dbm_ready.set()
         await self.task_watch()
         self.ndb._dbm_shutdown.set()
+        self.ready.set()

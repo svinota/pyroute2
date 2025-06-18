@@ -643,8 +643,9 @@ class NetlinkRequest:
                 terminate=self.terminate,
                 callback=self.callback,
             ):
-                if self.dump_filter is not None and not self.match_one_message(
-                    self.dump_filter, msg
+                if (
+                    self.dump_filter is not None
+                    and not self.match_one_message(self.dump_filter, msg)
                 ):
                     continue
                 for cr in self.sock.callbacks:

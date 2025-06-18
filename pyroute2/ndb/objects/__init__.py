@@ -70,13 +70,13 @@ import time
 import traceback
 import weakref
 from functools import partial
+from typing import Awaitable
 
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.requests.main import RequestProcessor
 
 from ..auth_manager import AuthManager
 from ..events import InvalidateHandlerException, State
-from ..messages import cmsg_event
 from ..report import Record
 
 RSLV_IGNORE = 0
@@ -260,7 +260,7 @@ class RTNL_Object(dict):
     ):
         self.view = view
         self.ndb = view.ndb
-        self.sources = view.ndb.sources
+        self.sources = view.ndb.views.sources
         self.master = master
         self.ctxid = ctxid
         self.schema = view.ndb.schema
@@ -566,6 +566,7 @@ class RTNL_Object(dict):
         snp = type(self)(
             self.view, key, ctxid=ctxid, auth_managers=self.auth_managers
         )
+        snp.register()
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
         snp.changed = set(self.changed)
         return snp
@@ -1019,7 +1020,12 @@ class RTNL_Object(dict):
         self.log.debug(f'criteria {criteria}')
         self.log.debug(f'method {method}, {argv}, {kwarg}')
         for attempt in range(3):
-            ret = [ await x for x in method(*argv, **kwarg) ]
+            ret = [x for x in method(*argv, **kwarg)]
+            ret = []
+            for k in method(*argv, **kwarg):
+                if isinstance(k, Awaitable):
+                    k = await k
+                ret.append(k)
             self.log.debug(f'ret {ret}')
             if criteria(ret):
                 self.log.debug('criteria matched')
@@ -1108,7 +1114,7 @@ class RTNL_Object(dict):
                     self.state.set('system')
         return spec
 
-    async def load_rtnlmsg(self, target, event):
+    async def load_rtnlmsg(self, sources, target, event):
         '''
         Check if the RTNL event matches the object and load the
         data from the database if it does.
@@ -1135,4 +1141,10 @@ class RTNL_Object(dict):
             self.changed = set()
         else:
             self.load_sql()
+        print(
+            type(self),
+            id(self),
+            id(self.load_event),
+            self.get('ifname', 'NaN'),
+        )
         self.load_event.set()

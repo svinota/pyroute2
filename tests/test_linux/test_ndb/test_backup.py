@@ -4,7 +4,7 @@ import uuid
 
 def test_file_backup(context):
     filename = str(uuid.uuid4()) + '-backup.db'
-    context.ndb.backup(filename)
+    context.ndb.db.backup(filename)
     backup = sqlite3.connect(filename)
     cursor = backup.cursor()
     cursor.execute('SELECT f_IFLA_IFNAME FROM interfaces WHERE f_index > 0')

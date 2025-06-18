@@ -75,7 +75,7 @@ from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 from .events import ShutdownException, State
-from .messages import cmsg_event, cmsg_sstart
+from .messages import cmsg_event
 
 if sys.platform.startswith('linux'):
     from pyroute2 import netns
@@ -188,14 +188,10 @@ class Source(dict):
             )
         )
 
-    def set_ready(self):
+    async def set_ready(self):
         try:
             if self.event is not None:
-                self.evq.put(
-                    (cmsg_event(self.target, self.event),), source=self.target
-                )
-            else:
-                self.evq.put((cmsg_sstart(self.target),), source=self.target)
+                await self.evq.put(cmsg_event(self.target, self.event))
         except ShutdownException:
             self.state.set('stop')
             return False
@@ -255,11 +251,11 @@ class Source(dict):
             with self.lock:
                 try:
                     self.log.debug(f'source api run {name} {argv} {kwarg}')
-                    ret = []
-                    for msg in await getattr(self.nl, name)(*argv, **kwarg):
-                        await self.evq.put(msg)
-                        ret.append(msg)
-                    return ret
+                    result = await getattr(self.nl, name)(*argv, **kwarg)
+                    if isinstance(result, list):
+                        for msg in result:
+                            await self.evq.put(msg)
+                    return result
                 except (
                     NetlinkError,
                     AttributeError,
@@ -326,7 +322,7 @@ class Source(dict):
             await self.evq.put(x)
 
         self.state.set('running')
-        await self.evq.put(cmsg_sstart(target=self.target))
+        await self.set_ready()
 
         while self.state.get() not in ('stop', 'restart'):
             async for msg in self.nl.get():

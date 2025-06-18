@@ -240,9 +240,8 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(self, config, sources, event_map, log_channel):
+    def __init__(self, config, event_map, log_channel):
         global plugins
-        self.sources = sources
         self.config = DBDict(self, 'config')
         self.stats = {}
         self.connection = None
@@ -842,7 +841,7 @@ class DBSchema:
         )
 
     async def load_netlink(
-        self, table, target, event, ctable=None, propagate=False
+        self, table, sources, target, event, ctable=None, propagate=False
     ):
         #
         if self.rtnl_log:
