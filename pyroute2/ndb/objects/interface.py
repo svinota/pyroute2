@@ -198,8 +198,8 @@ from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.requests.link import LinkFieldFilter
 
 from ..auth_manager import AuthManager
-from ..objects import RTNL_Object
-from ..sync_api import SyncObject, SyncView
+from ..objects import RTNL_Object, SyncObject
+from ..sync_api import SyncView
 
 
 async def load_ifinfmsg(schema, sources, target, event):

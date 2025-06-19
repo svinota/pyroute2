@@ -1,11 +1,8 @@
 import asyncio
 import errno
 from queue import Queue
-from typing import Callable, TypeAlias
 
 from .report import RecordSet
-
-Req: TypeAlias = dict[str, str | int]
 
 
 class SyncBase:
@@ -62,70 +59,6 @@ class SyncBase:
         if isinstance(ret, Exception):
             raise ret
         return ret
-
-
-class SyncObject(SyncBase):
-
-    def apply(
-        self,
-        rollback: bool = False,
-        req_filter: None | Callable[[Req], Req] = None,
-        mode: str = 'apply',
-    ) -> SyncBase:
-        self._main_async_call(self.obj.commit, rollback, req_filter, mode)
-        return self
-
-    @property
-    def state(self):
-        return self.obj.state
-
-    @property
-    def chain(self):
-        return self._get_sync_class(self.obj.chain, key=self.obj.chain.table)
-
-    def create(self, **spec):
-        item = self._main_sync_call(self.obj.create, **spec)
-        return type(self)(self.event_loop, item)
-
-    def commit(self) -> SyncBase:
-        self._main_async_call(self.obj.commit)
-        return self
-
-    def rollback(self, snapshot=None):
-        self._main_async_call(self.obj.rollback, snapshot)
-        return self
-
-    def show(self, fmt=None):
-        return self.obj.show(fmt)
-
-    def keys(self):
-        return self.obj.keys()
-
-    def items(self):
-        return self.obj.items()
-
-    def set(self, *argv, **kwarg):
-        self.obj.set(*argv, **kwarg)
-        return self
-
-    def remove(self):
-        self.obj.remove()
-        return self
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, ext_type, exc_value, traceback):
-        self.commit()
-
-    def __repr__(self):
-        return repr(self.obj)
-
-    def __getitem__(self, key):
-        return self.obj[key]
-
-    def __setitem__(self, key, value):
-        self.obj[key] = value
 
 
 class SyncDB(SyncBase):
@@ -197,18 +130,11 @@ class SyncView(SyncBase):
         return RecordSet(self._main_sync_generator(self.obj.dump))
 
 
-class SyncSource(SyncObject):
-
-    def api(self, name, *argv, **kwarg):
-        ret = self._main_sync_call(self.obj.api, name, *argv, **kwarg)
-        return ret
-
-
 class SyncSources(SyncView):
 
     def __getitem__(self, key):
         item = self._main_sync_call(self.obj.__getitem__, key)
-        return SyncSource(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def add(self, **spec):
         item = self._main_async_call(self.obj.add, **spec)

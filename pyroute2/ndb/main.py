@@ -285,9 +285,11 @@ from pyroute2.common import basestring
 # NDB stuff
 from .auth_manager import AuthManager
 from .events import ShutdownException
+from .objects import SyncObject
 from .objects.interface import SyncInterface
 from .schema import DBProvider
-from .sync_api import SyncDB, SyncObject, SyncSources, SyncView
+from .source import SyncSource
+from .sync_api import SyncDB, SyncSources, SyncView
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
@@ -457,7 +459,11 @@ class AuthProxy:
 
 class Asyncore:
     def __init__(self, ndb, auth_managers):
-        class_map = {'interfaces': SyncInterface, 'default': SyncObject}
+        class_map = {
+            'interfaces': SyncInterface,
+            'sources': SyncSource,
+            'default': SyncObject,
+        }
         for vtable, vname in NDB_VIEWS_SPECS:
             view = View(ndb, vtable, auth_managers=auth_managers)
             setattr(self, vname, view)
