@@ -8,7 +8,7 @@ from .report import RecordSet
 Req: TypeAlias = dict[str, str | int]
 
 
-class Sync_Base:
+class SyncBase:
 
     def __init__(self, event_loop, obj, class_map=None):
         self.event_loop = event_loop
@@ -18,7 +18,9 @@ class Sync_Base:
     def _get_sync_class(self, item, key=None):
         if key is None:
             key = self.obj.table
-        return self.class_map.get(key, self.class_map.get('default'))(self.event_loop, item, self.class_map)
+        return self.class_map.get(key, self.class_map.get('default'))(
+            self.event_loop, item, self.class_map
+        )
 
     async def _tm_sync_generator(self, queue, func, *argv, **kwarg):
         for record in func(*argv, **kwarg):
@@ -62,14 +64,14 @@ class Sync_Base:
         return ret
 
 
-class Sync_Object(Sync_Base):
+class SyncObject(SyncBase):
 
     def apply(
         self,
         rollback: bool = False,
         req_filter: None | Callable[[Req], Req] = None,
         mode: str = 'apply',
-    ) -> Sync_Base:
+    ) -> SyncBase:
         self._main_async_call(self.obj.commit, rollback, req_filter, mode)
         return self
 
@@ -85,7 +87,7 @@ class Sync_Object(Sync_Base):
         item = self._main_sync_call(self.obj.create, **spec)
         return type(self)(self.event_loop, item)
 
-    def commit(self) -> Sync_Base:
+    def commit(self) -> SyncBase:
         self._main_async_call(self.obj.commit)
         return self
 
@@ -126,7 +128,7 @@ class Sync_Object(Sync_Base):
         self.obj[key] = value
 
 
-class Sync_DB(Sync_Base):
+class SyncDB(SyncBase):
 
     def export(self, f='stdout'):
         return self._main_sync_call(self.obj.schema.export)
@@ -135,7 +137,7 @@ class Sync_DB(Sync_Base):
         return self._main_sync_call(self.obj.schema.backup, spec)
 
 
-class Sync_View(Sync_Base):
+class SyncView(SyncBase):
 
     def __getitem__(self, key, table=None):
         item = self._main_sync_call(self.obj.__getitem__, key, table)
@@ -195,18 +197,18 @@ class Sync_View(Sync_Base):
         return RecordSet(self._main_sync_generator(self.obj.dump))
 
 
-class Sync_Source(Sync_Object):
+class SyncSource(SyncObject):
 
     def api(self, name, *argv, **kwarg):
         ret = self._main_sync_call(self.obj.api, name, *argv, **kwarg)
         return ret
 
 
-class Sync_Sources(Sync_View):
+class SyncSources(SyncView):
 
     def __getitem__(self, key):
         item = self._main_sync_call(self.obj.__getitem__, key)
-        return Sync_Source(self.event_loop, item)
+        return SyncSource(self.event_loop, item)
 
     def add(self, **spec):
         item = self._main_async_call(self.obj.add, **spec)
@@ -221,12 +223,12 @@ class Sync_Sources(Sync_View):
             yield record
 
 
-class SyncInterface(Sync_Object):
+class SyncInterface(SyncObject):
 
     def __init__(self, event_loop, obj, class_map=None):
         super().__init__(event_loop, obj, class_map)
-        self.ipaddr = Sync_View(event_loop, obj.ipaddr, self.class_map)
-        self.neighbours = Sync_View(event_loop, obj.neighbours, self.class_map)
+        self.ipaddr = SyncView(event_loop, obj.ipaddr, self.class_map)
+        self.neighbours = SyncView(event_loop, obj.neighbours, self.class_map)
 
     @property
     def state(self):
