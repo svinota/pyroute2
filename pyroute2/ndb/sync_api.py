@@ -10,9 +10,15 @@ Req: TypeAlias = dict[str, str | int]
 
 class Sync_Base:
 
-    def __init__(self, event_loop, obj):
+    def __init__(self, event_loop, obj, class_map=None):
         self.event_loop = event_loop
         self.obj = obj
+        self.class_map = {} if class_map is None else class_map
+
+    def _get_sync_class(self, item, key=None):
+        if key is None:
+            key = self.obj.table
+        return self.class_map.get(key, self.class_map.get('default'))(self.event_loop, item, self.class_map)
 
     async def _tm_sync_generator(self, queue, func, *argv, **kwarg):
         for record in func(*argv, **kwarg):
@@ -73,10 +79,7 @@ class Sync_Object(Sync_Base):
 
     @property
     def chain(self):
-        sync_class = {'interfaces': SyncInterface}.get(
-            self.obj.chain.table, Sync_Object
-        )
-        return sync_class(self.event_loop, self.obj.chain)
+        return self._get_sync_class(self.obj.chain, key=self.obj.chain.table)
 
     def create(self, **spec):
         item = self._main_sync_call(self.obj.create, **spec)
@@ -134,12 +137,9 @@ class Sync_DB(Sync_Base):
 
 class Sync_View(Sync_Base):
 
-    def _get_sync_class(self):
-        return {'interfaces': SyncInterface}.get(self.obj.table, Sync_Object)
-
     def __getitem__(self, key, table=None):
         item = self._main_sync_call(self.obj.__getitem__, key, table)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def __contains__(self, key):
         return key in self.keys()
@@ -150,7 +150,7 @@ class Sync_View(Sync_Base):
     def get(self, spec=None, table=None, **kwarg):
         item = self._main_sync_call(self.obj.get, spec, table, **kwarg)
         if item is not None:
-            return self._get_sync_class()(self.event_loop, item)
+            return self._get_sync_class(item)
 
     def getmany(self, spec, table=None):
         for item in tuple(
@@ -167,26 +167,26 @@ class Sync_View(Sync_Base):
 
     def create(self, *argspec, **kwarg):
         item = self._main_sync_call(self.obj.create, *argspec, **kwarg)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def ensure(self, *argspec, **kwarg):
         item = self._main_sync_call(self.obj.ensure, *argspec, **kwarg)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def add(self, *argspec, **kwarg):
         item = self._main_sync_call(self.obj.add, *argspec, **kwarg)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def wait(self, **spec):
         item = self._main_async_call(self.obj.wait, **spec)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def exists(self, key, table=None):
         return self._main_sync_call(self.obj.exists, key, table)
 
     def locate(self, spec=None, table=None, **kwarg):
         item = self._main_sync_call(self.obj.locate, spec, table, **kwarg)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def summary(self):
         return RecordSet(self._main_sync_generator(self.obj.summary))
@@ -210,11 +210,11 @@ class Sync_Sources(Sync_View):
 
     def add(self, **spec):
         item = self._main_async_call(self.obj.add, **spec)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):
         item = self._main_sync_call(self.obj.remove, target, code, sync)
-        return self._get_sync_class()(self.event_loop, item)
+        return self._get_sync_class(item)
 
     def keys(self):
         for record in self.obj.keys():
@@ -223,10 +223,10 @@ class Sync_Sources(Sync_View):
 
 class SyncInterface(Sync_Object):
 
-    def __init__(self, event_loop, obj):
-        super().__init__(event_loop, obj)
-        self.ipaddr = Sync_View(event_loop, obj.ipaddr)
-        self.neighbours = Sync_View(event_loop, obj.neighbours)
+    def __init__(self, event_loop, obj, class_map=None):
+        super().__init__(event_loop, obj, class_map)
+        self.ipaddr = Sync_View(event_loop, obj.ipaddr, self.class_map)
+        self.neighbours = Sync_View(event_loop, obj.neighbours, self.class_map)
 
     @property
     def state(self):
