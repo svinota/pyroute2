@@ -199,6 +199,7 @@ from pyroute2.requests.link import LinkFieldFilter
 
 from ..auth_manager import AuthManager
 from ..objects import RTNL_Object
+from ..sync_api import SyncObject, SyncView
 
 
 async def load_ifinfmsg(schema, sources, target, event):
@@ -1174,3 +1175,38 @@ class Interface(RTNL_Object):
             self.get('target', ''),
             self.get('ifname', self.get('index', '')),
         )
+
+
+class SyncInterface(SyncObject):
+
+    def __init__(self, event_loop, obj, class_map=None):
+        super().__init__(event_loop, obj, class_map)
+        self.ipaddr = SyncView(event_loop, obj.ipaddr, self.class_map)
+        self.neighbours = SyncView(event_loop, obj.neighbours, self.class_map)
+
+    @property
+    def state(self):
+        return self.obj.state
+
+    def add_ip(self, spec=None, **kwarg):
+        self._main_sync_call(self.obj.add_ip, spec, **kwarg)
+        return self
+
+    def del_ip(self, spec=None, **kwarg):
+        self._main_sync_call(self.obj.del_ip, spec, **kwarg)
+        return self
+
+    def add_altname(self, ifname):
+        self._main_sync_call(self.obj.add_altname, ifname)
+        return self
+
+    def del_altname(self, ifname):
+        self._main_sync_call(self.obj.del_altname, ifname)
+        return self
+
+    def ensure_ip(self, spec=None, **kwarg):
+        self._main_sync_call(self.obj.ensure_ip, spec, **kwarg)
+        return self
+
+    def load_from_system(self):
+        self._main_async_call(self.obj.load_from_system)

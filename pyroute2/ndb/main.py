@@ -285,8 +285,9 @@ from pyroute2.common import basestring
 # NDB stuff
 from .auth_manager import AuthManager
 from .events import ShutdownException
+from .objects.interface import SyncInterface
 from .schema import DBProvider
-from .sync_api import SyncDB, SyncInterface, SyncObject, SyncSources, SyncView
+from .sync_api import SyncDB, SyncObject, SyncSources, SyncView
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
