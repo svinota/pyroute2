@@ -1,7 +1,7 @@
 import asyncio
 import errno
 from queue import Queue
-from typing import AsyncGenerator, Callable, TypeAlias
+from typing import Callable, TypeAlias
 
 from .report import RecordSet
 
@@ -13,19 +13,20 @@ class Sync_Base:
     def __init__(self, event_loop, obj):
         self.event_loop = event_loop
         self.obj = obj
-        self.queue = Queue()
 
-    async def _tm_sync_generator(self, func, *argv, **kwarg):
+    async def _tm_sync_generator(self, queue, func, *argv, **kwarg):
         for record in func(*argv, **kwarg):
-            self.queue.put(record)
-        self.queue.put(None)
+            queue.put(record)
+        queue.put(None)
 
     def _main_sync_generator(self, func, *argv, **kwarg):
+        queue = Queue()
         task = asyncio.run_coroutine_threadsafe(
-            self._tm_sync_generator(func, *argv, **kwarg), self.event_loop
+            self._tm_sync_generator(queue, func, *argv, **kwarg),
+            self.event_loop,
         )
         while True:
-            record = self.queue.get()
+            record = queue.get()
             if record is None:
                 return
             yield record
@@ -72,7 +73,14 @@ class Sync_Object(Sync_Base):
 
     @property
     def chain(self):
-        return type(self)(self.event_loop, self.obj.chain)
+        sync_class = {'interfaces': SyncInterface}.get(
+            self.obj.chain.table, Sync_Object
+        )
+        return sync_class(self.event_loop, self.obj.chain)
+
+    def create(self, **spec):
+        item = self._main_sync_call(self.obj.create, **spec)
+        return type(self)(self.event_loop, item)
 
     def commit(self) -> Sync_Base:
         self._main_async_call(self.obj.commit)
@@ -115,7 +123,6 @@ class Sync_Object(Sync_Base):
         self.obj[key] = value
 
 
-
 class Sync_DB(Sync_Base):
 
     def export(self, f='stdout'):
@@ -137,8 +144,18 @@ class Sync_View(Sync_Base):
     def __contains__(self, key):
         return key in self.keys()
 
+    def __iter__(self):
+        return self.keys()
+
+    def get(self, spec=None, table=None, **kwarg):
+        item = self._main_sync_call(self.obj.get, spec, table, **kwarg)
+        if item is not None:
+            return self._get_sync_class()(self.event_loop, item)
+
     def getmany(self, spec, table=None):
-        for item in tuple(self._main_sync_generator(self.obj.getmany, spec, table)):
+        for item in tuple(
+            self._main_sync_generator(self.obj.getmany, spec, table)
+        ):
             yield item
 
     def getone(self, spec, table=None):
@@ -209,6 +226,7 @@ class SyncInterface(Sync_Object):
     def __init__(self, event_loop, obj):
         super().__init__(event_loop, obj)
         self.ipaddr = Sync_View(event_loop, obj.ipaddr)
+        self.neighbours = Sync_View(event_loop, obj.neighbours)
 
     @property
     def state(self):
@@ -222,10 +240,17 @@ class SyncInterface(Sync_Object):
         self._main_sync_call(self.obj.del_ip, spec, **kwarg)
         return self
 
+    def add_altname(self, ifname):
+        self._main_sync_call(self.obj.add_altname, ifname)
+        return self
+
+    def del_altname(self, ifname):
+        self._main_sync_call(self.obj.del_altname, ifname)
+        return self
+
     def ensure_ip(self, spec=None, **kwarg):
         self._main_sync_call(self.obj.ensure_ip, spec, **kwarg)
         return self
 
     def load_from_system(self):
         self._main_async_call(self.obj.load_from_system)
-

@@ -209,7 +209,12 @@ async def load_rtmsg(schema, sources, target, event):
                 mp[idx]['nh_id'] = idx  # add NH number
                 post.append(
                     partial(
-                        schema.load_netlink, 'nh', sources, target, mp[idx], 'routes'
+                        schema.load_netlink,
+                        'nh',
+                        sources,
+                        target,
+                        mp[idx],
+                        'routes',
                     )
                 )
                 event['deps'] |= F_RTA_MULTIPATH
@@ -225,7 +230,12 @@ async def load_rtmsg(schema, sources, target, event):
             encap['route_id'] = route_id
             post.append(
                 partial(
-                    schema.load_netlink, 'enc_mpls', sources, target, encap, 'routes'
+                    schema.load_netlink,
+                    'enc_mpls',
+                    sources,
+                    target,
+                    encap,
+                    'routes',
                 )
             )
             event['deps'] |= F_RTA_ENCAP
@@ -242,7 +252,12 @@ async def load_rtmsg(schema, sources, target, event):
             metrics['route_id'] = route_id
             post.append(
                 partial(
-                    schema.load_netlink, 'metrics', sources, target, metrics, 'routes'
+                    schema.load_netlink,
+                    'metrics',
+                    sources,
+                    target,
+                    metrics,
+                    'routes',
                 )
             )
             event['deps'] |= F_RTA_METRICS
