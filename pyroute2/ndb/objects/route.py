@@ -122,7 +122,7 @@ from pyroute2.requests.common import MPLSTarget
 from pyroute2.requests.route import RouteFieldFilter
 
 from ..auth_manager import check_auth
-from ..objects import RTNL_Object
+from ..objects import AsyncObject
 from ..report import Record
 
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
@@ -418,7 +418,7 @@ class Via(OrderedDict):
         return repr(dict(self))
 
 
-class Route(RTNL_Object):
+class Route(AsyncObject):
     table = 'routes'
     msg_class = rtmsg
     hidden_fields = ['route_id']
@@ -881,7 +881,7 @@ class RouteSub:
         self.commit()
 
 
-class NextHop(RouteSub, RTNL_Object):
+class NextHop(RouteSub, AsyncObject):
     msg_class = nh
     table = 'nh'
     hidden_fields = ('route_id', 'target')
@@ -920,7 +920,7 @@ class MetricsStub(RouteSub, dict):
         raise KeyError('metrics not initialized for this route')
 
 
-class Metrics(RouteSub, RTNL_Object):
+class Metrics(RouteSub, AsyncObject):
     msg_class = rtmsg.metrics
     table = 'metrics'
     hidden_fields = ('route_id', 'target')

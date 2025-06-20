@@ -159,7 +159,7 @@ only remove old ones, and create new.
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.requests.address import AddressFieldFilter
 
-from ..objects import RTNL_Object
+from ..objects import AsyncObject
 
 
 async def load_ifaddrmsg(schema, sources, target, event):
@@ -237,7 +237,7 @@ init = {
 }
 
 
-class Address(RTNL_Object):
+class Address(AsyncObject):
     table = 'addresses'
     msg_class = ifaddrmsg
     field_filter = AddressFieldFilter

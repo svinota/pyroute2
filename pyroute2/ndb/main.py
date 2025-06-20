@@ -285,7 +285,7 @@ from pyroute2.common import basestring
 # NDB stuff
 from .auth_manager import AuthManager
 from .events import ShutdownException
-from .objects import SyncObject
+from .objects import RTNL_Object
 from .objects.interface import SyncInterface
 from .schema import DBProvider
 from .source import SyncSource
@@ -462,7 +462,7 @@ class Asyncore:
         class_map = {
             'interfaces': SyncInterface,
             'sources': SyncSource,
-            'default': SyncObject,
+            'default': RTNL_Object,
         }
         for vtable, vname in NDB_VIEWS_SPECS:
             view = View(ndb, vtable, auth_managers=auth_managers)

@@ -102,7 +102,7 @@ async def fallback_add(self, idx_req, req):
     self.load_sql()
 
 
-class RTNL_Object(dict):
+class AsyncObject(dict):
     '''
     The common base class for NDB objects -- interfaces, routes, rules
     addresses etc. Implements common logic for all the classes, like
@@ -1154,7 +1154,7 @@ class RTNL_Object(dict):
         self.load_event.set()
 
 
-class SyncObject(SyncBase):
+class RTNL_Object(SyncBase):
 
     def apply(
         self,

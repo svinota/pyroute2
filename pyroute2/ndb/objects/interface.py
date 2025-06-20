@@ -198,7 +198,7 @@ from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.requests.link import LinkFieldFilter
 
 from ..auth_manager import AuthManager
-from ..objects import RTNL_Object, SyncObject
+from ..objects import AsyncObject, RTNL_Object
 from ..sync_api import SyncView
 
 
@@ -411,7 +411,7 @@ def _cmp_master(self, value):
     return False
 
 
-class Vlan(RTNL_Object):
+class Vlan(AsyncObject):
     table = 'af_bridge_vlans'
     msg_class = ifinfmsg.af_spec_bridge.vlan_info
     api = 'vlan_filter'
@@ -496,7 +496,7 @@ class Vlan(RTNL_Object):
         return self.make_req(prime)
 
 
-class Interface(RTNL_Object):
+class Interface(AsyncObject):
     table = 'interfaces'
     msg_class = ifinfmsg
     api = 'link'
@@ -1177,7 +1177,7 @@ class Interface(RTNL_Object):
         )
 
 
-class SyncInterface(SyncObject):
+class SyncInterface(RTNL_Object):
 
     def __init__(self, event_loop, obj, class_map=None):
         super().__init__(event_loop, obj, class_map)

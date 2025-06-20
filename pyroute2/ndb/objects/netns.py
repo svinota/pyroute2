@@ -5,7 +5,7 @@ from pyroute2.common import basestring
 from pyroute2.netlink.rtnl.nsinfmsg import nsinfmsg
 from pyroute2.requests.netns import NetNSFieldFilter
 
-from ..objects import RTNL_Object
+from ..objects import AsyncObject
 
 
 async def load_nsinfmsg(schema, sources, target, event):
@@ -32,7 +32,7 @@ init = {
 }
 
 
-class NetNS(RTNL_Object):
+class NetNS(AsyncObject):
     table = 'netns'
     msg_class = nsinfmsg
     table_alias = 'n'

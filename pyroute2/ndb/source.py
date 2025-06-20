@@ -76,7 +76,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 
 from .events import ShutdownException, State
 from .messages import cmsg_event
-from .objects import SyncObject
+from .objects import RTNL_Object
 
 if sys.platform.startswith('linux'):
     from pyroute2 import netns
@@ -395,7 +395,7 @@ class Source(dict):
             self[f_name] = int(f_value) if f_type == 'int' else f_value
 
 
-class SyncSource(SyncObject):
+class SyncSource(RTNL_Object):
 
     def api(self, name, *argv, **kwarg):
         ret = self._main_sync_call(self.obj.api, name, *argv, **kwarg)

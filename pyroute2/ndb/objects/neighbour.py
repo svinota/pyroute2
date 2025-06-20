@@ -6,7 +6,7 @@ from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.requests.neighbour import NeighbourFieldFilter
 
 from ..events import RescheduleException
-from ..objects import RTNL_Object
+from ..objects import AsyncObject
 
 
 async def load_ndmsg(schema, sources, target, event):
@@ -78,7 +78,7 @@ def fallback_add(self, idx_req, req):
     self.load_sql()
 
 
-class Neighbour(RTNL_Object):
+class Neighbour(AsyncObject):
     table = 'neighbours'
     msg_class = ndmsg
     field_filter = NeighbourFieldFilter
