@@ -245,7 +245,6 @@ class DBSchema:
         self.config = DBDict(self, 'config')
         self.stats = {}
         self.connection = None
-        self.cursor = None
         self.log = log_channel
         self.snapshots = {}
         self.key_defaults = {}
@@ -300,7 +299,6 @@ class DBSchema:
             self.plch = '%s'
         else:
             raise TypeError('DB provider not supported')
-        self.cursor = self.connection.cursor()
         #
         # compile request lines
         #
@@ -508,13 +506,14 @@ class DBSchema:
             )
 
     def execute(self, *argv, **kwarg):
+        cursor = self.connection.cursor()
         try:
             #
             # FIXME: add logging
             #
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    self.cursor.execute(*argv, **kwarg)
+                    cursor.execute(*argv, **kwarg)
                     break
                 except (sqlite3.InterfaceError, sqlite3.OperationalError) as e:
                     self.log.debug('%s' % e)
@@ -530,19 +529,17 @@ class DBSchema:
             raise
         finally:
             self.connection.commit()  # no performance optimisation yet
-        return self.cursor
+        return cursor
 
-    @publish
     def fetchone(self, *argv, **kwarg):
         for row in self.fetch(*argv, **kwarg):
             return row
         return None
 
-    @publish
     def fetch(self, *argv, **kwarg):
-        self.execute(*argv, **kwarg)
+        cursor = self.execute(*argv, **kwarg)
         while True:
-            row_set = self.cursor.fetchmany()
+            row_set = cursor.fetchmany()
             if not row_set:
                 return
             for row in row_set:
