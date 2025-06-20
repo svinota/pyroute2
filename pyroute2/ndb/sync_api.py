@@ -82,6 +82,12 @@ class SyncView(SyncBase):
     def __iter__(self):
         return self.keys()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
     def get(self, spec=None, table=None, **kwarg):
         item = self._main_sync_call(self.obj.get, spec, table, **kwarg)
         if item is not None:
