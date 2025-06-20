@@ -1145,12 +1145,6 @@ class AsyncObject(dict):
             self.changed = set()
         else:
             self.load_sql()
-        print(
-            type(self),
-            id(self),
-            id(self.load_event),
-            self.get('ifname', 'NaN'),
-        )
         self.load_event.set()
 
 

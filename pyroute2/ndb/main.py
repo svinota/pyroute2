@@ -566,7 +566,6 @@ class NDB:
             self.sources.add(**spec)
         if self._dbm_error is not None:
             raise self._dbm_error
-        print("B")
         # self.query = Query(self.schema)
 
     def _get_view(self, table, chain=None, auth_managers=None):

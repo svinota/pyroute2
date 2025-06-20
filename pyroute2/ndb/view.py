@@ -493,9 +493,7 @@ class SourcesView(View):
         self.cache[spec['target']] = source
         self.ndb.task_manager.create_task(source.receiver)
         if sync:
-            print("S1")
             await self.cache[spec['target']].event.wait()
-        print("SS")
         return self.cache[spec['target']]
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):
