@@ -69,6 +69,7 @@ import threading
 import time
 import traceback
 import weakref
+from enum import IntFlag
 from functools import partial
 from typing import Awaitable, Callable, TypeAlias
 
@@ -100,6 +101,11 @@ async def fallback_add(self, idx_req, req):
     self.sources[self['target']].api(self.api, 'get', **idx_req)
     # reload the collected data
     self.load_sql()
+
+
+class ObjectFlags(IntFlag):
+    UNSPEC = 0x0
+    SNAPSHOT = 0x1
 
 
 class AsyncObject(dict):
@@ -261,6 +267,7 @@ class AsyncObject(dict):
         master=None,
         check=True,
         auth_managers=None,
+        flags=ObjectFlags.UNSPEC,
     ):
         self.view = view
         self.ndb = view.ndb
@@ -273,6 +280,7 @@ class AsyncObject(dict):
         self.iclass = iclass
         self.utable = self.utable or self.table
         self.errors = []
+        self.flags = flags
         self.atime = time.time()
         self.log = self.ndb.log.channel('rtnl_object')
         self.log.debug('init')
@@ -568,7 +576,11 @@ class AsyncObject(dict):
         else:
             key = self._replace.key
         snp = type(self)(
-            self.view, key, ctxid=ctxid, auth_managers=self.auth_managers
+            self.view,
+            key,
+            ctxid=ctxid,
+            auth_managers=self.auth_managers,
+            flags=ObjectFlags.SNAPSHOT,
         )
         snp.register()
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
@@ -655,10 +667,13 @@ class AsyncObject(dict):
         self.log.debug('rollback: %s' % str(self.state.events))
         snapshot = snapshot or self.last_save
         if snapshot == -1:
-            return self.remove().apply()
+            self.remove()
+            await self.apply()
+            return
         else:
             snapshot.state.set(self.state.get())
             snapshot.rollback_chain = self._apply_script_snapshots
+            snapshot.flags &= ~ObjectFlags.SNAPSHOT
             await snapshot.apply(rollback=True)
             for link, snp in snapshot.snapshot_deps:
                 await link.rollback(snapshot=snp)
@@ -994,7 +1009,7 @@ class AsyncObject(dict):
                     obj.state.set('invalid')
                     obj.register()
                     try:
-                        obj.apply()
+                        await obj.apply()
                     except Exception as e:
                         self.errors.append((time.time(), obj, e))
             for obj in reversed(self.rollback_chain):
@@ -1024,7 +1039,6 @@ class AsyncObject(dict):
         self.log.debug(f'criteria {criteria}')
         self.log.debug(f'method {method}, {argv}, {kwarg}')
         for attempt in range(3):
-            ret = [x for x in method(*argv, **kwarg)]
             ret = []
             for k in method(*argv, **kwarg):
                 if isinstance(k, Awaitable):
@@ -1083,7 +1097,6 @@ class AsyncObject(dict):
         '''
         Load the data from the database.
         '''
-
         if not self.key:
             return
 
@@ -1125,6 +1138,8 @@ class AsyncObject(dict):
         '''
         # TODO: partial match (object rename / restore)
         # ...
+        if ObjectFlags.SNAPSHOT in self.flags:
+            return
 
         # full match
         for norm, name in zip(self.knorm, self.kspec):
