@@ -810,8 +810,7 @@ class Interface(AsyncObject):
                 if port['target'] != self['target']:
                     raise ValueError('target must be the same')
                 port['master'] = self['index']
-                getattr(port, mode)()
-                return [port]
+                return [getattr(port, mode)()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -828,8 +827,7 @@ class Interface(AsyncObject):
                 if port['target'] != self['target']:
                     raise ValueError('target must be the same')
                 port['master'] = 0
-                getattr(port, mode)()
-                return [port]
+                return [getattr(port, mode)()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
                 return [e_s]
@@ -1183,6 +1181,7 @@ class SyncInterface(RTNL_Object):
         super().__init__(event_loop, obj, class_map)
         self.ipaddr = SyncView(event_loop, obj.ipaddr, self.class_map)
         self.neighbours = SyncView(event_loop, obj.neighbours, self.class_map)
+        self.ports = SyncView(event_loop, obj.ports, self.class_map)
 
     @property
     def state(self):
@@ -1194,6 +1193,14 @@ class SyncInterface(RTNL_Object):
 
     def del_ip(self, spec=None, **kwarg):
         self._main_sync_call(self.obj.del_ip, spec, **kwarg)
+        return self
+
+    def add_port(self, spec=None, **kwarg):
+        self._main_sync_call(self.obj.add_port, spec, **kwarg)
+        return self
+
+    def del_port(self, spec=None, **kwarg):
+        self._main_sync_call(self.obj.del_port, spec, **kwarg)
         return self
 
     def add_altname(self, ifname):
