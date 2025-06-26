@@ -121,9 +121,9 @@ from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, nh, rtmsg
 from pyroute2.requests.common import MPLSTarget
 from pyroute2.requests.route import RouteFieldFilter
 
-from ..auth_manager import check_auth
-from ..objects import AsyncObject
+from ..objects import AsyncObject, RTNL_Object
 from ..report import Record
+from ..sync_api import Flags
 
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
@@ -696,7 +696,6 @@ class Route(AsyncObject):
             req['gateway'] = self['gateway']
         return req
 
-    @check_auth('obj:modify')
     def __setitem__(self, key, value):
         if key == 'route_id':
             raise ValueError('route_id is read only')
@@ -706,9 +705,7 @@ class Route(AsyncObject):
                 mp = dict(mp)
                 if self.state == 'invalid':
                     mp['create'] = True
-                obj = NextHop(
-                    self, self.view, mp, auth_managers=self.auth_managers
-                )
+                obj = NextHop(self, self.view, mp)
                 obj.state.set(self.state.get())
                 self['multipath'].append(obj)
             if key in self.changed:
@@ -717,9 +714,7 @@ class Route(AsyncObject):
             value = dict(value)
             if not isinstance(self['metrics'], Metrics):
                 value['create'] = True
-            obj = Metrics(
-                self, self.view, value, auth_managers=self.auth_managers
-            )
+            obj = Metrics(self, self.view, value)
             obj.state.set(self.state.get())
             super(Route, self).__setitem__('metrics', obj)
             if key in self.changed:
@@ -742,7 +737,6 @@ class Route(AsyncObject):
         else:
             super(Route, self).__setitem__(key, value)
 
-    @check_auth('obj:modify')
     def apply(self, rollback=False, req_filter=None, mode='apply'):
         if (
             (self.get('table') == 255)
@@ -803,10 +797,7 @@ class Route(AsyncObject):
                 )
                 if metrics:
                     self['metrics'] = Metrics(
-                        self,
-                        self.view,
-                        {'route_id': self['route_id']},
-                        auth_managers=self.auth_managers,
+                        self, self.view, {'route_id': self['route_id']}
                     )
                     break
                 time.sleep(0.1)
@@ -852,16 +843,7 @@ class Route(AsyncObject):
 
             for nexthop in nhs:
                 key = {'route_id': self['route_id'], 'nh_id': nexthop[-1]}
-                (
-                    self['multipath'].append(
-                        NextHop(
-                            self,
-                            self.view,
-                            key,
-                            auth_managers=self.auth_managers,
-                        )
-                    )
-                )
+                (self['multipath'].append(NextHop(self, self.view, key)))
 
 
 class RouteSub:
@@ -944,3 +926,18 @@ class Metrics(RouteSub, AsyncObject):
         kwarg['iclass'] = rtmsg.metrics
         kwarg['check'] = False
         super(Metrics, self).__init__(*argv, **kwarg)
+
+
+class SyncRoute(RTNL_Object):
+
+    def __init__(self, event_loop, obj, class_map=None, flags=Flags.RO):
+        super().__init__(event_loop, obj, class_map, flags)
+        self.metrics = None
+        self.multipath = []
+
+    def __getitem__(self, key):
+        if key == 'metrics':
+            return self.metrics
+        if key == 'multipath':
+            return self.multipath
+        return super().__getitem__(key)

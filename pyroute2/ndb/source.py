@@ -398,5 +398,5 @@ class Source(dict):
 class SyncSource(RTNL_Object):
 
     def api(self, name, *argv, **kwarg):
-        ret = self._main_sync_call(self.obj.api, name, *argv, **kwarg)
+        ret = self._main_sync_call(self.asyncore.api, name, *argv, **kwarg)
         return ret

@@ -99,18 +99,13 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
 
-    def __init__(self, ndb, table, chain=None, auth_managers=None):
+    def __init__(self, ndb, table, chain=None):
         self.ndb = ndb
         self.log = ndb.log.channel('view.%s' % table)
         self.table = table
         self.event = table  # FIXME
         self.chain = chain
         self.cache = {}
-        if auth_managers is None:
-            auth_managers = []
-        if chain:
-            auth_managers += chain.auth_managers
-        self.auth_managers = auth_managers
         self.constraints = {}
         self.classes = OrderedDict()
         self.classes['interfaces'] = Interface
@@ -164,13 +159,7 @@ class View(dict):
             context = {}
         iclass = self.classes[table or self.table]
         spec = iclass.new_spec(key, context, self.default_target)
-        return iclass(
-            self,
-            spec,
-            load=False,
-            master=self.chain,
-            auth_managers=self.auth_managers,
-        )
+        return iclass(self, spec, load=False, master=self.chain)
 
     def create(self, *argspec, **kwspec):
         iclass = self.classes[self.table]
@@ -464,15 +453,12 @@ to get objects use ...[key] / .__getitem__(key)
 
 
 class SourcesView(View):
-    def __init__(self, ndb, auth_managers=None):
-        super(SourcesView, self).__init__(ndb, 'sources')
-        self.classes['sources'] = Source
+    def __init__(self, ndb, table='sources'):
+        super(SourcesView, self).__init__(ndb, table)
+        self.classes[table] = Source
         self.cache = {}
         self.proxy = {}
         self.lock = threading.Lock()
-        if auth_managers is None:
-            auth_managers = []
-        self.auth_managers = auth_managers
 
     def async_add(self, **spec):
         spec = dict(Source.defaults(spec))

@@ -197,9 +197,8 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.requests.link import LinkFieldFilter
 
-from ..auth_manager import AuthManager
 from ..objects import AsyncObject, RTNL_Object
-from ..sync_api import SyncView
+from ..sync_api import Flags, SyncView
 
 
 async def load_ifinfmsg(schema, sources, target, event):
@@ -473,14 +472,6 @@ class Vlan(AsyncObject):
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg.af_spec_bridge.vlan_info
-        if 'auth_managers' not in kwarg or kwarg['auth_managers'] is None:
-            kwarg['auth_managers'] = []
-        log = argv[0].ndb.log.channel('vlan auth')
-        kwarg['auth_managers'].append(
-            AuthManager(
-                {'obj:read': True, 'obj:list': True, 'obj:modify': False}, log
-            )
-        )
         super(Vlan, self).__init__(*argv, **kwarg)
 
     def make_req(self, prime):
@@ -940,20 +931,16 @@ class Interface(AsyncObject):
         # 1. make own snapshot
         snp = await super().snapshot(ctxid=ctxid)
         # 2. collect dependencies and store in self.snapshot_deps
-        for spec in self.ndb.views.interfaces.getmany(
+        for spec in self.ndb.interfaces.asyncore.getmany(
             {'IFLA_MASTER': self['index']}
         ):
             # bridge ports
-            link = type(self)(
-                self.view, spec, auth_managers=self.auth_managers
-            )
+            link = type(self)(self.view, spec)
             snp.snapshot_deps.append((link, await link.snapshot()))
-        for spec in self.ndb.views.interfaces.getmany(
+        for spec in self.ndb.interfaces.asyncore.getmany(
             {'IFLA_LINK': self['index']}
         ):
-            link = type(self)(
-                self.view, spec, auth_managers=self.auth_managers
-            )
+            link = type(self)(self.view, spec)
             # vlans & veth
             if await self.is_peer(link) and not await link.is_peer(self):
                 snp.snapshot_deps.append((link, await link.snapshot()))
@@ -1013,7 +1000,7 @@ class Interface(AsyncObject):
         # translate string link references into numbers
         for key in ('link', 'master'):
             if key in self and isinstance(self[key], basestring):
-                self[key] = self.ndb.views.interfaces[self[key]]['index']
+                self[key] = self.ndb.interfaces.asyncore[self[key]]['index']
         setns = self.state.get() == 'setns'
         remove = self.state.get() == 'remove'
         alt_ifname_setup = set(self['alt_ifname_list'])
@@ -1177,43 +1164,55 @@ class Interface(AsyncObject):
 
 class SyncInterface(RTNL_Object):
 
-    def __init__(self, event_loop, obj, class_map=None):
-        super().__init__(event_loop, obj, class_map)
-        self.ipaddr = SyncView(event_loop, obj.ipaddr, self.class_map)
-        self.neighbours = SyncView(event_loop, obj.neighbours, self.class_map)
-        self.ports = SyncView(event_loop, obj.ports, self.class_map)
+    def __init__(self, event_loop, obj, class_map=None, flags=Flags.RO):
+        super().__init__(event_loop, obj, class_map, flags)
+        self.ipaddr = SyncView(
+            event_loop, obj.ipaddr, self.class_map, self.flags
+        )
+        self.neighbours = SyncView(
+            event_loop, obj.neighbours, self.class_map, self.flags
+        )
+        self.ports = SyncView(
+            event_loop, obj.ports, self.class_map, self.flags
+        )
+        self.routes = SyncView(
+            event_loop, obj.routes, self.class_map, self.flags
+        )
+        self.vlans = SyncView(
+            event_loop, obj.vlans, self.class_map, self.flags
+        )
 
     @property
     def state(self):
-        return self.obj.state
+        return self.asyncore.state
 
     def add_ip(self, spec=None, **kwarg):
-        self._main_sync_call(self.obj.add_ip, spec, **kwarg)
+        self._main_sync_call(self.asyncore.add_ip, spec, **kwarg)
         return self
 
     def del_ip(self, spec=None, **kwarg):
-        self._main_sync_call(self.obj.del_ip, spec, **kwarg)
+        self._main_sync_call(self.asyncore.del_ip, spec, **kwarg)
         return self
 
     def add_port(self, spec=None, **kwarg):
-        self._main_sync_call(self.obj.add_port, spec, **kwarg)
+        self._main_sync_call(self.asyncore.add_port, spec, **kwarg)
         return self
 
     def del_port(self, spec=None, **kwarg):
-        self._main_sync_call(self.obj.del_port, spec, **kwarg)
+        self._main_sync_call(self.asyncore.del_port, spec, **kwarg)
         return self
 
     def add_altname(self, ifname):
-        self._main_sync_call(self.obj.add_altname, ifname)
+        self._main_sync_call(self.asyncore.add_altname, ifname)
         return self
 
     def del_altname(self, ifname):
-        self._main_sync_call(self.obj.del_altname, ifname)
+        self._main_sync_call(self.asyncore.del_altname, ifname)
         return self
 
     def ensure_ip(self, spec=None, **kwarg):
-        self._main_sync_call(self.obj.ensure_ip, spec, **kwarg)
+        self._main_sync_call(self.asyncore.ensure_ip, spec, **kwarg)
         return self
 
     def load_from_system(self):
-        self._main_async_call(self.obj.load_from_system)
+        self._main_async_call(self.asyncore.load_from_system)

@@ -76,7 +76,6 @@ from typing import Awaitable, Callable, TypeAlias
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.requests.main import RequestProcessor
 
-from ..auth_manager import AuthManager
 from ..events import InvalidateHandlerException, State
 from ..report import Record
 from ..sync_api import SyncBase
@@ -266,12 +265,11 @@ class AsyncObject(dict):
         load=True,
         master=None,
         check=True,
-        auth_managers=None,
         flags=ObjectFlags.UNSPEC,
     ):
         self.view = view
         self.ndb = view.ndb
-        self.sources = view.ndb.views.sources
+        self.sources = view.ndb.sources.asyncore
         self.master = master
         self.ctxid = ctxid
         self.schema = view.ndb.schema
@@ -284,9 +282,6 @@ class AsyncObject(dict):
         self.atime = time.time()
         self.log = self.ndb.log.channel('rtnl_object')
         self.log.debug('init')
-        if auth_managers is None:
-            auth_managers = [AuthManager(None, self.ndb.log.channel('auth'))]
-        self.auth_managers = auth_managers
         self.state = State()
         self.state.set('invalid')
         self.snapshot_deps = []
@@ -432,9 +427,7 @@ class AsyncObject(dict):
                     self.log.debug(
                         f'prepare replace {nkey} = {nvalue} in {self.key}'
                     )
-                    self._replace = type(self)(
-                        self.view, self.key, auth_managers=self.auth_managers
-                    )
+                    self._replace = type(self)(self.view, self.key)
                     self.state.set('replace')
                 else:
                     raise ValueError(
@@ -576,11 +569,7 @@ class AsyncObject(dict):
         else:
             key = self._replace.key
         snp = type(self)(
-            self.view,
-            key,
-            ctxid=ctxid,
-            auth_managers=self.auth_managers,
-            flags=ObjectFlags.SNAPSHOT,
+            self.view, key, ctxid=ctxid, flags=ObjectFlags.SNAPSHOT
         )
         snp.register()
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
@@ -657,9 +646,7 @@ class AsyncObject(dict):
             self.log.debug(
                 'rollback replace: %s :: %s' % (self.key, self._replace.key)
             )
-            new_replace = type(self)(
-                self.view, self.key, auth_managers=self.auth_managers
-            )
+            new_replace = type(self)(self.view, self.key)
             new_replace.state.set('remove')
             self.state.set('replace')
             self.update(self._replace)
@@ -1171,44 +1158,46 @@ class RTNL_Object(SyncBase):
         req_filter: None | Callable[[Req], Req] = None,
         mode: str = 'apply',
     ) -> SyncBase:
-        self._main_async_call(self.obj.commit, rollback, req_filter, mode)
+        self._main_async_call(self.asyncore.commit, rollback, req_filter, mode)
         return self
 
     @property
     def state(self):
-        return self.obj.state
+        return self.asyncore.state
 
     @property
     def chain(self):
-        return self._get_sync_class(self.obj.chain, key=self.obj.chain.table)
+        return self._get_sync_class(
+            self.asyncore.chain, key=self.asyncore.chain.table
+        )
 
     def create(self, **spec):
-        item = self._main_sync_call(self.obj.create, **spec)
+        item = self._main_sync_call(self.asyncore.create, **spec)
         return type(self)(self.event_loop, item)
 
     def commit(self) -> SyncBase:
-        self._main_async_call(self.obj.commit)
+        self._main_async_call(self.asyncore.commit)
         return self
 
     def rollback(self, snapshot=None):
-        self._main_async_call(self.obj.rollback, snapshot)
+        self._main_async_call(self.asyncore.rollback, snapshot)
         return self
 
     def show(self, fmt=None):
-        return self.obj.show(fmt)
+        return self.asyncore.show(fmt)
 
     def keys(self):
-        return self.obj.keys()
+        return self.asyncore.keys()
 
     def items(self):
-        return self.obj.items()
+        return self.asyncore.items()
 
     def set(self, *argv, **kwarg):
-        self.obj.set(*argv, **kwarg)
+        self.asyncore.set(*argv, **kwarg)
         return self
 
     def remove(self):
-        self.obj.remove()
+        self.asyncore.remove()
         return self
 
     def __enter__(self):
@@ -1218,10 +1207,10 @@ class RTNL_Object(SyncBase):
         self.commit()
 
     def __repr__(self):
-        return repr(self.obj)
+        return repr(self.asyncore)
 
     def __getitem__(self, key):
-        return self.obj[key]
+        return self.asyncore[key]
 
     def __setitem__(self, key, value):
-        self.obj[key] = value
+        self.asyncore[key] = value

@@ -283,31 +283,18 @@ from pyroute2.common import basestring
 
 ##
 # NDB stuff
-from .auth_manager import AuthManager
 from .events import ShutdownException
 from .objects import RTNL_Object
 from .objects.interface import SyncInterface
+from .objects.route import SyncRoute
 from .schema import DBProvider
 from .source import SyncSource
-from .sync_api import SyncDB, SyncSources, SyncView
+from .sync_api import Flags, SyncDB, SyncSources, SyncView
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
 
 log = logging.getLogger(__name__)
-
-
-NDB_VIEWS_SPECS = (
-    ('interfaces', 'interfaces'),
-    ('addresses', 'addresses'),
-    ('routes', 'routes'),
-    ('neighbours', 'neighbours'),
-    ('af_bridge_fdb', 'fdb'),
-    ('rules', 'rules'),
-    ('netns', 'netns'),
-    ('probes', 'probes'),
-    ('af_bridge_vlans', 'vlans'),
-)
 
 
 class Log:
@@ -447,35 +434,8 @@ class EventQueue:
         return self._bypass.qsize()
 
 
-class AuthProxy:
-    def __init__(self, ndb, auth_managers):
-        self._ndb = ndb
-        self._auth_managers = auth_managers
-
-        for vtable, vname in NDB_VIEWS_SPECS:
-            view = View(self._ndb, vtable, auth_managers=self._auth_managers)
-            setattr(self, vname, view)
-
-
-class Asyncore:
-    def __init__(self, ndb, auth_managers):
-        class_map = {
-            'interfaces': SyncInterface,
-            'sources': SyncSource,
-            'default': RTNL_Object,
-        }
-        for vtable, vname in NDB_VIEWS_SPECS:
-            view = View(ndb, vtable, auth_managers=auth_managers)
-            setattr(self, vname, view)
-            sview = SyncView(ndb.task_manager.event_loop, view, class_map)
-            setattr(ndb, vname, sview)
-        self.sources = SourcesView(ndb, auth_managers=auth_managers)
-        ndb.sources = SyncSources(
-            ndb.task_manager.event_loop, self.sources, class_map
-        )
-
-
 class NDB:
+
     @property
     def nsmanager(self):
         return '%s/nsmanager' % self.localhost
@@ -532,11 +492,6 @@ class NDB:
                 spec['target'] = self.localhost
                 break
 
-        am = AuthManager(
-            {'obj:list': True, 'obj:read': True, 'obj:modify': True},
-            self.log.channel('auth'),
-        )
-        # self.sources = SourcesView(self, auth_managers=[am])
         self._call_registry = {}
         self._nl = sources
         atexit.register(self.close)
@@ -559,7 +514,8 @@ class NDB:
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
-        self.views = Asyncore(self, [am])
+        for vname, view in self._create_views():
+            setattr(self, vname, view)
         self.db = SyncDB(self.task_manager.event_loop, self)
         for spec in self._nl:
             spec['event'] = None
@@ -568,8 +524,36 @@ class NDB:
             raise self._dbm_error
         # self.query = Query(self.schema)
 
-    def _get_view(self, table, chain=None, auth_managers=None):
-        return View(self, table, chain, auth_managers)
+    def _create_views(self, flags=Flags.UNSPEC):
+        views_map = (
+            ('interfaces', 'interfaces', View, SyncView),
+            ('addresses', 'addresses', View, SyncView),
+            ('routes', 'routes', View, SyncView),
+            ('neighbours', 'neighbours', View, SyncView),
+            ('af_bridge_fdb', 'fdb', View, SyncView),
+            ('rules', 'rules', View, SyncView),
+            ('netns', 'netns', View, SyncView),
+            ('probes', 'probes', View, SyncView),
+            ('af_bridge_vlans', 'vlans', View, SyncView),
+            ('sources', 'sources', SourcesView, SyncSources),
+        )
+        class_map = {
+            'interfaces': SyncInterface,
+            'routes': SyncRoute,
+            'sources': SyncSource,
+            'default': RTNL_Object,
+        }
+        ret = {}
+        for vtable, vname, vclass, sync_vclass in views_map:
+            view = vclass(self, vtable)
+            sview = sync_vclass(
+                self.task_manager.event_loop, view, class_map, flags=flags
+            )
+            ret[vname] = sview
+        return iter(ret.items())
+
+    def _get_view(self, table, chain=None):
+        return View(self, table, chain)
 
     def __enter__(self):
         return self
@@ -581,15 +565,16 @@ class NDB:
         return Transaction(self.log.channel('transaction'))
 
     def readonly(self):
-        return self.auth_proxy(
-            AuthManager(
-                {'obj:list': True, 'obj:read': True, 'obj:modify': False},
-                self.log.channel('auth'),
-            )
-        )
+        class AuthProxy:
+            pass
+
+        ap = AuthProxy()
+        for vname, view in self._create_views(flags=Flags.RO):
+            setattr(ap, vname, view)
+        return ap
 
     def auth_proxy(self, auth_manager):
-        return AuthProxy(self, [auth_manager])
+        raise NotImplementedError()
 
     def close(self):
         with self._global_lock:

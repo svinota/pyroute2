@@ -214,7 +214,7 @@ class TaskManager:
                 try:
                     target = event['header']['target']
                     # self.log.debug(f'await {handler} for {event}')
-                    await handler(self.ndb.views.sources, target, event)
+                    await handler(self.ndb.sources.asyncore, target, event)
                 except RescheduleException:
                     if 'rcounter' not in event['header']:
                         event['header']['rcounter'] = 0
