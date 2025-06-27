@@ -68,13 +68,9 @@ init = {
 }
 
 
-def fallback_add(self, idx_req, req):
-    (
-        self.ndb._event_queue.put(
-            self.sources[self['target']].api(self.api, 'dump'),
-            source=self['target'],
-        )
-    )
+async def fallback_add(self, idx_req, req):
+    async for msg in await self.sources[self['target']].api(self.api, 'dump'):
+        await self.sources[self['target']].evq.put(msg)
     self.load_sql()
 
 
