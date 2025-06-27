@@ -1174,6 +1174,35 @@ class RTNL_Object(SyncBase):
             self.asyncore.chain, key=self.asyncore.chain.table
         )
 
+    @property
+    def table(self):
+        return self.asyncore.table
+
+    @property
+    def etable(self):
+        return self.asyncore.etable
+
+    @property
+    def key(self):
+        return self.asyncore.key
+
+    def complete_key(self, key):
+        return self._main_sync_call(self.asyncore.complete_key, key)
+
+    def exists(self, key):
+        return self._main_sync_call(self.asyncore.exists, key)
+
+    def load_sql(self, table=None, ctxid=None, set_state=True):
+        return self._main_sync_call(
+            self.asyncore.load_sql, table, ctxid, set_state
+        )
+
+    def load_value(self, key, value):
+        return self._main_sync_call(self.asyncore.load_value, key, value)
+
+    def snapshot(self, ctxid=None):
+        return self._main_async_call(self.asyncore.snapshot, ctxid)
+
     def create(self, **spec):
         item = self._main_sync_call(self.asyncore.create, **spec)
         return type(self)(self.event_loop, item)
