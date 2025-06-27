@@ -71,7 +71,7 @@ import traceback
 import weakref
 from enum import IntFlag
 from functools import partial
-from typing import Awaitable, Callable, TypeAlias
+from typing import Awaitable, Callable
 
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.requests.main import RequestProcessor
@@ -86,7 +86,7 @@ RSLV_NONE = 2
 RSLV_DELETE = 3
 
 
-Req: TypeAlias = dict[str, str | int]
+Req = dict[str, str | int]  # FIXME: 3.9 : TypeAlias
 
 
 async def fallback_add(self, idx_req, req):
