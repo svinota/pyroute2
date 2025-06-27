@@ -144,6 +144,10 @@ class SyncView(SyncBase):
     def getone(self, spec, table=None):
         return self._main_sync_call(self.asyncore.getone, spec, table)
 
+    def items(self):
+        for key in self.keys():
+            yield (key, self[key])
+
     def keys(self):
         for record in self.dump():
             yield record
