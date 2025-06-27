@@ -68,7 +68,9 @@ class TaskManager:
         self.log = ndb.log
         self.event_map = {}
         self.task_map = {}
-        self.event_queue = LoggingQueue(log=self.ndb.log.channel('queue'))
+        self.event_queue = (
+            asyncio.Queue()
+        )  # LoggingQueue(log=self.ndb.log.channel('queue'))
         self.stop_event = asyncio.Event()
         self.reload_event = asyncio.Event()
         self.thread = None

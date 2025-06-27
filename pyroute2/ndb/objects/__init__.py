@@ -1158,7 +1158,7 @@ class RTNL_Object(SyncBase):
         req_filter: None | Callable[[Req], Req] = None,
         mode: str = 'apply',
     ) -> SyncBase:
-        self._main_async_call(self.asyncore.commit, rollback, req_filter, mode)
+        self._main_async_call(self.asyncore.apply, rollback, req_filter, mode)
         return self
 
     @property

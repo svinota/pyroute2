@@ -123,7 +123,7 @@ from pyroute2.requests.route import RouteFieldFilter
 
 from ..objects import AsyncObject, RTNL_Object
 from ..report import Record
-from ..sync_api import Flags
+from ..sync_api import Flags, SyncBase
 
 _dump_rt = ['main.f_%s' % x[0] for x in rtmsg.sql_schema()][:-2]
 _dump_nh = ['nh.f_%s' % x[0] for x in nh.sql_schema()][:-2]
@@ -846,24 +846,7 @@ class Route(AsyncObject):
                 (self['multipath'].append(NextHop(self, self.view, key)))
 
 
-class RouteSub:
-    def apply(self, rollback=False, req_filter=None, mode='apply'):
-        return self.route.apply(rollback, req_filter, mode)
-
-    def commit(self):
-        return self.route.commit()
-
-    def set(self, key, value):
-        self[key] = value
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.commit()
-
-
-class NextHop(RouteSub, AsyncObject):
+class NextHop(AsyncObject):
     msg_class = nh
     table = 'nh'
     hidden_fields = ('route_id', 'target')
@@ -889,7 +872,7 @@ class NextHop(RouteSub, AsyncObject):
         super(NextHop, self).__init__(*argv, **kwarg)
 
 
-class MetricsStub(RouteSub, dict):
+class MetricsStub(dict):
     def __init__(self, route):
         self.route = route
 
@@ -902,7 +885,7 @@ class MetricsStub(RouteSub, dict):
         raise KeyError('metrics not initialized for this route')
 
 
-class Metrics(RouteSub, AsyncObject):
+class Metrics(AsyncObject):
     msg_class = rtmsg.metrics
     table = 'metrics'
     hidden_fields = ('route_id', 'target')
@@ -928,12 +911,50 @@ class Metrics(RouteSub, AsyncObject):
         super(Metrics, self).__init__(*argv, **kwarg)
 
 
+class RouteSub(SyncBase):
+    def apply(self, rollback=False, req_filter=None, mode='apply'):
+        return self.route.apply(rollback, req_filter, mode)
+
+    def commit(self):
+        return self.route.commit()
+
+    def set(self, key, value):
+        self[key] = value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.commit()
+
+    def __getitem__(self, key):
+        return self._main_sync_call(self.asyncore.__getitem__, key)
+
+    def __setitem__(self, key, value):
+        return self._main_sync_call(self.asyncore.__setitem__, key, value)
+
+
 class SyncRoute(RTNL_Object):
 
-    def __init__(self, event_loop, obj, class_map=None, flags=Flags.RO):
-        super().__init__(event_loop, obj, class_map, flags)
-        self.metrics = None
-        self.multipath = []
+    def __init__(self, event_loop, asyncore, class_map=None, flags=Flags.RO):
+        super().__init__(event_loop, asyncore, class_map, flags)
+
+    @property
+    def metrics(self):
+        metrics = self._main_sync_call(self.asyncore.__getitem__, 'metrics')
+        ret = RouteSub(self.event_loop, metrics, self.class_map, self.flags)
+        ret.route = self
+        return ret
+
+    @property
+    def multipath(self):
+        mp = self._main_sync_call(self.asyncore.__getitem__, 'multipath')
+        ret = []
+        for nexthop in mp:
+            rs = RouteSub(self.event_loop, nexthop, self.class_map, self.flags)
+            rs.route = self
+            ret.append(rs)
+        return ret
 
     def __getitem__(self, key):
         if key == 'metrics':
