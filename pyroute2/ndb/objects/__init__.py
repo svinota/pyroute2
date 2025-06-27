@@ -71,7 +71,7 @@ import traceback
 import weakref
 from enum import IntFlag
 from functools import partial
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Union
 
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.requests.main import RequestProcessor
@@ -86,7 +86,9 @@ RSLV_NONE = 2
 RSLV_DELETE = 3
 
 
-Req = dict[str, str | int]  # FIXME: 3.9 : TypeAlias
+# FIXME:3.9: TypeAlias
+# FIXME 3.9: Union
+Req = dict[str, Union[str, int]]
 
 
 async def fallback_add(self, idx_req, req):
@@ -1152,10 +1154,11 @@ class AsyncObject(dict):
 
 class RTNL_Object(SyncBase):
 
+    # FIXME 3.9: Union
     def apply(
         self,
         rollback: bool = False,
-        req_filter: None | Callable[[Req], Req] = None,
+        req_filter: Union[None, Callable[[Req], Req]] = None,
         mode: str = 'apply',
     ) -> SyncBase:
         self._main_async_call(self.asyncore.apply, rollback, req_filter, mode)
@@ -1195,6 +1198,9 @@ class RTNL_Object(SyncBase):
     def set(self, *argv, **kwarg):
         self.asyncore.set(*argv, **kwarg)
         return self
+
+    def get(self, key, *argv):
+        return self.asyncore.get(key, *argv)
 
     def remove(self):
         self.asyncore.remove()
