@@ -398,6 +398,10 @@ class Source(dict):
 
 class SyncSource(RTNL_Object):
 
+    @property
+    def nl(self):
+        return self.asyncore.nl
+
     def api(self, name, *argv, **kwarg):
         return self._main_sync_call(self.asyncore.api, name, *argv, **kwarg)
 
