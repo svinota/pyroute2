@@ -313,6 +313,7 @@ class Source(dict):
         #
         await self.nl.setup_endpoint()
         await self.nl.bind(**self.bind_arguments)
+        self.log.debug(f'source fd {self.nl.fileno()}')
         #
         # Initial load -- enqueue the data
         #
@@ -398,5 +399,24 @@ class Source(dict):
 class SyncSource(RTNL_Object):
 
     def api(self, name, *argv, **kwarg):
-        ret = self._main_sync_call(self.asyncore.api, name, *argv, **kwarg)
-        return ret
+        return self._main_sync_call(self.asyncore.api, name, *argv, **kwarg)
+
+    def set(self, key, value):
+        if key == 'state':
+            self.asyncore.ndb.task_manager.task_map[self.asyncore.task][
+                0
+            ] = value
+            return
+        raise RuntimeError('unknown property')
+
+    def restart(self, reason='no reason'):
+        self.asyncore.event.clear()
+        self.close(next_state='running')
+        self._main_async_call(self.asyncore.event.wait)
+
+    def close(self, code=errno.ECONNRESET, sync=None, next_state='stopped'):
+        self.set('state', next_state)
+        self._main_sync_call(
+            self.asyncore.ndb.schema.flush, self.asyncore.target
+        )
+        self._main_sync_call(self.asyncore.nl.close, code)

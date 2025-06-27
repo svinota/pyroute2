@@ -477,7 +477,8 @@ class SourcesView(View):
             sync = False
         source = Source(self.ndb, **spec)
         self.cache[spec['target']] = source
-        self.ndb.task_manager.create_task(source.receiver)
+        task = self.ndb.task_manager.create_task(source.receiver)
+        source.task = task
         if sync:
             await self.cache[spec['target']].event.wait()
         return self.cache[spec['target']]
@@ -488,7 +489,9 @@ class SourcesView(View):
         with self.lock:
             if target in self.cache:
                 source = self.cache[target]
-                source.close(code=code, sync=sync)
+                self.ndb.task_manager.task_map[source.task][0] = 'stopped'
+                self.ndb.schema.flush(target)
+                source.nl.close(code)
                 return self.cache.pop(target)
 
     def keys(self):

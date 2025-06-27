@@ -70,6 +70,7 @@ class TaskManager:
         self.task_map = {}
         self.event_queue = LoggingQueue(log=self.ndb.log.channel('queue'))
         self.stop_event = asyncio.Event()
+        self.reload_event = asyncio.Event()
         self.thread = None
         self.ctime = self.gctime = time.time()
         self.ready = asyncio.Event()
@@ -185,9 +186,14 @@ class TaskManager:
     def create_task(self, coro, state='running'):
         task = asyncio.create_task(coro())
         self.task_map[task] = [state, coro]
+        self.reload_event.set()
+        return task
 
     async def stop(self):
         await self.stop_event.wait()
+
+    async def reload(self):
+        await self.reload_event.wait()
 
     async def task_watch(self):
         while True:
@@ -195,12 +201,16 @@ class TaskManager:
             done, pending = await asyncio.wait(
                 tasks, return_when=asyncio.FIRST_COMPLETED
             )
+            self.log.debug(f'task done {done}')
             if self.stop_event.is_set():
                 return
             for task in done:
+                if task.exception():
+                    self.log.debug(f'task exception {task.exception()}')
                 target_state, init = self.task_map.pop(task)
                 if target_state == 'running':
                     self.create_task(init)
+            self.reload_event.clear()
 
     async def receiver(self):
         while True:
@@ -275,6 +285,7 @@ class TaskManager:
         self.ndb.event_loop = self.event_loop
         self.create_task(self.receiver)
         self.create_task(self.stop)
+        self.create_task(self.reload)
         self.ndb._dbm_ready.set()
         await self.task_watch()
         self.ndb._dbm_shutdown.set()

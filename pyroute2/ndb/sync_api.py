@@ -96,6 +96,9 @@ class SyncDB(SyncBase):
     def backup(self, spec):
         return self._main_sync_call(self.asyncore.schema.backup, spec)
 
+    def fetchone(self, query):
+        return self._main_sync_call(self.asyncore.schema.fetchone, query)
+
 
 class SyncView(SyncBase):
 
@@ -110,6 +113,9 @@ class SyncView(SyncBase):
 
     def __iter__(self):
         return self.keys()
+
+    def __len__(self):
+        return self._main_sync_call(self.asyncore.__len__)
 
     def __enter__(self):
         return self
