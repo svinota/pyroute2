@@ -1225,7 +1225,7 @@ class RTNL_Object(SyncBase):
         return self.asyncore.items()
 
     def set(self, *argv, **kwarg):
-        self.asyncore.set(*argv, **kwarg)
+        self._main_sync_call(self.asyncore.set, *argv, **kwarg)
         return self
 
     def get(self, key, *argv):
@@ -1248,4 +1248,4 @@ class RTNL_Object(SyncBase):
         return self.asyncore[key]
 
     def __setitem__(self, key, value):
-        self.asyncore[key] = value
+        return self.set(key, value)

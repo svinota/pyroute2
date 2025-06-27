@@ -962,3 +962,8 @@ class SyncRoute(RTNL_Object):
         if key == 'multipath':
             return self.multipath
         return super().__getitem__(key)
+
+    def get(self, key, *argv):
+        if key in ('metrics', 'multipath'):
+            return self[key]
+        return super().get(key, *argv)
