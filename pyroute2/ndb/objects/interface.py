@@ -1092,7 +1092,7 @@ class Interface(AsyncObject):
         ):
             # wait for the peer in net_ns_fd, only if the netns
             # is connected to the NDB instance
-            self.view.wait(
+            await self.view.wait(
                 target=self['peer']['net_ns_fd'],
                 ifname=self['peer']['ifname'],
                 timeout=5,
