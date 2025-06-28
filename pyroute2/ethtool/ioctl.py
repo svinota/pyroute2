@@ -147,6 +147,7 @@ class EthtoolWolInfo(DictStruct):
 
 
 class EthtoolCmd(DictStruct):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         ("cmd", ctypes.c_uint32),
@@ -170,6 +171,7 @@ class EthtoolCmd(DictStruct):
 
 
 class IoctlEthtoolLinkSettings(DictStruct):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         ("cmd", ctypes.c_uint32),
@@ -193,6 +195,7 @@ class IoctlEthtoolLinkSettings(DictStruct):
 
 
 class EthtoolCoalesce(DictStruct):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         # ETHTOOL_{G,S}COALESCE
@@ -272,6 +275,7 @@ class EthtoolValue(ctypes.Structure):
 
 
 class EthtoolSsetInfo(ctypes.Structure):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         ("cmd", ctypes.c_uint32),
@@ -342,6 +346,7 @@ class EthtoolSfeatures(ctypes.Structure):
 
 
 class EthtoolChannels(DictStruct):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         ("cmd", ctypes.c_uint32),
@@ -361,6 +366,7 @@ class FeatureState(ctypes.Structure):
 
 
 class EthtoolRingParam(DictStruct):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         ("cmd", ctypes.c_uint32),
@@ -394,12 +400,14 @@ class IfReqData(ctypes.Union):
 
 
 class IfReq(ctypes.Structure):
+    _layout_ = 'ms'
     _pack_ = 1
     _anonymous_ = ("u",)
     _fields_ = [("ifr_name", ctypes.c_uint8 * IFNAMSIZ), ("u", IfReqData)]
 
 
 class IfReqSsetInfo(ctypes.Structure):
+    _layout_ = 'ms'
     _pack_ = 1
     _fields_ = [
         ("ifr_name", ctypes.c_uint8 * IFNAMSIZ),
