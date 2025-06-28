@@ -290,5 +290,6 @@ class TaskManager:
         self.create_task(self.reload)
         self.ndb._dbm_ready.set()
         await self.task_watch()
+        self.ndb.schema.close()
         self.ndb._dbm_shutdown.set()
         self.ready.set()
