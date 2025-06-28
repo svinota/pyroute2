@@ -637,7 +637,7 @@ class Interface(AsyncObject):
     def add_vlan(self, spec):
         def do_add_vlan(self, mode, spec):
             try:
-                method = getattr(self.vlan.create(spec), mode)
+                method = getattr(self.vlans.create(spec), mode)
                 return [method()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
@@ -649,7 +649,7 @@ class Interface(AsyncObject):
     def ensure_vlan(self, spec):
         def do_ensure_vlan(self, mode, spec):
             try:
-                method = getattr(self.vlan.create(spec), mode)
+                method = getattr(self.vlans.create(spec), mode)
                 return [method()]
             except KeyError:
                 return []
@@ -663,7 +663,7 @@ class Interface(AsyncObject):
     def del_vlan(self, spec):
         def do_del_vlan(self, mode, spec):
             try:
-                method = getattr(self.vlan[spec].remove(), mode)
+                method = getattr(self.vlans[spec].remove(), mode)
                 return [method()]
             except Exception as e_s:
                 e_s.trace = traceback.format_stack()
@@ -710,11 +710,11 @@ class Interface(AsyncObject):
             if isinstance(spec, basestring):
                 specs = [spec]
             elif callable(spec):
-                specs = self.ipaddr.dump()
+                specs = self.neighbours.dump()
                 specs.select_records(spec)
                 specs.materialize()
             else:
-                specs = self.ipaddr.dump()
+                specs = self.neighbours.dump()
                 specs.select_records(**spec)
                 specs.materialize()
             for sp in specs:
@@ -794,7 +794,9 @@ class Interface(AsyncObject):
         self._apply_script.append((do_del_ip, {'spec': spec}))
         return self
 
-    def add_port(self, spec):
+    def add_port(self, spec=None, **kwarg):
+        spec = spec or kwarg
+
         def do_add_port(self, mode, spec):
             try:
                 port = self.view[spec]
@@ -809,7 +811,9 @@ class Interface(AsyncObject):
         self._apply_script.append((do_add_port, {'spec': spec}))
         return self
 
-    def del_port(self, spec):
+    def del_port(self, spec=None, **kwarg):
+        spec = spec or kwarg
+
         def do_del_port(self, mode, spec):
             try:
                 port = self.view[spec]
@@ -1194,6 +1198,22 @@ class SyncInterface(RTNL_Object):
         self._main_sync_call(self.asyncore.del_ip, spec, **kwarg)
         return self
 
+    def ensure_ip(self, spec=None, **kwarg):
+        self._main_sync_call(self.asyncore.ensure_ip, spec, **kwarg)
+        return self
+
+    def add_neighbour(self, spec=None, **kwarg):
+        self._main_sync_call(self.asyncore.add_neighbour, spec, **kwarg)
+        return self
+
+    def del_neighbour(self, spec=None, **kwarg):
+        self._main_sync_call(self.asyncore.del_neighbour, spec, **kwarg)
+        return self
+
+    def ensure_neighbour(self, spec=None, **kwarg):
+        self._main_sync_call(self.asyncore.ensure_neighbour, spec, **kwarg)
+        return self
+
     def add_port(self, spec=None, **kwarg):
         self._main_sync_call(self.asyncore.add_port, spec, **kwarg)
         return self
@@ -1208,10 +1228,6 @@ class SyncInterface(RTNL_Object):
 
     def del_altname(self, ifname):
         self._main_sync_call(self.asyncore.del_altname, ifname)
-        return self
-
-    def ensure_ip(self, spec=None, **kwarg):
-        self._main_sync_call(self.asyncore.ensure_ip, spec, **kwarg)
         return self
 
     def load_from_system(self):
