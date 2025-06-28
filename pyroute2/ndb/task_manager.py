@@ -1,11 +1,8 @@
 import asyncio
-import inspect
 import logging
-import queue
 import threading
 import time
 import traceback
-from functools import partial
 
 from pyroute2 import config
 
@@ -16,16 +13,9 @@ from .events import (
     RescheduleException,
     ShutdownException,
 )
-from .messages import cmsg, cmsg_event, cmsg_failed
+from .messages import cmsg_event, cmsg_failed
 
 log = logging.getLogger(__name__)
-
-
-def Events(*argv):
-    for sequence in argv:
-        if sequence is not None:
-            for item in sequence:
-                yield item
 
 
 class NDBConfig(dict):
@@ -49,17 +39,6 @@ class NDBConfig(dict):
 
     def values(self):
         return self.task_manager.config_values()
-
-
-class LoggingQueue(asyncio.Queue):
-
-    def __init__(self, log):
-        super().__init__()
-        self.log = log
-
-    async def put(self, item):
-        self.log.debug(f'put {type(item)} = {item}')
-        await super().put(item)
 
 
 class TaskManager:
@@ -95,92 +74,6 @@ class TaskManager:
 
     async def handler_failed(self, sources, target, event):
         self.ndb.schema.mark(target, 1)
-
-    def wrap_method(self, method):
-        #
-        # this wrapper will be published in the DBM thread
-        #
-        def _do_local_generator(target, request):
-            try:
-                for item in method(*request.argv, **request.kwarg):
-                    request.response.put(item)
-                request.response.put(StopIteration())
-            except Exception as e:
-                request.response.put(e)
-
-        def _do_local_single(target, request):
-            try:
-                (request.response.put(method(*request.argv, **request.kwarg)))
-            except Exception as e:
-                (request.response.put(e))
-
-        #
-        # this class will be used to map the requests
-        #
-        class cmsg_req(cmsg):
-            def __init__(self, response, *argv, **kwarg):
-                self['header'] = {'target': None}
-                self.response = response
-                self.argv = argv
-                self.kwarg = kwarg
-
-        #
-        # this method will proxy the original one
-        #
-        def _do_dispatch_generator(self, *argv, **kwarg):
-            if self.thread == id(threading.current_thread()):
-                # same thread, run method locally
-                for item in method(*argv, **kwarg):
-                    yield item
-            else:
-                # another thread, run via message bus
-                response = queue.Queue()
-                request = cmsg_req(response, *argv, **kwarg)
-                self.event_queue.put((request,))
-                while True:
-                    item = response.get()
-                    if isinstance(item, StopIteration):
-                        return
-                    elif isinstance(item, Exception):
-                        raise item
-                    else:
-                        yield item
-
-        def _do_dispatch_single(self, *argv, **kwarg):
-            if self.thread == id(threading.current_thread()):
-                # same thread, run method locally
-                return method(*argv, **kwarg)
-            else:
-                # another thread, run via message bus
-                response = queue.Queue(maxsize=1)
-                request = cmsg_req(response, *argv, **kwarg)
-                self.event_queue.put((request,))
-                ret = response.get()
-                if isinstance(ret, Exception):
-                    raise ret
-                else:
-                    return ret
-
-        #
-        # return the method spec to be announced
-        #
-        handler = _do_local_single
-        proxy = _do_dispatch_single
-        if inspect.isgeneratorfunction(method):
-            handler = _do_local_generator
-            proxy = _do_dispatch_generator
-        return (cmsg_req, handler, proxy)
-
-    def register_api(self, api_obj, prefix=''):
-        for name in dir(api_obj):
-            method = getattr(api_obj, name, None)
-            if hasattr(method, 'publish'):
-                if isinstance(method.publish, str):
-                    name = method.publish
-                name = f'{prefix}{name}'
-                event, handler, proxy = self.wrap_method(method)
-                setattr(self, name, partial(proxy, self))
-                self.event_map[event] = [handler]
 
     def main(self):
         asyncio.run(self.run())
@@ -270,7 +163,6 @@ class TaskManager:
             self.ndb.schema = schema.DBSchema(
                 self.ndb.config, self.event_map, self.log.channel('schema')
             )
-            self.register_api(self.ndb.schema.config, 'config_')
             self.ndb.config = NDBConfig(self)
 
         except Exception as e:
