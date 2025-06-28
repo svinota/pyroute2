@@ -85,6 +85,8 @@ def options(module, config):
         'pytest',
         f'-r{config.get("summary", "x")}',
         f'--timeout={config.get("timeout", 60)}',
+        '--cov=pyroute2',
+        '--cov-report=html',
         '--basetemp',
         './log',
     ]
