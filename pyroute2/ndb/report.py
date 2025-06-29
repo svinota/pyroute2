@@ -39,8 +39,6 @@ import json
 import warnings
 from itertools import chain
 
-from pyroute2 import cli
-
 MAX_REPORT_LINES = 10000
 
 deprecation_notice = '''
@@ -260,7 +258,6 @@ class RecordSet(BaseRecordSet):
             else:
                 return record
 
-    @cli.show_result
     def select_fields(self, *fields):
         '''
         Select only chosen fields for every record:
@@ -282,7 +279,6 @@ class RecordSet(BaseRecordSet):
         if self.config.get('recordset_pipe'):
             return RecordSet(self, config=self.config)
 
-    @cli.show_result
     def select_records(self, f=None, **spec):
         '''
         Select records based on a function f() or a spec match. A spec
@@ -304,7 +300,6 @@ class RecordSet(BaseRecordSet):
         if self.config.get('recordset_pipe'):
             return RecordSet(self, config=self.config)
 
-    @cli.show_result
     def transform_fields(self, **kwarg):
         '''
         Transform fields with a function. Function must accept
@@ -330,7 +325,6 @@ class RecordSet(BaseRecordSet):
         if self.config.get('recordset_pipe'):
             return RecordSet(self, config=self.config)
 
-    @cli.show_result
     def transform(self, **kwarg):
         warnings.warn(deprecation_notice, DeprecationWarning)
 
@@ -348,7 +342,6 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
-    @cli.show_result
     def filter(self, f=None, **kwarg):
         warnings.warn(deprecation_notice, DeprecationWarning)
 
@@ -366,12 +359,10 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
-    @cli.show_result
     def select(self, *argv):
         warnings.warn(deprecation_notice, DeprecationWarning)
         return self.fields(*argv)
 
-    @cli.show_result
     def fields(self, *fields):
         warnings.warn(deprecation_notice, DeprecationWarning)
 
@@ -381,7 +372,6 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
-    @cli.show_result
     def join(self, right, condition=lambda r1, r2: True, prefix=''):
         warnings.warn(deprecation_notice, DeprecationWarning)
         # fetch all the records from the right
@@ -403,7 +393,6 @@ class RecordSet(BaseRecordSet):
 
         return RecordSet(g())
 
-    @cli.show_result
     def format(self, kind):
         '''
         Return an iterator over text lines in the chosen format.

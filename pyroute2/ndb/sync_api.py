@@ -88,7 +88,7 @@ class SyncBase:
         return ret
 
     def __eq__(self, other):
-        return self.asyncore == other.asyncore
+        return self.asyncore == getattr(other, 'asyncore', None)
 
 
 class SyncDB(SyncBase):

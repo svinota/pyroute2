@@ -13,9 +13,6 @@ except ImportError:
     __version__ = 'unknown'
 import sys
 
-from pyroute2.cli.console import Console
-from pyroute2.cli.server import Server
-
 ##
 #
 # Logging setup
@@ -92,7 +89,6 @@ modules = [
     CommitException,
     Conntrack,
     ConntrackEntry,
-    Console,
     CreateException,
     DevlinkSocket,
     DiagSocket,
@@ -125,7 +121,6 @@ modules = [
     Plan9ServerSocket,
     ProcEventSocket,
     RawIPRoute,
-    Server,
     ss2,
     TaskStats,
     UeventSocket,
