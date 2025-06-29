@@ -134,10 +134,10 @@ F_RTA_METRICS = 4
 
 
 def get_route_id(schema, target, event):
-    keys = ['f_target = %s' % schema.plch]
+    keys = ['f_target = ?']
     values = [target]
     for key in schema.indices['routes']:
-        keys.append('f_%s = %s' % (key, schema.plch))
+        keys.append(f'f_{key} = ?')
         values.append(event.get(key) or event.get_attr(key))
     #
     spec = 'WHERE %s' % ' AND '.join(keys)
@@ -280,17 +280,14 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
     # select all routes for that OIF where f_gc_mark is not null
     #
     key_fields = ','.join(['f_%s' % x for x in schema.indices['routes']])
-    key_query = ' AND '.join(
-        ['f_%s = %s' % (x, schema.plch) for x in schema.indices['routes']]
-    )
+    key_query = ' AND '.join([f'f_{x} = ?' for x in schema.indices['routes']])
     routes = schema.execute(
-        '''
-                       SELECT %s,f_RTA_GATEWAY FROM routes WHERE
-                       f_target = %s AND f_RTA_OIF = %s AND
-                       f_RTA_GATEWAY IS NOT NULL %s AND
-                       f_family = 2
-                       '''
-        % (key_fields, schema.plch, schema.plch, gc_clause),
+        f'''
+           SELECT {key_fields},f_RTA_GATEWAY FROM routes WHERE
+           f_target = ? AND f_RTA_OIF = ? AND
+           f_RTA_GATEWAY IS NOT NULL {gc_clause} AND
+           f_family = 2
+        ''',
         (target, event.get_attr('RTA_OIF')),
     ).fetchmany()
     #
@@ -312,9 +309,10 @@ def rtmsg_gc_mark(schema, target, event, gc_mark=None):
             if gwnet == net:
                 (
                     schema.execute(
-                        'UPDATE routes SET f_gc_mark = %s '
-                        'WHERE f_target = %s AND %s'
-                        % (schema.plch, schema.plch, key_query),
+                        f'''
+                            UPDATE routes SET f_gc_mark = ?
+                            WHERE f_target = ? AND {key_query}
+                        ''',
                         (gc_mark, target) + route[:-1],
                     )
                 )
@@ -431,27 +429,22 @@ class Route(AsyncObject):
     def _count(cls, view):
         if view.chain:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s WHERE f_RTA_OIF = %s'
-                % (view.table, view.ndb.schema.plch),
+                f'SELECT count(*) FROM {view.table} WHERE f_RTA_OIF = ?',
                 [view.chain['index']],
             )
         else:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s' % view.table
+                f'SELECT count(*) FROM {view.table}'
             )
 
     @classmethod
     def _dump_where(cls, view):
         if view.chain:
-            plch = view.ndb.schema.plch
             where = '''
                     WHERE
-                        main.f_target = %s AND
-                        main.f_RTA_OIF = %s
-                    ''' % (
-                plch,
-                plch,
-            )
+                        main.f_target = ? AND
+                        main.f_RTA_OIF = ?
+                    '''
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''
@@ -521,7 +514,6 @@ class Route(AsyncObject):
             + ['metrics', 'encap']
         )
         yield header
-        plch = view.ndb.schema.plch
         where, values = cls._dump_where(view)
         for record in view.ndb.schema.fetch(req + where, values):
             route_id = record[-1]
@@ -531,10 +523,7 @@ class Route(AsyncObject):
                 # fetch metrics
                 metrics = tuple(
                     view.ndb.schema.fetch(
-                        '''
-                    SELECT * FROM metrics WHERE f_route_id = %s
-                '''
-                        % (plch,),
+                        'SELECT * FROM metrics WHERE f_route_id = ?',
                         (route_id,),
                     )
                 )
@@ -555,10 +544,7 @@ class Route(AsyncObject):
                 # fetch encap
                 enc_mpls = tuple(
                     view.ndb.schema.fetch(
-                        '''
-                    SELECT * FROM enc_mpls WHERE f_route_id = %s
-                '''
-                        % (plch,),
+                        'SELECT * FROM enc_mpls WHERE f_route_id = ?',
                         (route_id,),
                     )
                 )
@@ -600,16 +586,14 @@ class Route(AsyncObject):
     }
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch,) * 4
         self.schema.execute(
             '''
-                            UPDATE interfaces SET
-                                f_tflags = %s
-                            WHERE
-                                (f_index = %s OR f_index = %s)
-                                AND f_target = %s
-                            '''
-            % plch,
+               UPDATE interfaces SET
+                   f_tflags = ?
+               WHERE
+                   (f_index = ? OR f_index = ?)
+                   AND f_target = ?
+            ''',
             (mark, self['iif'], self['oif'], self['target']),
         )
 
@@ -768,8 +752,7 @@ class Route(AsyncObject):
             for _ in range(5):
                 enc = tuple(
                     self.schema.fetch(
-                        'SELECT * FROM enc_mpls WHERE f_route_id = %s'
-                        % (self.schema.plch,),
+                        'SELECT * FROM enc_mpls WHERE f_route_id = ?',
                         (self['route_id'],),
                     )
                 )
@@ -790,8 +773,7 @@ class Route(AsyncObject):
             for _ in range(5):
                 metrics = tuple(
                     self.schema.fetch(
-                        'SELECT * FROM metrics WHERE f_route_id = %s'
-                        % (self.schema.plch,),
+                        'SELECT * FROM metrics WHERE f_route_id = ?',
                         (self['route_id'],),
                     )
                 )
@@ -813,8 +795,7 @@ class Route(AsyncObject):
             nhs = iter(
                 tuple(
                     self.schema.fetch(
-                        'SELECT * FROM nh WHERE f_route_id = %s'
-                        % (self.schema.plch,),
+                        'SELECT * FROM nh WHERE f_route_id = ?',
                         (self['route_id'],),
                     )
                 )
@@ -852,16 +833,14 @@ class NextHop(AsyncObject):
     hidden_fields = ('route_id', 'target')
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch,) * 4
         self.schema.execute(
             '''
-                            UPDATE interfaces SET
-                                f_tflags = %s
-                            WHERE
-                                (f_index = %s OR f_index = %s)
-                                AND f_target = %s
-                            '''
-            % plch,
+               UPDATE interfaces SET
+                   f_tflags = ?
+               WHERE
+                   (f_index = ? OR f_index = ?)
+                   AND f_target = ?
+            ''',
             (mark, self.route['iif'], self.route['oif'], self.route['target']),
         )
 
@@ -891,16 +870,14 @@ class Metrics(AsyncObject):
     hidden_fields = ('route_id', 'target')
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch,) * 4
         self.schema.execute(
             '''
-                            UPDATE interfaces SET
-                                f_tflags = %s
-                            WHERE
-                                (f_index = %s OR f_index = %s)
-                                AND f_target = %s
-                            '''
-            % plch,
+               UPDATE interfaces SET
+                   f_tflags = ?
+               WHERE
+                   (f_index = ? OR f_index = ?)
+                   AND f_target = ?
+            ''',
             (mark, self.route['iif'], self.route['oif'], self.route['target']),
         )
 

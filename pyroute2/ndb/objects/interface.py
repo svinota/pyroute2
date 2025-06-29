@@ -207,10 +207,11 @@ async def load_ifinfmsg(schema, sources, target, event):
     #
     if not event['flags'] & 1:
         schema.execute(
-            'DELETE FROM routes WHERE '
-            'f_target = %s AND '
-            'f_RTA_OIF = %s OR f_RTA_IIF = %s'
-            % (schema.plch, schema.plch, schema.plch),
+            '''
+               DELETE FROM routes WHERE
+               f_target = ? AND
+               f_RTA_OIF = ? OR f_RTA_IIF = ?
+            ''',
             (target, event['index'], event['index']),
         )
     #
@@ -245,12 +246,11 @@ async def load_ifinfmsg(schema, sources, target, event):
         # flush the old vlans info
         schema.execute(
             '''
-                       DELETE FROM af_bridge_vlans
-                       WHERE
-                           f_target = %s
-                           AND f_index = %s
-                       '''
-            % (schema.plch, schema.plch),
+               DELETE FROM af_bridge_vlans
+               WHERE
+                   f_target = ?
+                   AND f_index = ?
+            ''',
             (target, event['index']),
         )
         for v in vlans:
@@ -268,7 +268,7 @@ async def load_ifinfmsg(schema, sources, target, event):
         linkinfo = event.get_attr('IFLA_LINKINFO')
         if linkinfo is not None:
             iftype = linkinfo.get_attr('IFLA_INFO_KIND')
-            table = 'ifinfo_%s' % iftype
+            table = f'ifinfo_{iftype}'
             if iftype == 'gre':
                 ifdata = linkinfo.get_attr('IFLA_INFO_DATA')
                 local = ifdata.get_attr('IFLA_GRE_LOCAL')
@@ -286,7 +286,7 @@ async def load_ifinfmsg(schema, sources, target, event):
                 if (not link) and (
                     (target,) in schema.fetch('SELECT f_target FROM SOURCES')
                 ):
-                    schema.log.debug('reload veth %s' % event['index'])
+                    schema.log.debug(f'reload veth {event["index"]}')
                     try:
                         update = await sources[target].api(
                             'link', 'get', index=event['index']
@@ -386,7 +386,7 @@ supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 # load supported ifinfo
 #
 for name, data in supported_ifinfo.items():
-    name = 'ifinfo_%s' % name
+    name = f'ifinfo_{name}'
     init['classes'].append([name, data])
     schema = (
         data.sql_schema()
@@ -419,27 +419,18 @@ class Vlan(AsyncObject):
     def _count(cls, view):
         if view.chain:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s WHERE f_index = %s'
-                % (view.table, view.ndb.schema.plch),
+                f'SELECT count(*) FROM {view.table} WHERE f_index = ?',
                 [view.chain['index']],
             )
         else:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s' % view.table
+                f'SELECT count(*) FROM {view.table}'
             )
 
     @classmethod
     def _dump_where(cls, view):
         if view.chain:
-            plch = view.ndb.schema.plch
-            where = '''
-                    WHERE
-                        main.f_target = %s AND
-                        main.f_index = %s
-                    ''' % (
-                plch,
-                plch,
-            )
+            where = 'WHERE main.f_target = ? AND main.f_index = ?'
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''
@@ -504,27 +495,18 @@ class Interface(AsyncObject):
     def _count(cls, view):
         if view.chain:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s WHERE f_IFLA_MASTER = %s'
-                % (view.table, view.ndb.schema.plch),
+                f'SELECT count(*) FROM {view.table} WHERE f_IFLA_MASTER = ?',
                 [view.chain['index']],
             )
         else:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s' % view.table
+                f'SELECT count(*) FROM {view.table}'
             )
 
     @classmethod
     def _dump_where(cls, view):
         if view.chain:
-            plch = view.ndb.schema.plch
-            where = '''
-                    WHERE
-                        f_target = %s AND
-                        f_IFLA_MASTER = %s
-                    ''' % (
-                plch,
-                plch,
-            )
+            where = 'WHERE f_target = ? AND f_IFLA_MASTER = ?'
             values = [view.chain['target'], view.chain['index']]
         else:
             where = 'WHERE f_index != 0'
@@ -555,14 +537,12 @@ class Interface(AsyncObject):
             yield record
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch,) * 3
         self.schema.execute(
             '''
-                            UPDATE interfaces SET
-                                f_tflags = %s
-                            WHERE f_index = %s AND f_target = %s
-                            '''
-            % plch,
+               UPDATE interfaces SET
+                   f_tflags = ?
+               WHERE f_index = ? AND f_target = ?
+            ''',
             (mark, self['index'], self['target']),
         )
 
@@ -1144,12 +1124,11 @@ class Interface(AsyncObject):
     def load_sql(self, *argv, **kwarg):
         spec = super(Interface, self).load_sql(*argv, **kwarg)
         if spec:
-            tname = 'ifinfo_%s' % self['kind']
+            tname = f'ifinfo_{self["kind"]}'
             if tname in self.schema.compiled:
                 names = self.schema.compiled[tname]['norm_names']
                 spec = self.ndb.schema.fetchone(
-                    'SELECT * from %s WHERE f_index = %s'
-                    % (tname, self.schema.plch),
+                    f'SELECT * from {tname} WHERE f_index = ?',
                     (self['index'],),
                 )
                 if spec:

@@ -84,27 +84,22 @@ class Neighbour(AsyncObject):
     def _count(cls, view):
         if view.chain:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s WHERE f_ifindex = %s'
-                % (view.table, view.ndb.schema.plch),
+                f'SELECT count(*) FROM {view.table} WHERE f_ifindex = ?',
                 [view.chain['index']],
             )
         else:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s' % view.table
+                f'SELECT count(*) FROM {view.table}'
             )
 
     @classmethod
     def _dump_where(cls, view):
         if view.chain:
-            plch = view.ndb.schema.plch
             where = '''
-                    WHERE
-                        main.f_target = %s AND
-                        main.f_ifindex = %s
-                    ''' % (
-                plch,
-                plch,
-            )
+                       WHERE
+                           main.f_target = ? AND
+                           main.f_ifindex = ?
+                    '''
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''

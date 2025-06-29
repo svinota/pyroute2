@@ -356,7 +356,7 @@ class View(dict):
             if nla_name in names:
                 name = nla_name
             if value is not None and name in names:
-                keys.append('f_%s = %s' % (name, schema.plch))
+                keys.append(f'f_{name} = ?')
                 if isinstance(value, (dict, list, tuple, set)):
                     value = json.dumps(value)
                 values.append(value)

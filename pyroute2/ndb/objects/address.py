@@ -177,45 +177,41 @@ async def load_ifaddrmsg(schema, sources, target, event):
         #
         addresses = schema.execute(
             '''
-                              SELECT * FROM addresses WHERE
-                              f_target = %s AND
-                              f_index = %s AND
-                              f_family = 2
-                              '''
-            % (schema.plch, schema.plch),
+               SELECT * FROM addresses WHERE
+               f_target = ? AND
+               f_index = ? AND
+               f_family = 2
+            ''',
             (target, event['index']),
         ).fetchmany()
         if not len(addresses):
             schema.execute(
                 '''
-                           DELETE FROM routes WHERE
-                           f_target = %s AND
-                           f_RTA_OIF = %s OR
-                           f_RTA_IIF = %s
-                           '''
-                % (schema.plch, schema.plch, schema.plch),
+                   DELETE FROM routes WHERE
+                   f_target = ? AND
+                   f_RTA_OIF = ? OR
+                   f_RTA_IIF = ?
+                ''',
                 (target, event['index'], event['index']),
             )
             # Take care of multipath routes
             schema.execute(
                 '''
-                           DELETE FROM nh WHERE
-                           f_target = %s AND
-                           f_oif = %s
-                           '''
-                % (schema.plch, schema.plch),
+                   DELETE FROM nh WHERE
+                   f_target = ? AND
+                   f_oif = ?
+                ''',
                 (target, event['index']),
             )
 
             schema.execute(
                 '''
-                           DELETE FROM routes WHERE
-                           f_target = %s AND
-                           f_deps = 1 AND
-                           f_route_id NOT IN
-                           (SELECT n.f_route_id FROM nh n)
-                           '''
-                % (schema.plch,),
+                   DELETE FROM routes WHERE
+                   f_target = ? AND
+                   f_deps = 1 AND
+                   f_route_id NOT IN
+                   (SELECT n.f_route_id FROM nh n)
+                ''',
                 (target,),
             )
 
@@ -247,27 +243,22 @@ class Address(AsyncObject):
     def _count(cls, view):
         if view.chain:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s WHERE f_index = %s'
-                % (view.table, view.ndb.schema.plch),
+                f'SELECT count(*) FROM {view.table} WHERE f_index = ?',
                 [view.chain['index']],
             )
         else:
             return view.ndb.schema.fetchone(
-                'SELECT count(*) FROM %s' % view.table
+                f'SELECT count(*) FROM {view.table}'
             )
 
     @classmethod
     def _dump_where(cls, view):
         if view.chain:
-            plch = view.ndb.schema.plch
             where = '''
-                    WHERE
-                        main.f_target = %s AND
-                        main.f_index = %s
-                    ''' % (
-                plch,
-                plch,
-            )
+                       WHERE
+                           main.f_target = ? AND
+                           main.f_index = ?
+                    '''
             values = [view.chain['target'], view.chain['index']]
         else:
             where = ''
@@ -294,14 +285,12 @@ class Address(AsyncObject):
             yield record
 
     def mark_tflags(self, mark):
-        plch = (self.schema.plch,) * 3
         self.schema.execute(
             '''
-                            UPDATE interfaces SET
-                                f_tflags = %s
-                            WHERE f_index = %s AND f_target = %s
-                            '''
-            % plch,
+               UPDATE interfaces SET
+                   f_tflags = ?
+               WHERE f_index = ? AND f_target = ?
+            ''',
             (mark, self['index'], self['target']),
         )
 

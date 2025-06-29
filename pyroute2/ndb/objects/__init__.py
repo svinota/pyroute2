@@ -591,7 +591,7 @@ class AsyncObject(dict):
 
         It is an internal method and is not supposed to be used externally.
         '''
-        self.log.debug('complete key %s from table %s' % (key, self.etable))
+        self.log.debug(f'complete key {key} from table {self.etable}')
         fetch = []
         if isinstance(key, Record):
             key = key._as_dict()
@@ -607,7 +607,7 @@ class AsyncObject(dict):
 
         for name in self.kspec:
             if name not in key:
-                fetch.append('f_%s' % name)
+                fetch.append(f'f_{name}')
 
         if fetch:
             keys = []
@@ -617,7 +617,7 @@ class AsyncObject(dict):
                 if nla_name in self.spec:
                     name = nla_name
                 if value is not None and name in self.spec:
-                    keys.append('f_%s = %s' % (name, self.schema.plch))
+                    keys.append(f'f_{name} = ?')
                     values.append(value)
             spec = self.ndb.schema.fetchone(
                 'SELECT %s FROM %s WHERE %s'
@@ -630,7 +630,7 @@ class AsyncObject(dict):
             for name, value in zip(fetch, spec):
                 key[name[2:]] = value
 
-        self.log.debug('got %s' % key)
+        self.log.debug(f'got {key}')
         return key
 
     def exists(self, key):
@@ -785,7 +785,7 @@ class AsyncObject(dict):
         conditions = []
         values = []
         for name in self.kspec:
-            conditions.append('f_%s = %s' % (name, self.schema.plch))
+            conditions.append(f'f_{name} = ?')
             values.append(self.get(self.iclass.nla2name(name), None))
         return (
             self.ndb.schema.fetchone(
@@ -1098,7 +1098,7 @@ class AsyncObject(dict):
         values = []
 
         for name, value in self.key.items():
-            keys.append('f_%s = %s' % (name, self.schema.plch))
+            keys.append(f'f_{name} = ?')
             if isinstance(value, (list, tuple, dict)):
                 value = json.dumps(value)
             values.append(value)

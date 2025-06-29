@@ -168,7 +168,7 @@ class Source(dict):
 
     @classmethod
     def _count(cls, view):
-        return view.ndb.schema.fetchone("SELECT count(*) FROM %s" % view.table)
+        return view.ndb.schema.fetchone(f'SELECT count(*) FROM {view.table}')
 
     @property
     def must_restart(self):
@@ -376,21 +376,11 @@ class Source(dict):
     def load_sql(self):
         #
         spec = self.ndb.schema.fetchone(
-            '''
-                                        SELECT * FROM sources
-                                        WHERE f_target = %s
-                                        '''
-            % self.ndb.schema.plch,
-            (self.target,),
+            'SELECT * FROM sources WHERE f_target = ?', (self.target,)
         )
         self['target'], self['kind'] = spec
         for spec in self.ndb.schema.fetch(
-            '''
-                                          SELECT * FROM sources_options
-                                          WHERE f_target = %s
-                                          '''
-            % self.ndb.schema.plch,
-            (self.target,),
+            'SELECT * FROM sources_options WHERE f_target = ?', (self.target,)
         ):
             f_target, f_name, f_type, f_value = spec
             self[f_name] = int(f_value) if f_type == 'int' else f_value

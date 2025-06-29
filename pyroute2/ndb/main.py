@@ -287,7 +287,6 @@ from .events import ShutdownException
 from .objects import RTNL_Object
 from .objects.interface import SyncInterface
 from .objects.route import SyncRoute
-from .schema import DBProvider
 from .source import SyncSource
 from .sync_api import Flags, SyncDB, SyncSources, SyncView
 from .task_manager import TaskManager
@@ -444,7 +443,7 @@ class NDB:
         self,
         sources=None,
         localhost='localhost',
-        db_provider='sqlite3',
+        db_provider=None,
         db_spec=':memory:',
         db_cleanup=True,
         rtnl_debug=False,
@@ -452,9 +451,6 @@ class NDB:
         auto_netns=False,
         libc=None,
     ):
-        if db_provider == 'postgres':
-            db_provider = 'psycopg2'
-
         self.localhost = localhost
         self.schema = None
         self.libc = libc or ctypes.CDLL(
@@ -498,7 +494,6 @@ class NDB:
         self._dbm_ready.clear()
         self._dbm_error = None
         self.config = {
-            'provider': str(DBProvider(db_provider)),
             'spec': db_spec,
             'rtnl_debug': rtnl_debug,
             'db_cleanup': db_cleanup,
