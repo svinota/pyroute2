@@ -313,7 +313,7 @@ class NDBContextManager(object):
         '''
         # save postmortem DB for SQLite3
         if self.db_provider == 'sqlite3':
-            self.ndb.backup(f'{self.spec.uid}-post.db')
+            self.ndb.db.backup(f'{self.spec.uid}-post.db')
         self.ndb.close()
         self.ipr.close()
         self.wg.close()

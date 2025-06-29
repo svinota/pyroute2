@@ -457,10 +457,10 @@ def test_metrics_set(context):
     assert route_exists(context.netns, dst=ipnet, dst_len=24, gateway=gateway)
     with pytest.raises(KeyError):
         assert route['metrics']['mtu']
-    assert isinstance(route['metrics'], MetricsStub)
+    assert isinstance(route['metrics'].asyncore, MetricsStub)
 
     route['metrics']['mtu'] = target
-    assert isinstance(route['metrics'], Metrics)
+    assert isinstance(route['metrics'].asyncore, Metrics)
 
     route.commit()
     assert route_exists(

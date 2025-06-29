@@ -52,10 +52,10 @@ any step fails, the whole transaction will be rolled back automatically::
 
 from pyroute2.netlink.rtnl.probe_msg import probe_msg
 
-from ..objects import RTNL_Object
+from ..objects import AsyncObject
 
 
-def load_probe_msg(schema, target, event):
+async def load_probe_msg(schema, sources, target, event):
     pass
 
 
@@ -67,7 +67,7 @@ init = {
 }
 
 
-class Probe(RTNL_Object):
+class Probe(AsyncObject):
 
     table = 'probes'
     msg_class = probe_msg

@@ -15,4 +15,3 @@
    ndb_schema
    ndb_sources
    ndb_debug
-   ndb_auth

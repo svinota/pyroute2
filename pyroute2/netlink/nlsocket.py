@@ -637,23 +637,26 @@ class NetlinkRequest:
         raise exc
 
     async def response(self):
-        async for msg in self.sock.get(
-            msg_seq=self.msg_seq,
-            terminate=self.terminate,
-            callback=self.callback,
-        ):
-            if self.dump_filter is not None and not self.match_one_message(
-                self.dump_filter, msg
+        try:
+            async for msg in self.sock.get(
+                msg_seq=self.msg_seq,
+                terminate=self.terminate,
+                callback=self.callback,
             ):
-                continue
-            for cr in self.sock.callbacks:
-                try:
-                    if cr[0](msg):
-                        cr[1](msg, *cr[2])
-                except Exception:
-                    log.warning("Callback fail: %{cr}")
-            yield msg
-        self.cleanup()
+                if (
+                    self.dump_filter is not None
+                    and not self.match_one_message(self.dump_filter, msg)
+                ):
+                    continue
+                for cr in self.sock.callbacks:
+                    try:
+                        if cr[0](msg):
+                            cr[1](msg, *cr[2])
+                    except Exception:
+                        log.warning("Callback fail: %{cr}")
+                yield msg
+        finally:
+            self.cleanup()
 
 
 class NetlinkSocket(SyncAPI):
