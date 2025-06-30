@@ -305,27 +305,27 @@ class Source(dict):
                 self.nl.close(code=0)
             except Exception as e:
                 self.log.warning('source restart: %s' % e)
-
-        self.state.set('connecting')
-        spec = {}
-        spec.update(self.nl_kwarg)
-        self.nl = AsyncIPRoute(**spec)
-        self.state.set('loading')
-        #
-        await self.nl.setup_endpoint()
-        await self.nl.bind(**self.bind_arguments)
-        self.log.debug(f'source fd {self.nl.fileno()}')
-        #
-        # Initial load -- enqueue the data
-        #
-        self.ndb.schema.flush(self.target)
-        if self.kind in ('local', 'netns', 'remote'):
-            await self.fake_zero_if()
-        async for x in await self.nl.dump():
-            await self.evq.put(x)
-
-        self.state.set('running')
-        await self.set_ready()
+        try:
+            self.state.set('connecting')
+            spec = {}
+            spec.update(self.nl_kwarg)
+            self.nl = AsyncIPRoute(**spec)
+            self.state.set('loading')
+            #
+            await self.nl.setup_endpoint()
+            await self.nl.bind(**self.bind_arguments)
+            self.log.debug(f'source fd {self.nl.fileno()}')
+            #
+            # Initial load -- enqueue the data
+            #
+            self.ndb.schema.flush(self.target)
+            if self.kind in ('local', 'netns', 'remote'):
+                await self.fake_zero_if()
+            async for x in await self.nl.dump():
+                await self.evq.put(x)
+            self.state.set('running')
+        finally:
+            await self.set_ready()
 
         while self.state.get() not in ('stop', 'restart'):
             async for msg in self.nl.get():
@@ -398,9 +398,9 @@ class SyncSource(RTNL_Object):
 
     def set(self, key, value):
         if key == 'state':
-            self.asyncore.ndb.task_manager.task_map[self.asyncore.task][
-                0
-            ] = value
+            self.asyncore.ndb.task_manager.task_map[
+                self.asyncore.task_id
+            ].state.set(value)
             return
         raise RuntimeError('unknown property')
 

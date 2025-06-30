@@ -477,11 +477,11 @@ class SourcesView(View):
             sync = False
         source = Source(self.ndb, **spec)
         self.cache[spec['target']] = source
-        self.ndb.task_manager.create_task(source.receiver, obj=source)
+        task = self.ndb.task_manager.create_task(source.receiver, obj=source)
         if sync:
-            await self.cache[spec['target']].event.wait()
-            if source.exception is not None:
-                raise source.exception
+            await task.event.wait()
+            if task.exception:
+                raise task.exception
         return self.cache[spec['target']]
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):
@@ -490,7 +490,8 @@ class SourcesView(View):
         with self.lock:
             if target in self.cache:
                 source = self.cache[target]
-                self.ndb.task_manager.task_map[source.task][1] = 'stopped'
+                task = self.ndb.task_manager.task_map[source.task_id]
+                task.target_state = 'stopped'
                 self.ndb.schema.flush(target)
                 source.nl.close(code)
                 return self.cache.pop(target)

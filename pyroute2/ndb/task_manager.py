@@ -12,6 +12,7 @@ from .events import (
     InvalidateHandlerException,
     RescheduleException,
     ShutdownException,
+    State,
 )
 from .messages import cmsg_event, cmsg_failed
 
@@ -39,6 +40,40 @@ class NDBConfig(dict):
 
     def values(self):
         return self.task_manager.config_values()
+
+
+class TaskAdapter:
+    def __init__(self):
+        self.event = asyncio.Event()
+        self.state = State()
+
+
+class Task:
+    def __init__(self, coro, target_state, obj):
+        self.exception = None
+        self.coro = coro
+        self.target_state = target_state
+        self.obj = obj if obj is not None else TaskAdapter()
+        self.restart()
+
+    def restart(self):
+        self.task = asyncio.create_task(self.coro())
+        self.obj.task_id = id(self.task)
+
+    def commit(self):
+        self.exception = self.task.exception()
+
+    @property
+    def event(self):
+        return self.obj.event
+
+    @property
+    def state(self):
+        return self.obj.state
+
+    @property
+    def task_id(self):
+        return id(self.task)
 
 
 class TaskManager:
@@ -79,8 +114,14 @@ class TaskManager:
         asyncio.run(self.run())
 
     def create_task(self, coro, state='running', obj=None):
-        task = asyncio.create_task(coro())
-        self.task_map[task] = [coro, state, obj]
+        task = Task(coro, state, obj)
+        self.task_map[task.task_id] = task
+        self.reload_event.set()
+        return task
+
+    def restart_task(self, task):
+        task.restart()
+        self.task_map[task.task_id] = task
         self.reload_event.set()
         return task
 
@@ -92,23 +133,18 @@ class TaskManager:
 
     async def task_watch(self):
         while True:
-            tasks = list(self.task_map.keys())
+            tasks = list([x.task for x in self.task_map.values()])
             done, pending = await asyncio.wait(
                 tasks, return_when=asyncio.FIRST_COMPLETED
             )
             self.log.debug(f'task done {done}')
             if self.stop_event.is_set():
                 return
-            for task in done:
-                coro, target_state, obj = self.task_map.pop(task)
-                if task.exception():
-                    self.log.debug(f'task exception {task.exception()}')
-                    if hasattr(obj, 'exception'):
-                        obj.exception = task.exception()
-                    if hasattr(obj, 'event'):
-                        obj.event.set()
-                if target_state == 'running':
-                    self.create_task(coro, obj=obj)
+            for t in done:
+                task = self.task_map.pop(id(t))
+                task.commit()
+                if task.target_state == 'running':
+                    self.restart_task(task)
             self.reload_event.clear()
 
     async def receiver(self):
