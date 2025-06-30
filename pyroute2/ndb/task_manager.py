@@ -78,9 +78,9 @@ class TaskManager:
     def main(self):
         asyncio.run(self.run())
 
-    def create_task(self, coro, state='running'):
+    def create_task(self, coro, state='running', obj=None):
         task = asyncio.create_task(coro())
-        self.task_map[task] = [state, coro]
+        self.task_map[task] = [coro, state, obj]
         self.reload_event.set()
         return task
 
@@ -100,11 +100,15 @@ class TaskManager:
             if self.stop_event.is_set():
                 return
             for task in done:
+                coro, target_state, obj = self.task_map.pop(task)
                 if task.exception():
                     self.log.debug(f'task exception {task.exception()}')
-                target_state, init = self.task_map.pop(task)
+                    if hasattr(obj, 'exception'):
+                        obj.exception = task.exception()
+                    if hasattr(obj, 'event'):
+                        obj.event.set()
                 if target_state == 'running':
-                    self.create_task(init)
+                    self.create_task(coro, obj=obj)
             self.reload_event.clear()
 
     async def receiver(self):

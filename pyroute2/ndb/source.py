@@ -155,6 +155,7 @@ class Source(dict):
             self.ndb.messenger.targets.add(self.target)
         #
         self.errors_counter = 0
+        self.exception = None
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.RLock()
