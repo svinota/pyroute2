@@ -25,7 +25,7 @@ import sys
 #  * https://github.com/svinota/pyroute2/issues/601
 #
 from pyroute2.config import log
-from pyroute2.conntrack import Conntrack, ConntrackEntry
+from pyroute2.conntrack import AsyncConntrack, Conntrack, ConntrackEntry
 from pyroute2.devlink import DL
 from pyroute2.ethtool.ethtool import Ethtool
 from pyroute2.ipdb import IPDB, CommitException, CreateException
@@ -81,6 +81,7 @@ if sys.platform.startswith('win'):  # noqa: E402
 
 modules = [
     AcpiEventSocket,
+    AsyncConntrack,
     AsyncIPRoute,
     AsyncIPRSocket,
     AsyncNFCTSocket,
