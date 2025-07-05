@@ -1,12 +1,11 @@
 import ctypes
 import os
 import socket
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 from pyroute2 import netns
+from pyroute2.config import metric_type
 from pyroute2.netlink.coredata import CoreConfig, CoreSocketSpec
-
-metric_type = Literal['c', 'g', 'ms']
 
 
 class StatsDClientSocket(socket.socket):
