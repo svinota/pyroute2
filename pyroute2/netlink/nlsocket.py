@@ -637,12 +637,13 @@ class NetlinkRequest:
         raise exc
 
     async def response(self):
+        coro = self.sock.get(
+            msg_seq=self.msg_seq,
+            terminate=self.terminate,
+            callback=self.callback,
+        )
         try:
-            async for msg in self.sock.get(
-                msg_seq=self.msg_seq,
-                terminate=self.terminate,
-                callback=self.callback,
-            ):
+            async for msg in coro:
                 if (
                     self.dump_filter is not None
                     and not self.match_one_message(self.dump_filter, msg)
@@ -656,6 +657,7 @@ class NetlinkRequest:
                         log.warning("Callback fail: %{cr}")
                 yield msg
         finally:
+            await coro.aclose()
             self.cleanup()
 
 
