@@ -131,7 +131,7 @@ class AsyncConntrack(AsyncNFCTSocket):
         """
         stats = []
 
-        async for msg in await super().stat():
+        for msg in await super().stat():
             stats.append({'cpu': msg['res_id']})
             stats[-1].update(
                 (k[10:].lower(), v)
@@ -147,7 +147,7 @@ class AsyncConntrack(AsyncNFCTSocket):
         Same result than /proc/sys/net/netfilter/nf_conntrack_count file
         or conntrack -C command
         """
-        async for ndmsg in await super().count():
+        for ndmsg in await super().count():
             return ndmsg.get_attr('CTA_STATS_GLOBAL_ENTRIES')
 
     async def conntrack_max_size(self):
@@ -155,7 +155,7 @@ class AsyncConntrack(AsyncNFCTSocket):
         Return the max size of connection tracking table
         /proc/sys/net/netfilter/nf_conntrack_max
         """
-        async for ndmsg in await super().conntrack_max_size():
+        for ndmsg in await super().conntrack_max_size():
             return ndmsg.get_attr('CTA_STATS_GLOBAL_MAX_ENTRIES')
 
     async def delete(self, entry):
@@ -165,11 +165,11 @@ class AsyncConntrack(AsyncNFCTSocket):
             tuple_orig = entry
         else:
             raise NotImplementedError()
-        async for ndmsg in await self.entry('del', tuple_orig=tuple_orig):
+        for ndmsg in await self.entry('del', tuple_orig=tuple_orig):
             return ndmsg
 
     async def entry(self, cmd, **kwarg):
-        async for res in await super().entry(cmd, **kwarg):
+        for res in await super().entry(cmd, **kwarg):
             return res
 
     async def _dump_entries_task(
