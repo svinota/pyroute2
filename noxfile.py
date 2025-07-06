@@ -94,6 +94,9 @@ def options(module, config):
         ret.append('--exitfirst')
     if config.get('verbose', True):
         ret.append('--verbose')
+    if config.get('profile', False):
+        ret.append('--profile')
+        ret.append('--profile-svg')
     if config.get('fail_on_warnings'):
         ret.insert(1, 'error')
         ret.insert(1, '-W')
