@@ -82,8 +82,10 @@ class Telemetry:
 class NoClose(socket.socket):
     def __init__(self, sock: socket.socket):
         self.magic = 0
-        fd = os.dup(sock.fileno())
-        sock.close()
+        fd = sock.fileno()
+        if fd is not None:
+            fd = os.dup(fd)
+            sock.close()
         super().__init__(fileno=fd)
 
     def close(self):

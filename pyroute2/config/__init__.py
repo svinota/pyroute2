@@ -20,6 +20,12 @@ class LocalMock:
     def close(self) -> None:
         pass
 
+    def setsockopt(self, level: int, optname: int, value: int) -> None:
+        pass
+
+    def fileno(self) -> None:
+        pass
+
     def put(
         self, name: str, value: Union[int, str], kind: metric_type
     ) -> None:
