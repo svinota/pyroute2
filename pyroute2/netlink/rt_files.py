@@ -6,13 +6,14 @@ this module is an helper for all files
 
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+from typing import Union
 
 
-@dataclass(slots=True)
+@dataclass
 class IPRouteRtFile:
     filename: str
 
-    id2name: dict[int, str] = field(default_factory=dict)
+    id2name: dict[int, Union[str, int]] = field(default_factory=dict)
     name2id: dict[str, int] = field(default_factory=dict)
 
     # like iproute2 stop at first existing directory
@@ -75,8 +76,8 @@ class IPRouteRtFile:
                     self.name2id[rt_name] = rt_id
 
     def get_rt_id(
-        self, rt_name: str | int, default: int | None = None
-    ) -> int | None:
+        self, rt_name: Union[str, int], default: Union[int, None] = None
+    ) -> Union[int, None]:
         """Return id from the name.
         if rt_name is an int or digits() return it as int
         """
@@ -89,8 +90,8 @@ class IPRouteRtFile:
         return self.name2id.get(rt_name, default)
 
     def get_rt_name(
-        self, rt_id: str | int, default: str | None = None
-    ) -> str | None:
+        self, rt_id: Union[str, int], default: Union[str, None] = None
+    ) -> Union[int, str, None]:
         """Return name from the id.
         name not found return id as str
         if the id is already a string return it
@@ -105,52 +106,52 @@ class IPRouteRtFile:
         yield from self.id2name.items()
 
 
-@dataclass(slots=True)
+@dataclass
 class EmatchMapFile(IPRouteRtFile):
     filename: str = 'ematch_map'
 
 
-@dataclass(slots=True)
+@dataclass
 class NlProtosFile(IPRouteRtFile):
     filename: str = 'nl_protos'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtAddrProtosFile(IPRouteRtFile):
     filename: str = 'rt_addrprotos'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtDsfieldFile(IPRouteRtFile):
     filename: str = 'rt_dsfield'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtGroupFile(IPRouteRtFile):
     filename: str = 'rt_group'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtProtosFile(IPRouteRtFile):
     filename: str = 'rt_protos'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtRealmsFile(IPRouteRtFile):
     filename: str = 'rt_realms'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtScopesFile(IPRouteRtFile):
     filename: str = 'rt_scopes'
 
 
-@dataclass(slots=True)
+@dataclass
 class RtTablesFile(IPRouteRtFile):
     filename: str = 'rt_tables'
 
 
-@dataclass(slots=True)
+@dataclass
 class TcClsFile(IPRouteRtFile):
     filename: str = 'tc_cls'
 
