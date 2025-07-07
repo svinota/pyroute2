@@ -1,11 +1,13 @@
 from socket import AF_INET, AF_INET6
 
 from pyroute2.common import AF_MPLS
-from pyroute2.netlink.rt_files import RtDsfieldFile
-from pyroute2.netlink.rt_files import RtProtosFile
-from pyroute2.netlink.rt_files import RtRealmsFile
-from pyroute2.netlink.rt_files import RtScopesFile
-from pyroute2.netlink.rt_files import RtTablesFile
+from pyroute2.netlink.rt_files import (
+    RtDsfieldFile,
+    RtProtosFile,
+    RtRealmsFile,
+    RtScopesFile,
+    RtTablesFile,
+)
 from pyroute2.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
 from pyroute2.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, LWTUNNEL_ENCAP_MPLS
 from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
@@ -112,10 +114,6 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
     def set_table(self, context, value):
         if isinstance(value, str):
             value = RtTablesFile().get_rt_id(value, 0)
-
-        if not context["_parameters"]['strict_check']:
-            if value > 255:
-                value = 252
         return {"table": value}
 
     def set_tos(self, context, value):

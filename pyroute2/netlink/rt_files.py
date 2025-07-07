@@ -4,10 +4,8 @@ iproute2 got lot of "map" files, called rt_xxx for most of them,
 this module is an helper for all files
 """
 
+from dataclasses import dataclass, field, fields
 from pathlib import Path
-from dataclasses import dataclass
-from dataclasses import field
-from dataclasses import fields
 
 
 @dataclass(slots=True)
@@ -25,8 +23,7 @@ class IPRouteRtFile:
 
     @classmethod
     def get_rt_filename(cls):
-        """Helper to get filename when dataclass is not instancied
-        """
+        """Helper to get filename when dataclass is not instancied"""
         for rt_field in fields(cls):
             if rt_field.name == 'filename':
                 return rt_field.default
@@ -77,8 +74,10 @@ class IPRouteRtFile:
                     self.id2name[rt_id] = rt_name
                     self.name2id[rt_name] = rt_id
 
-    def get_rt_id(self, rt_name: str | int, default: int | None = None) -> int | None:
-        """ Return id from the name.
+    def get_rt_id(
+        self, rt_name: str | int, default: int | None = None
+    ) -> int | None:
+        """Return id from the name.
         if rt_name is an int or digits() return it as int
         """
         if isinstance(rt_name, int):
@@ -88,9 +87,11 @@ class IPRouteRtFile:
         if default is None:
             return self.name2id[rt_name]
         return self.name2id.get(rt_name, default)
-        
-    def get_rt_name(self, rt_id: str | int, default: str | None = None) -> str | None:
-        """ Return name from the id.
+
+    def get_rt_name(
+        self, rt_id: str | int, default: str | None = None
+    ) -> str | None:
+        """Return name from the id.
         name not found return id as str
         if the id is already a string return it
         """
@@ -157,13 +158,15 @@ class TcClsFile(IPRouteRtFile):
 def main(cls_list):
     for cls in cls_list.values():
         try:
-            assert issubclass(cls, IPRouteRtFile) and not cls is IPRouteRtFile
+            assert issubclass(cls, IPRouteRtFile) and cls is not IPRouteRtFile
         except (TypeError, AssertionError):
             continue
 
         cls = cls()
         print(f"====  Show rt maps for: {cls.filename} ===")
-        print("get_rt_id('default') ==", cls.get_rt_id("default", "pas trouvé"))
+        print(
+            "get_rt_id('default') ==", cls.get_rt_id("default", "pas trouvé")
+        )
         for id, name in cls:
             print(f"{id} {name}")
 

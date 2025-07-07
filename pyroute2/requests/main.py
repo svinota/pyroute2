@@ -102,11 +102,7 @@ class RequestProcessor(dict):
                 if setter is not None:
                     if ret is None:
                         ret = {}
-                    ret.update(setter(ChainMap(
-                        self.combined,
-                        ret,
-                        {'_parameters': self.parameters}
-                    ), v))
+                    ret.update(setter(ChainMap(self.combined, ret), v))
 
             if ret is not None:
                 job = ret

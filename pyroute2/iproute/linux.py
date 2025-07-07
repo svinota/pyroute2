@@ -134,7 +134,9 @@ def get_dump_filter(mode, command, query, parameters=None):
         query = query['match']
     if callable(query):
         return query, {}
-    dump_filter = RequestProcessor(context=query, prime=query, parameters=parameters)
+    dump_filter = RequestProcessor(
+        context=query, prime=query, parameters=parameters
+    )
     for rf in query.pop(
         'dump_filter', get_default_request_filters(mode, command)
     ):
@@ -2436,17 +2438,11 @@ class RTNL_API:
         msg = rtmsg()
         parameters = {'strict_check': self.status['strict_check']}
         dump_filter, kwarg = get_dump_filter(
-            'route',
-            command,
-            kwarg,
-            parameters,
+            'route', command, kwarg, parameters
         )
 
         arguments = get_arguments_processor(
-            'route',
-            command,
-            kwarg,
-            parameters
+            'route', command, kwarg, parameters
         )
 
         request = NetlinkRequest(

@@ -1,6 +1,6 @@
+from pyroute2.netlink.rt_files import TcClsFile
 from pyroute2.netlink.rtnl import TC_H_ROOT
 from pyroute2.netlink.rtnl.tcmsg import plugins as tc_plugins
-from pyroute2.netlink.rt_files import TcClsFile
 
 from .common import IPRouteFilter
 

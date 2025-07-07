@@ -1,6 +1,6 @@
+from pyroute2.netlink.rt_files import RtGroupFile
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP, IFF_UP, ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
-from pyroute2.netlink.rt_files import RtGroupFile
 
 from .common import Index, IPRouteFilter, NLAKeyTransform
 
