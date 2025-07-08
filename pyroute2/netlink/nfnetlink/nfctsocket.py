@@ -17,8 +17,9 @@ from pyroute2.netlink import (
     NLMSG_ERROR,
     nla,
 )
+from pyroute2.netlink.core import SyncAPI
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_CTNETLINK, nfgen_msg
-from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.nlsocket import AsyncNetlinkSocket
 
 IPCTNL_MSG_CT_NEW = 0
 IPCTNL_MSG_CT_GET = 1
@@ -197,6 +198,7 @@ def terminate_error_msg(msg):
 
 
 class nfct_stats(nfgen_msg):
+    prefix = 'CTA_STATS_'
     nla_map = (
         ('CTA_STATS_GLOBAL_UNSPEC', 'none'),
         ('CTA_STATS_GLOBAL_ENTRIES', 'be32'),
@@ -205,6 +207,7 @@ class nfct_stats(nfgen_msg):
 
 
 class nfct_stats_cpu(nfgen_msg):
+    prefix = 'CTA_STATS_'
     nla_map = (
         ('CTA_STATS_UNSPEC', 'none'),
         ('CTA_STATS_SEARCHED', 'be32'),
@@ -268,6 +271,7 @@ class nfct_msg(nfgen_msg):
         return self
 
     class cta_tuple(nla):
+        prefix = 'CTA_TUPLE_'
         nla_map = (
             ('CTA_TUPLE_UNSPEC', 'none'),
             ('CTA_TUPLE_IP', 'cta_ip'),
@@ -275,6 +279,7 @@ class nfct_msg(nfgen_msg):
         )
 
         class cta_ip(nla):
+            prefix = 'CTA_IP_'
             nla_map = (
                 ('CTA_IP_UNSPEC', 'none'),
                 ('CTA_IP_V4_SRC', 'ip4addr'),
@@ -284,6 +289,7 @@ class nfct_msg(nfgen_msg):
             )
 
         class cta_proto(nla):
+            prefix = 'CTA_PROTO_'
             nla_map = (
                 ('CTA_PROTO_UNSPEC', 'none'),
                 ('CTA_PROTO_NUM', 'uint8'),
@@ -709,7 +715,7 @@ class NFCTAttrTuple(NFCTAttr):
         return r + '))'
 
 
-class NFCTSocket(NetlinkSocket):
+class AsyncNFCTSocket(AsyncNetlinkSocket):
     policy = {
         k | (NFNL_SUBSYS_CTNETLINK << 8): v
         for k, v in {
@@ -725,16 +731,16 @@ class NFCTSocket(NetlinkSocket):
     }
 
     def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
-        super(NFCTSocket, self).__init__(family=NETLINK_NETFILTER, **kwargs)
+        super().__init__(family=NETLINK_NETFILTER, **kwargs)
         self.register_policy(self.policy)
         self._nfgen_family = nfgen_family
 
-    def request(self, msg, msg_type, **kwargs):
+    async def request(self, msg, msg_type, **kwargs):
         msg['nfgen_family'] = self._nfgen_family
         msg_type |= NFNL_SUBSYS_CTNETLINK << 8
-        return self.nlm_request(msg, msg_type, **kwargs)
+        return await self.nlm_request(msg, msg_type, **kwargs)
 
-    def dump(
+    async def dump(
         self,
         mark=None,
         mark_mask=0xFFFFFFFF,
@@ -801,43 +807,55 @@ class NFCTSocket(NetlinkSocket):
             if status_mask is not None:
                 kwargs['status_mask'] = status_mask
             msg = nfct_msg.create_from(**kwargs)
-        return self.request(
+        return await self.request(
             msg, IPCTNL_MSG_CT_GET, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
         )
 
-    def stat(self):
-        return self.request(
-            nfct_msg(),
-            IPCTNL_MSG_CT_GET_STATS_CPU,
-            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-        )
+    async def stat(self):
+        return [
+            x
+            async for x in await self.request(
+                nfct_msg(),
+                IPCTNL_MSG_CT_GET_STATS_CPU,
+                msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+            )
+        ]
 
-    def count(self):
-        return self.request(
-            nfct_msg(),
-            IPCTNL_MSG_CT_GET_STATS,
-            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-            terminate=terminate_single_msg,
-        )
+    async def count(self):
+        return [
+            x
+            async for x in await self.request(
+                nfct_msg(),
+                IPCTNL_MSG_CT_GET_STATS,
+                msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                terminate=terminate_single_msg,
+            )
+        ]
 
-    def flush(self, mark=None, mark_mask=None):
+    async def flush(self, mark=None, mark_mask=None):
         msg = nfct_msg.create_from(mark=mark, mark_mask=mark_mask)
-        return self.request(
-            msg,
-            IPCTNL_MSG_CT_DELETE,
-            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-            terminate=terminate_error_msg,
-        )
+        return [
+            x
+            async for x in await self.request(
+                msg,
+                IPCTNL_MSG_CT_DELETE,
+                msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+                terminate=terminate_error_msg,
+            )
+        ]
 
-    def conntrack_max_size(self):
-        return self.request(
-            nfct_msg(),
-            IPCTNL_MSG_CT_GET_STATS,
-            msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-            terminate=terminate_single_msg,
-        )
+    async def conntrack_max_size(self):
+        return [
+            x
+            async for x in await self.request(
+                nfct_msg(),
+                IPCTNL_MSG_CT_GET_STATS,
+                msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+                terminate=terminate_single_msg,
+            )
+        ]
 
-    def entry(self, cmd, **kwargs):
+    async def entry(self, cmd, **kwargs):
         """
         Get or change a conntrack entry.
 
@@ -881,9 +899,66 @@ class NFCTSocket(NetlinkSocket):
         ):
             raise ValueError('Deletion requires a tuple at least')
 
-        return self.request(
-            nfct_msg.create_from(**kwargs),
-            msg_type,
-            msg_flags=NLM_F_REQUEST | msg_flags,
-            terminate=terminate_error_msg,
+        return [
+            x
+            async for x in await self.request(
+                nfct_msg.create_from(**kwargs),
+                msg_type,
+                msg_flags=NLM_F_REQUEST | msg_flags,
+                terminate=terminate_error_msg,
+            )
+        ]
+
+
+class NFCTSocket(SyncAPI):
+    def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
+        self.asyncore = AsyncNFCTSocket(nfgen_family, **kwargs)
+
+    def _run_sync(self, func, tag, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
+
+    def request(self, msg, msg_type, **kwargs):
+        return self._run_sync(
+            self.asyncore.request, 'request', msg, msg_type, **kwargs
+        )
+
+    def dump(
+        self,
+        mark=None,
+        mark_mask=0xFFFFFFFF,
+        tuple_orig=None,
+        tuple_reply=None,
+        status=None,
+        status_mask=None,
+    ):
+        return self._generate_with_cleanup(
+            self.asyncore.dump,
+            'dump',
+            mark,
+            mark_mask,
+            tuple_orig,
+            tuple_reply,
+            status,
+            status_mask,
+        )
+
+    def stat(self):
+        return self._run_with_cleanup(self.asyncore.stat, 'stat')
+
+    def count(self):
+        return self._run_with_cleanup(self.asyncore.count, 'count')
+
+    def flush(self, mark=None, mark_mask=None):
+        return self._run_with_cleanup(
+            self.asyncore.flush, 'flush', mark, mark_mask
+        )
+
+    def conntrack_max_size(self):
+        return self._run_with_cleanup(
+            self.asyncore.conntrack_max_size, 'conntrack_max_size'
+        )
+
+    def entry(self, cmd, **kwarg):
+        return self._run_with_cleanup(
+            self.asyncore.entry, 'entry', cmd, **kwarg
         )

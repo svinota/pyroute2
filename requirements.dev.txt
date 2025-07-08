@@ -6,5 +6,6 @@ pytest
 pytest-asyncio==0.26.0
 pytest-timeout
 pytest-cov
+pytest-profiling
 pre-commit
 findimports

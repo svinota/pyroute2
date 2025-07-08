@@ -25,7 +25,7 @@ import sys
 #  * https://github.com/svinota/pyroute2/issues/601
 #
 from pyroute2.config import log
-from pyroute2.conntrack import Conntrack, ConntrackEntry
+from pyroute2.conntrack import AsyncConntrack, Conntrack, ConntrackEntry
 from pyroute2.devlink import DL
 from pyroute2.ethtool.ethtool import Ethtool
 from pyroute2.ipdb import IPDB, CommitException, CreateException
@@ -57,7 +57,7 @@ from pyroute2.netlink.generic.l2tp import L2tp
 from pyroute2.netlink.generic.mptcp import MPTCP
 from pyroute2.netlink.generic.wireguard import WireGuard
 from pyroute2.netlink.ipq import IPQSocket
-from pyroute2.netlink.nfnetlink.nfctsocket import NFCTSocket
+from pyroute2.netlink.nfnetlink.nfctsocket import AsyncNFCTSocket, NFCTSocket
 from pyroute2.netlink.nfnetlink.nftsocket import AsyncNFTSocket, NFTSocket
 from pyroute2.netlink.nl80211 import NL80211
 from pyroute2.netlink.rtnl.iprsocket import AsyncIPRSocket, IPRSocket
@@ -81,8 +81,10 @@ if sys.platform.startswith('win'):  # noqa: E402
 
 modules = [
     AcpiEventSocket,
+    AsyncConntrack,
     AsyncIPRoute,
     AsyncIPRSocket,
+    AsyncNFCTSocket,
     AsyncNFTSocket,
     ChaoticException,
     ChaoticIPRoute,

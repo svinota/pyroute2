@@ -3,23 +3,39 @@ import platform
 import re
 import signal
 import socket
+from typing import Literal, Union
+
+metric_type = Literal['c', 'g', 'ms']
 
 
-class LocalMock(socket.socket):
+class LocalMock:
 
     def __init__(self):
         self.call_args_list = []
-        super().__init__(socket.AF_INET, socket.SOCK_STREAM)
 
     def __call__(self, *argv, **kwarg):
         self.call_args_list.append((argv, kwarg))
         return self
 
-    def __getattr__(self, key):
-        return lambda *_, **__: None
-
     def close(self) -> None:
-        super().close()
+        pass
+
+    def setsockopt(self, level: int, optname: int, value: int) -> None:
+        pass
+
+    def fileno(self) -> None:
+        pass
+
+    def put(
+        self, name: str, value: Union[int, str], kind: metric_type
+    ) -> None:
+        pass
+
+    def commit(self) -> None:
+        pass
+
+    def incr(self, name: str, value: int = 1) -> None:
+        pass
 
 
 def mock_if(name):
