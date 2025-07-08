@@ -43,16 +43,6 @@ def test_dump(ct):
 
 
 @pytest.mark.parametrize(
-    ('ct', 'check_count'),
-    ((ArgNetNS.NONE, lambda x: x > 0), (ArgNetNS.AUTO, lambda x: x == 0)),
-    indirect=('ct',),
-)
-def test_count(ct, check_count):
-    assert isinstance(ct.count(), int)
-    assert check_count(ct.count())
-
-
-@pytest.mark.parametrize(
     ('ct', 'check_stat'),
     (
         (ArgNetNS.NONE, lambda i: any(map(lambda x: x.get('insert') > 0, i))),
@@ -77,6 +67,12 @@ def entry_locate(target, ct):
             ret = True
             break
     assert ret is target
+
+
+def entry_count(func, ct):
+    count = ct.count()
+    assert isinstance(count, int)
+    assert func(count)
 
 
 def entry_op(cmd, ct):
@@ -121,9 +117,28 @@ def entry_op(cmd, ct):
                 partial(entry_locate, False),
             ),
         ),
+        (
+            ArgNetNS.NONE,
+            (
+                partial(entry_op, 'add'),
+                partial(entry_count, lambda x: x > 0),
+                partial(entry_op, 'del'),
+            ),
+        ),
+        (
+            ArgNetNS.AUTO,
+            (
+                partial(entry_count, lambda x: x == 0),
+                partial(entry_op, 'add'),
+                partial(entry_count, lambda x: x == 1),
+                partial(entry_op, 'del'),
+                partial(entry_count, lambda x: x == 0),
+            ),
+        ),
     ),
     indirect=('ct',),
+    ids=('locate', 'locate (netns)', 'count', 'count (netns)'),
 )
-def test_entry(ct, steps):
+def test_op(ct, steps):
     for step in steps:
         step(ct)
