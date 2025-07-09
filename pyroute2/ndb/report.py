@@ -37,8 +37,6 @@ Filtering example:
 
 import json
 import sys
-import warnings
-from itertools import chain
 
 MAX_REPORT_LINES = 10000
 
@@ -307,74 +305,6 @@ class RecordSet(BaseRecordSet):
         '''
         self.filters.append(lambda x: x._transform_fields(**kwarg))
         return self
-
-    def transform(self, **kwarg):
-        warnings.warn(deprecation_notice, DeprecationWarning)
-
-        def g():
-            for record in self.generator:
-                if isinstance(record, Record):
-                    values = []
-                    names = record._names
-                    for name, value in zip(names, record._values):
-                        if name in kwarg:
-                            value = kwarg[name](value)
-                        values.append(value)
-                    record = Record(names, values, record._ref_class)
-                yield record
-
-        return RecordSet(g())
-
-    def filter(self, f=None, **kwarg):
-        warnings.warn(deprecation_notice, DeprecationWarning)
-
-        def g():
-            for record in self.generator:
-                m = True
-                for key in kwarg:
-                    if kwarg[key] != getattr(record, key):
-                        m = False
-                if m:
-                    if f is None:
-                        yield record
-                    elif f(record):
-                        yield record
-
-        return RecordSet(g())
-
-    def select(self, *argv):
-        warnings.warn(deprecation_notice, DeprecationWarning)
-        return self.fields(*argv)
-
-    def fields(self, *fields):
-        warnings.warn(deprecation_notice, DeprecationWarning)
-
-        def g():
-            for record in self.generator:
-                yield record._select_fields(*fields)
-
-        return RecordSet(g())
-
-    def join(self, right, condition=lambda r1, r2: True, prefix=''):
-        warnings.warn(deprecation_notice, DeprecationWarning)
-        # fetch all the records from the right
-        # ACHTUNG it may consume a lot of memory
-        right = tuple(right)
-
-        def g():
-            for r1 in self.generator:
-                for r2 in right:
-                    if condition(r1, r2):
-                        n = tuple(
-                            chain(
-                                r1._names,
-                                ['%s%s' % (prefix, x) for x in r2._names],
-                            )
-                        )
-                        v = tuple(chain(r1._values, r2._values))
-                        yield Record(n, v, r1._ref_class)
-
-        return RecordSet(g())
 
     def format(self, kind):
         '''
