@@ -224,20 +224,6 @@ class BaseRecordSet(object):
         self.materialized = tuple(self)
 
 
-class RecordSetConfig(dict):
-    def __init__(self, prime):
-        if isinstance(prime, dict):
-            for key, value in prime.items():
-                self[key] = value
-        else:
-            raise ValueError('only dict allowed')
-
-    def __setitem__(self, key, value):
-        if isinstance(value, str):
-            value = json.loads(value)
-        return super().__setitem__(key, value)
-
-
 class RecordSet(BaseRecordSet):
     '''
     NDB views return objects of this class with `summary()` and `dump()`
@@ -247,10 +233,6 @@ class RecordSet(BaseRecordSet):
     RecordSet filters also return objects of this class, thus making possible
     to make chains of filters.
     '''
-
-    def __init__(self, source, config=None, ellipsis=True):
-        super().__init__(source, ellipsis)
-        self.config = RecordSetConfig(config) if config is not None else {}
 
     def __next__(self):
         while True:
