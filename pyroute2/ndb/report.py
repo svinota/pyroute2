@@ -36,6 +36,7 @@ Filtering example:
 '''
 
 import json
+import sys
 import warnings
 from itertools import chain
 
@@ -179,14 +180,15 @@ class Record:
 
 
 class BaseRecordSet(object):
-    def __init__(self, generator, ellipsis='(...)'):
-        self.generator = generator
+    def __init__(self, source, ellipsis='(...)'):
+        self.source = source
+        self.generator = source
         self.ellipsis = ellipsis
         self.materialized = None
 
     def __iter__(self):
         if self.materialized is not None:
-            return iter(self.materialized)
+            self.generator = iter(self.materialized)
         return self
 
     def __next__(self):
@@ -243,10 +245,12 @@ class RecordSet(BaseRecordSet):
     to make chains of filters.
     '''
 
-    def __init__(self, generator, config=None, ellipsis=True):
-        super().__init__(generator, ellipsis)
+    def __init__(self, source, config=None, ellipsis=True):
+        super().__init__(source, ellipsis)
         self.filters = []
         self.config = RecordSetConfig(config) if config is not None else {}
+        if hasattr(sys, 'ps1'):
+            self.materialize()
 
     def __next__(self):
         while True:
@@ -276,8 +280,7 @@ class RecordSet(BaseRecordSet):
             2,'eth0'
         '''
         self.filters.append(lambda x: x._select_fields(*fields))
-        if self.config.get('recordset_pipe'):
-            return RecordSet(self, config=self.config)
+        return self
 
     def select_records(self, f=None, **spec):
         '''
