@@ -185,6 +185,9 @@ class BaseRecordSet(object):
         self.generator = source
         self.ellipsis = ellipsis
         self.materialized = None
+        self.filters = []
+        if hasattr(sys, 'ps1'):
+            self.materialize()
 
     def __iter__(self):
         if self.materialized is not None:
@@ -247,10 +250,7 @@ class RecordSet(BaseRecordSet):
 
     def __init__(self, source, config=None, ellipsis=True):
         super().__init__(source, ellipsis)
-        self.filters = []
         self.config = RecordSetConfig(config) if config is not None else {}
-        if hasattr(sys, 'ps1'):
-            self.materialize()
 
     def __next__(self):
         while True:
@@ -300,8 +300,7 @@ class RecordSet(BaseRecordSet):
             'localhost',0,'eth0','192.168.122.28',24
         '''
         self.filters.append(lambda x: x if x._match(f, **spec) else None)
-        if self.config.get('recordset_pipe'):
-            return RecordSet(self, config=self.config)
+        return self
 
     def transform_fields(self, **kwarg):
         '''
@@ -325,8 +324,7 @@ class RecordSet(BaseRecordSet):
             'eth0','192.168.122.28/24'
         '''
         self.filters.append(lambda x: x._transform_fields(**kwarg))
-        if self.config.get('recordset_pipe'):
-            return RecordSet(self, config=self.config)
+        return self
 
     def transform(self, **kwarg):
         warnings.warn(deprecation_notice, DeprecationWarning)
