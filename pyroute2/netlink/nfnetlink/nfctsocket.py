@@ -914,11 +914,8 @@ class NFCTSocket(SyncAPI):
     def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
         self.asyncore = AsyncNFCTSocket(nfgen_family, **kwargs)
 
-    def _run_sync(self, func, tag, *argv, **kwarg):
-        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
-
     def request(self, msg, msg_type, **kwargs):
-        return self._run_sync(
+        return self._run_sync_cleanup(
             self.asyncore.request, 'request', msg, msg_type, **kwargs
         )
 

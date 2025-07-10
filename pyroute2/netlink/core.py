@@ -784,6 +784,9 @@ class SyncAPI:
         finally:
             self._cleanup_transport()
 
+    def _run_sync_cleanup(self, func, tag, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
+
     def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
         if len(argv) > 0 and isinstance(argv[0], str):
             cmd = f'{cmd}-{argv[0]}'
