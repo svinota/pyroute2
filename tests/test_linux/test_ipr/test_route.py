@@ -9,6 +9,7 @@ from utils import require_kernel
 
 from pyroute2 import IPRoute, NetlinkError
 from pyroute2.common import AF_MPLS
+from pyroute2.netlink.rt_files import RtTablesFile
 from pyroute2.netlink.rtnl.rtmsg import RTNH_F_ONLINK
 
 pytestmark = [require_root()]
@@ -453,3 +454,22 @@ def test_flush_routes(context):
         time.sleep(0.1)
     else:
         raise Exception('route table not flushed')
+
+
+def test_route_with_rt_file(context, fake_rt_file):
+    fake_rt_file.create(RtTablesFile, {"254": "my_table"})
+
+    if not context.ipr.get_default_routes(table="my_table"):
+        pytest.skip('no default IPv4 routes')
+    require_kernel(4, 20)
+
+    with IPRoute(strict_check=True) as ip:
+        rts = list(
+            ip.get_routes(
+                family=socket.AF_INET, dst='8.8.8.8', table="my_table"
+            )
+        )
+        assert len(rts) > 0
+        assert (
+            RtTablesFile().get_rt_name(rts[0].get("RTA_TABLE")) == "my_table"
+        )

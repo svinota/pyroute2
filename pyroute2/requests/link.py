@@ -1,3 +1,4 @@
+from pyroute2.netlink.rt_files import RtGroupFile
 from pyroute2.netlink.rtnl.ifinfmsg import IFF_NOARP, IFF_UP, ifinfmsg
 from pyroute2.netlink.rtnl.ifinfmsg.plugins.vlan import flags as vlan_flags
 
@@ -92,6 +93,11 @@ class LinkIPRouteFilter(IPRouteFilter):
             ret['flags'] = (context.get('flags', 0) or 0) | IFF_NOARP
         ret['change'] = (context.get('change', 0) or 0) | IFF_NOARP
         return ret
+
+    def set_group(self, context, value):
+        if isinstance(value, str):
+            value = RtGroupFile().get_rt_id(value)
+        return {'group': value}
 
     def finalize(self, context):
         # set interface type specific attributes

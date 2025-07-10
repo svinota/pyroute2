@@ -1,6 +1,13 @@
 from socket import AF_INET, AF_INET6
 
 from pyroute2.common import AF_MPLS
+from pyroute2.netlink.rt_files import (
+    RtDsfieldFile,
+    RtProtosFile,
+    RtRealmsFile,
+    RtScopesFile,
+    RtTablesFile,
+)
 from pyroute2.netlink.rtnl import encap_type, rt_proto, rt_scope, rt_type
 from pyroute2.netlink.rtnl.rtmsg import IP6_RT_PRIO_USER, LWTUNNEL_ENCAP_MPLS
 from pyroute2.netlink.rtnl.rtmsg import nh as nh_header
@@ -78,12 +85,20 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
 
     def set_scope(self, context, value):
         if isinstance(value, str):
-            return {'scope': rt_scope[value]}
+            try:
+                value = rt_scope[value]
+            except KeyError:
+                # lookup with rt_scopes* files
+                value = RtScopesFile().get_rt_id(value)
         return {'scope': value}
 
     def set_proto(self, context, value):
         if isinstance(value, str):
-            return {'proto': rt_proto[value]}
+            try:
+                value = rt_proto[value]
+            except KeyError:
+                # lookup with rt_proto* files
+                value = RtProtosFile().get_rt_id(value)
         return {'proto': value}
 
     def set_encap_type(self, context, value):
@@ -96,6 +111,16 @@ class RouteFieldFilter(IPTargets, NLAKeyTransform):
             return {'type': rt_type[value]}
         return {'type': value}
 
+    def set_table(self, context, value):
+        if isinstance(value, str):
+            value = RtTablesFile().get_rt_id(value, 0)
+        return {"table": value}
+
+    def set_tos(self, context, value):
+        if isinstance(value, str):
+            value = RtDsfieldFile().get_rt_id(value, 0)
+        return {"tos": value}
+
 
 class RouteIPRouteFilter(IPRouteFilter):
 
@@ -106,6 +131,13 @@ class RouteIPRouteFilter(IPRouteFilter):
                 return 0
             return table if 0 < table < 255 else 254
         return table
+
+    def set_flow(self, context, value):
+        if isinstance(value, str):
+            value = RtRealmsFile().get_rt_id(value)
+        return {"flow": value}
+
+    set_realms = set_flow
 
     def set_metrics(self, context, value):
         if value and 'attrs' not in value:

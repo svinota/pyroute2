@@ -120,11 +120,11 @@ def get_default_request_filters(mode, command):
     return filters[mode]
 
 
-def get_dump_filter(mode, command, query):
+def get_dump_filter(mode, command, query, parameters=None):
     if 'dump_filter' in query:
         return query.pop('dump_filter'), query
     if command not in ('dump', 'show'):
-        return RequestProcessor(), query
+        return RequestProcessor(parameters=parameters), query
     new_query = {}
     if 'family' in query:
         new_query['family'] = query.pop('family')
@@ -134,7 +134,9 @@ def get_dump_filter(mode, command, query):
         query = query['match']
     if callable(query):
         return query, {}
-    dump_filter = RequestProcessor(context=query, prime=query)
+    dump_filter = RequestProcessor(
+        context=query, prime=query, parameters=parameters
+    )
     for rf in query.pop(
         'dump_filter', get_default_request_filters(mode, command)
     ):
@@ -2434,24 +2436,15 @@ class RTNL_API:
             'dump': (RTM_GETROUTE, 'dump'),
         }
         msg = rtmsg()
-        # table is mandatory without strict_check; by default == 254
-        # if table is not defined in kwarg, save it there
-        # also for nla_attr. Do not set it in strict_check, use
-        # NLA instead
-        #
-        # begin
-        #   FIXME: move this block to the request processor
-        if not self.status['strict_check']:
-            table = kwarg.get('table', 254)
-            msg['table'] = table if table <= 255 else 252
-        # end
-        dump_filter, kwarg = get_dump_filter('route', command, kwarg)
-        arguments = get_arguments_processor(
-            'route',
-            command,
-            kwarg,
-            {'strict_check': self.status['strict_check']},
+        parameters = {'strict_check': self.status['strict_check']}
+        dump_filter, kwarg = get_dump_filter(
+            'route', command, kwarg, parameters
         )
+
+        arguments = get_arguments_processor(
+            'route', command, kwarg, parameters
+        )
+
         request = NetlinkRequest(
             self, msg, command, command_map, dump_filter, arguments
         )

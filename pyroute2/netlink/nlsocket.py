@@ -121,6 +121,7 @@ from pyroute2.netlink.core import (
 )
 from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
+from pyroute2.netlink.rt_files import NlProtosFile
 from pyroute2.requests.main import RequestFilter
 
 log = logging.getLogger(__name__)
@@ -235,6 +236,10 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         use_event_loop=None,
         telemetry=None,
     ):
+
+        if isinstance(family, str):
+            family = NlProtosFile().get_rt_id(family)
+
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
             NetlinkConfig(

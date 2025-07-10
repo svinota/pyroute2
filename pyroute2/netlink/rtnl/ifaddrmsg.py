@@ -73,6 +73,9 @@ class ifaddrmsg(nlmsg):
         ('IFA_CACHEINFO', 'cacheinfo'),
         ('IFA_MULTICAST', 'ipaddr'),
         ('IFA_FLAGS', 'uint32'),
+        ('IFA_RT_PRIORITY', 'uint32'),
+        ('IFA_TARGET_NETNSID', 'asciiz'),
+        ('IFA_PROTO', 'uint8'),
     )
 
     class cacheinfo(nla):
