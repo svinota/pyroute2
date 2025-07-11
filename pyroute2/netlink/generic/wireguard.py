@@ -81,7 +81,10 @@ from pyroute2.netlink import (
     genlmsg,
     nla,
 )
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 
 # Defines from uapi/wireguard.h
 WG_GENL_NAME = "wireguard"
@@ -263,20 +266,23 @@ class wgmsg(genlmsg):
             nla.encode(self)
 
 
-class WireGuard(GenericNetlinkSocket):
-    def __init__(self, *args, **kwargs):
-        GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.bind(WG_GENL_NAME, wgmsg)
+class AsyncWireGuard(AsyncGenericNetlinkSocket):
 
-    def info(self, interface):
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        await super().setup_endpoint()
+        await self.bind(WG_GENL_NAME, wgmsg)
+
+    async def info(self, interface):
         msg = wgmsg()
         msg['cmd'] = WG_CMD_GET_DEVICE
         msg['attrs'].append(['WGDEVICE_A_IFNAME', interface])
-        return self.nlm_request(
+        return await self.nlm_request(
             msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
         )
 
-    def set(
+    async def set(
         self,
         interface,
         listen_port=None,
@@ -308,7 +314,7 @@ class WireGuard(GenericNetlinkSocket):
         msg['header']['pid'] = self.pid
         msg.encode()
         self.sendto(msg.data, (0, 0))
-        msg = self.get()[0]
+        (msg,) = [x async for x in self.get()]
         err = msg['header'].get('error', None)
         if err is not None:
             if hasattr(err, 'code') and err.code == errno.ENOENT:
@@ -401,3 +407,28 @@ class WireGuard(GenericNetlinkSocket):
             allowed_ip.append(['WGALLOWEDIP_A_CIDR_MASK', int(mask)])
 
         return ret
+
+
+class WireGuard(GenericNetlinkSocket):
+    class_api = AsyncWireGuard
+
+    def info(self, interface):
+        return self._run_sync_cleanup(self.asyncore.info, 'info', interface)
+
+    def set(
+        self,
+        interface,
+        listen_port=None,
+        fwmark=None,
+        private_key=None,
+        peer=None,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.set,
+            'set',
+            interface,
+            listen_port,
+            fwmark,
+            private_key,
+            peer,
+        )
