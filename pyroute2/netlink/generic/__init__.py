@@ -7,7 +7,6 @@ Describe
 '''
 import errno
 import logging
-import os
 
 from pyroute2.netlink import (
     CTRL_CMD_GETFAMILY,
@@ -15,14 +14,13 @@ from pyroute2.netlink import (
     GENL_ID_CTRL,
     NETLINK_ADD_MEMBERSHIP,
     NETLINK_DROP_MEMBERSHIP,
-    NETLINK_GENERIC,
     NLM_F_ACK,
     NLM_F_DUMP,
     NLM_F_REQUEST,
     SOL_NETLINK,
     ctrlmsg,
 )
-from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, SyncAPI
+from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, NetlinkSocket
 
 
 class AsyncGenericNetlinkSocket(AsyncNetlinkSocket):
@@ -127,58 +125,10 @@ class AsyncGenericNetlinkSocket(AsyncNetlinkSocket):
         )
 
 
-class GenericNetlinkSocket(SyncAPI):
-    def __init__(
-        self,
-        family=NETLINK_GENERIC,
-        port=None,
-        pid=None,
-        fileno=None,
-        sndbuf=1048576,
-        rcvbuf=1048576,
-        rcvsize=16384,
-        all_ns=False,
-        async_qsize=None,
-        nlm_generator=True,
-        target='localhost',
-        ext_ack=False,
-        strict_check=False,
-        groups=0,
-        nlm_echo=False,
-        netns=None,
-        flags=os.O_CREAT,
-        libc=None,
-        use_socket=None,
-        use_event_loop=None,
-        telemetry=None,
-    ):
-        self.asyncore = AsyncGenericNetlinkSocket(
-            family=family,
-            port=port,
-            pid=pid,
-            fileno=fileno,
-            sndbuf=sndbuf,
-            rcvbuf=rcvbuf,
-            rcvsize=rcvsize,
-            all_ns=all_ns,
-            target=target,
-            ext_ack=ext_ack,
-            strict_check=strict_check,
-            groups=groups,
-            nlm_echo=nlm_echo,
-            netns=netns,
-            flags=flags,
-            libc=libc,
-            use_socket=use_socket,
-            use_event_loop=use_event_loop,
-            telemetry=telemetry,
-        )
-        self.status['nlm_generator'] = False
-        self.asyncore.status['event_loop'] = 'new'
-        self.asyncore.local.keep_event_loop = True
-        self.asyncore.event_loop.run_until_complete(
-            self.asyncore.setup_endpoint()
-        )
+class GenericNetlinkSocket(NetlinkSocket):
+
+    class_api = AsyncGenericNetlinkSocket
+    class_gen_sync = False
 
     @property
     def prid(self):
@@ -206,38 +156,3 @@ class GenericNetlinkSocket(SyncAPI):
 
     def policy(self, proto):
         return self._run_with_cleanup(self.asyncore.policy, 'policy', proto)
-
-    def nlm_request(
-        self,
-        msg,
-        msg_type,
-        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
-        terminate=None,
-        callback=None,
-        parser=None,
-    ):
-        ret = self._generate_with_cleanup(
-            self.asyncore.nlm_request,
-            'nl-req',
-            msg,
-            msg_type,
-            msg_flags,
-            terminate,
-            callback,
-            parser,
-        )
-        if self.status['nlm_generator']:
-            return ret
-        return tuple(ret)
-
-    def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-
-        async def collect_data():
-            return [
-                i
-                async for i in self.asyncore.get(
-                    msg_seq, terminate, callback, noraise
-                )
-            ]
-
-        return self._run_with_cleanup(collect_data, 'nl-get')

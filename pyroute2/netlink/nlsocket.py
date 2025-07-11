@@ -662,6 +662,9 @@ class NetlinkRequest:
 
 
 class NetlinkSocket(SyncAPI):
+
+    class_api = AsyncNetlinkSocket
+
     def __init__(
         self,
         family=NETLINK_GENERIC,
@@ -686,7 +689,7 @@ class NetlinkSocket(SyncAPI):
         use_event_loop=None,
         telemetry=None,
     ):
-        self.asyncore = AsyncNetlinkSocket(
+        self.asyncore = self.class_api(
             family=family,
             port=port,
             pid=pid,
@@ -710,6 +713,9 @@ class NetlinkSocket(SyncAPI):
         self.asyncore.local.keep_event_loop = True
         self.asyncore.status['event_loop'] = 'new'
         self.asyncore.status['nlm_generator'] = nlm_generator
+        # FIXME: temporary override from a class attribute
+        if hasattr(self, 'class_gen_sync'):
+            self.asyncore.status['nlm_generator'] = self.class_gen_sync
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()
         )
