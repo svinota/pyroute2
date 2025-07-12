@@ -27,7 +27,7 @@ Monitor and receive ACPI events messages via generic netlink.
 
 from pyroute2.common import load_dump
 from pyroute2.netlink import genlmsg, nla
-from pyroute2.netlink.event import EventSocket
+from pyroute2.netlink.event import AsyncEventSocket, EventSocket
 from pyroute2.netlink.nlsocket import Marshal
 
 ACPI_GENL_CMD_UNSPEC = 0
@@ -60,9 +60,13 @@ class MarshalAcpiEvent(Marshal):
     msg_map = {ACPI_GENL_CMD_UNSPEC: acpimsg, ACPI_GENL_CMD_EVENT: acpimsg}
 
 
-class AcpiEventSocket(EventSocket):
+class AsyncAcpiEventSocket(AsyncEventSocket):
     marshal_class = MarshalAcpiEvent
     genl_family = 'acpi_event'
+
+
+class AcpiEventSocket(EventSocket):
+    class_api = AsyncAcpiEventSocket
 
 
 class AcpiEventMock(AcpiEventSocket):
