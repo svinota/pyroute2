@@ -128,11 +128,7 @@ class MPTCP(GenericNetlinkSocket):
     class_api = AsyncMPTCP
 
     def endpoint(self, cmd, **kwarg):
-        return self._run_sync_cleanup(
-            self.asyncore.endpoint, 'endpoint', cmd, **kwarg
-        )
+        return self._run_sync_cleanup(self.asyncore.endpoint, cmd, **kwarg)
 
     def limits(self, cmd, **kwarg):
-        return self._run_sync_cleanup(
-            self.asyncore.limits, 'limits', cmd, **kwarg
-        )
+        return self._run_sync_cleanup(self.asyncore.limits, cmd, **kwarg)

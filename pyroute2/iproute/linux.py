@@ -2733,13 +2733,7 @@ class IPRoute(NetlinkSocket):
         # extract async method from the wrapper's arguments
         method = method.args[0]
         return self._run_with_cleanup(
-            self.asyncore.ensure,
-            'iproute-ensure',
-            method,
-            present,
-            timeout,
-            interval,
-            **spec,
+            self.asyncore.ensure, method, present, timeout, interval, **spec
         )
 
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
@@ -2755,17 +2749,15 @@ class IPRoute(NetlinkSocket):
                 pass
         raise TimeoutError()
 
-    def _run_force_sync(self, func, tag, *argv, **kwarg):
-        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
+    def _run_force_sync(self, func, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, *argv, **kwarg))
 
-    def _run_generic_rtnl(self, func, tag, *argv, **kwarg):
+    def _run_generic_rtnl(self, func, *argv, **kwarg):
         if len(argv) and argv[0] in ('dump', 'show'):
             if not config.nlm_generator:
-                return tuple(
-                    self._generate_with_cleanup(func, tag, *argv, **kwarg)
-                )
-            return self._generate_with_cleanup(func, tag, *argv, **kwarg)
-        return self._run_with_cleanup(func, tag, *argv, **kwarg)
+                return tuple(self._generate_with_cleanup(func, *argv, **kwarg))
+            return self._generate_with_cleanup(func, *argv, **kwarg)
+        return self._run_with_cleanup(func, *argv, **kwarg)
 
     def __getattr__(self, name):
         generic_methods = set(
@@ -2807,12 +2799,11 @@ class IPRoute(NetlinkSocket):
 
         symbol = getattr(self.asyncore, name)
         if name in set(RTNL_API.__dict__.keys()) - sync_methods:
-            tag = f'iproute-{name}'
             if name in generic_methods:
-                return partial(self._run_generic_rtnl, symbol, tag)
+                return partial(self._run_generic_rtnl, symbol)
             if not config.nlm_generator:
-                return partial(self._run_force_sync, symbol, tag)
-            return partial(self._generate_with_cleanup, symbol, tag)
+                return partial(self._run_force_sync, symbol)
+            return partial(self._generate_with_cleanup, symbol)
         return symbol
 
 

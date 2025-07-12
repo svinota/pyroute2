@@ -140,7 +140,7 @@ class GenericNetlinkSocket(NetlinkSocket):
 
     def bind(self, proto, msg_class, groups=0, pid=None, **kwarg):
         return self._run_with_cleanup(
-            self.asyncore.bind, 'bind', proto, msg_class, groups, pid, **kwarg
+            self.asyncore.bind, proto, msg_class, groups, pid, **kwarg
         )
 
     def add_membership(self, group):
@@ -150,9 +150,7 @@ class GenericNetlinkSocket(NetlinkSocket):
         return self.asyncore.drop_membership(group)
 
     def discovery(self, proto):
-        return self._run_with_cleanup(
-            self.asyncore.discovery, 'discovery', proto
-        )
+        return self._run_with_cleanup(self.asyncore.discovery, proto)
 
     def policy(self, proto):
-        return self._run_with_cleanup(self.asyncore.policy, 'policy', proto)
+        return self._run_with_cleanup(self.asyncore.policy, proto)

@@ -770,12 +770,16 @@ class SyncAPI:
         if hasattr(self.asyncore.local, 'event_loop'):
             del self.asyncore.local.event_loop
 
-    def _generate_with_cleanup(self, func, cmd: str, *argv, **kwarg):
-        if len(argv) > 0 and isinstance(argv[0], str):
-            cmd = f'{cmd}-{argv[0]}'
+    def _generate_with_cleanup(self, func, *argv, **kwarg):
+        if hasattr(func, '__name__'):
+            telemetry_tag = func.__name__
+        elif hasattr(func, '__func__') and hasattr(func.__func__, '__name__'):
+            telemetry_tag = func.__func__.__name__
+        else:
+            telemetry_tag = '<none>'
         try:
             self._setup_transport()
-            with self.asyncore.telemetry.update(cmd):
+            with self.asyncore.telemetry.update(telemetry_tag):
                 for item in RequestWrapper(
                     event_loop=self.asyncore.event_loop,
                     func=func(*argv, **kwarg),
@@ -784,15 +788,19 @@ class SyncAPI:
         finally:
             self._cleanup_transport()
 
-    def _run_sync_cleanup(self, func, tag, *argv, **kwarg):
-        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
+    def _run_sync_cleanup(self, func, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, *argv, **kwarg))
 
-    def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
-        if len(argv) > 0 and isinstance(argv[0], str):
-            cmd = f'{cmd}-{argv[0]}'
+    def _run_with_cleanup(self, func, *argv, **kwarg):
+        if hasattr(func, '__name__'):
+            telemetry_tag = func.__name__
+        elif hasattr(func, '__func__') and hasattr(func.__func__, '__name__'):
+            telemetry_tag = func.__func__.__name__
+        else:
+            telemetry_tag = '<none>'
         try:
             self._setup_transport()
-            with self.asyncore.telemetry.update(cmd):
+            with self.asyncore.telemetry.update(telemetry_tag):
                 return self.asyncore.event_loop.run_until_complete(
                     func(*argv, **kwarg)
                 )

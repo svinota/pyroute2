@@ -100,7 +100,7 @@ def test_telemetry(statsd, monkeypatch):
         len(
             list(
                 filter(
-                    lambda x: x.startswith('\'iproute-'),
+                    lambda x: x == 'link_lookup:',
                     statsd.query('counters').split(),
                 )
             )

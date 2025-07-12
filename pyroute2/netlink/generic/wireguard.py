@@ -413,7 +413,7 @@ class WireGuard(GenericNetlinkSocket):
     class_api = AsyncWireGuard
 
     def info(self, interface):
-        return self._run_sync_cleanup(self.asyncore.info, 'info', interface)
+        return self._run_sync_cleanup(self.asyncore.info, interface)
 
     def set(
         self,
@@ -425,7 +425,6 @@ class WireGuard(GenericNetlinkSocket):
     ):
         return self._run_with_cleanup(
             self.asyncore.set,
-            'set',
             interface,
             listen_port,
             fwmark,
