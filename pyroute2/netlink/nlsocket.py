@@ -667,6 +667,9 @@ class NetlinkRequest:
 
 
 class NetlinkSocket(SyncAPI):
+
+    class_api = AsyncNetlinkSocket
+
     def __init__(
         self,
         family=NETLINK_GENERIC,
@@ -691,7 +694,7 @@ class NetlinkSocket(SyncAPI):
         use_event_loop=None,
         telemetry=None,
     ):
-        self.asyncore = AsyncNetlinkSocket(
+        self.asyncore = self.class_api(
             family=family,
             port=port,
             pid=pid,
@@ -715,6 +718,9 @@ class NetlinkSocket(SyncAPI):
         self.asyncore.local.keep_event_loop = True
         self.asyncore.status['event_loop'] = 'new'
         self.asyncore.status['nlm_generator'] = nlm_generator
+        # FIXME: temporary override from a class attribute
+        if hasattr(self, 'class_gen_sync'):
+            self.asyncore.status['nlm_generator'] = self.class_gen_sync
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()
         )
@@ -725,9 +731,7 @@ class NetlinkSocket(SyncAPI):
         with self.lock:
             self.asyncore._check_tid(tag='bind', level=logging.WARN)
             self.asyncore.local.keep_event_loop = True
-            self._run_with_cleanup(
-                self.asyncore.bind, 'nl-bind', *argv, **kwarg
-            )
+            self._run_with_cleanup(self.asyncore.bind, *argv, **kwarg)
             self.asyncore._register_loop_ref()
 
     def put(
@@ -743,14 +747,7 @@ class NetlinkSocket(SyncAPI):
             msg_class = self.marshal.msg_map[msg_type]
             msg = msg_class()
         return self._run_with_cleanup(
-            self.asyncore.put,
-            'nl-put',
-            msg,
-            msg_type,
-            msg_flags,
-            addr,
-            msg_seq,
-            msg_pid,
+            self.asyncore.put, msg, msg_type, msg_flags, addr, msg_seq, msg_pid
         )
 
     def nlm_request_batch(self, msgs, noraise=False):
@@ -759,7 +756,7 @@ class NetlinkSocket(SyncAPI):
                 x async for x in self.asyncore.nlm_request_batch(msgs, noraise)
             ]
 
-        return self._run_with_cleanup(collect_data, 'nl-req-batch')
+        return self._run_with_cleanup(collect_data)
 
     def nlm_request(
         self,
@@ -772,7 +769,6 @@ class NetlinkSocket(SyncAPI):
     ):
         ret = self._generate_with_cleanup(
             self.asyncore.nlm_request,
-            'nl-req',
             msg,
             msg_type,
             msg_flags,
@@ -794,7 +790,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self._run_with_cleanup(collect_data, 'nl-get')
+        return self._run_with_cleanup(collect_data)
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):

@@ -1192,25 +1192,16 @@ class NFTSocket(NetlinkSocket):
                 )
             ]
 
-        return self._run_with_cleanup(collect_data, 'ntfsocket-get')
+        return self._run_with_cleanup(collect_data)
 
     def request_put(self, msg, msg_type, msg_flags=NLM_F_REQUEST):
         return self._run_with_cleanup(
-            self.asyncore.request_put,
-            'nftsocket-put',
-            msg,
-            msg_type,
-            msg_flags,
+            self.asyncore.request_put, msg, msg_type, msg_flags
         )
 
     def _command(self, msg_class, commands, cmd, kwarg):
         return self._run_with_cleanup(
-            self.asyncore._command,
-            'nftsocket-cmd',
-            msg_class,
-            commands,
-            cmd,
-            kwarg,
+            self.asyncore._command, msg_class, commands, cmd, kwarg
         )
 
 

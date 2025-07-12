@@ -914,12 +914,9 @@ class NFCTSocket(SyncAPI):
     def __init__(self, nfgen_family=socket.AF_INET, **kwargs):
         self.asyncore = AsyncNFCTSocket(nfgen_family, **kwargs)
 
-    def _run_sync(self, func, tag, *argv, **kwarg):
-        return tuple(self._generate_with_cleanup(func, tag, *argv, **kwarg))
-
     def request(self, msg, msg_type, **kwargs):
-        return self._run_sync(
-            self.asyncore.request, 'request', msg, msg_type, **kwargs
+        return self._run_sync_cleanup(
+            self.asyncore.request, msg, msg_type, **kwargs
         )
 
     def dump(
@@ -933,7 +930,6 @@ class NFCTSocket(SyncAPI):
     ):
         return self._generate_with_cleanup(
             self.asyncore.dump,
-            'dump',
             mark,
             mark_mask,
             tuple_orig,
@@ -943,22 +939,16 @@ class NFCTSocket(SyncAPI):
         )
 
     def stat(self):
-        return self._run_with_cleanup(self.asyncore.stat, 'stat')
+        return self._run_with_cleanup(self.asyncore.stat)
 
     def count(self):
-        return self._run_with_cleanup(self.asyncore.count, 'count')
+        return self._run_with_cleanup(self.asyncore.count)
 
     def flush(self, mark=None, mark_mask=None):
-        return self._run_with_cleanup(
-            self.asyncore.flush, 'flush', mark, mark_mask
-        )
+        return self._run_with_cleanup(self.asyncore.flush, mark, mark_mask)
 
     def conntrack_max_size(self):
-        return self._run_with_cleanup(
-            self.asyncore.conntrack_max_size, 'conntrack_max_size'
-        )
+        return self._run_with_cleanup(self.asyncore.conntrack_max_size)
 
     def entry(self, cmd, **kwarg):
-        return self._run_with_cleanup(
-            self.asyncore.entry, 'entry', cmd, **kwarg
-        )
+        return self._run_with_cleanup(self.asyncore.entry, cmd, **kwarg)
