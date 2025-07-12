@@ -1,5 +1,8 @@
 from pyroute2.netlink import genlmsg, nla
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 
 GENL_NAME = "IPVS"
 GENL_VERSION = 0x1
@@ -117,7 +120,14 @@ class ipvsmsg(genlmsg):
         )
 
 
+class AsyncIPVSSocket(AsyncGenericNetlinkSocket):
+
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        await super().setup_endpoint()
+        await self.bind(GENL_NAME, ipvsmsg)
+
+
 class IPVSSocket(GenericNetlinkSocket):
-    def __init__(self, *argv, **kwargs):
-        super().__init__(*argv, **kwargs)
-        self.bind(GENL_NAME, ipvsmsg)
+    class_api = AsyncIPVSSocket
