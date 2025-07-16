@@ -39,7 +39,6 @@ def l2ctx(context):
     context.l2tp.close()
 
 
-@pytest.mark.xfail(reason='flaky test, only to collect failure logs')
 def test_complete(l2ctx):
     # 1. create tunnel
     l2ctx.l2tp.create_tunnel(
@@ -91,9 +90,8 @@ def test_complete(l2ctx):
         try:
             l2ctx.l2tp.get_session(tunnel_id=2324, session_id=3435)
         except NetlinkError:
-            time.sleep(0.1)
-            continue
-        break
+            break
+        time.sleep(0.1)
     else:
         raise Exception('could not remove L2TP session')
 
@@ -103,8 +101,7 @@ def test_complete(l2ctx):
         try:
             l2ctx.l2tp.get_tunnel(tunnel_id=2324)
         except NetlinkError:
-            time.sleep(0.1)
-            continue
-        break
+            break
+        time.sleep(0.1)
     else:
         raise Exception('could not remove L2TP tunnel')
