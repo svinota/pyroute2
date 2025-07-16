@@ -74,7 +74,7 @@ from pyroute2.netlink.nfnetlink.nfctsocket import AsyncNFCTSocket, NFCTSocket
 from pyroute2.netlink.nfnetlink.nftsocket import AsyncNFTSocket, NFTSocket
 from pyroute2.netlink.nl80211 import NL80211
 from pyroute2.netlink.rtnl.iprsocket import AsyncIPRSocket, IPRSocket
-from pyroute2.netlink.taskstats import TaskStats
+from pyroute2.netlink.taskstats import AsyncTaskStats, TaskStats
 from pyroute2.netlink.uevent import UeventSocket
 from pyroute2.nslink.nspopen import NSPopen
 from pyroute2.plan9.client import Plan9ClientSocket
@@ -106,6 +106,7 @@ modules = [
     AsyncNFCTSocket,
     AsyncNFTSocket,
     AsyncNlEthtool,
+    AsyncTaskStats,
     AsyncThermalEventSocket,
     AsyncWireGuard,
     ChaoticException,

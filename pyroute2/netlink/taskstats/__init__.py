@@ -17,7 +17,10 @@ usable.
 import struct
 
 from pyroute2.netlink import NLM_F_REQUEST, genlmsg, nla, nla_struct
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 
 TASKSTATS_CMD_UNSPEC = 0  # Reserved
 TASKSTATS_CMD_GET = 1  # user->kernel request/get-response
@@ -222,11 +225,11 @@ class taskstatsmsg(genlmsg, TStatsBase):
         pass
 
 
-class TaskStats(GenericNetlinkSocket):
-    def bind(self):
-        GenericNetlinkSocket.bind(self, 'TASKSTATS', taskstatsmsg)
+class AsyncTaskStats(AsyncGenericNetlinkSocket):
+    async def bind(self):
+        await super().bind('TASKSTATS', taskstatsmsg)
 
-    def get_pid_stat(self, pid):
+    async def get_pid_stat(self, pid):
         '''
         Get taskstats for a process. Pid should be an integer.
         '''
@@ -234,17 +237,17 @@ class TaskStats(GenericNetlinkSocket):
         msg['cmd'] = TASKSTATS_CMD_GET
         msg['version'] = 1
         msg['attrs'].append(['TASKSTATS_CMD_ATTR_PID', pid])
-        return self.nlm_request(msg, self.prid, msg_flags=NLM_F_REQUEST)
+        return await self.nlm_request(msg, self.prid, msg_flags=NLM_F_REQUEST)
 
-    def _register_mask(self, cmd, mask):
+    async def _register_mask(self, cmd, mask):
         msg = tcmd()
         msg['cmd'] = TASKSTATS_CMD_GET
         msg['version'] = 1
         msg['attrs'].append([cmd, mask])
         # there is no response to this request
-        self.put(msg, self.prid, msg_flags=NLM_F_REQUEST)
+        await self.put(msg, self.prid, msg_flags=NLM_F_REQUEST)
 
-    def register_mask(self, mask):
+    async def register_mask(self, mask):
         '''
         Start the accounting for a processors by a mask. Mask is
         a string, e.g.::
@@ -255,10 +258,29 @@ class TaskStats(GenericNetlinkSocket):
         when it is not used, it is recommended to run deregister_mask()
         before process exit.
         '''
-        self._register_mask('TASKSTATS_CMD_ATTR_REGISTER_CPUMASK', mask)
+        await self._register_mask('TASKSTATS_CMD_ATTR_REGISTER_CPUMASK', mask)
 
-    def deregister_mask(self, mask):
+    async def deregister_mask(self, mask):
         '''
         Stop the accounting.
         '''
-        self._register_mask('TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK', mask)
+        await self._register_mask(
+            'TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK', mask
+        )
+
+
+class TaskStats(GenericNetlinkSocket):
+
+    class_api = AsyncTaskStats
+
+    def bind(self):
+        return self._run_with_cleanup(self.asyncore.bind)
+
+    def get_pid_stat(self, pid):
+        return self._run_sync_cleanup(self.asyncore.get_pid_stat, pid)
+
+    def register_mask(self, mask):
+        return self._run_with_cleanup(self.asyncore.register_mask, mask)
+
+    def unregister_mask(self, mask):
+        return self._run_with_cleanup(self.asyncore.unregister_mask, mask)
