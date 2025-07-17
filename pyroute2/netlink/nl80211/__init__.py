@@ -10,7 +10,10 @@ import struct
 
 from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg, nla, nla_base
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 from pyroute2.netlink.nlsocket import Marshal
 
 # Define from uapi/linux/nl80211.h
@@ -1584,12 +1587,17 @@ class MarshalNl80211(Marshal):
             pass
 
 
+class AsyncNL80211(AsyncGenericNetlinkSocket):
+    marshal_class = MarshalNl80211
+
+    async def bind(self, groups=0, **kwarg):
+        await super().bind(
+            NL80211_GENL_NAME, nl80211cmd, groups, None, **kwarg
+        )
+
+
 class NL80211(GenericNetlinkSocket):
-    def __init__(self, *args, **kwargs):
-        GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.set_marshal(MarshalNl80211())
+    class_api = AsyncNL80211
 
     def bind(self, groups=0, **kwarg):
-        GenericNetlinkSocket.bind(
-            self, NL80211_GENL_NAME, nl80211cmd, groups, None, **kwarg
-        )
+        return self._run_with_cleanup(self.asyncore.bind, groups, **kwarg)
