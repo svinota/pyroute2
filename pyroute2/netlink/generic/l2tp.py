@@ -1,6 +1,5 @@
 from pyroute2.netlink import (
     NLA_F_NESTED,
-    NLM_F_ACK,
     NLM_F_DUMP,
     NLM_F_REQUEST,
     genlmsg,
@@ -154,14 +153,6 @@ class AsyncL2tp(AsyncGenericNetlinkSocket):
             return
         await super().setup_endpoint()
         await self.bind(L2TP_GENL_NAME, l2tpmsg)
-
-    async def _do_dump(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_ACK):
-        return await self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=msg_flags
-        )
-
-    async def _do_request(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_ACK):
-        return [x async for x in await self._do_dump(msg, msg_flags)]
 
     async def _send_tunnel(
         self,

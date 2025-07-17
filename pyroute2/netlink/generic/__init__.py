@@ -45,6 +45,14 @@ class AsyncGenericNetlinkSocket(AsyncNetlinkSocket):
         else:
             return self._prid
 
+    async def _do_dump(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP):
+        return await self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=msg_flags
+        )
+
+    async def _do_request(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_ACK):
+        return [x async for x in await self._do_dump(msg, msg_flags)]
+
     async def bind(self, proto, msg_class, groups=0, pid=None, **kwarg):
         '''
         Bind the socket and performs generic netlink
