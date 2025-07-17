@@ -125,7 +125,7 @@ class AsyncMPTCP(AsyncGenericNetlinkSocket):
 
 class MPTCP(GenericNetlinkSocket):
 
-    class_api = AsyncMPTCP
+    async_class = AsyncMPTCP
 
     def endpoint(self, cmd, **kwarg):
         return self._run_sync_cleanup(self.asyncore.endpoint, cmd, **kwarg)

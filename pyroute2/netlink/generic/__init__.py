@@ -127,7 +127,7 @@ class AsyncGenericNetlinkSocket(AsyncNetlinkSocket):
 
 class GenericNetlinkSocket(NetlinkSocket):
 
-    class_api = AsyncGenericNetlinkSocket
+    async_class = AsyncGenericNetlinkSocket
     class_gen_sync = False
 
     @property

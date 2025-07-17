@@ -596,7 +596,7 @@ class AsyncL2tp(AsyncGenericNetlinkSocket):
 
 
 class L2tp(GenericNetlinkSocket):
-    class_api = AsyncL2tp
+    async_class = AsyncL2tp
 
     def create_tunnel(
         self,

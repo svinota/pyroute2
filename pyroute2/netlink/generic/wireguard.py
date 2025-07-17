@@ -410,7 +410,7 @@ class AsyncWireGuard(AsyncGenericNetlinkSocket):
 
 
 class WireGuard(GenericNetlinkSocket):
-    class_api = AsyncWireGuard
+    async_class = AsyncWireGuard
 
     def info(self, interface):
         return self._run_sync_cleanup(self.asyncore.info, interface)
