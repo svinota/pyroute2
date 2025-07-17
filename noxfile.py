@@ -1,5 +1,4 @@
 import copy
-import errno
 import getpass
 import json
 import os
@@ -130,15 +129,6 @@ def setup_linux(session):
             external=True,
             success_codes=[0, 255],
         )
-        try:
-            # Trying to create an existing netdevsim device will
-            # result in errno.ENOSPC, then just ignore it: we only
-            # need a device to list
-            with open('/sys/bus/netdevsim/new_device', 'w') as f:
-                f.write('1 0')
-        except OSError as e:
-            if e.errno != errno.ENOSPC:
-                raise
 
 
 def setup_venv_minimal(session, config):
