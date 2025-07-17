@@ -26,7 +26,7 @@ import sys
 #
 from pyroute2.config import log
 from pyroute2.conntrack import AsyncConntrack, Conntrack, ConntrackEntry
-from pyroute2.devlink import DL
+from pyroute2.devlink import DL, AsyncDL
 from pyroute2.ethtool.ethtool import Ethtool
 from pyroute2.ipdb import IPDB, CommitException, CreateException
 from pyroute2.iproute import (
@@ -42,7 +42,7 @@ from pyroute2.ipvs import IPVS, IPVSDest, IPVSService
 from pyroute2.iwutil import IW
 from pyroute2.ndb.main import NDB
 from pyroute2.netlink.connector.cn_proc import ProcEventSocket
-from pyroute2.netlink.devlink import DevlinkSocket
+from pyroute2.netlink.devlink import AsyncDevlinkSocket, DevlinkSocket
 from pyroute2.netlink.diag import DiagSocket, ss2
 from pyroute2.netlink.event import AsyncEventSocket, EventSocket
 from pyroute2.netlink.event.acpi_event import (
@@ -66,13 +66,13 @@ from pyroute2.netlink.generic import (
 )
 from pyroute2.netlink.generic.ethtool import AsyncNlEthtool, NlEthtool
 from pyroute2.netlink.generic.ipvs import AsyncIPVSSocket, IPVSSocket
-from pyroute2.netlink.generic.l2tp import L2tp
+from pyroute2.netlink.generic.l2tp import AsyncL2tp, L2tp
 from pyroute2.netlink.generic.mptcp import MPTCP, AsyncMPTCP
 from pyroute2.netlink.generic.wireguard import AsyncWireGuard, WireGuard
 from pyroute2.netlink.ipq import IPQSocket
 from pyroute2.netlink.nfnetlink.nfctsocket import AsyncNFCTSocket, NFCTSocket
 from pyroute2.netlink.nfnetlink.nftsocket import AsyncNFTSocket, NFTSocket
-from pyroute2.netlink.nl80211 import NL80211
+from pyroute2.netlink.nl80211 import NL80211, AsyncNL80211
 from pyroute2.netlink.rtnl.iprsocket import AsyncIPRSocket, IPRSocket
 from pyroute2.netlink.taskstats import AsyncTaskStats, TaskStats
 from pyroute2.netlink.uevent import UeventSocket
@@ -96,15 +96,19 @@ modules = [
     AcpiEventSocket,
     AsyncAcpiEventSocket,
     AsyncConntrack,
+    AsyncDL,
     AsyncDQuotSocket,
+    AsyncDevlinkSocket,
     AsyncEventSocket,
     AsyncGenericNetlinkSocket,
     AsyncIPRSocket,
     AsyncIPRoute,
     AsyncIPVSSocket,
+    AsyncL2tp,
     AsyncMPTCP,
     AsyncNFCTSocket,
     AsyncNFTSocket,
+    AsyncNL80211,
     AsyncNlEthtool,
     AsyncTaskStats,
     AsyncThermalEventSocket,
