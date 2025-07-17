@@ -245,23 +245,19 @@ class Conntrack(NFCTSocket):
         self.asyncore = AsyncConntrack(**kwarg)
 
     def stat(self):
-        return self._run_with_cleanup(self.asyncore.stat, 'stat')
+        return self._run_with_cleanup(self.asyncore.stat)
 
     def count(self):
-        return self._run_with_cleanup(self.asyncore.count, 'count')
+        return self._run_with_cleanup(self.asyncore.count)
 
     def conntrack_max_size(self):
-        return self._run_with_cleanup(
-            self.asyncore.conntrack_max_size, 'conntrack_max_size'
-        )
+        return self._run_with_cleanup(self.asyncore.conntrack_max_size)
 
     def delete(self, entry):
-        return self._run_with_cleanup(self.asyncore.delete, 'delete', entry)
+        return self._run_with_cleanup(self.asyncore.delete, entry)
 
     def entry(self, cmd, **kwarg):
-        return self._run_with_cleanup(
-            self.asyncore.entry, 'entry', cmd, **kwarg
-        )
+        return self._run_with_cleanup(self.asyncore.entry, cmd, **kwarg)
 
     def dump_entries(
         self,
@@ -272,7 +268,6 @@ class Conntrack(NFCTSocket):
     ):
         return self._generate_with_cleanup(
             self.asyncore.dump_entries,
-            'dump_entries',
             mark,
             mark_mask,
             tuple_orig,

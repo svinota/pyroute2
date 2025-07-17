@@ -36,6 +36,7 @@ linux_kernel_modules = [
     'l2tp_ip',
     'l2tp_eth',
     'l2tp_netlink',
+    'netdevsim',
 ]
 
 

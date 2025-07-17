@@ -443,13 +443,10 @@ class NFTables(NFTSocket):
         ]
         async_cmd_methods = ['table', 'chain', 'rule', 'sets', 'set_elems']
         symbol = getattr(self.asyncore, name)
-        tag = f'nftables-{name}'
         if name in async_dump_methods:
             return partial(
-                self._run_with_cleanup,
-                partial(self._collect_dump, symbol),
-                tag,
+                self._run_with_cleanup, partial(self._collect_dump, symbol)
             )
         elif name in async_cmd_methods:
-            return partial(self._run_with_cleanup, symbol, tag)
+            return partial(self._run_with_cleanup, symbol)
         return symbol
