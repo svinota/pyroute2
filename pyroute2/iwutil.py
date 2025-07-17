@@ -264,7 +264,9 @@ class AsyncIW(AsyncNL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
-        return await self._do_request(msg)
+        return await self._do_request(
+            msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        )
 
     async def get_interface_by_ifindex(self, ifindex):
         '''
