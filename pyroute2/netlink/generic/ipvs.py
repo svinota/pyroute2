@@ -130,4 +130,4 @@ class AsyncIPVSSocket(AsyncGenericNetlinkSocket):
 
 
 class IPVSSocket(GenericNetlinkSocket):
-    class_api = AsyncIPVSSocket
+    async_class = AsyncIPVSSocket

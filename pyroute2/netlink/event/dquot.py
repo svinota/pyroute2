@@ -57,7 +57,7 @@ class AsyncDQuotSocket(AsyncEventSocket):
 
 
 class DQuotSocket(EventSocket):
-    class_api = AsyncDQuotSocket
+    async_class = AsyncDQuotSocket
 
 
 class DQuotMock(DQuotSocket):

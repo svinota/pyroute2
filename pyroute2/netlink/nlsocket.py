@@ -670,7 +670,7 @@ class NetlinkRequest:
 
 class NetlinkSocket(SyncAPI):
 
-    class_api = AsyncNetlinkSocket
+    async_class = AsyncNetlinkSocket
 
     def __init__(
         self,
@@ -696,7 +696,7 @@ class NetlinkSocket(SyncAPI):
         use_event_loop=None,
         telemetry=None,
     ):
-        self.asyncore = self.class_api(
+        self.asyncore = self.async_class(
             family=family,
             port=port,
             pid=pid,

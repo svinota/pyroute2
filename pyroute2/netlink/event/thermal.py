@@ -75,4 +75,4 @@ class AsyncThermalEventSocket(AsyncEventSocket):
 
 
 class ThermalEventSocket(EventSocket):
-    class_api = AsyncThermalEventSocket
+    async_class = AsyncThermalEventSocket

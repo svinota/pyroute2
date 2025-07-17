@@ -299,7 +299,7 @@ class AsyncNlEthtool(AsyncGenericNetlinkSocket):
 
 class NlEthtool(GenericNetlinkSocket):
 
-    class_api = AsyncNlEthtool
+    async_class = AsyncNlEthtool
 
     def is_nlethtool_in_kernel(self):
         return self._run_with_cleanup(self.asyncore.is_nlethtool_in_kernel)

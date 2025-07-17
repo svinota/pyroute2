@@ -503,7 +503,7 @@ class AsyncDevlinkSocket(AsyncGenericNetlinkSocket):
 
 
 class DevlinkSocket(GenericNetlinkSocket):
-    class_api = AsyncDevlinkSocket
+    async_class = AsyncDevlinkSocket
 
     def bind(self, groups=0, **kwarg):
         return self._run_with_cleanup(self.asyncore.bind, groups, **kwarg)

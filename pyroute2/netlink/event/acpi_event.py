@@ -66,7 +66,7 @@ class AsyncAcpiEventSocket(AsyncEventSocket):
 
 
 class AcpiEventSocket(EventSocket):
-    class_api = AsyncAcpiEventSocket
+    async_class = AsyncAcpiEventSocket
 
 
 class AcpiEventMock(AcpiEventSocket):

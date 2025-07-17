@@ -271,7 +271,7 @@ class AsyncTaskStats(AsyncGenericNetlinkSocket):
 
 class TaskStats(GenericNetlinkSocket):
 
-    class_api = AsyncTaskStats
+    async_class = AsyncTaskStats
 
     def bind(self):
         return self._run_with_cleanup(self.asyncore.bind)

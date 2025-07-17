@@ -1597,7 +1597,7 @@ class AsyncNL80211(AsyncGenericNetlinkSocket):
 
 
 class NL80211(GenericNetlinkSocket):
-    class_api = AsyncNL80211
+    async_class = AsyncNL80211
 
     def bind(self, groups=0, **kwarg):
         return self._run_with_cleanup(self.asyncore.bind, groups, **kwarg)
