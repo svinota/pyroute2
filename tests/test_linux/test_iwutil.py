@@ -7,6 +7,8 @@ from pr2test.marks import require_root
 from pyroute2 import IW, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 
+pytestmark = [require_root()]
+
 
 @pytest.fixture
 def ctx():
@@ -47,8 +49,23 @@ def test_list_dev(ctx):
     ctx.iw.list_dev()
 
 
-@require_root
 def test_scan(ctx):
     with IPRoute() as ipr:
         ipr.link('set', index=ctx.index, state='up')
     ctx.iw.scan(ctx.index)
+
+
+def assert_dump(ctx, dump):
+    assert len(dump) >= 1
+    assert any(map(lambda x: x.get('ifindex') == ctx.index, dump))
+    assert any(map(lambda x: x.get('wiphy') == ctx.wiphy, dump))
+
+
+def test_get_interface_by_phy(ctx):
+    dump = tuple(ctx.iw.get_interface_by_phy(ctx.wiphy))
+    assert_dump(ctx, dump)
+
+
+def test_get_interface_by_ifindex(ctx):
+    dump = tuple(ctx.iw.get_interface_by_ifindex(ctx.index))
+    assert_dump(ctx, dump)
