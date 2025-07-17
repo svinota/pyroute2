@@ -211,6 +211,8 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
     Netlink socket
     '''
 
+    marshal_class = Marshal
+
     def __init__(
         self,
         family=NETLINK_GENERIC,
@@ -270,7 +272,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         super().__init__(
             libc=libc, use_socket=use_socket, use_event_loop=use_event_loop
         )
-        self.marshal = Marshal()
+        self.marshal = self.marshal_class()
         self.request_proxy = None
         self.batch = None
 

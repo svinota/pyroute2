@@ -5,12 +5,7 @@ from pyroute2.netlink.generic import (
 
 
 class AsyncEventSocket(AsyncGenericNetlinkSocket):
-    marshal_class = None
     genl_family = None
-
-    def __init__(self, *args, **kwarg):
-        super().__init__(*args, **kwarg)
-        self.set_marshal(self.marshal_class())
 
     async def setup_endpoint(self):
         if getattr(self.local, 'transport', None) is not None:
