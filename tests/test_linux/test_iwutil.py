@@ -1,11 +1,15 @@
 import collections
 import errno
+from typing import Generator
 
 import pytest
 from pr2test.marks import require_root
 
 from pyroute2 import IW, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
+from pyroute2.netlink.nl80211 import nl80211cmd
+
+pytestmark = [require_root()]
 
 
 @pytest.fixture
@@ -47,8 +51,34 @@ def test_list_dev(ctx):
     ctx.iw.list_dev()
 
 
-@require_root
 def test_scan(ctx):
     with IPRoute() as ipr:
         ipr.link('set', index=ctx.index, state='up')
     ctx.iw.scan(ctx.index)
+
+
+def assert_dump(ctx, dump):
+    assert len(dump) >= 1
+    assert any(map(lambda x: x.get('ifindex') == ctx.index, dump))
+    assert any(map(lambda x: x.get('wiphy') == ctx.wiphy, dump))
+
+
+def test_get_interface_by_phy(ctx):
+    dump = ctx.iw.get_interface_by_phy(ctx.wiphy)
+    assert isinstance(dump, list)
+    assert_dump(ctx, dump)
+
+
+def test_get_interface_by_ifindex(ctx):
+    dump = ctx.iw.get_interface_by_ifindex(ctx.index)
+    assert isinstance(dump, list)
+    assert_dump(ctx, dump)
+
+
+def test_get_stations(ctx):
+    dump = ctx.iw.get_stations(ctx.index)
+    assert isinstance(dump, Generator)
+    materialized = tuple(dump)
+    assert len(materialized) >= 1
+    sta_info = materialized[0].get('NL80211_ATTR_STA_INFO')
+    assert isinstance(sta_info, nl80211cmd.STAInfo)
