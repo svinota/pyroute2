@@ -15,7 +15,9 @@ with IPRoute() as ip_route:
         ip_route.link('set', index=idx, state='down')
 
     # set CAN birate
-    ip_route.link('set', index=idx, kind='can', can_bittiming={'bitrate': 250000 })
+    ip_route.link(
+        'set', index=idx, kind='can', can_bittiming={'bitrate': 250000}
+    )
 
     # bring can0 interface up
     ip_route.link('set', index=idx, state='up')

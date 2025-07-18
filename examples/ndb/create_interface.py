@@ -1,7 +1,6 @@
 from pyroute2 import NDB
 from pyroute2.common import uifname
 
-
 with NDB() as ndb:
 
     # dummy, bridge and bond interfaces are created in the
@@ -19,8 +18,4 @@ with NDB() as ndb:
         .commit()
     )
     print(ndb.interfaces[ifname].show('json'))
-    (
-        ndb.interfaces[ifname]
-        .remove()
-        .commit()
-    )
+    (ndb.interfaces[ifname].remove().commit())

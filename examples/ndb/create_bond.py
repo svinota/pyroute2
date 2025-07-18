@@ -8,7 +8,6 @@ bond = uifname()
 
 with NDB() as ndb:
 
-
     # The same scheme works for bridge interfaces too: you
     # can create a bridge interface and assign ports to it
     # just as below.

@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import traceback
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import genlmsg
+from pyroute2.netlink import NLM_F_REQUEST, genlmsg
 from pyroute2.netlink.generic import GenericNetlinkSocket
-
 
 EXMPL_CMD_UNSPEC = 0
 EXMPL_CMD_ECHO = 1
@@ -16,10 +13,7 @@ class rcmd(genlmsg):
     with the kernel module
     '''
 
-    nla_map = (
-        ('EXMPL_NLA_UNSPEC', 'none'),
-        ('EXMPL_NLA_STR', 'asciiz'),
-    )
+    nla_map = (('EXMPL_NLA_UNSPEC', 'none'), ('EXMPL_NLA_STR', 'asciiz'))
 
 
 class Exmpl(GenericNetlinkSocket):

@@ -1,6 +1,6 @@
 import sys
-from pyroute2.ethtool.ioctl import IoctlEthtool
-from pyroute2.ethtool.ioctl import NotSupportedError
+
+from pyroute2.ethtool.ioctl import IoctlEthtool, NotSupportedError
 
 if len(sys.argv) != 2:
     raise Exception("USAGE: {0} IFNAME".format(sys.argv[0]))
