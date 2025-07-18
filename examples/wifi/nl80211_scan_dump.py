@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
-import sys
 import logging
+import sys
 
 from pyroute2 import IPRoute
-
 from pyroute2.iwutil import IW
-from pyroute2.netlink import NLM_F_REQUEST
-from pyroute2.netlink import NLM_F_DUMP
-from pyroute2.netlink.nl80211 import nl80211cmd
-from pyroute2.netlink.nl80211 import NL80211_NAMES
+from pyroute2.netlink import NLM_F_DUMP, NLM_F_REQUEST
+from pyroute2.netlink.nl80211 import NL80211_NAMES, nl80211cmd
 
 logging.basicConfig(level=logging.DEBUG)
 

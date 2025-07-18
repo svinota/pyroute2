@@ -7,7 +7,6 @@ vlan_interface = uifname()
 
 with NDB() as ndb:
 
-
     (
         ndb.interfaces.create(ifname=vlan_host, kind='dummy')
         .set('state', 'up')
@@ -18,7 +17,7 @@ with NDB() as ndb:
             ifname=vlan_interface,
             kind='vlan',
             link=ndb.interfaces[vlan_host],
-            vlan_id=101
+            vlan_id=101,
         )
         .set('mtu', 1400)
         .set('state', 'up')
