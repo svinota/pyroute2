@@ -5,12 +5,18 @@ from typing import Generic, TypeVar
 import pytest
 import pytest_asyncio
 
-from pyroute2 import NDB, netns
-from pyroute2.common import uifname
+from pyroute2 import netns
+from pyroute2.common import RaiseOnAccess, uifname
 from pyroute2.iproute.linux import AsyncIPRoute, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import IFNAMSIZ
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
+
+try:
+    from pyroute2 import NDB
+except ImportError as e:
+    NDB = RaiseOnAccess(type(e), getattr(e, 'args', tuple()))  # type: ignore
+
 
 T = TypeVar('T', AsyncIPRoute, IPRoute)
 

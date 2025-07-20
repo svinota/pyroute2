@@ -24,7 +24,8 @@ nox.options.sessions = [
     'core-python3.14',
     'linux-python3.9',
     'linux-python3.14',
-    'minimal',
+    'minimal-python3.9',
+    'minimal-python3.14',
 ]
 
 linux_kernel_modules = [
@@ -376,7 +377,16 @@ def process(session, config):
     session.run(*options('test_process', config))
 
 
-@nox.session
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
 @add_session_config
 def minimal(session, config):
     '''Run tests on pyroute2.minimal package.'''

@@ -66,11 +66,14 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo make nox session=limits
   minimal:
-    runs-on: Linux
+    runs-on: Fedora
+    strategy:
+      matrix:
+        python: [python3.9, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
-      - run: sudo make nox session=minimal
+      - run: sudo make nox session=minimal-${{ matrix.python }}
   ci-self:
     runs-on: Fedora
     strategy:
