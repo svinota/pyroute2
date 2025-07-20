@@ -129,8 +129,8 @@ class SetNSContext:
         return self._netns
 
 
-@pytest.fixture(name='nsname')
-def _nsname() -> Generator[str]:
+@pytest.fixture
+def nsname() -> Generator[str]:
     '''Network namespace.
 
     * **Name**: nsname
@@ -167,8 +167,8 @@ def _nsname() -> Generator[str]:
         pass
 
 
-@pytest.fixture(name='test_link_ifinfmsg')
-def _test_link_ifinfmsg(nsname: str) -> Generator[ifinfmsg]:
+@pytest.fixture
+def test_link_ifinfmsg(nsname: str) -> Generator[ifinfmsg]:
     '''Test interface ifinfmsg.
 
     * **Name**: test_link_ifinfmsg
@@ -205,8 +205,8 @@ def _test_link_ifinfmsg(nsname: str) -> Generator[ifinfmsg]:
                 raise
 
 
-@pytest.fixture(name='test_link')
-def _test_link(
+@pytest.fixture
+def test_link(
     nsname: str, test_link_ifinfmsg: ifinfmsg
 ) -> Generator[TestInterface]:
     '''Test interface spec.
@@ -226,8 +226,8 @@ def _test_link(
     )
 
 
-@pytest.fixture(name='test_link_address')
-def _test_link_address(test_link: TestInterface) -> Generator[str]:
+@pytest.fixture
+def test_link_address(test_link: TestInterface) -> Generator[str]:
     '''Test interface MAC address.
 
     * **Name**: test_link_address
@@ -240,8 +240,8 @@ def _test_link_address(test_link: TestInterface) -> Generator[str]:
     yield test_link.address
 
 
-@pytest.fixture(name='test_link_index')
-def _test_link_index(test_link: TestInterface) -> Generator[int]:
+@pytest.fixture
+def test_link_index(test_link: TestInterface) -> Generator[int]:
     '''Test interface MAC index.
 
     * **Name**: test_link_index
@@ -254,8 +254,8 @@ def _test_link_index(test_link: TestInterface) -> Generator[int]:
     yield test_link.index
 
 
-@pytest.fixture(name='test_link_ifname')
-def _test_link_ifname(test_link: TestInterface) -> Generator[str]:
+@pytest.fixture
+def test_link_ifname(test_link: TestInterface) -> Generator[str]:
     '''Test interface MAC ifname.
 
     * **Name**: test_link_ifname
@@ -268,8 +268,8 @@ def _test_link_ifname(test_link: TestInterface) -> Generator[str]:
     yield test_link.ifname
 
 
-@pytest.fixture(name='tmp_link_ifname')
-def _tmp_link_ifname(nsname: str) -> Generator[str]:
+@pytest.fixture
+def tmp_link_ifname(nsname: str) -> Generator[str]:
     '''Temporary link name.
 
     * **Name**: tmp_link_ifname
@@ -290,8 +290,8 @@ def _tmp_link_ifname(nsname: str) -> Generator[str]:
                 raise
 
 
-@pytest_asyncio.fixture(name='async_ipr')
-async def _async_ipr(request, nsname: str) -> AsyncGenerator[AsyncIPRoute]:
+@pytest_asyncio.fixture
+async def async_ipr(request, nsname: str) -> AsyncGenerator[AsyncIPRoute]:
     '''`AsyncIPRoute` instance.
 
     * **Name**: async_ipr
@@ -323,8 +323,8 @@ async def _async_ipr(request, nsname: str) -> AsyncGenerator[AsyncIPRoute]:
         yield ipr
 
 
-@pytest.fixture(name='sync_ipr')
-def _sync_ipr(request, nsname: str) -> Generator[IPRoute]:
+@pytest.fixture
+def sync_ipr(request, nsname: str) -> Generator[IPRoute]:
     '''`IPRoute` instance.
 
     * **Name**: sync_ipr
@@ -354,8 +354,8 @@ def _sync_ipr(request, nsname: str) -> Generator[IPRoute]:
         yield ipr
 
 
-@pytest_asyncio.fixture(name='async_context')
-async def _async_context(
+@pytest_asyncio.fixture
+async def async_context(
     async_ipr: AsyncIPRoute, test_link: TestInterface
 ) -> AsyncGenerator[TestContext[AsyncIPRoute]]:
     '''Asynchronous TestContext.
@@ -369,8 +369,8 @@ async def _async_context(
     yield TestContext[AsyncIPRoute](async_ipr, test_link)
 
 
-@pytest.fixture(name='sync_context')
-def _sync_context(
+@pytest.fixture
+def sync_context(
     sync_ipr: IPRoute, test_link: TestInterface
 ) -> Generator[TestContext[IPRoute]]:
     '''Synchronous TestContext.
@@ -384,8 +384,8 @@ def _sync_context(
     yield TestContext[IPRoute](sync_ipr, test_link)
 
 
-@pytest.fixture(name='ndb')
-def _ndb(nsname: str) -> Generator[NDB]:
+@pytest.fixture
+def ndb(nsname: str) -> Generator[NDB]:
     '''NDB instance.
 
     * **Name**: ndb
@@ -398,8 +398,8 @@ def _ndb(nsname: str) -> Generator[NDB]:
         yield ndb
 
 
-@pytest.fixture(name='setns_context')
-def _setns_context(nsname: str) -> Generator[SetNSContext]:
+@pytest.fixture
+def setns_context(nsname: str) -> Generator[SetNSContext]:
     '''Set network namespace.
 
     * **Name**: setns_context

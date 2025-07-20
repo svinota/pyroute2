@@ -2,7 +2,9 @@ name: Main CI short
 
 on:
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - 'release/**'
   workflow_dispatch:
 
 permissions:
