@@ -29,8 +29,9 @@ Usage:
 
     # file: conftest.py
     pytest_plugins = [
-        "pyroute2.fixtures.iproute",
-        "pyroute2.fixtures.plan9"
+        'pyroute2.fixtures.iproute',
+        'pyroute2.fixtures.ndb',
+        'pyroute2.fixtures.plan9'
     ]
 
     # file: my_test.py
@@ -62,14 +63,17 @@ Fixtures dependencies diagram:
                              ^           |       v
     +---------------------+  |           |  +----------------------+
     | `test_link_index`   |__+           |  | `test_link_ifinfmsg` |
+    |                     |  |           |  |                      |
     +---------------------+  |           |  +----------------------+
                              |           |       |
     +---------------------+  |           |       v
     | `test_link_address` |__+           |  +----------------------+
-    +---------------------+  |           +->| netns                |
+    |                     |  |           +->| netns                |
+    +---------------------+  |           |  |                      |
                              |           |  +----------------------+
     +---------------------+  |           |
     | `test_link_ifname`  |__+           |
+    |                     |  |           |
     +---------------------+  |           |
                              |           |
     +---------------------+  |           |
@@ -94,6 +98,7 @@ Fixtures dependencies diagram:
                                          |
     +---------------------+              |
     | `ndb`               |______________|
+    |                     |
     +---------------------+
 
 .. autofunction:: pyroute2.fixtures.iproute.nsname
@@ -116,7 +121,7 @@ Fixtures dependencies diagram:
 
 .. autofunction:: pyroute2.fixtures.iproute.sync_context
 
-.. autofunction:: pyroute2.fixtures.iproute.ndb
+.. autofunction:: pyroute2.fixtures.ndb.ndb
 
 .. autoclass:: pyroute2.fixtures.iproute.TestInterface
     :members:

@@ -16,7 +16,11 @@ from pyroute2.ipset import IPSet, IPSetError
 from pyroute2.wiset import COUNT
 
 config.nlm_generator = True
-pytest_plugins = ['pytester', 'pyroute2.fixtures.iproute']
+pytest_plugins = [
+    'pyroute2.fixtures.iproute',
+    'pyroute2.fixtures.ndb',
+    'pytester',
+]
 
 
 @pytest.fixture

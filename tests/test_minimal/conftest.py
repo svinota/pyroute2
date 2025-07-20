@@ -25,4 +25,4 @@ def nft():
     subprocess.call(f'nft delete table {table}'.split())
 
 
-pytest_plugins = ["pyroute2.fixtures.iproute", "pyroute2.fixtures.plan9"]
+pytest_plugins = ['pyroute2.fixtures.iproute', 'pyroute2.fixtures.plan9']

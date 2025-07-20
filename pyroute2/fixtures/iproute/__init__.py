@@ -6,17 +6,11 @@ import pytest
 import pytest_asyncio
 
 from pyroute2 import netns
-from pyroute2.common import RaiseOnAccess, uifname
+from pyroute2.common import uifname
 from pyroute2.iproute.linux import AsyncIPRoute, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import IFNAMSIZ
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-
-try:
-    from pyroute2 import NDB
-except ImportError as e:
-    NDB = RaiseOnAccess(type(e), getattr(e, 'args', tuple()))  # type: ignore
-
 
 T = TypeVar('T', AsyncIPRoute, IPRoute)
 
@@ -388,20 +382,6 @@ def sync_context(
     Yield `TestContext` with `IPRoute`.
     '''
     yield TestContext[IPRoute](sync_ipr, test_link)
-
-
-@pytest.fixture
-def ndb(nsname: str) -> Generator[NDB]:
-    '''NDB instance.
-
-    * **Name**: ndb
-    * **Scope**: function
-    * **Depends**: nsname
-
-    Yield `NDB` instance running in the test network namespace.
-    '''
-    with NDB(sources=[{'target': 'localhost', 'netns': nsname}]) as ndb:
-        yield ndb
 
 
 @pytest.fixture

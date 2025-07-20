@@ -4,7 +4,11 @@ from pyroute2 import config, netns
 
 config.mock_netlink = True
 config.mock_netns = True
-pytest_plugins = ["pyroute2.fixtures.iproute", "pyroute2.fixtures.plan9"]
+pytest_plugins = [
+    'pyroute2.fixtures.iproute',
+    'pyroute2.fixtures.ndb',
+    'pyroute2.fixtures.plan9',
+]
 cleanup_netns_set = set()
 
 

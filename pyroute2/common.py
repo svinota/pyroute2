@@ -77,19 +77,6 @@ class Namespace:
         raise NotImplementedError()
 
 
-class RaiseOnAccess:
-
-    def __init__(self, exc, args):
-        self.exc = exc
-        self.args = args
-
-    def __call__(self, *argv, **kwarg):
-        raise self.exc(*self.args)
-
-    def __getattr__(self, key):
-        raise self.exc(*self.args)
-
-
 def _no_change(s: str) -> str:
     return s
 
