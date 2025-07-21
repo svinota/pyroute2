@@ -1,6 +1,10 @@
 Changelog
 =========
 
+* 0.9.3rc2
+    * packaging: use only pyproject files
+    * packaging: update pyroute2-minimal modules list
+    * fixtures: split out ndb fixture
 * 0.9.3rc1
     * ndb: use AsyncIPRoute as RTNL source
     * ndb: deprecate and remove NDB cli
