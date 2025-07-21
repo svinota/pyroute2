@@ -135,24 +135,28 @@ def setup_linux(session):
 def setup_venv_minimal(session, config):
     if not config.get('reuse'):
         session.install('--upgrade', 'pip')
-        session.install('build')
-        session.install('twine')
-        session.install('-r', 'requirements.dev.txt')
-        session.install('-r', 'requirements.docs.txt')
-        session.run('mv', '-f', 'setup.cfg', '.setup.cfg.orig', external=True)
+        session.install('.[dev]')
+        session.install('.[docs]')
         session.run(
-            'mv', '-f', 'pyroute2/__init__.py', '.init.py.orig', external=True
+            'mv', '-f', 'pyproject.toml', '.pyproject.toml.full', external=True
         )
-        session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
+        session.run(
+            'mv', '-f', 'pyroute2/__init__.py', '.init.py.full', external=True
+        )
+        session.run(
+            'cp', 'pyproject.minimal.toml', 'pyproject.toml', external=True
+        )
         session.run(
             'cp', 'pyroute2/minimal.py', 'pyroute2/__init__.py', external=True
         )
         session.run('python', '-m', 'build')
         session.run('python', '-m', 'twine', 'check', 'dist/*')
         session.install('.')
-        session.run('mv', '-f', '.setup.cfg.orig', 'setup.cfg', external=True)
         session.run(
-            'mv', '-f', '.init.py.orig', 'pyroute2/__init__.py', external=True
+            'mv', '-f', '.pyproject.toml.full', 'pyproject.toml', external=True
+        )
+        session.run(
+            'mv', '-f', '.init.py.full', 'pyroute2/__init__.py', external=True
         )
         session.run('rm', '-rf', 'build', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
@@ -166,7 +170,7 @@ def setup_venv_common(session, flavour='dev', config=None):
         config = {}
     if not config.get('fast'):
         session.install('--upgrade', 'pip')
-        session.install('-r', f'requirements.{flavour}.txt')
+        session.install(f'.[{flavour}]')
         session.install('.')
     return os.path.abspath(session.create_tmp())
 
