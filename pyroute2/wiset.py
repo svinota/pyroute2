@@ -343,7 +343,7 @@ class WiSet(object):
                 comment=entry.get_attr("IPSET_ATTR_COMMENT"),
                 skbmark=skbmark,
                 timeout=timeout,
-                **entry_flag_parsed
+                **entry_flag_parsed,
             )
             self._content[key] = value
 
@@ -364,7 +364,7 @@ class WiSet(object):
             counters=self.counters,
             hashsize=self.hashsize,
             skbinfo=self.skbinfo,
-            **kwargs
+            **kwargs,
         )
 
     def destroy(self):

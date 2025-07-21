@@ -45,6 +45,6 @@ def test_addr_cacheinfo(
         index=test_link_index,
         address='2001:db8::5678',
         mask=128,
-        **request_info
+        **request_info,
     )
     assert address_exists('2001:db8::5678', netns=nsname, **assert_info)

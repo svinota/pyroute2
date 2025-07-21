@@ -21,7 +21,7 @@ class AsyncEventSocket(AsyncGenericNetlinkSocket):
             self.marshal_class.msg_map[0],
             groups,
             None,
-            **kwarg
+            **kwarg,
         )
 
 

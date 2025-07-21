@@ -381,7 +381,7 @@ class Plan9ServerSocket(AsyncCoreSocket):
                 lambda: Plan9ServerProtocol(
                     self.connection_lost, self.marshal, self.filesystem
                 ),
-                *self.status['address']
+                *self.status['address'],
             )
 
     async def async_run(self):
