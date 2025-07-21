@@ -197,7 +197,7 @@ def setup_venv_repo(session):
     ):
         session.run('cp', '-a', *item, external=True)
     git_ls_files = subprocess.run(
-        ['git', 'ls-files', 'requirements*'], stdout=subprocess.PIPE
+        ['git', 'ls-files', 'pyproject*'], stdout=subprocess.PIPE
     )
     files = [x.decode('utf-8') for x in git_ls_files.stdout.split()]
     for fname in files:
