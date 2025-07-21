@@ -7,7 +7,8 @@ name = "pyroute2-minimal"
 dynamic = ["version"]
 description = "Python Netlink library"
 readme = "README.rst"
-license = {text = "GPL-2.0-or-later OR Apache-2.0"}
+license = "GPL-2.0-or-later OR Apache-2.0"
+license-files = ["LICENSE*"]
 authors = [
     {name = "Peter Saveliev", email = "peter@svinota.eu"}
 ]
