@@ -1,6 +1,31 @@
 Changelog
 =========
 
+* 0.9.3
+    * packaging: use only pyproject files
+    * packaging: update pyroute2-minimal modules list
+    * fixtures: split out ndb fixture
+    * ndb: use AsyncIPRoute as RTNL source
+    * ndb: deprecate and remove NDB cli
+    * async versions for:
+      * acpi events
+      * conntrack
+      * devlink
+      * diag
+      * dquot
+      * ethtool
+      * event
+      * generic
+      * ipvs
+      * iwutil
+      * l2tp
+      * mptcp
+      * nl80211
+      * taskstats
+      * thermal events
+      * wireguard
+    * iproute: rt_files management <https://github.com/svinota/pyroute2/pull/1360>
+    * examples: update kernel module example
 * 0.9.2
     * iproute: basic Darwin support <https://github.com/svinota/pyroute2/pull/1328>
     * nftables: asynchronous API <https://github.com/svinota/pyroute2/pull/1327>

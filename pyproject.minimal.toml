@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyroute2"
+name = "pyroute2-minimal"
 dynamic = ["version"]
 description = "Python Netlink library"
 readme = "README.rst"
@@ -70,16 +70,34 @@ repo = [
     "setuptools",
 ]
 
-[project.scripts]
-ss2 = "pyroute2.netlink.diag.ss2:run [psutil]"
-pyroute2-decoder = "pyroute2.decoder.main:run"
-pyroute2-dhcp-client = "pyroute2.dhcp.cli:run"
-pyroute2-test-platform = "pyroute2.config.test_platform:run"
-dhcp-server-detector = "pyroute2.dhcp.server_detector:run"
-
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pyroute2*"]
+include = [
+    "pyroute2",
+    "pyroute2.bsd",
+    "pyroute2.bsd.pf_route",
+    "pyroute2.bsd.rtmsocket",
+    "pyroute2.config",
+    "pyroute2.inotify",
+    "pyroute2.iproute",
+    "pyroute2.netlink",
+    "pyroute2.netlink.devlink",
+    "pyroute2.netlink.diag",
+    "pyroute2.netlink.event",
+    "pyroute2.netlink.generic",
+    "pyroute2.netlink.ipq",
+    "pyroute2.netlink.nfnetlink",
+    "pyroute2.netlink.nl80211",
+    "pyroute2.netlink.rtnl",
+    "pyroute2.netlink.rtnl.ifinfmsg",
+    "pyroute2.netlink.rtnl.ifinfmsg.plugins",
+    "pyroute2.netlink.rtnl.tcmsg",
+    "pyroute2.netlink.taskstats",
+    "pyroute2.netlink.uevent",
+    "pyroute2.netns",
+    "pyroute2.protocols",
+    "pyroute2.requests"
+]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}

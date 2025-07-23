@@ -1349,7 +1349,7 @@ class AsyncNFTSocket(AsyncNetlinkSocket):
             msg['attrs'].append([nla, value])
         msg['header']['type'] = (NFNL_SUBSYS_NFTABLES << 8) | cmd
         msg['header']['flags'] = flags | NLM_F_REQUEST
-        msg['nfgen_family'] = self._nfgen_family
+        msg['nfgen_family'] = kwarg.get('nfgen_family') or self._nfgen_family
 
         if cmd_name != 'get':
             trans_start = nfgen_msg()

@@ -48,15 +48,11 @@ git-clean:
 .PHONY: clean
 clean:
 	@for i in `ip -o link | awk -F : '($$2 ~ /^ pr/) {print($$2)}'`; do sudo ip link del $$i; done
-	@rm -f lab/*html
-	@rm -f lab/_static/conf.js
-	@rm -rf lab/_build
 	@rm -rf docs/html
 	@rm -rf docs/man
 	@rm -f tests/*.db
 	@rm -f tests/*.json
 	@rm -rf dist build MANIFEST
-	@rm -f docs-build.log
 	@rm -rf pyroute2.egg-info
 	@find pyroute2 -name "*pyc" -exec rm -f "{}" \;
 	@find pyroute2 -name "*pyo" -exec rm -f "{}" \;

@@ -24,7 +24,8 @@ nox.options.sessions = [
     'core-python3.14',
     'linux-python3.9',
     'linux-python3.14',
-    'minimal',
+    'minimal-python3.9',
+    'minimal-python3.14',
 ]
 
 linux_kernel_modules = [
@@ -134,24 +135,28 @@ def setup_linux(session):
 def setup_venv_minimal(session, config):
     if not config.get('reuse'):
         session.install('--upgrade', 'pip')
-        session.install('build')
-        session.install('twine')
-        session.install('-r', 'requirements.dev.txt')
-        session.install('-r', 'requirements.docs.txt')
-        session.run('mv', '-f', 'setup.cfg', '.setup.cfg.orig', external=True)
+        session.install('.[dev]')
+        session.install('.[docs]')
         session.run(
-            'mv', '-f', 'pyroute2/__init__.py', '.init.py.orig', external=True
+            'mv', '-f', 'pyproject.toml', '.pyproject.toml.full', external=True
         )
-        session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
+        session.run(
+            'mv', '-f', 'pyroute2/__init__.py', '.init.py.full', external=True
+        )
+        session.run(
+            'cp', 'pyproject.minimal.toml', 'pyproject.toml', external=True
+        )
         session.run(
             'cp', 'pyroute2/minimal.py', 'pyroute2/__init__.py', external=True
         )
         session.run('python', '-m', 'build')
         session.run('python', '-m', 'twine', 'check', 'dist/*')
         session.install('.')
-        session.run('mv', '-f', '.setup.cfg.orig', 'setup.cfg', external=True)
         session.run(
-            'mv', '-f', '.init.py.orig', 'pyroute2/__init__.py', external=True
+            'mv', '-f', '.pyproject.toml.full', 'pyproject.toml', external=True
+        )
+        session.run(
+            'mv', '-f', '.init.py.full', 'pyroute2/__init__.py', external=True
         )
         session.run('rm', '-rf', 'build', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
@@ -165,7 +170,7 @@ def setup_venv_common(session, flavour='dev', config=None):
         config = {}
     if not config.get('fast'):
         session.install('--upgrade', 'pip')
-        session.install('-r', f'requirements.{flavour}.txt')
+        session.install(f'.[{flavour}]')
         session.install('.')
     return os.path.abspath(session.create_tmp())
 
@@ -192,7 +197,7 @@ def setup_venv_repo(session):
     ):
         session.run('cp', '-a', *item, external=True)
     git_ls_files = subprocess.run(
-        ['git', 'ls-files', 'requirements*'], stdout=subprocess.PIPE
+        ['git', 'ls-files', 'pyproject*'], stdout=subprocess.PIPE
     )
     files = [x.decode('utf-8') for x in git_ls_files.stdout.split()]
     for fname in files:
@@ -376,7 +381,16 @@ def process(session, config):
     session.run(*options('test_process', config))
 
 
-@nox.session
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
 @add_session_config
 def minimal(session, config):
     '''Run tests on pyroute2.minimal package.'''

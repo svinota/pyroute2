@@ -1,7 +1,7 @@
 import ast
 import collections
 import inspect
-import os
+import tomllib
 
 import nox
 import pytest
@@ -50,7 +50,19 @@ def test_session_parameters(session):
 
 
 @pytest.mark.parametrize('session', nox_sessions, indirect=True)
-def test_requirements_files(session):
+def test_optional_dependencies(session):
+    keys = set()
+    flavours = set()
+    for pyproject in ('pyproject.toml', 'pyproject.minimal.toml'):
+        with open(pyproject, 'rb') as f:
+            toml = tomllib.load(f)
+            current_keys = set(toml['project']['optional-dependencies'].keys())
+            if not keys:
+                keys = current_keys
+            # here we assert that all the pyproject files have the same
+            # optional dependencies
+            assert keys == current_keys
+
     for node in ast.walk(ast.parse(inspect.getsource(session.src_func))):
         #
         # inspect function calls, filter direct or indirect install
@@ -71,13 +83,12 @@ def test_requirements_files(session):
                         .parameters['flavour']
                         .default
                     )
-                assert os.stat(f'requirements.{flavour}.txt')
+                flavours.add(flavour)
             elif (
                 isinstance(node.func, ast.Attribute)
                 and isinstance(node.func.value, ast.Name)
                 and node.func.attr == 'install'
                 and node.args[0].value == '-r'
             ):
-                #
-                # inspect call `session.install('-r', ...)` -- direct install
-                assert os.stat(node.args[1].value)
+                raise Exception('no `pip install -r` allowed')
+    assert keys >= flavours

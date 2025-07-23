@@ -19,35 +19,63 @@ codebase while providing the legacy sync API.
 
 The library provides asynchronous sockets:
 
-.. inheritance-diagram:: pyroute2.iproute.linux.AsyncIPRoute
-    pyroute2.netlink.rtnl.iprsocket.AsyncIPRSocket
-    pyroute2.plan9.client.Plan9ClientSocket
-    pyroute2.plan9.server.Plan9ServerSocket
+.. inheritance-diagram:: pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket
+    pyroute2.AsyncAcpiEventSocket
+    pyroute2.AsyncConntrack
+    pyroute2.AsyncDL
+    pyroute2.AsyncDQuotSocket
+    pyroute2.AsyncDevlinkSocket
+    pyroute2.AsyncEventSocket
+    pyroute2.AsyncGenericNetlinkSocket
+    pyroute2.AsyncIPRSocket
+    pyroute2.AsyncIPRoute
+    pyroute2.AsyncIPVSSocket
+    pyroute2.AsyncIW
+    pyroute2.AsyncL2tp
+    pyroute2.AsyncMPTCP
+    pyroute2.AsyncNFCTSocket
+    pyroute2.AsyncNFTSocket
+    pyroute2.AsyncNL80211
+    pyroute2.AsyncNlEthtool
+    pyroute2.AsyncTaskStats
+    pyroute2.AsyncThermalEventSocket
+    pyroute2.AsyncWireGuard
+    pyroute2.Plan9ClientSocket
+    pyroute2.Plan9ServerSocket
     pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket
     :parts: 1
 
-And syncronous sockets:
+And synchronous sockets:
 
-.. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
-    pyroute2.iproute.linux.IPRoute
-    pyroute2.iproute.linux.RawIPRoute
-    pyroute2.netlink.rtnl.iprsocket.IPRSocket
-    pyroute2.iwutil.IW
-    pyroute2.ipset.IPSet
-    pyroute2.ipvs.IPVS
-    pyroute2.netlink.uevent.UeventSocket
-    pyroute2.netlink.taskstats.TaskStats
-    pyroute2.netlink.generic.wireguard.WireGuard
-    pyroute2.netlink.generic.ethtool.NlEthtool
-    pyroute2.netlink.ipq.IPQSocket
-    pyroute2.netlink.nfnetlink.nfctsocket.NFCTSocket
-    pyroute2.netlink.nfnetlink.nftsocket.NFTSocket
-    pyroute2.netlink.event.EventSocket
-    pyroute2.netlink.event.acpi_event.AcpiEventSocket
-    pyroute2.netlink.event.dquot.DQuotSocket
-    pyroute2.netlink.event.thermal.ThermalEventSocket
-    pyroute2.netlink.devlink.DevlinkSocket
-    pyroute2.netlink.diag.DiagSocket
+.. inheritance-diagram:: pyroute2.AcpiEventSocket
+    pyroute2.Conntrack
+    pyroute2.DL
+    pyroute2.DQuotSocket
+    pyroute2.DevlinkSocket
+    pyroute2.DiagSocket
+    pyroute2.EventSocket
+    pyroute2.GenericNetlinkSocket
+    pyroute2.IPBatch
+    pyroute2.IPQSocket
+    pyroute2.IPRSocket
+    pyroute2.IPRoute
+    pyroute2.IPSet
+    pyroute2.IPVS
+    pyroute2.IPVSSocket
+    pyroute2.IW
+    pyroute2.L2tp
+    pyroute2.MPTCP
+    pyroute2.NFCTSocket
+    pyroute2.NFTSocket
+    pyroute2.NL80211
+    pyroute2.NetNS
+    pyroute2.NlEthtool
+    pyroute2.ProcEventSocket
+    pyroute2.RawIPRoute
+    pyroute2.TaskStats
+    pyroute2.ThermalEventSocket
+    pyroute2.UeventSocket
+    pyroute2.WireGuard
     :parts: 1
 
 Not all the synchronous sockets have got their asynchronous counterpart yet,

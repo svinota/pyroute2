@@ -388,7 +388,7 @@ class Log:
                         for x in inspect.stack()[1:3]
                     ]
                 ),
-            )
+            ),
         )
         return self.debug(*argv, **kwarg)
 

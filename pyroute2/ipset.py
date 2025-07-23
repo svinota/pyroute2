@@ -459,7 +459,7 @@ class IPSet(NetlinkSocket):
         skbprio=None,
         skbqueue=None,
         wildcard=False,
-        **kwargs
+        **kwargs,
     ):
         '''
         Add a member to the ipset.
@@ -513,7 +513,7 @@ class IPSet(NetlinkSocket):
             skbprio=skbprio,
             skbqueue=skbqueue,
             wildcard=wildcard,
-            **kwargs
+            **kwargs,
         )
 
     def delete(
