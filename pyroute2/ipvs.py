@@ -164,9 +164,9 @@ class IPVSDest(NLAFilter):
     }
 
 
-class IPVS(ipvs.IPVSSocket):
+class AsyncIPVS(ipvs.AsyncIPVSSocket):
 
-    def service(self, command, service=None):
+    async def service(self, command, service=None):
         command_map = {
             "add": (ipvs.IPVS_CMD_NEW_SERVICE, "create"),
             "set": (ipvs.IPVS_CMD_SET_SERVICE, "change"),
@@ -183,9 +183,9 @@ class IPVS(ipvs.IPVSSocket):
         msg["version"] = ipvs.GENL_VERSION
         if service is not None:
             msg["attrs"] = [("IPVS_CMD_ATTR_SERVICE", service.dump_nla())]
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self._do_request(msg, msg_flags=flags)
 
-    def dest(self, command, service, dest=None):
+    async def dest(self, command, service, dest=None):
         command_map = {
             "add": (ipvs.IPVS_CMD_NEW_DEST, "create"),
             "set": (ipvs.IPVS_CMD_SET_DEST, "change"),
@@ -201,4 +201,16 @@ class IPVS(ipvs.IPVSSocket):
         msg["attrs"] = [("IPVS_CMD_ATTR_SERVICE", service.dump_key())]
         if dest is not None:
             msg["attrs"].append(("IPVS_CMD_ATTR_DEST", dest.dump_nla()))
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self._do_request(msg, msg_flags=flags)
+
+
+class IPVS(ipvs.IPVSSocket):
+    async_class = AsyncIPVS
+
+    def service(self, command, service=None):
+        return self._run_with_cleanup(self.asyncore.service, command, service)
+
+    def dest(self, command, service, dest=None):
+        return self._run_with_cleanup(
+            self.asyncore.dest, command, service, dest
+        )
