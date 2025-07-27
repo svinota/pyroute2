@@ -236,7 +236,7 @@ class AsyncIW(AsyncNL80211):
         Get interfaces dictionary
         '''
         ret = {}
-        async for wif in self.get_interfaces_dump():
+        async for wif in await self.get_interfaces_dump():
             chan_width = wif.get_attr('NL80211_ATTR_CHANNEL_WIDTH')
             freq = self._get_frequency(wif) if chan_width is not None else 0
             wifname = wif.get_attr('NL80211_ATTR_IFNAME')

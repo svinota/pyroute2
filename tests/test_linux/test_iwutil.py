@@ -9,6 +9,12 @@ from pyroute2 import IW, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nl80211 import nl80211cmd
 
+# FIXME: should be fixed after dropping support for Python 3.9
+try:
+    from types import NoneType
+except ImportError:
+    NoneType = type(None)
+
 pytestmark = [require_root()]
 
 
@@ -73,6 +79,20 @@ def test_get_interface_by_ifindex(ctx):
     dump = ctx.iw.get_interface_by_ifindex(ctx.index)
     assert isinstance(dump, list)
     assert_dump(ctx, dump)
+
+
+def test_get_interfaces_dict(ctx):
+    d = ctx.iw.get_interfaces_dict()
+    assert isinstance(d, dict)
+    for key, (index, name, address, freq, chan_width) in d.items():
+        assert isinstance(key, (NoneType, str))
+        assert isinstance(index, (NoneType, int))
+        assert isinstance(name, str)
+        assert isinstance(address, str) and all(
+            map(lambda x: x >= 0, [int(x, 16) for x in address.split(':')])
+        )
+        assert isinstance(freq, int) and freq >= 0
+        assert isinstance(chan_width, (NoneType, int))
 
 
 def test_get_stations(ctx):
