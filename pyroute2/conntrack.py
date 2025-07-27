@@ -73,6 +73,7 @@ class ConntrackEntry(object):
         'mark',
         'id',
         'use',
+        'zone',
     )
 
     def __init__(
@@ -86,6 +87,7 @@ class ConntrackEntry(object):
         cta_mark,
         cta_id,
         cta_use,
+        cta_zone,
     ):
         self.tuple_orig = NFCTAttrTuple.from_netlink(family, tuple_orig)
         self.tuple_reply = NFCTAttrTuple.from_netlink(family, tuple_reply)
@@ -101,6 +103,7 @@ class ConntrackEntry(object):
         self.mark = cta_mark
         self.id = cta_id
         self.use = cta_use
+        self.zone = cta_zone
 
     def status_name(self):
         s = ''
@@ -115,6 +118,8 @@ class ConntrackEntry(object):
         )
         if self.protoinfo is not None:
             s += ', protoinfo={}'.format(self.protoinfo)
+        if self.zone is not None:
+            s += f', zone={self.zone}'
         s += ')'
         return s
 
@@ -178,12 +183,14 @@ class AsyncConntrack(AsyncNFCTSocket):
         mark_mask=0xFFFFFFFF,
         tuple_orig=None,
         tuple_reply=None,
+        zone=None,
     ):
         async for ndmsg in await self.dump(
             mark=mark,
             mark_mask=mark_mask,
             tuple_orig=tuple_orig,
             tuple_reply=tuple_reply,
+            zone=zone,
         ):
             if tuple_orig is not None and not tuple_orig.nla_eq(
                 ndmsg['nfgen_family'], ndmsg.get_attr('CTA_TUPLE_ORIG')
@@ -205,6 +212,7 @@ class AsyncConntrack(AsyncNFCTSocket):
                 ndmsg.get_attr('CTA_MARK'),
                 ndmsg.get_attr('CTA_ID'),
                 ndmsg.get_attr('CTA_USE'),
+                ndmsg.get_attr('CTA_ZONE'),
             )
 
     async def dump_entries(
@@ -213,6 +221,7 @@ class AsyncConntrack(AsyncNFCTSocket):
         mark_mask=0xFFFFFFFF,
         tuple_orig=None,
         tuple_reply=None,
+        zone=None,
     ):
         """
         Dump all entries from conntrack table with filters
@@ -221,6 +230,7 @@ class AsyncConntrack(AsyncNFCTSocket):
 
         :param NFCTAttrTuple tuple_orig: filter on original tuple
         :param NFCTAttrTuple tuple_reply: filter on reply tuple
+        :param int zone: CTA_ZONE
 
         Examples::
             # Filter only on tcp connections
@@ -235,7 +245,7 @@ class AsyncConntrack(AsyncNFCTSocket):
                 print("This entry is icmp to 8.8.8.8: {}".format(entry))
         """
         return self._dump_entries_task(
-            mark, mark_mask, tuple_orig, tuple_reply
+            mark, mark_mask, tuple_orig, tuple_reply, zone
         )
 
 
@@ -265,6 +275,7 @@ class Conntrack(NFCTSocket):
         mark_mask=0xFFFFFFFF,
         tuple_orig=None,
         tuple_reply=None,
+        zone=None,
     ):
         return self._generate_with_cleanup(
             self.asyncore.dump_entries,
@@ -272,4 +283,5 @@ class Conntrack(NFCTSocket):
             mark_mask,
             tuple_orig,
             tuple_reply,
+            zone,
         )

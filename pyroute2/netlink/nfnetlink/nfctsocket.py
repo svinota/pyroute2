@@ -748,6 +748,7 @@ class AsyncNFCTSocket(AsyncNetlinkSocket):
         tuple_reply=None,
         status=None,
         status_mask=None,
+        zone=None,
     ):
         """Dump conntrack entries
 
@@ -806,6 +807,8 @@ class AsyncNFCTSocket(AsyncNetlinkSocket):
                 kwargs['status'] = status
             if status_mask is not None:
                 kwargs['status_mask'] = status_mask
+            if zone is not None:
+                kwargs['zone'] = zone
             msg = nfct_msg.create_from(**kwargs)
         return await self.request(
             msg, IPCTNL_MSG_CT_GET, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
@@ -927,6 +930,7 @@ class NFCTSocket(SyncAPI):
         tuple_reply=None,
         status=None,
         status_mask=None,
+        zone=None,
     ):
         return self._generate_with_cleanup(
             self.asyncore.dump,
@@ -936,6 +940,7 @@ class NFCTSocket(SyncAPI):
             tuple_reply,
             status,
             status_mask,
+            zone,
         )
 
     def stat(self):
