@@ -1,6 +1,8 @@
 Changelog
 =========
 
+* 0.9.4
+    * iwutil: fix get_interfaces_dict <https://github.com/svinota/pyroute2/issues/1380>
 * 0.9.3
     * packaging: use only pyproject files
     * packaging: update pyroute2-minimal modules list
