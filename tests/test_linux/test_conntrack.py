@@ -1,12 +1,14 @@
+import errno
 import socket
 import subprocess
 import threading
 import time
+from collections import namedtuple
 
 import pytest
 from pr2test.marks import require_root
 
-from pyroute2 import Conntrack, NFCTSocket, config
+from pyroute2 import Conntrack, NetlinkError, NFCTSocket, config
 from pyroute2.netlink.nfnetlink.nfctsocket import NFCTAttrTuple
 
 pytestmark = [
@@ -109,6 +111,11 @@ class CheckEntries:
         self.ct.close()
 
 
+ZoneContext = namedtuple(
+    'ZoneContext', ('ct', 'tuple_orig', 'tuple_reply', 'zone')
+)
+
+
 @pytest.fixture
 def ct_basic(request, tmpdir):
     ctx = BasicSetup(request, tmpdir)
@@ -121,6 +128,40 @@ def ct_inject(request, tmpdir):
     ctx = CheckEntries(request, tmpdir)
     yield ctx
     ctx.teardown()
+
+
+@pytest.fixture
+def ct_zoned(request, tmpdir):
+    with Conntrack() as ct:
+        zone = 42
+        tuple_orig = NFCTAttrTuple(
+            saddr='192.168.122.1',
+            daddr='192.168.122.68',
+            proto=socket.IPPROTO_TCP,
+            sport=6723,
+            dport=9824,
+        )
+        ct.entry(
+            'add',
+            timeout=60,
+            tuple_orig=tuple_orig,
+            tuple_reply=tuple_orig.reverse(),
+            zone=zone,
+        )
+        yield ZoneContext(ct, tuple_orig, None, zone)
+        try:
+            ct.entry('del', tuple_orig=tuple_orig, zone=zone)
+        except NetlinkError as e:
+            if e.code != errno.ENOENT:
+                raise
+
+
+def test_zone(ct_zoned):
+    counter = 0
+    for entry in ct_zoned.ct.dump_entries(zone=ct_zoned.zone):
+        counter += 1
+        assert entry.tuple_orig == ct_zoned.tuple_orig
+    assert counter == 1
 
 
 def test_stat(ct_basic):
