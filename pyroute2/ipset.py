@@ -64,7 +64,7 @@ from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_FLAG_WITH_SKBINFO,
     ipset_msg,
 )
-from pyroute2.netlink.nlsocket import NetlinkSocket
+from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, NetlinkSocket
 
 
 def _nlmsg_error(msg):
@@ -101,7 +101,7 @@ class PortEntry(object):
         self.protocol = protocol
 
 
-class IPSet(NetlinkSocket):
+class AsyncIPSet(AsyncNetlinkSocket):
     '''
     NFNetlink socket (family=NETLINK_NETFILTER).
 
@@ -132,22 +132,26 @@ class IPSet(NetlinkSocket):
     }
 
     def __init__(self, version=None, attr_revision=None, nfgen_family=2):
-        super(IPSet, self).__init__(family=NETLINK_NETFILTER)
+        super().__init__(family=NETLINK_NETFILTER)
         policy = dict(
             [
                 (x | (NFNL_SUBSYS_IPSET << 8), y)
                 for (x, y) in self.policy.items()
             ]
         )
-        self.register_policy(policy)
-        self._nfgen_family = nfgen_family
-        if version is None:
-            msg = self.get_proto_version()
-            version = msg[0].get_attr('IPSET_ATTR_PROTOCOL')
         self._proto_version = version
         self._attr_revision = attr_revision
+        self._nfgen_family = nfgen_family
+        self.register_policy(policy)
 
-    def request(
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        await super().setup_endpoint()
+        msg = await self.get_proto_version()
+        self._proto_version = msg[0].get_attr('IPSET_ATTR_PROTOCOL')
+
+    async def request(
         self,
         msg,
         msg_type,
@@ -157,24 +161,29 @@ class IPSet(NetlinkSocket):
         msg['nfgen_family'] = self._nfgen_family
         try:
             return tuple(
-                self.nlm_request(
-                    msg,
-                    msg_type | (NFNL_SUBSYS_IPSET << 8),
-                    msg_flags,
-                    terminate=terminate,
-                )
+                [
+                    x
+                    async for x in await self.nlm_request(
+                        msg,
+                        msg_type | (NFNL_SUBSYS_IPSET << 8),
+                        msg_flags,
+                        terminate=terminate,
+                    )
+                ]
             )
         except NetlinkError as err:
             raise _IPSetError(err.code, cmd=msg_type)
 
-    def headers(self, name, **kwargs):
+    async def headers(self, name, **kwargs):
         '''
         Get headers of the named ipset. It can be used to test if one ipset
         exists, since it returns a no such file or directory.
         '''
-        return self._list_or_headers(IPSET_CMD_HEADER, name=name, **kwargs)
+        return await self._list_or_headers(
+            IPSET_CMD_HEADER, name=name, **kwargs
+        )
 
-    def get_proto_version(self, version=6):
+    async def get_proto_version(self, version=6):
         '''
         Get supported protocol version by kernel.
 
@@ -183,9 +192,9 @@ class IPSet(NetlinkSocket):
         '''
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', version]]
-        return self.request(msg, IPSET_CMD_PROTOCOL)
+        return await self.request(msg, IPSET_CMD_PROTOCOL)
 
-    def list(self, *argv, **kwargs):
+    async def list(self, *argv, **kwargs):
         '''
         List installed ipsets. If `name` is provided, list
         the named ipset or return an empty list.
@@ -195,18 +204,18 @@ class IPSet(NetlinkSocket):
         '''
         if argv:
             kwargs['name'] = argv[0]
-        return self._list_or_headers(IPSET_CMD_LIST, **kwargs)
+        return await self._list_or_headers(IPSET_CMD_LIST, **kwargs)
 
-    def _list_or_headers(self, cmd, name=None, flags=None):
+    async def _list_or_headers(self, cmd, name=None, flags=None):
         msg = ipset_msg()
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         if flags is not None:
             msg['attrs'].append(['IPSET_ATTR_FLAGS', flags])
-        return self.request(msg, cmd)
+        return await self.request(msg, cmd)
 
-    def destroy(self, name=None):
+    async def destroy(self, name=None):
         '''
         Destroy one (when name is set) or all ipset (when name is None)
         '''
@@ -214,14 +223,14 @@ class IPSet(NetlinkSocket):
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
-        return self.request(
+        return await self.request(
             msg,
             IPSET_CMD_DESTROY,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL,
             terminate=_nlmsg_error,
         )
 
-    def create(
+    async def create(
         self,
         name,
         stype='hash:ip',
@@ -301,7 +310,7 @@ class IPSet(NetlinkSocket):
 
         if self._attr_revision is None:
             # Get the last revision supported by kernel
-            revision = self.get_supported_revisions(stype)[1]
+            revision = (await self.get_supported_revisions(stype))[1]
         else:
             revision = self._attr_revision
         msg['attrs'] = [
@@ -313,7 +322,7 @@ class IPSet(NetlinkSocket):
             ["IPSET_ATTR_DATA", data],
         ]
 
-        return self.request(
+        return await self.request(
             msg,
             IPSET_CMD_CREATE,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
@@ -386,7 +395,7 @@ class IPSet(NetlinkSocket):
 
         return attrs
 
-    def _add_delete_test(
+    async def _add_delete_test(
         self,
         name,
         entry,
@@ -439,14 +448,14 @@ class IPSet(NetlinkSocket):
             ['IPSET_ATTR_DATA', {'attrs': data_attrs}],
         ]
 
-        return self.request(
+        return await self.request(
             msg,
             cmd,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK | excl_flag,
             terminate=_nlmsg_error,
         )
 
-    def add(
+    async def add(
         self,
         name,
         entry,
@@ -500,7 +509,7 @@ class IPSet(NetlinkSocket):
         wildcard option enable kernel wildcard matching on interface
         name for net,iface entries.
         '''
-        return self._add_delete_test(
+        return await self._add_delete_test(
             name,
             entry,
             family,
@@ -516,7 +525,7 @@ class IPSet(NetlinkSocket):
             **kwargs,
         )
 
-    def delete(
+    async def delete(
         self, name, entry, family=socket.AF_INET, exclusive=True, etype="ip"
     ):
         '''
@@ -524,18 +533,18 @@ class IPSet(NetlinkSocket):
 
         See :func:`add` method for more information on etype.
         '''
-        return self._add_delete_test(
+        return await self._add_delete_test(
             name, entry, family, IPSET_CMD_DEL, exclusive, etype=etype
         )
 
-    def test(self, name, entry, family=socket.AF_INET, etype="ip"):
+    async def test(self, name, entry, family=socket.AF_INET, etype="ip"):
         '''
         Test if entry is part of an ipset
 
         See :func:`add` method for more information on etype.
         '''
         try:
-            self._add_delete_test(
+            await self._add_delete_test(
                 name, entry, family, IPSET_CMD_TEST, False, etype=etype
             )
             return True
@@ -544,7 +553,7 @@ class IPSet(NetlinkSocket):
                 return False
             raise e
 
-    def swap(self, set_a, set_b):
+    async def swap(self, set_a, set_b):
         '''
         Swap two ipsets. They must have compatible content type.
         '''
@@ -554,14 +563,14 @@ class IPSet(NetlinkSocket):
             ['IPSET_ATTR_SETNAME', set_a],
             ['IPSET_ATTR_TYPENAME', set_b],
         ]
-        return self.request(
+        return await self.request(
             msg,
             IPSET_CMD_SWAP,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
             terminate=_nlmsg_error,
         )
 
-    def flush(self, name=None):
+    async def flush(self, name=None):
         '''
         Flush all ipsets. When name is set, flush only this ipset.
         '''
@@ -569,14 +578,14 @@ class IPSet(NetlinkSocket):
         msg['attrs'] = [['IPSET_ATTR_PROTOCOL', self._proto_version]]
         if name is not None:
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
-        return self.request(
+        return await self.request(
             msg,
             IPSET_CMD_FLUSH,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
             terminate=_nlmsg_error,
         )
 
-    def rename(self, name_src, name_dst):
+    async def rename(self, name_src, name_dst):
         '''
         Rename the ipset.
         '''
@@ -586,14 +595,14 @@ class IPSet(NetlinkSocket):
             ['IPSET_ATTR_SETNAME', name_src],
             ['IPSET_ATTR_TYPENAME', name_dst],
         ]
-        return self.request(
+        return await self.request(
             msg,
             IPSET_CMD_RENAME,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
             terminate=_nlmsg_error,
         )
 
-    def _get_set_by(self, cmd, value):
+    async def _get_set_by(self, cmd, value):
         # Check that IPSet version is supported
         if self._proto_version < 7:
             raise NotImplementedError()
@@ -610,23 +619,23 @@ class IPSet(NetlinkSocket):
                 ['IPSET_ATTR_PROTOCOL', self._proto_version],
                 ['IPSET_ATTR_INDEX', value],
             ]
-        return self.request(msg, cmd)
+        return await self.request(msg, cmd)
 
-    def get_set_byname(self, name):
+    async def get_set_byname(self, name):
         '''
         Get a set by its name
         '''
 
-        return self._get_set_by(IPSET_CMD_GET_BYNAME, name)
+        return await self._get_set_by(IPSET_CMD_GET_BYNAME, name)
 
-    def get_set_byindex(self, index):
+    async def get_set_byindex(self, index):
         '''
         Get a set by its index
         '''
 
-        return self._get_set_by(IPSET_CMD_GET_BYINDEX, index)
+        return await self._get_set_by(IPSET_CMD_GET_BYINDEX, index)
 
-    def get_supported_revisions(self, stype, family=socket.AF_INET):
+    async def get_supported_revisions(self, stype, family=socket.AF_INET):
         '''
         Return minimum and maximum of revisions supported by the kernel.
 
@@ -650,7 +659,7 @@ class IPSet(NetlinkSocket):
             ['IPSET_ATTR_TYPENAME', stype],
             ['IPSET_ATTR_FAMILY', family],
         ]
-        response = self.request(
+        response = await self.request(
             msg,
             IPSET_CMD_TYPE,
             msg_flags=NLM_F_REQUEST | NLM_F_ACK,
@@ -747,3 +756,141 @@ class _IPSetError(IPSetError):
         IPSET_CMD_ADD: a_map,
         IPSET_CMD_DEL: del_map,
     }
+
+
+class IPSet(NetlinkSocket):
+
+    def __init__(self, version=None, attr_revision=None, nfgen_family=2):
+        self.asyncore = AsyncIPSet(version, attr_revision, nfgen_family)
+        self.asyncore.local.keep_event_loop = True
+        self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.status['nlm_generator'] = True
+        self.asyncore.event_loop.run_until_complete(
+            self.asyncore.setup_endpoint()
+        )
+        if self.asyncore.socket.fileno() == -1:
+            raise OSError(9, 'Bad file descriptor')
+
+    @property
+    def _proto_version(self):
+        return self.asyncore._proto_version
+
+    @_proto_version.setter
+    def _proto_version(self, value):
+        self.asyncore._proto_version = value
+
+    @property
+    def _attr_revision(self):
+        return self.asyncore._attr_revision
+
+    @_attr_revision.setter
+    def _attr_revision(self, value):
+        self.asyncore._attr_revision = value
+
+    def headers(self, name, **kwarg):
+        return self._run_with_cleanup(self.asyncore.headers, name, **kwarg)
+
+    def get_proto_version(self, version=6):
+        return self._run_with_cleanup(self.asyncore.get_proto_version, version)
+
+    def list(self, *argv, **kwarg):
+        return self._run_with_cleanup(self.asyncore.list, *argv, **kwarg)
+
+    def destroy(self, name=None):
+        return self._run_with_cleanup(self.asyncore.destroy, name)
+
+    def create(
+        self,
+        name,
+        stype='hash:ip',
+        family=socket.AF_INET,
+        exclusive=True,
+        counters=False,
+        comment=False,
+        maxelem=None,
+        forceadd=False,
+        hashsize=None,
+        timeout=None,
+        bitmap_ports_range=None,
+        size=None,
+        skbinfo=False,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.create,
+            name,
+            stype,
+            family,
+            exclusive,
+            counters,
+            comment,
+            maxelem,
+            forceadd,
+            hashsize,
+            timeout,
+            bitmap_ports_range,
+            size,
+            skbinfo,
+        )
+
+    def add(
+        self,
+        name,
+        entry,
+        family=socket.AF_INET,
+        exclusive=True,
+        comment=None,
+        timeout=None,
+        etype="ip",
+        skbmark=None,
+        skbprio=None,
+        skbqueue=None,
+        wildcard=False,
+        **kwarg,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.add,
+            name,
+            entry,
+            family,
+            exclusive,
+            comment,
+            timeout,
+            etype,
+            skbmark,
+            skbprio,
+            skbqueue,
+            wildcard,
+            **kwarg,
+        )
+
+    def delete(
+        self, name, entry, family=socket.AF_INET, exclusive=True, etype="ip"
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.delete, name, entry, family, exclusive, etype
+        )
+
+    def test(self, name, entry, family=socket.AF_INET, etype="ip"):
+        return self._run_with_cleanup(
+            self.asyncore.test, name, entry, family, etype
+        )
+
+    def swap(self, set_a, set_b):
+        return self._run_with_cleanup(self.asyncore.swap, set_a, set_b)
+
+    def flush(self, name=None):
+        return self._run_with_cleanup(self.asyncore.flush, name)
+
+    def rename(self, name_src, name_dst):
+        return self._run_with_cleanup(self.asyncore.rename, name_src, name_dst)
+
+    def get_set_byname(self, name):
+        return self._run_with_cleanup(self.asyncore.get_set_byname, name)
+
+    def get_set_byindex(self, index):
+        return self._run_with_cleanup(self.asyncore.get_set_byindex, index)
+
+    def get_supported_revisions(self, stype, family=socket.AF_INET):
+        return self._run_with_cleanup(
+            self.asyncore.get_supported_revisions, stype, family
+        )

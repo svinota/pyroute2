@@ -37,8 +37,8 @@ from pyroute2.iproute import (
     NetNS,
     RawIPRoute,
 )
-from pyroute2.ipset import IPSet
-from pyroute2.ipvs import IPVS, IPVSDest, IPVSService
+from pyroute2.ipset import AsyncIPSet, IPSet
+from pyroute2.ipvs import IPVS, AsyncIPVS, IPVSDest, IPVSService
 from pyroute2.iwutil import IW, AsyncIW
 from pyroute2.ndb.main import NDB
 from pyroute2.netlink.connector.cn_proc import ProcEventSocket
@@ -103,6 +103,8 @@ modules = [
     AsyncGenericNetlinkSocket,
     AsyncIPRSocket,
     AsyncIPRoute,
+    AsyncIPSet,
+    AsyncIPVS,
     AsyncIPVSSocket,
     AsyncIW,
     AsyncL2tp,
