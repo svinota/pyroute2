@@ -21,7 +21,7 @@ from pyroute2.netlink import (
     NLM_F_REQUEST,
     NLMSG_ERROR,
 )
-from pyroute2.netlink.exceptions import IPSetError, NetlinkError
+from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_CMD_ADD,
@@ -159,20 +159,20 @@ class AsyncIPSet(AsyncNetlinkSocket):
         terminate=None,
     ):
         msg['nfgen_family'] = self._nfgen_family
-        try:
-            return tuple(
-                [
-                    x
-                    async for x in await self.nlm_request(
-                        msg,
-                        msg_type | (NFNL_SUBSYS_IPSET << 8),
-                        msg_flags,
-                        terminate=terminate,
-                    )
-                ]
-            )
-        except NetlinkError as err:
-            raise _IPSetError(err.code, cmd=msg_type)
+        return tuple(
+            [
+                x
+                async for x in await self.nlm_request(
+                    msg,
+                    msg_type | (NFNL_SUBSYS_IPSET << 8),
+                    msg_flags,
+                    terminate=terminate,
+                    error_factory=lambda err: _IPSetError(
+                        err.code, cmd=msg_type
+                    ),
+                )
+            ]
+        )
 
     async def headers(self, name, **kwargs):
         '''
