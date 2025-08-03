@@ -426,7 +426,7 @@ class RTNL_Object(dict):
             if self.state == 'system' and nkey in self.knorm:
                 if self._replace_on_key_change:
                     self.log.debug(
-                        f'prepare replace {nkey} = {nvalue} in {self.key}'
+                        'prepare replace {} = {} in {}'.format(nkey, nvalue, self.key)
                     )
                     self._replace = type(self)(
                         self.view, self.key, auth_managers=self.auth_managers
@@ -886,8 +886,8 @@ class RTNL_Object(dict):
             req = idx_req
         else:
             raise Exception('state transition not supported')
-        self.log.debug(f'apply transition from: {state}')
-        self.log.debug(f'apply method: {method}')
+        self.log.debug('apply transition from: {}'.format(state))
+        self.log.debug('apply method: {}'.format(method))
 
         if req_filter is not None:
             req = req_filter(req)
@@ -1031,15 +1031,15 @@ class RTNL_Object(dict):
         ret = None
         argv = argv or []
         kwarg = kwarg or {}
-        self.log.debug(f'criteria {criteria}')
-        self.log.debug(f'method {method}, {argv}, {kwarg}')
+        self.log.debug('criteria {}'.format(criteria))
+        self.log.debug('method {}, {}, {}'.format(method, argv, kwarg))
         for attempt in range(3):
             ret = method(*argv, **kwarg)
-            self.log.debug(f'ret {ret}')
+            self.log.debug('ret {}'.format(ret))
             if criteria(ret):
                 self.log.debug('criteria matched')
                 return ret
-            self.log.debug(f'resync the DB attempt {attempt}')
+            self.log.debug('resync the DB attempt {}'.format(attempt))
             self.ndb.task_manager.db_flush(self['target'])
             self.load_event.clear()
             (

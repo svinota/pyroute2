@@ -36,7 +36,7 @@ class RequestProcessor(dict):
         ) and not self.field_filter.policy(key):
             return {}
         return getattr(
-            self.field_filter, f'set_{key}', lambda *argv: {key: value}
+            self.field_filter, 'set_{}'.format(key), lambda *argv: {key: value}
         )(self.combined, value)
 
     def update(self, prime):

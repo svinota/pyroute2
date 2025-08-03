@@ -593,7 +593,7 @@ class IPRoute(LAB_API, NetlinkSocketBase):
         else:
             index = next(interface_counter)
             if 'address' not in request:
-                request['address'] = f'00:11:22:33:44:{index:02}'
+                request['address'] = '00:11:22:33:44:{:02}'.format(index)
             if 'index' not in request:
                 request['index'] = index
             if 'tflags' in request:

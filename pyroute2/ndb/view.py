@@ -448,21 +448,21 @@ class View(dict):
 
     def __repr__(self):
         if self.chain and 'ifname' in self.chain:
-            parent = f'{self.chain["ifname"]}/'
+            parent = '{}/'.format(self.chain["ifname"])
         else:
             parent = ''
-        return f'''
-NDB view for {parent}{self.table}
-Number of objects: {self.count()}
+        return '''
+        NDB view for {}{}
+        Number of objects: {}
 
-to list objects use .summary() or .dump()
-    -> RecordSet (generator)
-        -> Record
+        to list objects use .summary() or .dump()
+            -> RecordSet (generator)
+                -> Record
 
-key: Union[Record, dict, spec]
-to get objects use ...[key] / .__getitem__(key)
-    -> RTNL_Object
-'''
+        key: Union[Record, dict, spec]
+        to get objects use ...[key] / .__getitem__(key)
+            -> RTNL_Object
+        '''.format(parent, self.table, self.count())
 
 
 class SourcesView(View):
@@ -485,7 +485,7 @@ class SourcesView(View):
         spec = dict(Source.defaults(spec))
         target = spec['target']
         if target in self:
-            raise KeyError(f'source {target} exists')
+            raise KeyError('source {} exists'.format(target))
         if 'event' not in spec:
             sync = True
             spec['event'] = threading.Event()
@@ -498,7 +498,7 @@ class SourcesView(View):
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):
         if target not in self:
-            raise KeyError(f'source {target} does not exist')
+            raise KeyError('source {} does not exist'.format(target))
         with self.lock:
             if target in self.cache:
                 source = self.cache[target]

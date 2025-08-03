@@ -114,18 +114,18 @@ class Neighbour(RTNL_Object):
 
     @classmethod
     def summary(cls, view):
-        req = f'''
+        req = '''
               SELECT
                   main.f_target, main.f_tflags,
                   intf.f_IFLA_IFNAME, main.f_NDA_LLADDR, main.f_NDA_DST
               FROM
-                  {cls.table} AS main
+                  {} AS main
               INNER JOIN
                   interfaces AS intf
               ON
                   main.f_ifindex = intf.f_index
                   AND main.f_target = intf.f_target
-              '''
+              '''.format(cls.table)
         yield ('target', 'tflags', 'ifname', 'lladdr', 'dst')
         where, values = cls._dump_where(view)
         for record in view.ndb.task_manager.db_fetch(req + where, values):

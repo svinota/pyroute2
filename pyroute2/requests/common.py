@@ -81,16 +81,16 @@ class IPTargets:
                 ret[key] = value
                 if self.add_defaults:
                     if prefixlen.find('.') > 0:
-                        ret[f'{key}_len'] = dqn2int(prefixlen, AF_INET)
+                        ret['{}_len'.format(key)] = dqn2int(prefixlen, AF_INET)
                     elif prefixlen.find(':') >= 0:
-                        ret[f'{key}_len'] = dqn2int(prefixlen, AF_INET6)
+                        ret['{}_len'.format(key)] = dqn2int(prefixlen, AF_INET6)
                     else:
-                        ret[f'{key}_len'] = int(prefixlen)
+                        ret['{}_len'.format(key)] = int(prefixlen)
             else:
                 if (
                     self.add_defaults
                     and key in ('dst', 'src')
-                    and f'{key}_len' not in context
+                    and '{}_len'.format(key) not in context
                 ):
                     set_full_mask = True
 
@@ -100,9 +100,9 @@ class IPTargets:
                     ret[key] = ipaddress.ip_address(value).compressed
                 if set_full_mask:
                     if ret['family'] == AF_INET6:
-                        ret[f'{key}_len'] = 128
+                        ret['{}_len'.format(key)] = 128
                     elif ret['family'] == AF_INET:
-                        ret[f'{key}_len'] = 32
+                        ret['{}_len'.format(key)] = 32
         return ret
 
     def set_dst(self, context, value):

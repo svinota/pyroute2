@@ -60,7 +60,7 @@ class AddressIPRouteFilter(IPRouteFilter):
         cacheinfo = value.copy()
         if self.command != 'dump':
             for i in ('preferred', 'valid'):
-                cacheinfo[f'ifa_{i}'] = cacheinfo.get(i, pow(2, 32) - 1)
+                cacheinfo['ifa_{}'.format(i)] = cacheinfo.get(i, pow(2, 32) - 1)
             return {'cacheinfo': cacheinfo}
         return {}
 

@@ -174,51 +174,51 @@ class DBDict(dict):
     @publish('get')
     def __getitem__(self, key):
         for (record,) in self.schema.fetch(
-            f'''
-            SELECT f_value FROM {self.table}
-            WHERE f_key = {self.schema.plch}
-            ''',
+            '''
+            SELECT f_value FROM {}
+            WHERE f_key = {}
+            '''.format(self.table, self.schema.plch),
             (key,),
         ):
             return json.loads(record)
-        raise KeyError(f'key {key} not found')
+        raise KeyError('key {} not found'.format(key))
 
     @publish('set')
     def __setitem__(self, key, value):
         del self[key]
         self.schema.execute(
-            f'''
-            INSERT INTO {self.table}
-            VALUES ({self.schema.plch}, {self.schema.plch})
-            ''',
+            '''
+            INSERT INTO {}
+            VALUES ({}, {})
+            '''.format(self.table, self.schema.plch, self.schema.plch),
             (key, json.dumps(value)),
         )
 
     @publish('del')
     def __delitem__(self, key):
         self.schema.execute(
-            f'''
-            DELETE FROM {self.table}
-            WHERE f_key = {self.schema.plch}
-            ''',
+            '''
+            DELETE FROM {}
+            WHERE f_key = {}
+            '''.format(self.table, self.schema.plch),
             (key,),
         )
 
     @publish
     def keys(self):
-        for (key,) in self.schema.fetch(f'SELECT f_key FROM {self.table}'):
+        for (key,) in self.schema.fetch('SELECT f_key FROM {}'.format(self.table)):
             yield key
 
     @publish
     def items(self):
         for key, value in self.schema.fetch(
-            f'SELECT f_key, f_value FROM {self.table}'
+            'SELECT f_key, f_value FROM {}'.format(self.table)
         ):
             yield key, json.loads(value)
 
     @publish
     def values(self):
-        for (value,) in self.schema.fetch(f'SELECT f_value FROM {self.table}'):
+        for (value,) in self.schema.fetch('SELECT f_value FROM {}'.format(self.table)):
             yield json.loads(value)
 
 

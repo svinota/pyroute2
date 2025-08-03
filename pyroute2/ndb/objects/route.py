@@ -563,7 +563,7 @@ class Route(RTNL_Object):
     @classmethod
     def compare_record(self, left, right):
         if isinstance(right, str):
-            return right == f'{left["dst"]}/{left["dst_len"]}'
+            return right == '{}/{}'.format(left["dst"], left["dst_len"])
 
     def _cmp_target(key, self, right):
         right = [MPLSTarget(x) for x in json.loads(right)]

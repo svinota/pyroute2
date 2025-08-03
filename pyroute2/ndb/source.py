@@ -270,7 +270,7 @@ class Source(dict):
         for _ in range(100):  # FIXME make a constant
             with self.lock:
                 try:
-                    self.log.debug(f'source api run {name} {argv} {kwarg}')
+                    self.log.debug('source api run {} {} {}'.format(name, argv, kwarg))
                     return getattr(self.nl, name)(*argv, **kwarg)
                 except (
                     NetlinkError,
@@ -285,7 +285,7 @@ class Source(dict):
                 except Exception as e:
                     # probably the source is restarting
                     self.errors_counter += 1
-                    self.log.debug(f'source api error: <{e}>')
+                    self.log.debug('source api error: <{}>'.format(e))
                     time.sleep(1)
         raise RuntimeError('api call failed')
 
@@ -350,8 +350,8 @@ class Source(dict):
                 except Exception as e:
                     self.errors_counter += 1
                     self.started.set()
-                    self.state.set(f'failed, counter {self.errors_counter}')
-                    self.log.error(f'source error: {type(e)} {e}')
+                    self.state.set('failed, counter {}'.format(self.errors_counter))
+                    self.log.error('source error: {} {}'.format(type(e), e))
                     try:
                         self.evq.put(
                             (cmsg_failed(self.target),), source=self.target

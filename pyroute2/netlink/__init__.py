@@ -788,7 +788,7 @@ class SQLSchema:
             idx += 1
         else:
             raise KeyError()
-        self.spec[idx] = (field, f'{tspec} {spec}')
+        self.spec[idx] = (field, '{} {}'.format(tspec, spec))
         return self
 
     def foreign_key(self, parent, fields, parent_fields):
@@ -2425,7 +2425,7 @@ class ctrlmsg(genlmsg):
 
         nla_map = {
             'decode': NlaMapAdapter(
-                lambda x: NlaSpec('attribute_nest', x, f'POLICY({x})')
+                lambda x: NlaSpec('attribute_nest', x, 'POLICY({})'.format(x))
             ),
             'encode': NlaMapAdapter(
                 lambda x: NlaSpec('attribute_nest', int(x[7:-1]), x)
@@ -2437,7 +2437,7 @@ class ctrlmsg(genlmsg):
 
             nla_map = {
                 'decode': NlaMapAdapter(
-                    lambda x: NlaSpec('nl_policy_type_attr', x, f'ATTR({x})')
+                    lambda x: NlaSpec('nl_policy_type_attr', x, 'ATTR({})'.format(x))
                 ),
                 'encode': NlaMapAdapter(
                     lambda x: NlaSpec('nl_policy_type_attr', int(x[5:-1]), x)
@@ -2468,7 +2468,7 @@ class ctrlmsg(genlmsg):
 
         nla_map = {
             'decode': NlaMapAdapter(
-                lambda x: NlaSpec('command_nest_attrs', x, f'OP({x})')
+                lambda x: NlaSpec('command_nest_attrs', x, 'OP({})'.format(x))
             ),
             'encode': NlaMapAdapter(
                 lambda x: NlaSpec('command_nest_attrs', int(x[3:-1]), x)

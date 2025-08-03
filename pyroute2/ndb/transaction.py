@@ -227,10 +227,10 @@ class CheckProcess:
                 self.args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             try:
-                self.log.debug(f'process check {self.args}')
+                self.log.debug('process check {}'.format(self.args))
                 self.out, self.err = process.communicate(timeout=self.timeout)
-                self.log.debug(f'process output: {self.out}')
-                self.log.debug(f'process stderr: {self.err}')
+                self.log.debug('process output: {}'.format(self.out))
+                self.log.debug('process stderr: {}'.format(self.err))
             except subprocess.TimeoutExpired:
                 self.log.debug('process timeout expired')
                 process.terminate()
@@ -245,13 +245,12 @@ class CheckProcess:
         pass
 
     def __repr__(self):
-        return f'[{self.command}]'
-
+        return '[{}]'.format(self.command)
 
 class PingAddress(CheckProcess):
     def __init__(self, address, log=None, timeout=1):
         super(PingAddress, self).__init__(
-            f'ping -c 1 -W {timeout} {address}', log=log
+            'ping -c 1 -W {} {}'.format(timeout, address), log=log
         )
 
 
@@ -272,8 +271,7 @@ class Not:
         except Exception:
             success = False
         if success:
-            raise CheckProcessException(f'{self.tx} succeeded')
-
+            raise CheckProcessException('{} succeeded'.format(self.tx))
     def rollback(self):
         pass
 

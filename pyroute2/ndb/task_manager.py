@@ -158,7 +158,7 @@ class TaskManager:
             if hasattr(method, 'publish'):
                 if isinstance(method.publish, str):
                     name = method.publish
-                name = f'{prefix}{name}'
+                name = '{}{}'.format(prefix, name)
                 event, handler, proxy = self.wrap_method(method)
                 setattr(self, name, partial(proxy, self))
                 self.event_map[event] = [handler]
@@ -247,20 +247,20 @@ class TaskManager:
                     if time.time() - self.gctime > config.gc_timeout:
                         self.gctime = time.time()
             except Exception as e:
-                self.log.error(f'exception <{e}> in source {source}')
+                self.log.error('exception <{}> in source {}'.format(e, source))
                 # restart the target
                 try:
-                    self.log.debug(f'requesting source {source} restart')
+                    self.log.debug('requesting source {} restart'.format(source))
                     self.ndb.sources[source].state.set('restart')
                 except KeyError:
-                    self.log.debug(f'key error for {source}')
+                    self.log.debug('key error for {}'.format(source))
                     pass
 
         # release all the sources
         for target in tuple(self.ndb.sources.cache):
             source = self.ndb.sources.remove(target, sync=False)
             if source is not None and source.th is not None:
-                self.log.debug(f'closing source {source}')
+                self.log.debug('closing source {}'.format(source))
                 source.close()
                 if self.ndb.schema.config['db_cleanup']:
                     self.log.debug('flush DB for the target %s' % target)

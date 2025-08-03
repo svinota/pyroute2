@@ -920,7 +920,7 @@ class Interface(RTNL_Object):
                 req['kind'] = kind
                 for key in self:
                     if (
-                        key.startswith(f'{kind}_')
+                        key.startswith('{}_'.format(kind))
                         and key not in req
                         and self[key]
                     ):

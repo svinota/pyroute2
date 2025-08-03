@@ -102,7 +102,7 @@ def red_eval_ewma(qmin, burst, avpkt):
     W = 0.5
     a = float(burst) + 1 - float(qmin) / avpkt
     if a < 1:
-        raise ValueError(f'wrong a = {a}')
+        raise ValueError('wrong a = {}'.format(a))
 
     while wlog < 32:
         wlog += 1
@@ -116,7 +116,7 @@ def red_eval_P(qmin, qmax, probability):
     # The code is ported from tc utility
     i = qmax - qmin
     if i <= 0:
-        raise ValueError(f'qmax - qmin must be > 0 (got {i})')
+        raise ValueError('qmax - qmin must be > 0 (got {})'.format(i))
 
     probability /= i
 
