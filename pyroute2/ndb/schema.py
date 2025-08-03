@@ -119,7 +119,6 @@ on startup.
 import enum
 import json
 import random
-import sqlite3
 import sys
 import time
 import traceback
@@ -137,6 +136,10 @@ try:
 except ImportError:
     psycopg2 = None
 
+try:
+    import sqlite3
+except ImportError:
+    sqlite3 = None
 #
 # the order is important
 #
