@@ -167,7 +167,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
                     msg_type | (NFNL_SUBSYS_IPSET << 8),
                     msg_flags,
                     terminate=terminate,
-                    error_factory=lambda err: _IPSetError(
+                    exception_factory=lambda err: _IPSetError(
                         err.code, cmd=msg_type
                     ),
                 )

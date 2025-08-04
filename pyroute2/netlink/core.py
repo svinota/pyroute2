@@ -528,7 +528,7 @@ class AsyncCoreSocket:
         terminate=None,
         callback=None,
         noraise=False,
-        error_factory=None,
+        exception_factory=None,
     ):
         '''Get a conversation answer from the socket.'''
         await self.setup_endpoint()
@@ -568,8 +568,8 @@ class AsyncCoreSocket:
             ):
                 enough = True
         if not noraise and error:
-            if error_factory is not None:
-                raise error_factory(error)
+            if exception_factory is not None:
+                raise exception_factory(error)
             raise error
 
     async def __aenter__(self):
