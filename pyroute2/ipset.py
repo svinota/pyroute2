@@ -151,7 +151,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
         msg = await self.get_proto_version()
         self._proto_version = msg[0].get_attr('IPSET_ATTR_PROTOCOL')
 
-    async def request(
+    async def request_iter(
         self,
         msg,
         msg_type,
@@ -159,17 +159,27 @@ class AsyncIPSet(AsyncNetlinkSocket):
         terminate=None,
     ):
         msg['nfgen_family'] = self._nfgen_family
+        async for response in await self.nlm_request(
+            msg,
+            msg_type | (NFNL_SUBSYS_IPSET << 8),
+            msg_flags,
+            terminate=terminate,
+            exception_factory=lambda err: _IPSetError(err.code, cmd=msg_type),
+        ):
+            yield response
+
+    async def request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+    ):
         return tuple(
             [
                 x
-                async for x in await self.nlm_request(
-                    msg,
-                    msg_type | (NFNL_SUBSYS_IPSET << 8),
-                    msg_flags,
-                    terminate=terminate,
-                    exception_factory=lambda err: _IPSetError(
-                        err.code, cmd=msg_type
-                    ),
+                async for x in self.request_iter(
+                    msg, msg_type, msg_flags, terminate
                 )
             ]
         )
