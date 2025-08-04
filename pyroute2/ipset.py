@@ -223,7 +223,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         if flags is not None:
             msg['attrs'].append(['IPSET_ATTR_FLAGS', flags])
-        return await self.request(msg, cmd)
+        return self.request_iter(msg, cmd)
 
     async def destroy(self, name=None):
         '''
@@ -798,13 +798,15 @@ class IPSet(NetlinkSocket):
         self.asyncore._attr_revision = value
 
     def headers(self, name, **kwarg):
-        return self._run_with_cleanup(self.asyncore.headers, name, **kwarg)
+        return self._generate_with_cleanup(
+            self.asyncore.headers, name, **kwarg
+        )
 
     def get_proto_version(self, version=6):
         return self._run_with_cleanup(self.asyncore.get_proto_version, version)
 
     def list(self, *argv, **kwarg):
-        return self._run_with_cleanup(self.asyncore.list, *argv, **kwarg)
+        return self._generate_with_cleanup(self.asyncore.list, *argv, **kwarg)
 
     def destroy(self, name=None):
         return self._run_with_cleanup(self.asyncore.destroy, name)

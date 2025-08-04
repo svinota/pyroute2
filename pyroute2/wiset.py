@@ -531,18 +531,17 @@ def load_ipset(name, content=False, sock=None, inherit_sock=False):
     """
     res = None
     try:
-        messages = sock.list(name=name)
+        for msg in sock.list(name=name):
+            if res is None:
+                res = WiSet.from_netlink(msg, content=content)
+                if inherit_sock:
+                    res.sock = sock
+            elif content:
+                res.update_dict_content(msg)
     except IPSetError as e:
         if e.code == errno.ENOENT:
             return res
         raise
-    for msg in messages:
-        if res is None:
-            res = WiSet.from_netlink(msg, content=content)
-            if inherit_sock:
-                res.sock = sock
-        elif content:
-            res.update_dict_content(msg)
     return res
 
 
@@ -579,7 +578,7 @@ def delete_ipset_entry(name, entry, sock=None, **kwargs):
 def test_ipset_exist(name, sock=None):
     """Test if the given ipset exist"""
     try:
-        sock.headers(name)
+        tuple(sock.headers(name))
         return True
     except IPSetError as e:
         if e.code == errno.ENOENT:
