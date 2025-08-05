@@ -594,7 +594,7 @@ class NDB:
             self.log.close()
 
     def backup(self, spec):
-        self.task_manager.db_backup(spec)
+        return self.db.backup(spec)
 
     def reload(self, kinds=None):
         for source in self.sources.values():
