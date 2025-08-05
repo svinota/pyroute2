@@ -99,6 +99,9 @@ class SyncDB(SyncBase):
     def backup(self, spec):
         return self._main_sync_call(self.asyncore.schema.backup, spec)
 
+    def fetch(self, query):
+        return self._main_sync_generator(self.asyncore.schema.fetch, query)
+
     def fetchone(self, query):
         return self._main_sync_call(self.asyncore.schema.fetchone, query)
 
