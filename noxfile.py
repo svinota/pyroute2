@@ -50,7 +50,6 @@ def load_global_config():
 global_config = load_global_config()
 if global_config.get('fast'):
     nox.options.reuse_venv = 'yes'
-    nox.options.no_install = True
 
 
 def add_session_config(func):
