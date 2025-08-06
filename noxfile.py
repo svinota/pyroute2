@@ -58,7 +58,7 @@ def add_session_config(func):
     Usage::
 
         @nox.session
-        @load_session_config
+        @add_session_config
         def my_session_func(session, config):
             pass
 
