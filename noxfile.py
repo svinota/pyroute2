@@ -221,13 +221,6 @@ def setup_venv_docs(session, config=None):
     return tmpdir
 
 
-@nox.session(name='test-platform')
-def test_platform(session):
-    '''Test platform capabilities. Requires root to run.'''
-    setup_venv_common(session)
-    session.run('pyroute2-test-platform')
-
-
 @nox.session(python='python3.10')
 @add_session_config
 def docs(session, config):
