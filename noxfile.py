@@ -50,7 +50,6 @@ def load_global_config():
 global_config = load_global_config()
 if global_config.get('fast'):
     nox.options.reuse_venv = 'yes'
-    nox.options.no_install = True
 
 
 def add_session_config(func):
@@ -59,7 +58,7 @@ def add_session_config(func):
     Usage::
 
         @nox.session
-        @load_session_config
+        @add_session_config
         def my_session_func(session, config):
             pass
 
@@ -79,7 +78,7 @@ def add_session_config(func):
     return wrapper
 
 
-def options(module, config):
+def pytest_with_options(module, config):
     '''Return pytest options set.'''
     ret = [
         'python',
@@ -222,13 +221,6 @@ def setup_venv_docs(session, config=None):
     return tmpdir
 
 
-@nox.session(name='test-platform')
-def test_platform(session):
-    '''Test platform capabilities. Requires root to run.'''
-    setup_venv_common(session)
-    session.run('pyroute2-test-platform')
-
-
 @nox.session(python='python3.10')
 @add_session_config
 def docs(session, config):
@@ -285,7 +277,7 @@ def linter(session, config):
 def unit(session, config):
     '''Run unit tests.'''
     setup_venv_dev(session)
-    session.run(*options('test_unit', config))
+    session.run(*pytest_with_options('test_unit', config))
 
 
 @nox.session
@@ -293,7 +285,7 @@ def unit(session, config):
 def decoder(session, config):
     '''Run decoder tests.'''
     setup_venv_dev(session)
-    session.run(*options('test_decoder', config))
+    session.run(*pytest_with_options('test_decoder', config))
 
 
 @nox.session
@@ -301,7 +293,7 @@ def decoder(session, config):
 def integration(session, config):
     '''Run integration tests (lnst, kuryr, ...).'''
     setup_venv_dev(session)
-    session.run(*options('test_integration', config))
+    session.run(*pytest_with_options('test_integration', config))
 
 
 def test_common(session, config, module):
@@ -312,7 +304,7 @@ def test_common(session, config, module):
         path += f':{workspace}'
         session.chdir('tests')
     session.run(
-        *options(module, config),
+        *pytest_with_options(module, config),
         env={'WORKSPACE': workspace, 'SKIPDB': 'postgres', 'PYTHONPATH': path},
     )
 
@@ -378,7 +370,7 @@ def limits(session, config):
 def process(session, config):
     '''Test child process module.'''
     setup_venv_dev(session)
-    session.run(*options('test_process', config))
+    session.run(*pytest_with_options('test_process', config))
 
 
 @nox.session(
@@ -396,7 +388,7 @@ def minimal(session, config):
     '''Run tests on pyroute2.minimal package.'''
     tmpdir = setup_venv_minimal(session, config)
     session.chdir(f'{tmpdir}/tests')
-    session.run(*options('test_minimal', config))
+    session.run(*pytest_with_options('test_minimal', config))
 
 
 @nox.session
@@ -404,7 +396,7 @@ def minimal(session, config):
 def openbsd(session, config):
     '''Run OpenBSD tests. Requires OpenBSD >= 7.1'''
     setup_venv_dev(session)
-    session.run(*options('test_openbsd', config))
+    session.run(*pytest_with_options('test_openbsd', config))
 
 
 @nox.session
@@ -412,7 +404,7 @@ def openbsd(session, config):
 def windows(session, config):
     '''Rin Windows tests.'''
     setup_venv_dev(session)
-    session.run(*options('test_windows', config))
+    session.run(*pytest_with_options('test_windows', config))
 
 
 @nox.session
@@ -421,7 +413,7 @@ def neutron(session, config):
     '''Run Neutron integration tests.'''
     setup_venv_dev(session)
     session.install('eventlet')
-    session.run(*options('test_neutron', config))
+    session.run(*pytest_with_options('test_neutron', config))
 
 
 @nox.session
@@ -431,7 +423,7 @@ def repo(session, config):
     setup_venv_repo(session)
     config = copy.copy(config)
     config['tests_prefix'] = 'tests'
-    session.run(*options('test_repo', config))
+    session.run(*pytest_with_options('test_repo', config))
 
 
 @nox.session

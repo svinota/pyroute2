@@ -650,11 +650,15 @@ class DBSchema:
         for table in self.spec:
             self.log.debug('create snapshot %s_%s' % (table, ctxid))
             #
+            # Force cleanup
+            #
+            self.execute(f'DROP TABLE IF EXISTS {table}_{ctxid}')
+            #
             # create the snapshot table
             #
             self.execute(
                 f'''
-                    CREATE TABLE IF NOT EXISTS {table}_{ctxid}
+                    CREATE TABLE {table}_{ctxid}
                     AS SELECT * FROM {table}
                     WHERE f_tflags IS NULL
                 '''
