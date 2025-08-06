@@ -19,29 +19,6 @@ from .messages import cmsg_event, cmsg_failed
 log = logging.getLogger(__name__)
 
 
-class NDBConfig(dict):
-    def __init__(self, task_manager):
-        self.task_manager = task_manager
-
-    def __getitem__(self, key):
-        return self.task_manager.config_get(key)
-
-    def __setitem__(self, key, value):
-        return self.task_manager.config_set(key, value)
-
-    def __delitem__(self, key):
-        return self.task_manager.config_del(key)
-
-    def keys(self):
-        return self.task_manager.config_keys()
-
-    def items(self):
-        return self.task_manager.config_items()
-
-    def values(self):
-        return self.task_manager.config_values()
-
-
 class TaskAdapter:
     def __init__(self):
         self.event = asyncio.Event()
@@ -82,14 +59,11 @@ class TaskManager:
         self.log = ndb.log
         self.event_map = {}
         self.task_map = {}
-        self.event_queue = (
-            asyncio.Queue()
-        )  # LoggingQueue(log=self.ndb.log.channel('queue'))
+        self.event_queue = asyncio.Queue()
         self.stop_event = asyncio.Event()
         self.reload_event = asyncio.Event()
         self.thread = None
         self.ctime = self.gctime = time.time()
-        self.ready = asyncio.Event()
 
     def register_handler(self, event, handler):
         if event not in self.event_map:
@@ -109,9 +83,6 @@ class TaskManager:
 
     async def handler_failed(self, sources, target, event):
         self.ndb.schema.mark(target, 1)
-
-    def main(self):
-        asyncio.run(self.run())
 
     def create_task(self, coro, state='running', obj=None):
         task = Task(coro, state, obj)
@@ -189,32 +160,21 @@ class TaskManager:
             if time.time() - self.gctime > config.gc_timeout:
                 self.gctime = time.time()
 
-    async def run(self):
+    def setup(self):
         self.thread = id(threading.current_thread())
-
-        # init the events map
         event_map = {
             cmsg_event: [self.handler_event],
             cmsg_failed: [self.handler_failed],
         }
         self.event_map = event_map
-
-        try:
-            self.ndb.schema = schema.DBSchema(
-                self.ndb.config, self.event_map, self.log.channel('schema')
-            )
-            self.ndb.config = NDBConfig(self)
-
-        except Exception as e:
-            self.ndb._dbm_error = e
-            self.ready.set()
-            return
-
+        self.ndb.schema = schema.DBSchema(
+            self.ndb.config, self.event_map, self.log.channel('schema')
+        )
         for event, handlers in self.ndb.schema.event_map.items():
             for handler in handlers:
                 self.register_handler(event, handler)
 
-        # create an event loop
+    async def run(self):
         self.event_loop = asyncio.get_event_loop()
         self.ndb.event_loop = self.event_loop
         self.create_task(self.receiver)
@@ -222,6 +182,17 @@ class TaskManager:
         self.create_task(self.reload)
         self.ndb._dbm_ready.set()
         await self.task_watch()
+
+    def cleanup(self):
         self.ndb.schema.close()
         self.ndb._dbm_shutdown.set()
-        self.ready.set()
+
+    def main(self):
+        try:
+            self.setup()
+        except Exception as e:
+            self.ndb._dbm_error = e
+            self.ndb._dbm_ready.set()
+            return
+        asyncio.run(self.run())
+        self.cleanup()
