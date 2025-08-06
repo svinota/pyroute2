@@ -767,7 +767,7 @@ class Interface(AsyncObject):
                 except Exception as e_s:
                     e_s.trace = traceback.format_stack()
                     ret.append(e_s)
-            if not ret:
+            if spec and not ret:
                 ret = [KeyError('no address records matched')]
             return ret
 
