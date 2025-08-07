@@ -101,6 +101,7 @@ import sys
 import time
 import traceback
 from collections import OrderedDict
+from dataclasses import asdict
 from functools import partial
 
 from pyroute2 import config
@@ -203,7 +204,7 @@ class DBSchema:
         # loaded from SQL for every incoming message; this
         # means also that these variables can not be changed
         # in runtime
-        self.rtnl_log = config['rtnl_debug']
+        self.rtnl_log = config.rtnl_debug
         self.provider = None
         #
         for plugin in plugins:
@@ -240,7 +241,7 @@ class DBSchema:
     def initdb(self, config):
         if self.connection is not None:
             self.close()
-        self.connection = sqlite3.connect(config['spec'])
+        self.connection = sqlite3.connect(config.db_spec)
         self.connection.execute('PRAGMA foreign_keys = ON')
         #
         # compile request lines
@@ -295,7 +296,7 @@ class DBSchema:
                           ON DELETE CASCADE)
                      '''
         )
-        for key, value in config.items():
+        for key, value in asdict(config).items():
             self.config[key] = value
 
     def merge_spec(self, table1, table2, table, schema_idx):
@@ -507,7 +508,7 @@ class DBSchema:
                 f.close()
 
     def close(self):
-        if self.config['spec'] != ':memory:':
+        if self.config['db_spec'] != ':memory:':
             # simply discard in-memory sqlite db on exit
             self.purge_snapshots()
             self.connection.commit()

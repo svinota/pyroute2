@@ -35,51 +35,75 @@ SQL updates are expected normally.
     +----------------------------------------------------------------+
             |                      | ^                     | ^
             | `netlink events`     | |                     | |
-            | `inotify events`     | |                     | |
-            | `...`                | |                     | |
+            |                      | |                     | |
             v                      v |                     v |
      +--------------+        +--------------+        +--------------+
-     |     source   |        |     source   |        |     source   |<--\\
-     +--------------+        +--------------+        +--------------+   |
-            |                       |                       |           |
-            |                       |                       |           |
-            \\-----------------------+-----------------------/           |
-                                    |                                   |
-              parsed netlink events | `NDB._event_queue`                |
-                                    |                                   |
-                                    v                                   |
-                        +------------------------+                      |
-                        | `NDB.__dbm__()` thread |                      |
-                        +------------------------+                      |
-                                    |                                   |
-                                    v                                   |
-                     +-----------------------------+                    |
-                     | `NDB.schema.load_netlink()` |                    |
-                     | `NDB.objects.*.load*()`     |                    |
-                     +-----------------------------+                    |
-                                    |                                   |
-                                    v                                   |
-                         +----------------------+                       |
-                         |  SQL database        |                       |
-                         |     `SQLite`         |                       |
-                         |     `PostgreSQL`     |                       |
-                         +----------------------+                       |
-                                    |                                   |
-                                    |                                   |
-                                    V                                   |
-                              +---------------+                         |
-                            +---------------+ |                         |
-                          +---------------+ | |  `RTNL_Object.apply()`  |
-                          | NDB object:   | | |-------------------------/
-                          |  `interface`  | | |
-                          |  `address`    | | |
-                          |  `route`      | |-+
-                          |  `...`        |-+
-                          +---------------+
+     |   `async`    |        |   `async`    |        |   `async`    |
+     |   `source`   |        |   `source`   |        |   `source`   |<-------\\
+     +--------------+        +--------------+        +--------------+        |
+            |                       |                       |                |
+            |                       |                       |                |
+            \\-----------------------+-----------------------/                |
+                                    |                                        |
+              parsed netlink events |                                        |
+                                    |                                        |
+                                    v                                        |
+                     +-----------------------------+                         |
+                     |   `Source.receiver()`       |                         |
+                     |    async task               |                         |
+                     +-----------------------------+                         |
+                                    |                                        |
+                                    |  `TaskManager.event_queue`             |
+                                    |                                        |
+                                    v                                        |
+                     +-----------------------------+                         |
+                     | `TaskManager.receiver()`    |                         |
+                     | `TaskManager.task_watch()`  |                         |
+                     +-----------------------------+                         |
+                                    |                                        |
+                                    |  `AsyncObject: load_...msg()`          |
+                                    |  `Schema.load_netlink()`               |
+                                    v                                        |
+                     +-----------------------------+                         |
+                     |  SQL database               |                         |
+                     |     `sqlite3 :memory:`      |                         |
+                     +-----------------------------+                         |
+                                    |                                        |
+                                    |                                        |
+                                    v                                        |
+                         +-------------------------+                         |
+                       +-------------------------+ |                         |
+                     +-------------------------+ | |  `AsyncObject.apply()`  |
+                     | `AsyncObject:`          | | |-------------------------/
+                     |  `interface`            | | |
+                     |  `address`              | | |
+                     |  `route`                | |-+
+                     |  `...`                  |-+
+                     +-------------------------+
+                                   ^
+                                   |
+                                     `asynchronous API, AsyncNDB thread`
+                                   |
+
+     - - - - - - - - - - - - - - - + - - - - - - - - - - - - - - - - -
+
+                                   |
+                                     `synchronous API, MainThread`
+                                   |
+     `sync_api.SyncView`           v
+     `sync_api.SyncBase` +-------------------------+
+                       +-------------------------+ |
+                     +-------------------------+ | |
+                     | `RTNL_Object:`          | | |
+                     |  `interface`            | | |
+                     |  `address`              | | |
+                     |  `route`                | |-+
+                     |  `...`                  |-+
+                     +-------------------------+
 
 .. container:: aafig-caption
 
-    object names on the diagram are clickable
+    NDB architecture diagram
 
 The goal of NDB is to provide an easy access to RTNL info and entities via
 Python objects, like `pyroute2.ndb.objects.interface` (see also:
@@ -170,7 +194,7 @@ behaves like a simple named tuple.
 
 .. container:: aafig-caption
 
-    object names on the diagram are clickable
+    NDB: synchronous API
 
 Here are some simple NDB usage examples. More info see in the reference
 documentation below.
@@ -274,8 +298,8 @@ import ctypes.util
 import inspect
 import logging
 import logging.handlers
-import queue
 import threading
+from dataclasses import dataclass
 from functools import reduce
 from urllib.parse import urlparse
 
@@ -283,7 +307,6 @@ from pyroute2.common import basestring
 
 ##
 # NDB stuff
-from .events import ShutdownException
 from .objects import RTNL_Object
 from .objects.interface import SyncInterface
 from .objects.route import SyncRoute
@@ -408,36 +431,15 @@ class Log:
         return self.main.critical(*argv, **kwarg)
 
 
-class DeadEnd:
-    def put(self, *argv, **kwarg):
-        raise ShutdownException('shutdown in progress')
-
-
-class EventQueue:
-    def __init__(self, *argv, **kwarg):
-        self._bypass = self._queue = queue.Queue(*argv, **kwarg)
-
-    def put(self, msg, source=None):
-        return self._queue.put((source, msg))
-
-    def shutdown(self):
-        self._queue = DeadEnd()
-
-    def bypass(self, msg, source=None):
-        return self._bypass.put((source, msg))
-
-    def get(self, *argv, **kwarg):
-        return self._bypass.get(*argv, **kwarg)
-
-    def qsize(self):
-        return self._bypass.qsize()
+@dataclass
+class NDBConfig:
+    localhost: str = 'localhost'
+    rtnl_debug: bool = False
+    show_format: str = 'native'
+    db_spec: str = ':memory:'
 
 
 class NDB:
-
-    @property
-    def nsmanager(self):
-        return '%s/nsmanager' % self.localhost
 
     def __init__(
         self,
@@ -451,19 +453,13 @@ class NDB:
         auto_netns=False,
         libc=None,
     ):
-        self.localhost = localhost
-        self.schema = None
         self.libc = libc or ctypes.CDLL(
             ctypes.util.find_library('c'), use_errno=True
         )
         self.log = Log(log_id=id(self))
-        self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._dbm_shutdown = threading.Event()
-        self._global_lock = threading.Lock()
-        self._event_queue = EventQueue(maxsize=100)
-        self.messenger = None
         #
         if log:
             if isinstance(log, basestring):
@@ -478,28 +474,23 @@ class NDB:
         # fix sources prime
         if sources is None:
             sources = [
-                {'target': self.localhost, 'kind': 'local', 'nlm_generator': 1}
+                {'target': localhost, 'kind': 'local', 'nlm_generator': 1}
             ]
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
         for spec in sources:
             if 'target' not in spec:
-                spec['target'] = self.localhost
+                spec['target'] = localhost
                 break
 
-        self._call_registry = {}
         self._nl = sources
         atexit.register(self.close)
         self._dbm_ready.clear()
         self._dbm_error = None
-        self.config = {
-            'spec': db_spec,
-            'rtnl_debug': rtnl_debug,
-            'db_cleanup': db_cleanup,
-            'auto_netns': auto_netns,
-            'recordset_pipe': 'false',
-        }
+        self.config = NDBConfig(
+            localhost=localhost, db_spec=db_spec, rtnl_debug=rtnl_debug
+        )
         #
         self.task_manager = TaskManager(self)
         #
@@ -517,7 +508,14 @@ class NDB:
             self.sources.add(**spec)
         if self._dbm_error is not None:
             raise self._dbm_error
-        # self.query = Query(self.schema)
+
+    @property
+    def localhost(self):
+        return self.config.localhost
+
+    @localhost.setter
+    def localhost(self, value):
+        self.config.localhost = value
 
     def _create_views(self, flags=Flags.UNSPEC):
         views_map = (
@@ -572,26 +570,25 @@ class NDB:
         raise NotImplementedError()
 
     def close(self):
-        with self._global_lock:
-            if self._dbm_shutdown.is_set():
-                return
-            else:
-                self._dbm_shutdown.set()
-            if hasattr(atexit, 'unregister'):
-                atexit.unregister(self.close)
-            else:
-                try:
-                    atexit._exithandlers.remove((self.close, (), {}))
-                except ValueError:
-                    pass
-            # shutdown the _dbm_thread
-            self.task_manager.event_loop.call_soon_threadsafe(
-                self.task_manager.stop_event.set
-            )
-            self._dbm_shutdown.wait()
-            self._dbm_thread.join()
-            # shutdown the logger -- free the resources
-            self.log.close()
+        if self._dbm_shutdown.is_set():
+            return
+        else:
+            self._dbm_shutdown.set()
+        if hasattr(atexit, 'unregister'):
+            atexit.unregister(self.close)
+        else:
+            try:
+                atexit._exithandlers.remove((self.close, (), {}))
+            except ValueError:
+                pass
+        # shutdown the _dbm_thread
+        self.task_manager.event_loop.call_soon_threadsafe(
+            self.task_manager.stop_event.set
+        )
+        self._dbm_shutdown.wait()
+        self._dbm_thread.join()
+        # shutdown the logger -- free the resources
+        self.log.close()
 
     def backup(self, spec):
         return self.db.backup(spec)

@@ -13,11 +13,6 @@ starts with one local RTNL source names `localhost`::
             "name": "localhost",
             "spec": "{'target': 'localhost', 'nlm_generator': 1}",
             "state": "running"
-        },
-        {
-            "name": "localhost/nsmanager",
-            "spec": "{'target': 'localhost/nsmanager'}",
-            "state": "running"
         }
     ]
     >>> ndb.sources['localhost']
@@ -60,15 +55,12 @@ See also: :ref:`netns`
 '''
 
 import errno
-import importlib
-import queue
 import socket
 import struct
-import sys
 import threading
 import time
-import uuid
 
+from pyroute2 import netns
 from pyroute2.common import basestring
 from pyroute2.iproute import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
@@ -78,47 +70,8 @@ from .events import ShutdownException, State
 from .messages import cmsg_event
 from .objects import RTNL_Object
 
-if sys.platform.startswith('linux'):
-    from pyroute2 import netns
-    from pyroute2.iproute.linux import NetNS
-    from pyroute2.netns.manager import NetNSManager
-else:
-    NetNS = None
-    NetNSManager = None
-
 SOURCE_FAIL_PAUSE = 1
 SOURCE_MAX_ERRORS = 3
-
-
-class SourceProxy(object):
-    def __init__(self, ndb, target):
-        self.ndb = ndb
-        self.events = queue.Queue()
-        self.target = target
-
-    def api(self, name, *argv, **kwarg):
-        call_id = str(uuid.uuid4().hex)
-        self.ndb._call_registry[call_id] = event = threading.Event()
-        event.clear()
-        (
-            self.ndb.messenger.emit(
-                {
-                    'type': 'api',
-                    'target': self.target,
-                    'call_id': call_id,
-                    'name': name,
-                    'argv': argv,
-                    'kwarg': kwarg,
-                }
-            )
-        )
-
-        event.wait()
-        response = self.ndb._call_registry.pop(call_id)
-        if 'return' in response:
-            return response['return']
-        elif 'exception' in response:
-            raise response['exception']
 
 
 class Source(dict):
@@ -134,7 +87,6 @@ class Source(dict):
     summary_header = None
     view = None
     table = 'sources'
-    vmap = {'local': AsyncIPRoute, 'netns': NetNS, 'nsmanager': NetNSManager}
 
     def __init__(self, ndb, **spec):
         self.th = None
@@ -150,10 +102,6 @@ class Source(dict):
         # RTNL API
         self.nl_kwarg = spec
         self.nl_kwarg['nlm_echo'] = True
-        #
-        if self.ndb.messenger is not None:
-            self.ndb.messenger.targets.add(self.target)
-        #
         self.errors_counter = 0
         self.exception = None
         self.shutdown = threading.Event()
@@ -242,11 +190,6 @@ class Source(dict):
         # specific compare
         if isinstance(right, basestring):
             return right == left['name']
-
-    def get_prime(self, name):
-        return self.vmap.get(self.kind, None) or getattr(
-            importlib.import_module('pyroute2'), self.kind
-        )
 
     async def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant

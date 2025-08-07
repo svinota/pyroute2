@@ -617,7 +617,7 @@ class Route(AsyncObject):
             raise TypeError('unsupported key type')
 
         if 'target' not in ret_key:
-            ret_key['target'] = self.ndb.localhost
+            ret_key['target'] = self.ndb.config.localhost
 
         ##
         # previously here was a code that injected the default

@@ -2,33 +2,6 @@ import threading
 import time
 
 
-class SyncStart(Exception):
-    pass
-
-
-class SchemaFlush(Exception):
-    pass
-
-
-class SchemaReadLock(Exception):
-    pass
-
-
-class SchemaReadUnlock(Exception):
-    pass
-
-
-class SchemaGenericRequest(object):
-    def __init__(self, response, *argv, **kwarg):
-        self.response = response
-        self.argv = argv
-        self.kwarg = kwarg
-
-
-class MarkFailed(Exception):
-    pass
-
-
 class DBMExitException(Exception):
     pass
 
