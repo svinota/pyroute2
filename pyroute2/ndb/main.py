@@ -435,10 +435,6 @@ class EventQueue:
 
 class NDB:
 
-    @property
-    def nsmanager(self):
-        return '%s/nsmanager' % self.localhost
-
     def __init__(
         self,
         sources=None,

@@ -126,10 +126,7 @@ class View(dict):
 
     @property
     def default_target(self):
-        if self.table == 'netns':
-            return self.ndb.nsmanager
-        else:
-            return self.ndb.localhost
+        return self.ndb.localhost
 
     @property
     def context(self):
