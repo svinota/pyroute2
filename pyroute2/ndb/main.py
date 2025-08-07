@@ -35,51 +35,75 @@ SQL updates are expected normally.
     +----------------------------------------------------------------+
             |                      | ^                     | ^
             | `netlink events`     | |                     | |
-            | `inotify events`     | |                     | |
-            | `...`                | |                     | |
+            |                      | |                     | |
             v                      v |                     v |
      +--------------+        +--------------+        +--------------+
-     |     source   |        |     source   |        |     source   |<--\\
-     +--------------+        +--------------+        +--------------+   |
-            |                       |                       |           |
-            |                       |                       |           |
-            \\-----------------------+-----------------------/           |
-                                    |                                   |
-              parsed netlink events | `NDB._event_queue`                |
-                                    |                                   |
-                                    v                                   |
-                        +------------------------+                      |
-                        | `NDB.__dbm__()` thread |                      |
-                        +------------------------+                      |
-                                    |                                   |
-                                    v                                   |
-                     +-----------------------------+                    |
-                     | `NDB.schema.load_netlink()` |                    |
-                     | `NDB.objects.*.load*()`     |                    |
-                     +-----------------------------+                    |
-                                    |                                   |
-                                    v                                   |
-                         +----------------------+                       |
-                         |  SQL database        |                       |
-                         |     `SQLite`         |                       |
-                         |     `PostgreSQL`     |                       |
-                         +----------------------+                       |
-                                    |                                   |
-                                    |                                   |
-                                    V                                   |
-                              +---------------+                         |
-                            +---------------+ |                         |
-                          +---------------+ | |  `RTNL_Object.apply()`  |
-                          | NDB object:   | | |-------------------------/
-                          |  `interface`  | | |
-                          |  `address`    | | |
-                          |  `route`      | |-+
-                          |  `...`        |-+
-                          +---------------+
+     |   `async`    |        |   `async`    |        |   `async`    |
+     |   `source`   |        |   `source`   |        |   `source`   |<-------\\
+     +--------------+        +--------------+        +--------------+        |
+            |                       |                       |                |
+            |                       |                       |                |
+            \\-----------------------+-----------------------/                |
+                                    |                                        |
+              parsed netlink events |                                        |
+                                    |                                        |
+                                    v                                        |
+                     +-----------------------------+                         |
+                     |   `Source.receiver()`       |                         |
+                     |    async task               |                         |
+                     +-----------------------------+                         |
+                                    |                                        |
+                                    |  `TaskManager.event_queue`             |
+                                    |                                        |
+                                    v                                        |
+                     +-----------------------------+                         |
+                     | `TaskManager.receiver()`    |                         |
+                     | `TaskManager.task_watch()`  |                         |
+                     +-----------------------------+                         |
+                                    |                                        |
+                                    |  `AsyncObject: load_...msg()`          |
+                                    |  `Schema.load_netlink()`               |
+                                    v                                        |
+                     +-----------------------------+                         |
+                     |  SQL database               |                         |
+                     |     `sqlite3 :memory:`      |                         |
+                     +-----------------------------+                         |
+                                    |                                        |
+                                    |                                        |
+                                    v                                        |
+                         +-------------------------+                         |
+                       +-------------------------+ |                         |
+                     +-------------------------+ | |  `AsyncObject.apply()`  |
+                     | `AsyncObject:`          | | |-------------------------/
+                     |  `interface`            | | |
+                     |  `address`              | | |
+                     |  `route`                | |-+
+                     |  `...`                  |-+
+                     +-------------------------+
+                                   ^
+                                   |
+                                     `asynchronous API, AsyncNDB thread`
+                                   |
+
+     - - - - - - - - - - - - - - - + - - - - - - - - - - - - - - - - -
+
+                                   |
+                                     `synchronous API, MainThread`
+                                   |
+     `sync_api.SyncView`           v
+     `sync_api.SyncBase` +-------------------------+
+                       +-------------------------+ |
+                     +-------------------------+ | |
+                     | `RTNL_Object:`          | | |
+                     |  `interface`            | | |
+                     |  `address`              | | |
+                     |  `route`                | |-+
+                     |  `...`                  |-+
+                     +-------------------------+
 
 .. container:: aafig-caption
 
-    object names on the diagram are clickable
+    NDB architecture diagram
 
 The goal of NDB is to provide an easy access to RTNL info and entities via
 Python objects, like `pyroute2.ndb.objects.interface` (see also:
@@ -170,7 +194,7 @@ behaves like a simple named tuple.
 
 .. container:: aafig-caption
 
-    object names on the diagram are clickable
+    NDB: synchronous API
 
 Here are some simple NDB usage examples. More info see in the reference
 documentation below.
