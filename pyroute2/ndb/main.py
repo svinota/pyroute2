@@ -276,6 +276,7 @@ import logging
 import logging.handlers
 import queue
 import threading
+from dataclasses import dataclass
 from functools import reduce
 from urllib.parse import urlparse
 
@@ -433,6 +434,14 @@ class EventQueue:
         return self._bypass.qsize()
 
 
+@dataclass
+class NDBConfig:
+    localhost: str = 'localhost'
+    rtnl_debug: bool = False
+    show_format: str = 'native'
+    db_spec: str = ':memory:'
+
+
 class NDB:
 
     def __init__(
@@ -489,13 +498,9 @@ class NDB:
         atexit.register(self.close)
         self._dbm_ready.clear()
         self._dbm_error = None
-        self.config = {
-            'spec': db_spec,
-            'rtnl_debug': rtnl_debug,
-            'db_cleanup': db_cleanup,
-            'auto_netns': auto_netns,
-            'recordset_pipe': 'false',
-        }
+        self.config = NDBConfig(
+            localhost=localhost, db_spec=db_spec, rtnl_debug=rtnl_debug
+        )
         #
         self.task_manager = TaskManager(self)
         #

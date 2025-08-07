@@ -487,11 +487,11 @@ class AsyncObject(dict):
         '''
         Return the object in a specified format. The format may be
         specified with the keyword argument `format` or in the
-        `ndb.config['show_format']`.
+        `ndb.config.show_format`.
 
         TODO: document different formats
         '''
-        fmt = fmt or self.view.ndb.config.get('show_format', 'native')
+        fmt = fmt or self.view.ndb.config.show_format
         if fmt == 'native':
             return dict(self)
         else:
