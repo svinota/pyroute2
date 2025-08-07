@@ -135,7 +135,7 @@ class Neighbour(AsyncObject):
         if isinstance(key, dict):
             ret_key = key
         else:
-            ret_key = {'target': self.ndb.localhost}
+            ret_key = {'target': self.ndb.config.localhost}
 
         if isinstance(key, basestring):
             ret_key['NDA_DST'] = key

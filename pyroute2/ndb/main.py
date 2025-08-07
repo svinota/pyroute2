@@ -298,7 +298,6 @@ import ctypes.util
 import inspect
 import logging
 import logging.handlers
-import queue
 import threading
 from dataclasses import dataclass
 from functools import reduce
@@ -308,7 +307,6 @@ from pyroute2.common import basestring
 
 ##
 # NDB stuff
-from .events import ShutdownException
 from .objects import RTNL_Object
 from .objects.interface import SyncInterface
 from .objects.route import SyncRoute
@@ -433,31 +431,6 @@ class Log:
         return self.main.critical(*argv, **kwarg)
 
 
-class DeadEnd:
-    def put(self, *argv, **kwarg):
-        raise ShutdownException('shutdown in progress')
-
-
-class EventQueue:
-    def __init__(self, *argv, **kwarg):
-        self._bypass = self._queue = queue.Queue(*argv, **kwarg)
-
-    def put(self, msg, source=None):
-        return self._queue.put((source, msg))
-
-    def shutdown(self):
-        self._queue = DeadEnd()
-
-    def bypass(self, msg, source=None):
-        return self._bypass.put((source, msg))
-
-    def get(self, *argv, **kwarg):
-        return self._bypass.get(*argv, **kwarg)
-
-    def qsize(self):
-        return self._bypass.qsize()
-
-
 @dataclass
 class NDBConfig:
     localhost: str = 'localhost'
@@ -480,19 +453,13 @@ class NDB:
         auto_netns=False,
         libc=None,
     ):
-        self.localhost = localhost
-        self.schema = None
         self.libc = libc or ctypes.CDLL(
             ctypes.util.find_library('c'), use_errno=True
         )
         self.log = Log(log_id=id(self))
-        self._db = None
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._dbm_shutdown = threading.Event()
-        self._global_lock = threading.Lock()
-        self._event_queue = EventQueue(maxsize=100)
-        self.messenger = None
         #
         if log:
             if isinstance(log, basestring):
@@ -507,17 +474,16 @@ class NDB:
         # fix sources prime
         if sources is None:
             sources = [
-                {'target': self.localhost, 'kind': 'local', 'nlm_generator': 1}
+                {'target': localhost, 'kind': 'local', 'nlm_generator': 1}
             ]
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
         for spec in sources:
             if 'target' not in spec:
-                spec['target'] = self.localhost
+                spec['target'] = localhost
                 break
 
-        self._call_registry = {}
         self._nl = sources
         atexit.register(self.close)
         self._dbm_ready.clear()
@@ -542,7 +508,14 @@ class NDB:
             self.sources.add(**spec)
         if self._dbm_error is not None:
             raise self._dbm_error
-        # self.query = Query(self.schema)
+
+    @property
+    def localhost(self):
+        return self.config.localhost
+
+    @localhost.setter
+    def localhost(self, value):
+        self.config.localhost = value
 
     def _create_views(self, flags=Flags.UNSPEC):
         views_map = (
@@ -597,26 +570,25 @@ class NDB:
         raise NotImplementedError()
 
     def close(self):
-        with self._global_lock:
-            if self._dbm_shutdown.is_set():
-                return
-            else:
-                self._dbm_shutdown.set()
-            if hasattr(atexit, 'unregister'):
-                atexit.unregister(self.close)
-            else:
-                try:
-                    atexit._exithandlers.remove((self.close, (), {}))
-                except ValueError:
-                    pass
-            # shutdown the _dbm_thread
-            self.task_manager.event_loop.call_soon_threadsafe(
-                self.task_manager.stop_event.set
-            )
-            self._dbm_shutdown.wait()
-            self._dbm_thread.join()
-            # shutdown the logger -- free the resources
-            self.log.close()
+        if self._dbm_shutdown.is_set():
+            return
+        else:
+            self._dbm_shutdown.set()
+        if hasattr(atexit, 'unregister'):
+            atexit.unregister(self.close)
+        else:
+            try:
+                atexit._exithandlers.remove((self.close, (), {}))
+            except ValueError:
+                pass
+        # shutdown the _dbm_thread
+        self.task_manager.event_loop.call_soon_threadsafe(
+            self.task_manager.stop_event.set
+        )
+        self._dbm_shutdown.wait()
+        self._dbm_thread.join()
+        # shutdown the logger -- free the resources
+        self.log.close()
 
     def backup(self, spec):
         return self.db.backup(spec)

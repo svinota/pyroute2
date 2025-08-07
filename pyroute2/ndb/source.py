@@ -55,12 +55,10 @@ See also: :ref:`netns`
 '''
 
 import errno
-import queue
 import socket
 import struct
 import threading
 import time
-import uuid
 
 from pyroute2 import netns
 from pyroute2.common import basestring
@@ -74,37 +72,6 @@ from .objects import RTNL_Object
 
 SOURCE_FAIL_PAUSE = 1
 SOURCE_MAX_ERRORS = 3
-
-
-class SourceProxy(object):
-    def __init__(self, ndb, target):
-        self.ndb = ndb
-        self.events = queue.Queue()
-        self.target = target
-
-    def api(self, name, *argv, **kwarg):
-        call_id = str(uuid.uuid4().hex)
-        self.ndb._call_registry[call_id] = event = threading.Event()
-        event.clear()
-        (
-            self.ndb.messenger.emit(
-                {
-                    'type': 'api',
-                    'target': self.target,
-                    'call_id': call_id,
-                    'name': name,
-                    'argv': argv,
-                    'kwarg': kwarg,
-                }
-            )
-        )
-
-        event.wait()
-        response = self.ndb._call_registry.pop(call_id)
-        if 'return' in response:
-            return response['return']
-        elif 'exception' in response:
-            raise response['exception']
 
 
 class Source(dict):
@@ -135,10 +102,6 @@ class Source(dict):
         # RTNL API
         self.nl_kwarg = spec
         self.nl_kwarg['nlm_echo'] = True
-        #
-        if self.ndb.messenger is not None:
-            self.ndb.messenger.targets.add(self.target)
-        #
         self.errors_counter = 0
         self.exception = None
         self.shutdown = threading.Event()

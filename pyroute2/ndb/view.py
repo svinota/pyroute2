@@ -69,7 +69,7 @@ from .objects.probe import Probe
 from .objects.route import Route
 from .objects.rule import Rule
 from .report import Record, RecordSet
-from .source import Source, SourceProxy
+from .source import Source
 
 
 class TmpHandler:
@@ -126,7 +126,7 @@ class View(dict):
 
     @property
     def default_target(self):
-        return self.ndb.localhost
+        return self.ndb.config.localhost
 
     @property
     def context(self):
@@ -502,9 +502,5 @@ class SourcesView(View):
 
         if target in self.cache:
             return self.cache[target]
-        elif target in self.proxy:
-            return self.proxy[target]
-        else:
-            proxy = SourceProxy(self.ndb, target)
-            self.proxy[target] = proxy
-            return proxy
+
+        raise KeyError()

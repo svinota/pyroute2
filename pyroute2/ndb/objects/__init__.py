@@ -394,7 +394,7 @@ class AsyncObject(dict):
 
     @property
     def context(self):
-        return {'target': self.get('target', self.ndb.localhost)}
+        return {'target': self.get('target', self.ndb.config.localhost)}
 
     @classmethod
     def nla2name(self, name):
@@ -523,9 +523,6 @@ class AsyncObject(dict):
             for key, value in kwarg.items():
                 self[key] = value
         return self
-
-    def wtime(self, itn=1):
-        return max(min(itn * 0.1, 1), self.view.ndb._event_queue.qsize() / 10)
 
     def register(self):
         #
@@ -864,7 +861,7 @@ class AsyncObject(dict):
                     req[k] = v
             if self.master is not None:
                 req = self.new_spec(
-                    req, self.master.context, self.ndb.localhost
+                    req, self.master.context, self.ndb.config.localhost
                 )
 
             method = 'add'
@@ -928,18 +925,14 @@ class AsyncObject(dict):
                 else:
                     raise e
 
-            wtime = self.wtime(itn)
-            mqsize = self.view.ndb._event_queue.qsize()
             nq = self.schema.stats.get(self['target'])
             if nq is not None:
                 nqsize = nq.qsize
             else:
                 nqsize = 0
             self.log.debug(
-                'stats: apply %s {'
-                'objid %s, wtime %s, '
-                'mqsize %s, nqsize %s'
-                '}' % (method, id(self), wtime, mqsize, nqsize)
+                f'stats: apply {method} '
+                f'{{ objid {id(self)}, nqsize {nqsize} }}'
             )
             if self.check():
                 self.log.debug('checked')
