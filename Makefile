@@ -10,9 +10,6 @@ releaseTag ?= $(shell git describe --tags --abbrev=0)
 releaseDescription := $(shell git tag -l -n1 ${releaseTag} | sed 's/[0-9. ]\+//')
 noxboot ?= ~/.venv-boot
 
-ifeq ($(strip $(python)),)
-$(error No suitable python versions found. checkModules: ${checkModules})
-endif
 
 define nox
         {\
@@ -30,6 +27,13 @@ define nox
 		nox $(1) -- '${noxconfig}';\
 	}
 endef
+
+.PHONY: selftest
+selftest:
+ifeq ($(strip $(python)),)
+	@echo No suitable python versions found. checkModules: ${checkModules}
+	@exit 42
+endif
 
 .PHONY: all
 all:
@@ -80,7 +84,7 @@ format:
 	$(call nox,-e linter-$(shell basename ${python}))
 
 .PHONY: test nox
-test nox:
+test nox: selftest
 ifeq ($(platform), Linux)
 	$(call nox,-e ${session})
 else ifeq ($(platform), OpenBSD)
@@ -88,10 +92,6 @@ else ifeq ($(platform), OpenBSD)
 else
 	$(info >> Platform not supported)
 endif
-
-.PHONY: test-platform
-test-platform:
-	$(call nox,-e test_platform)
 
 .PHONY: upload
 upload: dist
@@ -106,7 +106,7 @@ release: dist
 		./dist/*${releaseTag}*
 
 .PHONY: setup
-setup:
+setup: selftest
 	$(MAKE) VERSION
 
 .PHONY: dist
