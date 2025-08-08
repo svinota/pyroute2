@@ -6,7 +6,7 @@
 checkModules ?= ensurepip
 python ?= $(shell util/find_python.sh ${checkModules} )
 platform := $(shell uname -s)
-releaseTag ?= $(shell git describe --tags --abbrev=0)
+releaseTag ?= $(shell git describe --tags --abbrev=0 2>/dev/null )
 releaseDescription := $(shell git tag -l -n1 ${releaseTag} | sed 's/[0-9. ]\+//')
 noxboot ?= ~/.venv-boot
 
