@@ -43,9 +43,10 @@ function iterate_path() {
     declare -i HAS_VENV=0
     for DIR in $( echo $PATH | sed 's/:/ /g' ); do {
         for PYTHON in $( list_pythons $DIR ); do {
-            [ -z "$( check_valid_python $PYTHON )" ] || {
+            VPYTHON="$( check_valid_python $PYTHON )"
+            [ -z "$VPYTHON" ] || {
                 (( HAS_VENV++ )) ;
-                echo $PYTHON
+                echo $VPYTHON
             }
         } done
     } done
@@ -63,4 +64,4 @@ function iterate_path() {
 # If operating in a venv, it will return the venv Python, despite the
 # higher version may be available in the system directories.
 #
-iterate_path | head -1 | cut -d \  -f 2
+iterate_path | sort -r -n | head -1 | cut -d \  -f 2
