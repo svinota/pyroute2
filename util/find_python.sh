@@ -3,6 +3,7 @@
 #
 # Utility to find Python
 #
+CHECK_MODULES=$@
 
 function list_pythons() {
     #
@@ -23,7 +24,7 @@ function check_valid_python() {
     # This is required to sort versions correctly. The last version
     # byte is ignored.
     #
-    for MODULE in ensurepip sqlite3; do
+    for MODULE in $CHECK_MODULES; do
         $1 -c "import $MODULE" >/dev/null 2>&1 || return
     done
     VERSION=$( $1 -V 2>/dev/null |\
@@ -34,27 +35,26 @@ function check_valid_python() {
     fi
 }
 
-function list_valid_pythons() {
-    #
-    # Filter only valid Pythons in a directory $1, ignoring pyenv shims
-    # not pointing to an installed Python binary.
-    #
-    for PYTHON in $( list_pythons $1 ); do
-        PYTHON=$( check_valid_python $PYTHON )
-        if [ ! -z "$PYTHON" ]; then
-            echo $PYTHON
-        fi
-    done
-}
-
 function iterate_path() {
     #
     # Iterate dirs in the $PATH variable, sorting Python versions
     # within each directory.
     #
-    for DIR in $( echo $PATH | sed 's/:/ /g' ); do
-        list_valid_pythons $DIR | sort -r -n
-    done
+    declare -i HAS_VENV=0
+    for DIR in $( echo $PATH | sed 's/:/ /g' ); do {
+        for PYTHON in $( list_pythons $DIR ); do {
+            VPYTHON="$( check_valid_python $PYTHON )"
+            [ -z "$VPYTHON" ] || {
+                (( HAS_VENV++ )) ;
+                echo $VPYTHON
+            }
+        } done
+    } done
+    [ $HAS_VENV -eq 0 ] && {
+        (
+            echo "To run the tests, python-venv is required"
+        ) 1>&2
+    }
 }
 
 #
@@ -64,4 +64,4 @@ function iterate_path() {
 # If operating in a venv, it will return the venv Python, despite the
 # higher version may be available in the system directories.
 #
-iterate_path | head -1 | cut -d \  -f 2
+iterate_path | sort -r -n | head -1 | cut -d \  -f 2

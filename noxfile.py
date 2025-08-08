@@ -174,12 +174,13 @@ def setup_venv_common(session, flavour='dev', config=None):
     return os.path.abspath(session.create_tmp())
 
 
-def setup_venv_dev(session, config=None):
+def setup_venv_dev(session, config=None, tmpdir=None):
     if config is None:
         config = {}
     if config.get('fast'):
         return os.getcwd()
-    tmpdir = setup_venv_common(session)
+    if tmpdir is None:
+        tmpdir = setup_venv_common(session)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
     session.chdir(f'{tmpdir}/tests')
@@ -218,6 +219,14 @@ def setup_venv_docs(session, config=None):
             ('CHANGELOG.rst', f'{tmpdir}/docs/changelog.rst'),
         )
     ]
+    return tmpdir
+
+
+def setup_venv_ci(session, config):
+    tmpdir = setup_venv_common(session, flavour='dev', config=config)
+    session.run('cp', '-a', 'util', tmpdir, external=True)
+    session.run('cp', '-a', 'Makefile', tmpdir, external=True)
+    setup_venv_dev(session, config, tmpdir)
     return tmpdir
 
 
@@ -296,9 +305,10 @@ def integration(session, config):
     session.run(*pytest_with_options('test_integration', config))
 
 
-def test_common(session, config, module):
+def test_common(session, config, module, workspace=None):
     setup_linux(session)
-    workspace = setup_venv_dev(session, config)
+    if workspace is None:
+        workspace = setup_venv_dev(session, config)
     path = f'{workspace}/tests/mocklib'
     if config.get('fast'):
         path += f':{workspace}'
@@ -323,7 +333,9 @@ def test_common(session, config, module):
 @add_session_config
 def ci(session, config):
     '''Run ci self-test. No root required.'''
-    test_common(session, config, 'test_ci')
+    test_common(
+        session, config, 'test_ci', workspace=setup_venv_ci(session, config)
+    )
 
 
 @nox.session(
