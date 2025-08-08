@@ -9,6 +9,10 @@ releaseTag ?= $(shell git describe --tags --abbrev=0)
 releaseDescription := $(shell git tag -l -n1 ${releaseTag} | sed 's/[0-9. ]\+//')
 noxboot ?= ~/.venv-boot
 
+ifeq ($(strip $(python)),)
+$(error No usable python versions found)
+endif
+
 define nox
         {\
 		which nox 2>/dev/null || {\
