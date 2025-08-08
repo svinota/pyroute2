@@ -3,14 +3,15 @@
 #   The pyroute2 project is dual licensed, see README.license.md for details
 #
 #
-python ?= $(shell util/find_python.sh)
+checkModules ?= ensurepip
+python ?= $(shell util/find_python.sh ${checkModules} )
 platform := $(shell uname -s)
 releaseTag ?= $(shell git describe --tags --abbrev=0)
 releaseDescription := $(shell git tag -l -n1 ${releaseTag} | sed 's/[0-9. ]\+//')
 noxboot ?= ~/.venv-boot
 
 ifeq ($(strip $(python)),)
-$(error No usable python versions found)
+$(error No suitable python versions found. checkModules: ${checkModules})
 endif
 
 define nox

@@ -3,6 +3,7 @@
 #
 # Utility to find Python
 #
+CHECK_MODULES=$@
 
 function list_pythons() {
     #
@@ -23,7 +24,7 @@ function check_valid_python() {
     # This is required to sort versions correctly. The last version
     # byte is ignored.
     #
-    for MODULE in ensurepip; do
+    for MODULE in $CHECK_MODULES; do
         $1 -c "import $MODULE" >/dev/null 2>&1 || return
     done
     VERSION=$( $1 -V 2>/dev/null |\
