@@ -21,7 +21,7 @@ from pyroute2.netlink import (
     NLM_F_REQUEST,
     NLMSG_ERROR,
 )
-from pyroute2.netlink.exceptions import IPSetError, NetlinkError
+from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink import NFNL_SUBSYS_IPSET
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_CMD_ADD,
@@ -151,7 +151,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
         msg = await self.get_proto_version()
         self._proto_version = msg[0].get_attr('IPSET_ATTR_PROTOCOL')
 
-    async def request(
+    async def request_iter(
         self,
         msg,
         msg_type,
@@ -159,20 +159,30 @@ class AsyncIPSet(AsyncNetlinkSocket):
         terminate=None,
     ):
         msg['nfgen_family'] = self._nfgen_family
-        try:
-            return tuple(
-                [
-                    x
-                    async for x in await self.nlm_request(
-                        msg,
-                        msg_type | (NFNL_SUBSYS_IPSET << 8),
-                        msg_flags,
-                        terminate=terminate,
-                    )
-                ]
-            )
-        except NetlinkError as err:
-            raise _IPSetError(err.code, cmd=msg_type)
+        async for response in await self.nlm_request(
+            msg,
+            msg_type | (NFNL_SUBSYS_IPSET << 8),
+            msg_flags,
+            terminate=terminate,
+            exception_factory=lambda err: _IPSetError(err.code, cmd=msg_type),
+        ):
+            yield response
+
+    async def request(
+        self,
+        msg,
+        msg_type,
+        msg_flags=NLM_F_REQUEST | NLM_F_DUMP,
+        terminate=None,
+    ):
+        return tuple(
+            [
+                x
+                async for x in self.request_iter(
+                    msg, msg_type, msg_flags, terminate
+                )
+            ]
+        )
 
     async def headers(self, name, **kwargs):
         '''
@@ -213,7 +223,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
             msg['attrs'].append(['IPSET_ATTR_SETNAME', name])
         if flags is not None:
             msg['attrs'].append(['IPSET_ATTR_FLAGS', flags])
-        return await self.request(msg, cmd)
+        return self.request_iter(msg, cmd)
 
     async def destroy(self, name=None):
         '''
@@ -788,13 +798,15 @@ class IPSet(NetlinkSocket):
         self.asyncore._attr_revision = value
 
     def headers(self, name, **kwarg):
-        return self._run_with_cleanup(self.asyncore.headers, name, **kwarg)
+        return self._generate_with_cleanup(
+            self.asyncore.headers, name, **kwarg
+        )
 
     def get_proto_version(self, version=6):
         return self._run_with_cleanup(self.asyncore.get_proto_version, version)
 
     def list(self, *argv, **kwarg):
-        return self._run_with_cleanup(self.asyncore.list, *argv, **kwarg)
+        return self._generate_with_cleanup(self.asyncore.list, *argv, **kwarg)
 
     def destroy(self, name=None):
         return self._run_with_cleanup(self.asyncore.destroy, name)

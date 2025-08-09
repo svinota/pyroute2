@@ -74,7 +74,7 @@ def list_ipset(ipset_name):
 def ipset_exists(ipset_name):
     with IPSet() as sock:
         try:
-            sock.headers(ipset_name)
+            tuple(sock.headers(ipset_name))
             return True
         except IPSetError as e:
             if e.code == errno.ENOENT:
@@ -220,7 +220,7 @@ def test_skbqueue(ipset, ipset_name):
 
 def test_maxelem(ipset, ipset_name):
     ipset.create(ipset_name, maxelem=1)
-    data = ipset.list(ipset_name)[0].get_attr("IPSET_ATTR_DATA")
+    data = tuple(ipset.list(ipset_name))[0].get_attr("IPSET_ATTR_DATA")
     maxelem = data.get_attr("IPSET_ATTR_MAXELEM")
     assert maxelem == 1
 
@@ -228,14 +228,14 @@ def test_maxelem(ipset, ipset_name):
 def test_hashsize(ipset, ipset_name):
     min_size = 64
     ipset.create(ipset_name, hashsize=min_size)
-    data = ipset.list(ipset_name)[0].get_attr("IPSET_ATTR_DATA")
+    data = tuple(ipset.list(ipset_name))[0].get_attr("IPSET_ATTR_DATA")
     hashsize = data.get_attr("IPSET_ATTR_HASHSIZE")
     assert hashsize == min_size
 
 
 def test_forceadd(ipset, ipset_name):
     ipset.create(ipset_name, forceadd=True)
-    res = ipset.list(ipset_name)[0].get_attr("IPSET_ATTR_DATA")
+    res = tuple(ipset.list(ipset_name))[0].get_attr("IPSET_ATTR_DATA")
     flags = res.get_attr("IPSET_ATTR_CADT_FLAGS")
     assert flags & IPSET_FLAG_WITH_FORCEADD
 
@@ -339,7 +339,7 @@ def test_custom_hash_values(ipset, ipset_name):
     hashsize = 64
     ipset.create(ipset_name, stype=stype, maxelem=maxelem, hashsize=hashsize)
 
-    res = ipset.list(ipset_name)[0].get_attr("IPSET_ATTR_DATA")
+    res = tuple(ipset.list(ipset_name))[0].get_attr("IPSET_ATTR_DATA")
 
     assert res.get_attr("IPSET_ATTR_HASHSIZE") == hashsize
     assert res.get_attr("IPSET_ATTR_MAXELEM") == maxelem
@@ -357,7 +357,7 @@ def test_list_set(ipset, ipset_name):
     assert subname in list_ipset(ipset_name)
     assert ipset.test(ipset_name, subname, etype="set")
 
-    res = ipset.list(subname)[0].get_attr("IPSET_ATTR_DATA")
+    res = tuple(ipset.list(subname))[0].get_attr("IPSET_ATTR_DATA")
     assert res.get_attr("IPSET_ATTR_REFERENCES") == 1
 
     ipset.delete(ipset_name, subname, etype="set")
