@@ -2189,7 +2189,7 @@ class RTNL_API:
             ipr.route(
                 "add",
                 dst="10.0.0.0/24",
-                oif=ip.link_lookup(ifname="eth0"),
+                oif=ipr.link_lookup(ifname="eth0"),
                 encap={
                     "type": "mpls",
                     "labels": "200/300",
