@@ -133,5 +133,15 @@ LinkModeBits = (
     LinkModeBit(bit_index=66, name='200000baseCR4/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=67, name='100baseT1/Full', type=LMBTypeMode),
     LinkModeBit(bit_index=68, name='1000baseT1/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=69, name='400000baseKR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=70, name='400000baseSR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=71, name='400000baseLR8_ER8_FR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=72, name='400000baseDR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=73, name='400000baseCR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=93, name='800000baseCR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=94, name='800000baseKR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=95, name='800000baseDR8/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=96, name='800000baseDR8_2/Full', type=LMBTypeMode),
+    LinkModeBit(bit_index=97, name='800000baseSR8/Full', type=LMBTypeMode),
 )
 LinkModeBits_by_index = {bit.bit_index: bit for bit in LinkModeBits}
