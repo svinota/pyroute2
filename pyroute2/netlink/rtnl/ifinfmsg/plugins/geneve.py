@@ -17,6 +17,7 @@ class geneve(nla):
         ('IFLA_GENEVE_LABEL', 'be32'),
         ('IFLA_GENEVE_TTL_INHERIT', 'uint8'),
         ('IFLA_GENEVE_DF', 'df'),
+        ('IFLA_GENEVE_INNER_PROTO_INHERIT', 'flag'),
     )
 
     class df(nlmsg_atoms.uint16):
