@@ -458,6 +458,7 @@ class ifinfbase(object):
     #
     sql_constraints = {'index': 'NOT NULL'}
     sql_extra_fields = (('state', 'TEXT'),)
+    sql_ignore = {'IFLA_ALLMULTI'}
     lookup_fallbacks = {'index': 'ifname'}
 
     fields = (
