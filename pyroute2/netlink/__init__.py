@@ -739,7 +739,7 @@ class SQLSchema:
     def __init__(self, cls):
         ret = []
         for field in cls.fields:
-            if field[0][0] != '_':
+            if self.valid_field(cls, field[0]):
                 ret.append(
                     (
                         (field[0],),
@@ -757,7 +757,7 @@ class SQLSchema:
                 nla_type = nla_tuple[2]
             nla_type = getattr(cls, nla_type, None)
             sql_type = getattr(nla_type, 'sql_type', None)
-            if sql_type:
+            if sql_type and self.valid_field(cls, nla_name):
                 sql_type = ' '.join(
                     (sql_type, cls.sql_constraints.get(nla_name, ''))
                 )
@@ -775,6 +775,14 @@ class SQLSchema:
         self.spec = ret
         self.index = []
         self.foreign_keys = []
+
+    @staticmethod
+    def valid_field(cls, name):
+        if name in cls.sql_ignore:
+            return False
+        if name[0] == '_':
+            return False
+        return True
 
     def unique_index(self, *index):
         self.index = index
@@ -835,6 +843,7 @@ class nlmsg_base(dict):
     sql_constraints = {}
     sql_extra_fields = ()
     sql_extend = ()
+    sql_ignore = set()
     lookup_fallbacks = {}
     nla_flags = 0  # NLA flags
     value_map = {}

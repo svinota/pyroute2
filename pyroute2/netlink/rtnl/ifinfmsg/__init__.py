@@ -458,6 +458,7 @@ class ifinfbase(object):
     #
     sql_constraints = {'index': 'NOT NULL'}
     sql_extra_fields = (('state', 'TEXT'),)
+    sql_ignore = {'IFLA_ALLMULTI'}
     lookup_fallbacks = {'index': 'ifname'}
 
     fields = (
@@ -531,6 +532,7 @@ class ifinfbase(object):
         ('IFLA_GRO_MAX_SIZE', 'uint32'),
         ('IFLA_TSO_MAX_SIZE', 'uint32'),
         ('IFLA_TSO_MAX_SEGS', 'uint32'),
+        ('IFLA_ALLMULTI', 'uint32'),
     )
 
     @staticmethod
