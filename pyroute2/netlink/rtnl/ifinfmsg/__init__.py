@@ -531,6 +531,7 @@ class ifinfbase(object):
         ('IFLA_GRO_MAX_SIZE', 'uint32'),
         ('IFLA_TSO_MAX_SIZE', 'uint32'),
         ('IFLA_TSO_MAX_SEGS', 'uint32'),
+        ('IFLA_ALLMULTI', 'uint32'),
     )
 
     @staticmethod
