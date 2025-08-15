@@ -20,6 +20,7 @@ nox.options.sessions = [
     'neutron',
     'process',
     'integration',
+    'uvloop',
     'core-python3.9',
     'core-python3.14',
     'linux-python3.9',
@@ -303,6 +304,15 @@ def integration(session, config):
     '''Run integration tests (lnst, kuryr, ...).'''
     setup_venv_dev(session)
     session.run(*pytest_with_options('test_integration', config))
+
+
+@nox.session
+@add_session_config
+def uvloop(session, config):
+    '''Run uvloop compatibility tests'''
+    setup_venv_dev(session)
+    session.install('uvloop')
+    session.run(*pytest_with_options('test_uvloop', config))
 
 
 def test_common(session, config, module, workspace=None):
