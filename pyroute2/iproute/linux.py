@@ -2707,7 +2707,9 @@ class IPRoute(NetlinkSocket):
             use_event_loop=use_event_loop,
             telemetry=telemetry,
         )
-        self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.status['event_loop'] = (
+            'new' if use_event_loop is None else 'auto'
+        )
         self.asyncore.local.keep_event_loop = True
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()

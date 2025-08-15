@@ -378,6 +378,8 @@ class AsyncCoreSocket:
     # 8<--------------------------------------------------------------
     #
     def setup_event_loop(self):
+        if self.use_event_loop:
+            return self.use_event_loop
         try:
             event_loop = asyncio.get_running_loop()
             self.status['event_loop'] = 'auto'

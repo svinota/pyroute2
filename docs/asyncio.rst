@@ -184,3 +184,27 @@ such as `GenericNetlinkSocket`, or using custom wrappers, like in
 `IPRoute`. The plan is to refactor all components to provide an asynchronous
 API, keeping the synchronous API for compatibility with existing projects
 that use pyroute2.
+
+Compatibility
+-------------
+
+The library is built and tested with stdlib `asyncio`. Other asynchronous
+frameworks are not officially supported but may work. Some of them may
+require additional setup to manage netlink sockets, e.g., `uvloop`:
+
+.. testsetup:: asyncio00
+
+   import asyncio
+   import selectors
+   from pyroute2 import IPRoute
+   from unittest.mock import Mock
+
+   uvloop = Mock()
+
+.. testcode:: asyncio00
+
+   selector = selectors.SelectSelector()
+   loop = asyncio.SelectorEventLoop(selector)
+
+   with IPRoute(use_event_loop=loop) as ipr:
+       pass

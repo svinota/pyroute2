@@ -130,10 +130,20 @@ def test_threading_sync():
     assert len(list(ipr.get_links())) > 1
     tt = threading.Thread(
         target=threading_target_run,
-        args=[[lambda: list(ipr.get_links())], exc, ret],
+        args=[
+            [
+                lambda: id(ipr.asyncore.use_event_loop),
+                lambda: list(ipr.get_links()),
+            ],
+            exc,
+            ret,
+        ],
     )
     tt.start()
     tt.join()
+    assert ipr.status['event_loop'] == 'auto'
+    assert id(ipr.asyncore.event_loop) == id(event_loop)
+    assert ret[0] == id(event_loop)
     assert len(exc) == 1
     assert isinstance(exc[0], RuntimeError)
     assert (
