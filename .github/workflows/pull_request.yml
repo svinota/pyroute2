@@ -47,6 +47,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v4
       - run: make nox session=neutron
+  uvloop:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v4
+      - run: make nox session=uvloop
   integration:
     runs-on: Linux
     steps:
