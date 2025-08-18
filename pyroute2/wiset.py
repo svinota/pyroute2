@@ -130,61 +130,8 @@ class IPStats(
         )
 
 
-# pylint: disable=too-many-instance-attributes
-class WiSet(object):
-    """Main high level ipset manipulation class.
-
-    Every high level ipset operation should be possible with this class,
-    you probably don't need other helpers of this module, except tools
-    to load data from kernel (:func:`load_all_ipsets` and :func:`load_ipset`)
-
-    For example, you can create and an entry in a ipset just with:
-
-    .. doctest::
-        :skipif: True
-
-        >>> with WiSet(name="mysuperipset") as myset:
-        >>>    myset.create()             # add the ipset in the kernel
-        >>>    myset.add("198.51.100.1")  # add one IP to the set
-
-    Netlink sockets are opened by __enter__ and __exit__ function, so you don't
-    have to manage it manually if you use the "with" keyword.
-
-    If you want to manage it manually (for example for long operation in
-    a daemon), you can do the following:
-
-    .. doctest::
-        :skipif: True
-
-        >>> myset = WiSet(name="mysuperipset")
-        >>> myset.open_netlink()
-        >>> # do stuff
-        >>> myset.close_netlink()
-
-    You can also don't initiate at all any netlink socket, this code will work:
-
-    .. doctest::
-        :skipif: True
-
-        >>> myset = WiSet(name="mysuperipset")
-        >>> myset.create()
-        >>> myset.destroy()
-
-    But do it very carefully. In that case, a netlink socket will be opened
-    in background for any operation. No socket will be leaked, but that
-    can consume resources.
-
-    You can also instantiate WiSet objects with :func:`load_all_ipsets` and
-    :func:`load_ipset`:
-
-    .. doctest::
-        :skipif: True
-
-        >>> all_sets_dict = load_all_ipsets()
-        >>> one_set = load_ipset(name="myset")
-
-    Have a look on content variable if you need list of entries in the Set.
-    """
+class BaseWiSet:
+    """ Code and interface shared between sync (the old one) and async API """
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -215,40 +162,9 @@ class WiSet(object):
         self.index = None
         self.skbinfo = skbinfo
 
-    def open_netlink(self):
-        """
-        Open manually a netlink socket.
-
-        You can use "with WiSet()" statement instead.
-        """
-        if self.sock is None:
-            self.sock = IPSet()
-
-    def close_netlink(self):
-        """Clone any opened netlink socket"""
-        if self.sock is not None:
-            self.sock.close()
-            self.sock = None
-
-    @property
-    def attr_type(self):
-        return self._attr_type
-
-    @attr_type.setter
-    def attr_type(self, value):
-        self._attr_type = value
-        self.entry_type = value.split(":", 1)[1]
-
-    def __enter__(self):
-        self.open_netlink()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close_netlink()
-
     @classmethod
     def from_netlink(cls, ndmsg, content=False):
-        """Create a ipset objects based on a parsed netlink message
+        """Create one ipset object based on a parsed netlink message
 
         :param ndmsg: the netlink message to parse
         :param content: should we fill (and parse) entries info (can be slow
@@ -274,6 +190,15 @@ class WiSet(object):
             self.update_dict_content(ndmsg)
 
         return self
+
+    @property
+    def attr_type(self):
+        return self._attr_type
+
+    @attr_type.setter
+    def attr_type(self, value):
+        self._attr_type = value
+        self.entry_type = value.split(":", 1)[1]
 
     def update_dict_content(self, ndmsg):
         """Update a dictionary statistics with values sent in netlink message
@@ -346,6 +271,87 @@ class WiSet(object):
                 **entry_flag_parsed,
             )
             self._content[key] = value
+
+
+
+
+# pylint: disable=too-many-instance-attributes
+class WiSet(BaseWiSet):
+    """Main high level ipset manipulation class.
+
+    Every high level ipset operation should be possible with this class,
+    you probably don't need other helpers of this module, except tools
+    to load data from kernel (:func:`load_all_ipsets` and :func:`load_ipset`)
+
+    For example, you can create and an entry in a ipset just with:
+
+    .. doctest::
+        :skipif: True
+
+        >>> with WiSet(name="mysuperipset") as myset:
+        >>>    myset.create()             # add the ipset in the kernel
+        >>>    myset.add("198.51.100.1")  # add one IP to the set
+
+    Netlink sockets are opened by __enter__ and __exit__ function, so you don't
+    have to manage it manually if you use the "with" keyword.
+
+    If you want to manage it manually (for example for long operation in
+    a daemon), you can do the following:
+
+    .. doctest::
+        :skipif: True
+
+        >>> myset = WiSet(name="mysuperipset")
+        >>> myset.open_netlink()
+        >>> # do stuff
+        >>> myset.close_netlink()
+
+    You can also don't initiate at all any netlink socket, this code will work:
+
+    .. doctest::
+        :skipif: True
+
+        >>> myset = WiSet(name="mysuperipset")
+        >>> myset.create()
+        >>> myset.destroy()
+
+    But do it very carefully. In that case, a netlink socket will be opened
+    in background for any operation. No socket will be leaked, but that
+    can consume resources.
+
+    You can also instantiate WiSet objects with :func:`load_all_ipsets` and
+    :func:`load_ipset`:
+
+    .. doctest::
+        :skipif: True
+
+        >>> all_sets_dict = load_all_ipsets()
+        >>> one_set = load_ipset(name="myset")
+
+    Have a look on content variable if you need list of entries in the Set.
+    """
+
+    def open_netlink(self):
+        """
+        Open manually a netlink socket.
+
+        You can use "with WiSet()" statement instead.
+        """
+        if self.sock is None:
+            self.sock = IPSet()
+
+    def close_netlink(self):
+        """Clone any opened netlink socket"""
+        if self.sock is not None:
+            self.sock.close()
+            self.sock = None
+
+    def __enter__(self):
+        self.open_netlink()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close_netlink()
 
     def create(self, **kwargs):
         """Insert this Set in the kernel
