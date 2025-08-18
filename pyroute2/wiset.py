@@ -136,24 +136,24 @@ class BaseWiSet:
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        name=None,
-        attr_type='hash:ip',
+        name: str | None = None,
+        attr_type: str = 'hash:ip',
         family=AF_INET,
-        sock=None,
+        sock: IPSet | None = None,
         timeout=None,
-        counters=False,
-        comment=False,
-        hashsize=None,
-        revision=None,
-        skbinfo=False,
+        counters: bool = False,
+        comment: bool = False,
+        hashsize: int | None = None,
+        revision: int | None = None,
+        skbinfo: bool = False,
     ):
         self.name = name
         self.hashsize = hashsize
-        self._attr_type = None
-        self.entry_type = None
+        self._attr_type: str = ""
+        self.entry_type: str = ""
         self.attr_type = attr_type
         self.family = family
-        self._content = None
+        self._content: dict[str, IPStats] | None = None
         self._sock = sock
         self.timeout = timeout
         self.counters = counters
@@ -163,7 +163,7 @@ class BaseWiSet:
         self.skbinfo = skbinfo
 
     @classmethod
-    def from_netlink(cls, ndmsg, content=False):
+    def from_netlink(cls, ndmsg, content: bool = False):
         """Create one ipset object based on a parsed netlink message
 
         :param ndmsg: the netlink message to parse
@@ -196,7 +196,7 @@ class BaseWiSet:
         return self._attr_type
 
     @attr_type.setter
-    def attr_type(self, value):
+    def attr_type(self, value: str):
         self._attr_type = value
         self.entry_type = value.split(":", 1)[1]
 
@@ -525,7 +525,7 @@ def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
 
 
 @need_ipset_socket
-def load_ipset(name, content=False, sock=None, inherit_sock=False):
+def load_ipset(name, content=False, sock=None, inherit_sock=False) -> WiSet | None:
     """Get one ipset as WiSet object
 
     Helper to get current WiSet object. More efficient that
