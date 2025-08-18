@@ -29,6 +29,8 @@ The library provides asynchronous sockets:
     pyroute2.AsyncGenericNetlinkSocket
     pyroute2.AsyncIPRSocket
     pyroute2.AsyncIPRoute
+    pyroute2.AsyncIPSet
+    pyroute2.AsyncIPVS
     pyroute2.AsyncIPVSSocket
     pyroute2.AsyncIW
     pyroute2.AsyncL2tp
