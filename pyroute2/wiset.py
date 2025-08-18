@@ -154,7 +154,7 @@ class BaseWiSet:
         self.attr_type = attr_type
         self.family = family
         self._content = None
-        self.sock = sock
+        self._sock = sock
         self.timeout = timeout
         self.counters = counters
         self.comment = comment
@@ -272,7 +272,13 @@ class BaseWiSet:
             )
             self._content[key] = value
 
+    @property
+    def sock(self):
+        return self._sock
 
+    @sock.setter
+    def sock(self, sock):
+        self._sock = sock
 
 
 # pylint: disable=too-many-instance-attributes
