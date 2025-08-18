@@ -11,6 +11,7 @@ rename, swap, test...)
 
 import errno
 import socket
+from functools import partial
 
 from pyroute2.common import basestring
 from pyroute2.netlink import (
@@ -69,6 +70,13 @@ from pyroute2.netlink.nlsocket import AsyncNetlinkSocket, NetlinkSocket
 
 def _nlmsg_error(msg):
     return msg['header']['type'] == NLMSG_ERROR
+
+
+def exception_factory(err, msg_type):
+    cls = _IPSetError
+    if err.code == errno.ENOENT:
+        cls = NoSuchObject
+    return cls(err.code, cmd=msg_type)
 
 
 class PortRange(object):
@@ -169,7 +177,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
             msg_type | (NFNL_SUBSYS_IPSET << 8),
             msg_flags,
             terminate=terminate,
-            exception_factory=lambda err: _IPSetError(err.code, cmd=msg_type),
+            exception_factory=partial(exception_factory, msg_type=msg_type)
         ):
             yield response
 
@@ -771,6 +779,10 @@ class _IPSetError(IPSetError):
         IPSET_CMD_ADD: a_map,
         IPSET_CMD_DEL: del_map,
     }
+
+
+class NoSuchObject(_IPSetError):
+    """ Specific exception on No such file or directory error """
 
 
 class IPSet(NetlinkSocket):

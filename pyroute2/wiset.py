@@ -34,7 +34,6 @@ netlink messages:
                            timeout=None, skbmark=None, physdev=False)}
 '''
 
-import errno
 import uuid
 from collections import namedtuple
 from inspect import getcallargs
@@ -42,7 +41,7 @@ from socket import AF_INET
 
 from pyroute2.common import basestring
 from pyroute2.ipset import IPSet
-from pyroute2.netlink.exceptions import IPSetError
+from pyroute2.ipset import NoSuchObject
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_FLAG_IFACE_WILDCARD,
     IPSET_FLAG_PHYSDEV,
@@ -550,10 +549,8 @@ def load_ipset(name, content=False, sock=None, inherit_sock=False) -> WiSet | No
                     res.sock = sock
             elif content:
                 res.update_dict_content(msg)
-    except IPSetError as e:
-        if e.code == errno.ENOENT:
-            return res
-        raise
+    except NoSuchObject:
+        return res
     return res
 
 
@@ -592,10 +589,8 @@ def test_ipset_exist(name, sock=None):
     try:
         tuple(sock.headers(name))
         return True
-    except IPSetError as e:
-        if e.code == errno.ENOENT:
-            return False
-        raise
+    except NoSuchObject:
+        return False
 
 
 @need_ipset_socket
