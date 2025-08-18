@@ -151,6 +151,11 @@ class AsyncIPSet(AsyncNetlinkSocket):
         msg = await self.get_proto_version()
         self._proto_version = msg[0].get_attr('IPSET_ATTR_PROTOCOL')
 
+    async def __aenter__(self):
+        await super().__aenter__()
+        await self.setup_endpoint()
+        return self
+
     async def request_iter(
         self,
         msg,
