@@ -40,6 +40,7 @@ from inspect import getcallargs
 from socket import AF_INET
 
 from pyroute2.common import basestring
+from pyroute2.ipset import AsyncIPSet
 from pyroute2.ipset import IPSet
 from pyroute2.ipset import NoSuchObject
 from pyroute2.netlink.nfnetlink.ipset import (
@@ -138,7 +139,7 @@ class BaseWiSet:
         name: str | None = None,
         attr_type: str = 'hash:ip',
         family=AF_INET,
-        sock: IPSet | None = None,
+        sock: AsyncIPSet | IPSet | None = None,
         timeout=None,
         counters: bool = False,
         comment: bool = False,
@@ -627,3 +628,46 @@ def swap_ipsets(name_a, name_b, sock=None):
 def get_ipset_socket(**kwargs):
     """Get a socket that one can pass to several WiSet objects"""
     return IPSet(**kwargs)
+
+
+class AsyncWiSet(BaseWiSet):
+    """ Async high-level API to manage ipsets """
+
+    @property
+    def sock(self):
+        if self._sock is None:
+            raise AttributeError("No AsyncIPSet object available")
+        return self._sock
+
+    @sock.setter
+    def sock(self, sock):
+        self._sock = sock
+
+    async def __aenter__(self):
+        if self._sock is None:
+            self._sock = AsyncIPSet()
+            await self._sock.__aenter__()
+        return self
+
+    async def __aexit__(self, *args, **kwargs) -> None:
+        if self._sock is not None:
+            await self._sock.__aexit__(*args, **kwargs)
+
+
+async def async_load_ipset(name: str, content: bool = False) -> AsyncWiSet:
+    """Get one ipset as AsyncWiSet object
+
+    :param name: name of the ipset
+    :type name: str
+    :param content: parse or not content and statistics on entries
+    :type content: bool
+    """
+    first = True
+    async with AsyncIPSet() as sock:
+        async for msg in await sock.list(name=name):
+            if first:
+                res = AsyncWiSet.from_netlink(msg, content=content)
+                first = False
+            elif content:
+                res.update_dict_content(msg)
+        return res
