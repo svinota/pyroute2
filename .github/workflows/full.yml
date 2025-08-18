@@ -14,55 +14,55 @@ jobs:
         python: [python3.9, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=linter-${{ matrix.python }}
   repo:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=repo
   unit:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=unit
   docs:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=docs
   neutron:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=neutron
   integration:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=integration
   process:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=process
   limits:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=limits
   minimal:
     runs-on: Linux
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=minimal
   ci-self:
     runs-on: Fedora
@@ -71,7 +71,7 @@ jobs:
         python: [python3.9, python3.10, python3.11, python3.12, python3.13, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: make nox session=ci-self-${{ matrix.python }}
   fedora:
     runs-on: Fedora
@@ -80,7 +80,7 @@ jobs:
         python: [python3.9, python3.10, python3.11, python3.12, python3.13, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=linux-${{ matrix.python }}
   ubuntu:
     runs-on: Ubuntu
@@ -89,7 +89,7 @@ jobs:
         python: [python3.10, python3.11, python3.12]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=linux-${{ matrix.python }}
   fedora-core:
     runs-on: Fedora
@@ -98,7 +98,7 @@ jobs:
         python: [python3.9, python3.10, python3.11, python3.12, python3.13, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=core-${{ matrix.python }}
   ubuntu-core:
     runs-on: Ubuntu
@@ -107,5 +107,5 @@ jobs:
         python: [python3.10, python3.11, python3.12]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: sudo make nox session=core-${{ matrix.python }}
