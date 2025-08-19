@@ -272,6 +272,24 @@ class BaseWiSet:
             )
             self._content[key] = value
 
+    def prepare_add_args(self, entry, **kwargs):
+        if isinstance(entry, dict):
+            kwargs.update(entry)
+            entry = kwargs.pop("entry")
+        if self.counters:
+            kwargs["packets"] = kwargs.pop("packets", 0)
+            kwargs["bytes"] = kwargs.pop("bytes", 0)
+        skbmark = kwargs.get("skbmark")
+        if isinstance(skbmark, basestring):
+            skbmark = skbmark.split('/')
+            mark = int(skbmark[0], 16)
+            try:
+                mask = int(skbmark[1], 16)
+            except IndexError:
+                mask = int("0xffffffff", 16)
+            kwargs["skbmark"] = (mark, mask)
+        return entry, kwargs
+
     @property
     def sock(self):
         return self._sock
@@ -395,21 +413,7 @@ class WiSet(BaseWiSet):
         we add the element. Without this reset, kernel sometimes store old
         values and can add very strange behavior on counters.
         """
-        if isinstance(entry, dict):
-            kwargs.update(entry)
-            entry = kwargs.pop("entry")
-        if self.counters:
-            kwargs["packets"] = kwargs.pop("packets", 0)
-            kwargs["bytes"] = kwargs.pop("bytes", 0)
-        skbmark = kwargs.get("skbmark")
-        if isinstance(skbmark, basestring):
-            skbmark = skbmark.split('/')
-            mark = int(skbmark[0], 16)
-            try:
-                mask = int(skbmark[1], 16)
-            except IndexError:
-                mask = int("0xffffffff", 16)
-            kwargs["skbmark"] = (mark, mask)
+        entry, kwargs = self.prepare_add_args(entry, **kwargs)
         add_ipset_entry(
             self.name, entry, etype=self.entry_type, sock=self.sock, **kwargs
         )
@@ -652,6 +656,50 @@ class AsyncWiSet(BaseWiSet):
     async def __aexit__(self, *args, **kwargs) -> None:
         if self._sock is not None:
             await self._sock.__aexit__(*args, **kwargs)
+
+    async def create(self, **kwargs):
+        await self.sock.create(
+                self.name,
+                stype=self.attr_type,
+                family=self.family,
+                timeout=self.timeout,
+                comment=self.comment,
+                counters=self.counters,
+                hashsize=self.hashsize,
+                skbinfo=self.skbinfo,
+                **kwargs
+        )
+
+    async def destroy(self):
+        await self.sock.destroy(self.name)
+
+    async def add(self, entry, **kwargs):
+        entry, kwargs = self.prepare_add_args(entry, **kwargs)
+        await self.sock.add(self.name, entry, **kwargs)
+
+    async def insert_list(self, entries):
+        for entry in entries:
+            await self.add(entry)
+
+    async def replace_entries(self, new_list):
+        """Replace the content of an ipset with a new list of entries.
+
+        This operation is like a flush() and adding all entries one by one. But
+        this call is atomic: it creates a temporary ipset and swap the content.
+
+        :param new_list: list of entries to add
+        :type new_list: list or :py:class:`set` of basestring or of
+            keyword arguments dict
+        """
+        temp_name = str(uuid.uuid4())[0:8]
+        # Get a copy of ourself
+        temp = await async_load_ipset(self.name)
+        temp.name = temp_name
+        temp.sock = self.sock
+        await temp.create()
+        await temp.insert_list(new_list)
+        await self.sock.swap(self.name, temp_name)
+        await temp.destroy()
 
 
 async def async_load_ipset(name: str, content: bool = False) -> AsyncWiSet:
