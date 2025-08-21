@@ -3,9 +3,11 @@ High level ipset support.
 
 When :doc:`ipset` is providing a direct netlink socket with low level
 functions, a :class:`WiSet` object is built to map ipset objects from kernel.
-It helps to add/remove entries, list content, etc.
+It helps to add/remove entries, list content, etc. :class:`AsyncWiSet`
+provides the same features but for asynchrone code.
 
-For example, adding an entry with :class:`pyroute2.ipset.IPSet` object
+To see benefits of this high-level API, one can take example of
+adding an entry with :class:`pyroute2.ipset.IPSet` object
 implies to set a various number of parameters:
 
 .. doctest::
@@ -39,6 +41,7 @@ import uuid
 from collections import namedtuple
 from inspect import getcallargs
 from socket import AF_INET
+from typing import TYPE_CHECKING
 
 from pyroute2.common import basestring
 from pyroute2.ipset import AsyncIPSet
@@ -636,12 +639,31 @@ def get_ipset_socket(**kwargs):
 
 
 class AsyncWiSet(BaseWiSet):
-    """ Async high-level API to manage ipsets """
+    """ Async high-level API to manage ipsets
+
+    This is more of less a one-to-one feature compatible with WiSet,
+    and can be loaded with :func:`async_load_ipset`.
+
+    >>> async with await async_load_ipset("my_ipset") as ipset:
+            print(ipset.attr_type)
+    hash:net
+    >>> async with AsyncWiSet(name="new_set", attr_type="hash:ip") as ipset:
+            await ipset.create()
+            await ipset.add("192.0.2.1")
+
+    """
 
     @property
-    def sock(self):
+    def sock(self) -> AsyncIPSet:
+        """ Real netlink socket
+
+        Unlike WiSet, this attribute is mandatory. We don't accept
+        "magic" to open a socket without explicit context
+        """
         if self._sock is None:
             raise AttributeError("No AsyncIPSet object available")
+        if TYPE_CHECKING:
+            assert isinstance(self._sock, AsyncIPSet)
         return self._sock
 
     @sock.setter
