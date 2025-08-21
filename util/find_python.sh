@@ -9,7 +9,7 @@ function list_pythons() {
     #
     # List all python binaries/shims/links in a directory $1
     #
-    ls -1 $1/python* 2>/dev/null | grep -E 'python[0-9.]+$'
+    ls -1 $1/python* 2>/dev/null | grep -E 'python[0-9.]+$' | sed 's!.*/!!'
 }
 
 function check_valid_python() {

@@ -3,6 +3,11 @@
 #   The pyroute2 project is dual licensed, see README.license.md for details
 #
 #
+ifneq ($(strip $(python)),)
+	forcePython := --force-python ${python}
+else
+	forcePython :=
+endif
 checkModules ?= ensurepip
 python ?= $(shell util/find_python.sh ${checkModules} )
 platform := $(shell uname -s)
@@ -24,7 +29,7 @@ define nox
 					pip install nox;\
 				};\
 		};\
-		nox $(1) -- '${noxconfig}';\
+		nox ${forcePython} $(1) -- '${noxconfig}';\
 	}
 endef
 
