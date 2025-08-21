@@ -359,10 +359,8 @@ def test_wildcard_entries(ipset_name):
     myset.add("192.168.0.0/24,eth", wildcard=True)
     myset.add("192.168.1.0/24,wlan0", wildcard=False)
 
-    content = myset.content
-
-    assert content["192.168.0.0/24,eth"].wildcard is True
-    assert content["192.168.1.0/24,wlan0"].wildcard is False
+    assert myset["192.168.0.0/24,eth"].wildcard is True
+    assert myset["192.168.1.0/24,wlan0"].wildcard is False
 
 
 def test_invalid_load_ipset():
@@ -391,8 +389,8 @@ async def test_async_replace_entries(ipset_name):
         assert ip_test_1 in ipset_reloaded.content
         await ipset_reloaded.replace_entries([ip_test_2])
 
-    assert ip_test_2 in (await async_load_ipset(ipset_name, content=True)).content
-    assert ip_test_1 not in (await async_load_ipset(ipset_name, content=True)).content
+    assert ip_test_2 in await async_load_ipset(ipset_name, content=True)
+    assert ip_test_1 not in await async_load_ipset(ipset_name, content=True)
     async with await async_load_ipset(ipset_name) as ipset_reloaded:
         await ipset_reloaded.destroy()
     # Swap did not leak any object

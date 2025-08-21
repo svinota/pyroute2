@@ -197,6 +197,21 @@ class BaseWiSet:
         return self
 
     @property
+    def content(self) -> dict[str, IPStats]:
+        if self._content is None:
+            raise IPSetError(f"Content of {self.__class__.__name__} is not loaded")
+        return self._content
+
+    def __len__(self):
+        return len(self.content)
+
+    def __contains__(self, item):
+        return item in self.content
+
+    def __getitem__(self, key: str) -> IPStats:
+        return self.content[key]
+
+    @property
     def attr_type(self):
         return self._attr_type
 
@@ -461,6 +476,8 @@ class WiSet(BaseWiSet):
         """
         if self._content is None:
             self.update_content()
+        if TYPE_CHECKING:
+            assert self._content is not None
 
         return self._content
 
@@ -670,12 +687,6 @@ class AsyncWiSet(BaseWiSet):
     @sock.setter
     def sock(self, sock):
         self._sock = sock
-
-    @property
-    def content(self) -> dict[str, IPStats]:
-        if self._content is None:
-            raise IPSetError(f"Content of AsyncWiSet {self.name} is not loaded")
-        return self._content
 
     async def __aenter__(self):
         if self._sock is None:
