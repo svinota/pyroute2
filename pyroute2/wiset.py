@@ -1,4 +1,4 @@
-'''
+"""
 High level ipset support.
 
 When :doc:`ipset` is providing a direct netlink socket with low level
@@ -34,7 +34,7 @@ netlink messages:
     >>> wiset.content
     {'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
                            timeout=None, skbmark=None, physdev=False)}
-'''
+"""
 
 import errno
 import uuid
@@ -83,7 +83,7 @@ def need_ipset_socket(fun):
         callargs = getcallargs(fun, *args, **kwargs)
         if callargs["sock"] is None:
             # This variable is used only to debug leak in tests
-            COUNT['count'] += 1
+            COUNT["count"] += 1
             with IPSet() as sock:
                 callargs["sock"] = sock
                 # We must pop kwargs here, else the function will receive
@@ -136,13 +136,13 @@ class IPStats(
 
 
 class BaseWiSet:
-    """ Code and interface shared between sync (the old one) and async API """
+    """Code and interface shared between sync (the old one) and async API"""
 
     # pylint: disable=too-many-arguments
     def __init__(
         self,
         name: str | None = None,
-        attr_type: str = 'hash:ip',
+        attr_type: str = "hash:ip",
         family=AF_INET,
         sock: AsyncIPSet | IPSet | None = None,
         timeout=None,
@@ -199,7 +199,9 @@ class BaseWiSet:
     @property
     def content(self) -> dict[str, IPStats]:
         if self._content is None:
-            raise IPSetError(f"Content of {self.__class__.__name__} is not loaded")
+            raise IPSetError(
+                f"Content of {self.__class__.__name__} is not loaded"
+            )
         return self._content
 
     def __len__(self):
@@ -253,10 +255,10 @@ class BaseWiSet:
                 elif parse_type == "mark":
                     key += str(hex(entry.get_attr("IPSET_ATTR_MARK")))
                 elif parse_type == "port":
-                    proto = entry.get_attr('IPSET_ATTR_PROTO')
+                    proto = entry.get_attr("IPSET_ATTR_PROTO")
                     if proto is not None:
                         proto = IP_PROTOCOLS.get(proto, str(proto)).lower()
-                        key += '{proto}:'.format(proto=proto)
+                        key += "{proto}:".format(proto=proto)
                     key += str(entry.get_attr("IPSET_ATTR_PORT_FROM"))
                 elif parse_type == "mac":
                     key += entry.get_attr("IPSET_ATTR_ETHER")
@@ -301,12 +303,12 @@ class BaseWiSet:
                 kwargs.setdefault(key, 0)
         skbmark = kwargs.get("skbmark")
         if isinstance(skbmark, basestring):
-            skbmark = skbmark.split('/')
+            skbmark = skbmark.split("/")
             mark = int(skbmark[0], 16)
             try:
                 mask = int(skbmark[1], 16)
             except IndexError:
-                mask = 0xff_ff_ff_ff
+                mask = 0xFF_FF_FF_FF
             kwargs["skbmark"] = (mark, mask)
         return entry, kwargs
 
@@ -551,7 +553,9 @@ def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
 
 
 @need_ipset_socket
-def load_ipset(name, content=False, sock=None, inherit_sock=False) -> WiSet | None:
+def load_ipset(
+    name, content=False, sock=None, inherit_sock=False
+) -> WiSet | None:
     """Get one ipset as WiSet object
 
     Helper to get current WiSet object. More efficient that
@@ -657,7 +661,7 @@ def get_ipset_socket(**kwargs):
 
 
 class AsyncWiSet(BaseWiSet):
-    """ Async high-level API to manage ipsets
+    """Async high-level API to manage ipsets
 
     This is more of less a one-to-one feature compatible with WiSet,
     and can be loaded with :func:`async_load_ipset`.
@@ -673,7 +677,7 @@ class AsyncWiSet(BaseWiSet):
 
     @property
     def sock(self) -> AsyncIPSet:
-        """ Real netlink socket
+        """Real netlink socket
 
         Unlike WiSet, this attribute is mandatory. We don't accept
         "magic" to open a socket without explicit context
@@ -700,15 +704,15 @@ class AsyncWiSet(BaseWiSet):
 
     async def create(self, **kwargs):
         await self.sock.create(
-                self.name,
-                stype=self.attr_type,
-                family=self.family,
-                timeout=self.timeout,
-                comment=self.comment,
-                counters=self.counters,
-                hashsize=self.hashsize,
-                skbinfo=self.skbinfo,
-                **kwargs
+            self.name,
+            stype=self.attr_type,
+            family=self.family,
+            timeout=self.timeout,
+            comment=self.comment,
+            counters=self.counters,
+            hashsize=self.hashsize,
+            skbinfo=self.skbinfo,
+            **kwargs,
         )
 
     async def destroy(self):

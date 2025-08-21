@@ -4,10 +4,7 @@ import pytest
 from pr2test.marks import require_root
 from utils import require_kernel
 
-from pyroute2.ipset import (
-    AsyncIPSet,
-    NoSuchObject
-)
+from pyroute2.ipset import AsyncIPSet, NoSuchObject
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.wiset import (
     AsyncWiSet,
@@ -375,7 +372,10 @@ async def test_invalid_async_ipset():
 
 async def get_current_ipset_names():
     async with AsyncIPSet() as sock:
-        return {msg.get_attr("IPSET_ATTR_SETNAME") async for msg in await sock.list()}
+        return {
+            msg.get_attr("IPSET_ATTR_SETNAME")
+            async for msg in await sock.list()
+        }
 
 
 async def test_async_replace_entries(ipset_name):
@@ -385,7 +385,9 @@ async def test_async_replace_entries(ipset_name):
     async with AsyncWiSet(name=ipset_name) as ipset:
         await ipset.create()
         await ipset.add(ip_test_1)
-    async with await async_load_ipset(ipset_name, content=True) as ipset_reloaded:
+    async with await async_load_ipset(
+        ipset_name, content=True
+    ) as ipset_reloaded:
         assert ip_test_1 in ipset_reloaded.content
         await ipset_reloaded.replace_entries([ip_test_2])
 
