@@ -47,6 +47,7 @@ from pyroute2.common import basestring
 from pyroute2.ipset import AsyncIPSet
 from pyroute2.ipset import IPSet
 from pyroute2.ipset import NoSuchObject
+from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_FLAG_IFACE_WILDCARD,
     IPSET_FLAG_PHYSDEV,
@@ -453,10 +454,10 @@ class WiSet(BaseWiSet):
         flush_ipset(self.name, sock=self.sock)
 
     @property
-    def content(self):
+    def content(self) -> dict[str, IPStats]:
         """Dictionary of entries in the set.
 
-        Keys are IP addresses (as string), values are IPStats tuples.
+        Keys are primary key of set type (like IP addresses, as string), values are IPStats tuples.
         """
         if self._content is None:
             self.update_content()
@@ -669,6 +670,12 @@ class AsyncWiSet(BaseWiSet):
     @sock.setter
     def sock(self, sock):
         self._sock = sock
+
+    @property
+    def content(self) -> dict[str, IPStats]:
+        if self._content is None:
+            raise IPSetError(f"Content of AsyncWiSet {self.name} is not loaded")
+        return self._content
 
     async def __aenter__(self):
         if self._sock is None:
