@@ -41,6 +41,9 @@ def wrapper(
     If process doesn't response in time, it will get killed.
     '''
     gc.disable()
+    if config.disable_mp_signal:
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
     payload: bytes = b''
     ret_data: bytes = b''
     fds: list[int] = []
