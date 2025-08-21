@@ -34,6 +34,7 @@ netlink messages:
                            timeout=None, skbmark=None, physdev=False)}
 '''
 
+import errno
 import uuid
 from collections import namedtuple
 from inspect import getcallargs
@@ -277,8 +278,8 @@ class BaseWiSet:
             kwargs.update(entry)
             entry = kwargs.pop("entry")
         if self.counters:
-            kwargs["packets"] = kwargs.pop("packets", 0)
-            kwargs["bytes"] = kwargs.pop("bytes", 0)
+            for key in ("packets", "bytes"):
+                kwargs.setdefault(key, 0)
         skbmark = kwargs.get("skbmark")
         if isinstance(skbmark, basestring):
             skbmark = skbmark.split('/')
@@ -286,7 +287,7 @@ class BaseWiSet:
             try:
                 mask = int(skbmark[1], 16)
             except IndexError:
-                mask = int("0xffffffff", 16)
+                mask = 0xff_ff_ff_ff
             kwargs["skbmark"] = (mark, mask)
         return entry, kwargs
 
@@ -710,12 +711,15 @@ async def async_load_ipset(name: str, content: bool = False) -> AsyncWiSet:
     :param content: parse or not content and statistics on entries
     :type content: bool
     """
-    first = True
+    res = None
     async with AsyncIPSet() as sock:
         async for msg in await sock.list(name=name):
-            if first:
+            if res is None:
                 res = AsyncWiSet.from_netlink(msg, content=content)
-                first = False
             elif content:
                 res.update_dict_content(msg)
+        # should be impossible on recents kernels. But keep it
+        # for linters and humains readers
+        if res is None:
+            raise NoSuchObject(errno.ENOENT, f"IPSet {name} does not exist")
         return res
