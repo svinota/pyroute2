@@ -177,7 +177,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
             msg_type | (NFNL_SUBSYS_IPSET << 8),
             msg_flags,
             terminate=terminate,
-            exception_factory=partial(exception_factory, msg_type=msg_type)
+            exception_factory=partial(exception_factory, msg_type=msg_type),
         ):
             yield response
 
@@ -782,7 +782,7 @@ class _IPSetError(IPSetError):
 
 
 class NoSuchObject(_IPSetError):
-    """ Specific exception on No such file or directory error """
+    """Specific exception on No such file or directory error"""
 
 
 class IPSet(NetlinkSocket):

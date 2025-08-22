@@ -41,12 +41,10 @@ import uuid
 from collections import namedtuple
 from inspect import getcallargs
 from socket import AF_INET
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from pyroute2.common import basestring
-from pyroute2.ipset import AsyncIPSet
-from pyroute2.ipset import IPSet
-from pyroute2.ipset import NoSuchObject
+from pyroute2.ipset import AsyncIPSet, IPSet, NoSuchObject
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_FLAG_IFACE_WILDCARD,
@@ -141,15 +139,15 @@ class BaseWiSet:
     # pylint: disable=too-many-arguments
     def __init__(
         self,
-        name: str | None = None,
+        name: Union[str, None] = None,
         attr_type: str = "hash:ip",
         family=AF_INET,
-        sock: AsyncIPSet | IPSet | None = None,
+        sock: Union[AsyncIPSet, IPSet, None] = None,
         timeout=None,
         counters: bool = False,
         comment: bool = False,
-        hashsize: int | None = None,
-        revision: int | None = None,
+        hashsize: Union[int, None] = None,
+        revision: Union[int, None] = None,
         skbinfo: bool = False,
     ):
         self.name = name
@@ -158,7 +156,7 @@ class BaseWiSet:
         self.entry_type: str = ""
         self.attr_type = attr_type
         self.family = family
-        self._content: dict[str, IPStats] | None = None
+        self._content: Union[dict[str, IPStats], None] = None
         self._sock = sock
         self.timeout = timeout
         self.counters = counters
@@ -474,7 +472,8 @@ class WiSet(BaseWiSet):
     def content(self) -> dict[str, IPStats]:
         """Dictionary of entries in the set.
 
-        Keys are primary key of set type (like IP addresses, as string), values are IPStats tuples.
+        Keys are primary key of set type (like IP addresses, as string),
+        values are IPStats tuples.
         """
         if self._content is None:
             self.update_content()
@@ -555,7 +554,7 @@ def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
 @need_ipset_socket
 def load_ipset(
     name, content=False, sock=None, inherit_sock=False
-) -> WiSet | None:
+) -> Union[WiSet, None]:
     """Get one ipset as WiSet object
 
     Helper to get current WiSet object. More efficient that
@@ -666,10 +665,12 @@ class AsyncWiSet(BaseWiSet):
     This is more of less a one-to-one feature compatible with WiSet,
     and can be loaded with :func:`async_load_ipset`.
 
-    >>> async with await async_load_ipset("my_ipset") as ipset:
+    .. code::
+
+        >>> async with await async_load_ipset("set0") as ipset:
             print(ipset.attr_type)
-    hash:net
-    >>> async with AsyncWiSet(name="new_set", attr_type="hash:ip") as ipset:
+        hash:net
+        >>> async with AsyncWiSet(name="set1", attr_type="hash:ip") as ipset:
             await ipset.create()
             await ipset.add("192.0.2.1")
 

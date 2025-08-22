@@ -364,12 +364,14 @@ def test_invalid_load_ipset():
     assert load_ipset("ipsetdoesnotexists") is None
 
 
+@pytest.mark.asyncio
 async def test_invalid_async_ipset():
     # We raise a real exception here, instead of None for "sync" API
     with pytest.raises(NoSuchObject):
         await async_load_ipset("ipsetdoesnotexists")
 
 
+@pytest.mark.asyncio
 async def get_current_ipset_names():
     async with AsyncIPSet() as sock:
         return {
@@ -378,6 +380,7 @@ async def get_current_ipset_names():
         }
 
 
+@pytest.mark.asyncio
 async def test_async_replace_entries(ipset_name):
     ipset_names_before = await get_current_ipset_names()
     ip_test_1 = "192.0.2.1"
