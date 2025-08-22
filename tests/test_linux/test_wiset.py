@@ -1,12 +1,16 @@
 from time import sleep
 
+import pytest
 from pr2test.marks import require_root
 from utils import require_kernel
 
+from pyroute2.ipset import AsyncIPSet, NoSuchObject
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.wiset import (
+    AsyncWiSet,
     IPStats,
     WiSet,
+    async_load_ipset,
     get_ipset_socket,
     load_all_ipsets,
     load_ipset,
@@ -352,11 +356,44 @@ def test_wildcard_entries(ipset_name):
     myset.add("192.168.0.0/24,eth", wildcard=True)
     myset.add("192.168.1.0/24,wlan0", wildcard=False)
 
-    content = myset.content
-
-    assert content["192.168.0.0/24,eth"].wildcard is True
-    assert content["192.168.1.0/24,wlan0"].wildcard is False
+    assert myset["192.168.0.0/24,eth"].wildcard is True
+    assert myset["192.168.1.0/24,wlan0"].wildcard is False
 
 
 def test_invalid_load_ipset():
     assert load_ipset("ipsetdoesnotexists") is None
+
+
+async def test_invalid_async_ipset():
+    # We raise a real exception here, instead of None for "sync" API
+    with pytest.raises(NoSuchObject):
+        await async_load_ipset("ipsetdoesnotexists")
+
+
+async def get_current_ipset_names():
+    async with AsyncIPSet() as sock:
+        return {
+            msg.get_attr("IPSET_ATTR_SETNAME")
+            async for msg in await sock.list()
+        }
+
+
+async def test_async_replace_entries(ipset_name):
+    ipset_names_before = await get_current_ipset_names()
+    ip_test_1 = "192.0.2.1"
+    ip_test_2 = "192.0.2.2"
+    async with AsyncWiSet(name=ipset_name) as ipset:
+        await ipset.create()
+        await ipset.add(ip_test_1)
+    async with await async_load_ipset(
+        ipset_name, content=True
+    ) as ipset_reloaded:
+        assert ip_test_1 in ipset_reloaded.content
+        await ipset_reloaded.replace_entries([ip_test_2])
+
+    assert ip_test_2 in await async_load_ipset(ipset_name, content=True)
+    assert ip_test_1 not in await async_load_ipset(ipset_name, content=True)
+    async with await async_load_ipset(ipset_name) as ipset_reloaded:
+        await ipset_reloaded.destroy()
+    # Swap did not leak any object
+    assert ipset_names_before == await get_current_ipset_names()
