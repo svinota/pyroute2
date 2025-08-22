@@ -1,11 +1,13 @@
-'''
+"""
 High level ipset support.
 
 When :doc:`ipset` is providing a direct netlink socket with low level
 functions, a :class:`WiSet` object is built to map ipset objects from kernel.
-It helps to add/remove entries, list content, etc.
+It helps to add/remove entries, list content, etc. :class:`AsyncWiSet`
+provides the same features but for asynchrone code.
 
-For example, adding an entry with :class:`pyroute2.ipset.IPSet` object
+To see benefits of this high-level API, one can take example of
+adding an entry with :class:`pyroute2.ipset.IPSet` object
 implies to set a various number of parameters:
 
 .. doctest::
@@ -32,16 +34,17 @@ netlink messages:
     >>> wiset.content
     {'1.2.3.0/24': IPStats(packets=None, bytes=None, comment=None,
                            timeout=None, skbmark=None, physdev=False)}
-'''
+"""
 
 import errno
 import uuid
 from collections import namedtuple
 from inspect import getcallargs
 from socket import AF_INET
+from typing import TYPE_CHECKING, Union
 
 from pyroute2.common import basestring
-from pyroute2.ipset import IPSet
+from pyroute2.ipset import AsyncIPSet, IPSet, NoSuchObject
 from pyroute2.netlink.exceptions import IPSetError
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_FLAG_IFACE_WILDCARD,
@@ -78,7 +81,7 @@ def need_ipset_socket(fun):
         callargs = getcallargs(fun, *args, **kwargs)
         if callargs["sock"] is None:
             # This variable is used only to debug leak in tests
-            COUNT['count'] += 1
+            COUNT["count"] += 1
             with IPSet() as sock:
                 callargs["sock"] = sock
                 # We must pop kwargs here, else the function will receive
@@ -130,8 +133,194 @@ class IPStats(
         )
 
 
+class BaseWiSet:
+    """Code and interface shared between sync (the old one) and async API"""
+
+    # pylint: disable=too-many-arguments
+    def __init__(
+        self,
+        name: Union[str, None] = None,
+        attr_type: str = "hash:ip",
+        family=AF_INET,
+        sock: Union[AsyncIPSet, IPSet, None] = None,
+        timeout=None,
+        counters: bool = False,
+        comment: bool = False,
+        hashsize: Union[int, None] = None,
+        revision: Union[int, None] = None,
+        skbinfo: bool = False,
+    ):
+        self.name = name
+        self.hashsize = hashsize
+        self._attr_type: str = ""
+        self.entry_type: str = ""
+        self.attr_type = attr_type
+        self.family = family
+        self._content: Union[dict[str, IPStats], None] = None
+        self._sock = sock
+        self.timeout = timeout
+        self.counters = counters
+        self.comment = comment
+        self.revision = revision
+        self.index = None
+        self.skbinfo = skbinfo
+
+    @classmethod
+    def from_netlink(cls, ndmsg, content: bool = False):
+        """Create one ipset object based on a parsed netlink message
+
+        :param ndmsg: the netlink message to parse
+        :param content: should we fill (and parse) entries info (can be slow
+                        on very large set)
+        :type content: bool
+        """
+        self = cls()
+        self.attr_type = ndmsg.get_attr("IPSET_ATTR_TYPENAME")
+        self.name = ndmsg.get_attr("IPSET_ATTR_SETNAME")
+        self.hashsize = ndmsg.get_attr("IPSET_ATTR_HASHSIZE")
+        self.family = ndmsg.get_attr("IPSET_ATTR_FAMILY")
+        self.revision = ndmsg.get_attr("IPSET_ATTR_REVISION")
+        self.index = ndmsg.get_attr("IPSET_ATTR_INDEX")
+        data = ndmsg.get_attr("IPSET_ATTR_DATA")
+        self.timeout = data.get_attr("IPSET_ATTR_TIMEOUT")
+        flags = data.get_attr("IPSET_ATTR_CADT_FLAGS")
+        if flags is not None:
+            self.counters = bool(flags & IPSET_FLAG_WITH_COUNTERS)
+            self.comment = bool(flags & IPSET_FLAG_WITH_COMMENT)
+            self.skbinfo = bool(flags & IPSET_FLAG_WITH_SKBINFO)
+
+        if content:
+            self.update_dict_content(ndmsg)
+
+        return self
+
+    @property
+    def content(self) -> dict[str, IPStats]:
+        if self._content is None:
+            raise IPSetError(
+                f"Content of {self.__class__.__name__} is not loaded"
+            )
+        return self._content
+
+    def __len__(self):
+        return len(self.content)
+
+    def __contains__(self, item):
+        return item in self.content
+
+    def __getitem__(self, key: str) -> IPStats:
+        return self.content[key]
+
+    @property
+    def attr_type(self):
+        return self._attr_type
+
+    @attr_type.setter
+    def attr_type(self, value: str):
+        self._attr_type = value
+        self.entry_type = value.split(":", 1)[1]
+
+    def update_dict_content(self, ndmsg):
+        """Update a dictionary statistics with values sent in netlink message
+
+        :param ndmsg: the netlink message
+        :type ndmsg: netlink message
+
+        """
+        family = "IPSET_ATTR_IPADDR_IPV4"
+        ip_attr = "IPSET_ATTR_IP_FROM"
+        if self._content is None:
+            self._content = {}
+
+        timeout = None
+        entries = ndmsg.get_attr("IPSET_ATTR_ADT").get_attrs("IPSET_ATTR_DATA")
+        for entry in entries:
+            key = ""
+            for parse_type in self.entry_type.split(","):
+                if parse_type == "ip":
+                    ip = entry.get_attr(ip_attr).get_attr(family)
+                    key += ip
+                elif parse_type == "net":
+                    ip = entry.get_attr(ip_attr).get_attr(family)
+                    key += ip
+                    cidr = entry.get_attr("IPSET_ATTR_CIDR")
+                    if cidr is not None:
+                        key += "/{0}".format(cidr)
+                elif parse_type == "iface":
+                    key += entry.get_attr("IPSET_ATTR_IFACE")
+                elif parse_type == "set":
+                    key += entry.get_attr("IPSET_ATTR_NAME")
+                elif parse_type == "mark":
+                    key += str(hex(entry.get_attr("IPSET_ATTR_MARK")))
+                elif parse_type == "port":
+                    proto = entry.get_attr("IPSET_ATTR_PROTO")
+                    if proto is not None:
+                        proto = IP_PROTOCOLS.get(proto, str(proto)).lower()
+                        key += "{proto}:".format(proto=proto)
+                    key += str(entry.get_attr("IPSET_ATTR_PORT_FROM"))
+                elif parse_type == "mac":
+                    key += entry.get_attr("IPSET_ATTR_ETHER")
+                key += ","
+
+            key = key.strip(",")
+
+            if self.timeout is not None:
+                timeout = entry.get_attr("IPSET_ATTR_TIMEOUT")
+            skbmark = entry.get_attr("IPSET_ATTR_SKBMARK")
+            if skbmark is not None:
+                # Convert integer to hex for mark/mask
+                # Only display mask if != 0xffffffff
+                if skbmark[1] != (2**32 - 1):
+                    skbmark = "/".join([str(hex(mark)) for mark in skbmark])
+                else:
+                    skbmark = str(hex(skbmark[0]))
+            entry_flag_parsed = {"physdev": False}
+            flags = entry.get_attr("IPSET_ATTR_CADT_FLAGS")
+            if flags is not None:
+                entry_flag_parsed["physdev"] = bool(flags & IPSET_FLAG_PHYSDEV)
+                entry_flag_parsed["wildcard"] = bool(
+                    flags & IPSET_FLAG_IFACE_WILDCARD
+                )
+
+            value = IPStats(
+                packets=entry.get_attr("IPSET_ATTR_PACKETS"),
+                bytes=entry.get_attr("IPSET_ATTR_BYTES"),
+                comment=entry.get_attr("IPSET_ATTR_COMMENT"),
+                skbmark=skbmark,
+                timeout=timeout,
+                **entry_flag_parsed,
+            )
+            self._content[key] = value
+
+    def prepare_add_args(self, entry, **kwargs):
+        if isinstance(entry, dict):
+            kwargs.update(entry)
+            entry = kwargs.pop("entry")
+        if self.counters:
+            for key in ("packets", "bytes"):
+                kwargs.setdefault(key, 0)
+        skbmark = kwargs.get("skbmark")
+        if isinstance(skbmark, basestring):
+            skbmark = skbmark.split("/")
+            mark = int(skbmark[0], 16)
+            try:
+                mask = int(skbmark[1], 16)
+            except IndexError:
+                mask = 0xFF_FF_FF_FF
+            kwargs["skbmark"] = (mark, mask)
+        return entry, kwargs
+
+    @property
+    def sock(self):
+        return self._sock
+
+    @sock.setter
+    def sock(self, sock):
+        self._sock = sock
+
+
 # pylint: disable=too-many-instance-attributes
-class WiSet(object):
+class WiSet(BaseWiSet):
     """Main high level ipset manipulation class.
 
     Every high level ipset operation should be possible with this class,
@@ -186,35 +375,6 @@ class WiSet(object):
     Have a look on content variable if you need list of entries in the Set.
     """
 
-    # pylint: disable=too-many-arguments
-    def __init__(
-        self,
-        name=None,
-        attr_type='hash:ip',
-        family=AF_INET,
-        sock=None,
-        timeout=None,
-        counters=False,
-        comment=False,
-        hashsize=None,
-        revision=None,
-        skbinfo=False,
-    ):
-        self.name = name
-        self.hashsize = hashsize
-        self._attr_type = None
-        self.entry_type = None
-        self.attr_type = attr_type
-        self.family = family
-        self._content = None
-        self.sock = sock
-        self.timeout = timeout
-        self.counters = counters
-        self.comment = comment
-        self.revision = revision
-        self.index = None
-        self.skbinfo = skbinfo
-
     def open_netlink(self):
         """
         Open manually a netlink socket.
@@ -230,122 +390,12 @@ class WiSet(object):
             self.sock.close()
             self.sock = None
 
-    @property
-    def attr_type(self):
-        return self._attr_type
-
-    @attr_type.setter
-    def attr_type(self, value):
-        self._attr_type = value
-        self.entry_type = value.split(":", 1)[1]
-
     def __enter__(self):
         self.open_netlink()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close_netlink()
-
-    @classmethod
-    def from_netlink(cls, ndmsg, content=False):
-        """Create a ipset objects based on a parsed netlink message
-
-        :param ndmsg: the netlink message to parse
-        :param content: should we fill (and parse) entries info (can be slow
-                        on very large set)
-        :type content: bool
-        """
-        self = cls()
-        self.attr_type = ndmsg.get_attr("IPSET_ATTR_TYPENAME")
-        self.name = ndmsg.get_attr("IPSET_ATTR_SETNAME")
-        self.hashsize = ndmsg.get_attr("IPSET_ATTR_HASHSIZE")
-        self.family = ndmsg.get_attr("IPSET_ATTR_FAMILY")
-        self.revision = ndmsg.get_attr("IPSET_ATTR_REVISION")
-        self.index = ndmsg.get_attr("IPSET_ATTR_INDEX")
-        data = ndmsg.get_attr("IPSET_ATTR_DATA")
-        self.timeout = data.get_attr("IPSET_ATTR_TIMEOUT")
-        flags = data.get_attr("IPSET_ATTR_CADT_FLAGS")
-        if flags is not None:
-            self.counters = bool(flags & IPSET_FLAG_WITH_COUNTERS)
-            self.comment = bool(flags & IPSET_FLAG_WITH_COMMENT)
-            self.skbinfo = bool(flags & IPSET_FLAG_WITH_SKBINFO)
-
-        if content:
-            self.update_dict_content(ndmsg)
-
-        return self
-
-    def update_dict_content(self, ndmsg):
-        """Update a dictionary statistics with values sent in netlink message
-
-        :param ndmsg: the netlink message
-        :type ndmsg: netlink message
-
-        """
-        family = "IPSET_ATTR_IPADDR_IPV4"
-        ip_attr = "IPSET_ATTR_IP_FROM"
-        if self._content is None:
-            self._content = {}
-
-        timeout = None
-        entries = ndmsg.get_attr("IPSET_ATTR_ADT").get_attrs("IPSET_ATTR_DATA")
-        for entry in entries:
-            key = ""
-            for parse_type in self.entry_type.split(","):
-                if parse_type == "ip":
-                    ip = entry.get_attr(ip_attr).get_attr(family)
-                    key += ip
-                elif parse_type == "net":
-                    ip = entry.get_attr(ip_attr).get_attr(family)
-                    key += ip
-                    cidr = entry.get_attr("IPSET_ATTR_CIDR")
-                    if cidr is not None:
-                        key += "/{0}".format(cidr)
-                elif parse_type == "iface":
-                    key += entry.get_attr("IPSET_ATTR_IFACE")
-                elif parse_type == "set":
-                    key += entry.get_attr("IPSET_ATTR_NAME")
-                elif parse_type == "mark":
-                    key += str(hex(entry.get_attr("IPSET_ATTR_MARK")))
-                elif parse_type == "port":
-                    proto = entry.get_attr('IPSET_ATTR_PROTO')
-                    if proto is not None:
-                        proto = IP_PROTOCOLS.get(proto, str(proto)).lower()
-                        key += '{proto}:'.format(proto=proto)
-                    key += str(entry.get_attr("IPSET_ATTR_PORT_FROM"))
-                elif parse_type == "mac":
-                    key += entry.get_attr("IPSET_ATTR_ETHER")
-                key += ","
-
-            key = key.strip(",")
-
-            if self.timeout is not None:
-                timeout = entry.get_attr("IPSET_ATTR_TIMEOUT")
-            skbmark = entry.get_attr("IPSET_ATTR_SKBMARK")
-            if skbmark is not None:
-                # Convert integer to hex for mark/mask
-                # Only display mask if != 0xffffffff
-                if skbmark[1] != (2**32 - 1):
-                    skbmark = "/".join([str(hex(mark)) for mark in skbmark])
-                else:
-                    skbmark = str(hex(skbmark[0]))
-            entry_flag_parsed = {"physdev": False}
-            flags = entry.get_attr("IPSET_ATTR_CADT_FLAGS")
-            if flags is not None:
-                entry_flag_parsed["physdev"] = bool(flags & IPSET_FLAG_PHYSDEV)
-                entry_flag_parsed["wildcard"] = bool(
-                    flags & IPSET_FLAG_IFACE_WILDCARD
-                )
-
-            value = IPStats(
-                packets=entry.get_attr("IPSET_ATTR_PACKETS"),
-                bytes=entry.get_attr("IPSET_ATTR_BYTES"),
-                comment=entry.get_attr("IPSET_ATTR_COMMENT"),
-                skbmark=skbmark,
-                timeout=timeout,
-                **entry_flag_parsed,
-            )
-            self._content[key] = value
 
     def create(self, **kwargs):
         """Insert this Set in the kernel
@@ -383,21 +433,7 @@ class WiSet(object):
         we add the element. Without this reset, kernel sometimes store old
         values and can add very strange behavior on counters.
         """
-        if isinstance(entry, dict):
-            kwargs.update(entry)
-            entry = kwargs.pop("entry")
-        if self.counters:
-            kwargs["packets"] = kwargs.pop("packets", 0)
-            kwargs["bytes"] = kwargs.pop("bytes", 0)
-        skbmark = kwargs.get("skbmark")
-        if isinstance(skbmark, basestring):
-            skbmark = skbmark.split('/')
-            mark = int(skbmark[0], 16)
-            try:
-                mask = int(skbmark[1], 16)
-            except IndexError:
-                mask = int("0xffffffff", 16)
-            kwargs["skbmark"] = (mark, mask)
+        entry, kwargs = self.prepare_add_args(entry, **kwargs)
         add_ipset_entry(
             self.name, entry, etype=self.entry_type, sock=self.sock, **kwargs
         )
@@ -433,13 +469,16 @@ class WiSet(object):
         flush_ipset(self.name, sock=self.sock)
 
     @property
-    def content(self):
+    def content(self) -> dict[str, IPStats]:
         """Dictionary of entries in the set.
 
-        Keys are IP addresses (as string), values are IPStats tuples.
+        Keys are primary key of set type (like IP addresses, as string),
+        values are IPStats tuples.
         """
         if self._content is None:
             self.update_content()
+        if TYPE_CHECKING:
+            assert self._content is not None
 
         return self._content
 
@@ -513,7 +552,9 @@ def load_all_ipsets(content=False, sock=None, inherit_sock=False, prefix=None):
 
 
 @need_ipset_socket
-def load_ipset(name, content=False, sock=None, inherit_sock=False):
+def load_ipset(
+    name, content=False, sock=None, inherit_sock=False
+) -> Union[WiSet, None]:
     """Get one ipset as WiSet object
 
     Helper to get current WiSet object. More efficient that
@@ -538,10 +579,8 @@ def load_ipset(name, content=False, sock=None, inherit_sock=False):
                     res.sock = sock
             elif content:
                 res.update_dict_content(msg)
-    except IPSetError as e:
-        if e.code == errno.ENOENT:
-            return res
-        raise
+    except NoSuchObject:
+        return res
     return res
 
 
@@ -580,10 +619,8 @@ def test_ipset_exist(name, sock=None):
     try:
         tuple(sock.headers(name))
         return True
-    except IPSetError as e:
-        if e.code == errno.ENOENT:
-            return False
-        raise
+    except NoSuchObject:
+        return False
 
 
 @need_ipset_socket
@@ -620,3 +657,114 @@ def swap_ipsets(name_a, name_b, sock=None):
 def get_ipset_socket(**kwargs):
     """Get a socket that one can pass to several WiSet objects"""
     return IPSet(**kwargs)
+
+
+class AsyncWiSet(BaseWiSet):
+    """Async high-level API to manage ipsets
+
+    This is more of less a one-to-one feature compatible with WiSet,
+    and can be loaded with :func:`async_load_ipset`.
+
+    .. code::
+
+        >>> async with await async_load_ipset("set0") as ipset:
+            print(ipset.attr_type)
+        hash:net
+        >>> async with AsyncWiSet(name="set1", attr_type="hash:ip") as ipset:
+            await ipset.create()
+            await ipset.add("192.0.2.1")
+
+    """
+
+    @property
+    def sock(self) -> AsyncIPSet:
+        """Real netlink socket
+
+        Unlike WiSet, this attribute is mandatory. We don't accept
+        "magic" to open a socket without explicit context
+        """
+        if self._sock is None:
+            raise AttributeError("No AsyncIPSet object available")
+        if TYPE_CHECKING:
+            assert isinstance(self._sock, AsyncIPSet)
+        return self._sock
+
+    @sock.setter
+    def sock(self, sock):
+        self._sock = sock
+
+    async def __aenter__(self):
+        if self._sock is None:
+            self._sock = AsyncIPSet()
+            await self._sock.__aenter__()
+        return self
+
+    async def __aexit__(self, *args, **kwargs) -> None:
+        if self._sock is not None:
+            await self._sock.__aexit__(*args, **kwargs)
+
+    async def create(self, **kwargs):
+        await self.sock.create(
+            self.name,
+            stype=self.attr_type,
+            family=self.family,
+            timeout=self.timeout,
+            comment=self.comment,
+            counters=self.counters,
+            hashsize=self.hashsize,
+            skbinfo=self.skbinfo,
+            **kwargs,
+        )
+
+    async def destroy(self):
+        await self.sock.destroy(self.name)
+
+    async def add(self, entry, **kwargs):
+        entry, kwargs = self.prepare_add_args(entry, **kwargs)
+        await self.sock.add(self.name, entry, **kwargs)
+
+    async def insert_list(self, entries):
+        for entry in entries:
+            await self.add(entry)
+
+    async def replace_entries(self, new_list):
+        """Replace the content of an ipset with a new list of entries.
+
+        This operation is like a flush() and adding all entries one by one. But
+        this call is atomic: it creates a temporary ipset and swap the content.
+
+        :param new_list: list of entries to add
+        :type new_list: list or :py:class:`set` of basestring or of
+            keyword arguments dict
+        """
+        temp_name = str(uuid.uuid4())[0:8]
+        # Get a copy of ourself
+        temp = await async_load_ipset(self.name)
+        temp.name = temp_name
+        temp.sock = self.sock
+        await temp.create()
+        await temp.insert_list(new_list)
+        await self.sock.swap(self.name, temp_name)
+        await temp.destroy()
+
+
+async def async_load_ipset(name: str, content: bool = False) -> AsyncWiSet:
+    """Get one ipset as AsyncWiSet object
+
+    :param name: name of the ipset
+    :type name: str
+    :param content: parse or not content and statistics on entries
+    :type content: bool
+    """
+    res = None
+    async with AsyncIPSet() as sock:
+        async for msg in await sock.list(name=name):
+            if res is None:
+                res = AsyncWiSet.from_netlink(msg, content=content)
+            elif content:
+                res.update_dict_content(msg)
+        # should be impossible on recents kernels. But keep it
+        # for linters and humains readers
+        if res is None:
+            raise NoSuchObject(errno.ENOENT, f"IPSet {name} does not exist")
+        return res
