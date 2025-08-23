@@ -79,6 +79,8 @@ db_transaction_limit = 1
 cache_expire = 60
 telemetry = None
 child_process_mode = 'fork'
+# Disable signal in 'mp' mode of child_process_mode
+disable_mp_signal = False
 force_gc = False
 signal_stop_remote = None
 if hasattr(signal, 'SIGUSR1'):
