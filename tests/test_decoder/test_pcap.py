@@ -2,12 +2,14 @@ import json
 import subprocess
 
 
-def test_pcap_rtnl():
+def test_pcap_rtnl() -> None:
     decoder = subprocess.Popen(
         [
             "pyroute2-decoder",
             "-c",
             "pyroute2/netlink/rtnl/marshal.MarshalRtnl",
+            "-f",
+            "pcap",
             "-d",
             "test_decoder/nl0.pcap",
             "-m",
@@ -25,12 +27,14 @@ def test_pcap_rtnl():
         assert ref[i]["message class"] == dump[i]["message class"]
 
 
-def test_pcap_ipvs():
+def test_pcap_ipvs() -> None:
     decoder = subprocess.Popen(
         [
             "pyroute2-decoder",
             "-c",
             "pyroute2/netlink/generic/ipvs.ipvsmsg",
+            "-f",
+            "pcap",
             "-d",
             "test_decoder/nl0.pcap",
             "-m",

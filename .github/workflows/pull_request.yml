@@ -38,6 +38,12 @@ jobs:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v5
       - run: make nox session=docs
+  decoder:
+    runs-on: Linux
+    steps:
+      - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+      - uses: actions/checkout@v5
+      - run: make nox session=decoder
   neutron:
     runs-on: Fedora
     strategy:
