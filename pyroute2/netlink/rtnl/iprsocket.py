@@ -317,7 +317,7 @@ class IPRSocket(NetlinkSocket):
           'src_len': 0,
           'table': 254,
           'tos': 0,
-          'type': 2}]
+          'type': 1}]
         >>>
 
     Like `AsyncIPRSocket`, it does not perform response reassembly,
