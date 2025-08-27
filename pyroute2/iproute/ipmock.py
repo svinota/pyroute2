@@ -379,7 +379,6 @@ class MockRoute:
         self.route_type = route_type
         self.priority = kwarg.get('priority', 0)
         self.tos = kwarg.get('tos', 0)
-        self._type = kwarg.get('type', 2)
 
     def update_from_msg(self, msg):
         [
@@ -411,7 +410,7 @@ class MockRoute:
             'table': self.table if self.table <= 255 else 252,
             'proto': self.proto,
             'scope': self.scope,
-            'type': self._type,
+            'type': self.route_type,
             'flags': 0,
             'attrs': [('RTA_TABLE', self.table), ('RTA_OIF', self.oif)],
             'header': {
