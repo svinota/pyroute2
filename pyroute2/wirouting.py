@@ -66,3 +66,8 @@ class WiRoute(AsyncIPRoute):
             return True
         except InterfaceDoesNotExist:
             return False
+
+    async def rename_interface(self, ifname: str, new_ifname: str) -> None:
+        """Rename interface"""
+        ifindex = (await self.link("get", ifname=ifname))[0]["index"]
+        await self.link("set", index=ifindex, ifname=new_ifname)
