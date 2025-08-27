@@ -75,13 +75,12 @@ def exception_factory(err, msg):
     cls = _IPSetError
     if err.code == errno.ENOENT:
         cls = NoSuchObject
-    msg_type = msg['header']['errmsg']['header']['type']
     # See nfnl_msg_type in kernel
     # static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
     # {
     #     return subsys << 8 | msg_type;
     # }
-    ipset_cmd = msg_type ^ (NFNL_SUBSYS_IPSET << 8)
+    ipset_cmd = msg.orig_type ^ (NFNL_SUBSYS_IPSET << 8)
     return cls(err.code, cmd=ipset_cmd)
 
 

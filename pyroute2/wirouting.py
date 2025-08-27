@@ -45,9 +45,8 @@ exception_map: Dict[int, Dict[int, Type[Exception]]] = {
 
 
 def exception_factory(err, msg):
-    msg_type = msg["header"]["errmsg"]["header"]["type"]
     try:
-        return exception_map[msg_type][err.code](*err.args)
+        return exception_map[msg.orig_type][err.code](*err.args)
     except LookupError:
         return err
 
