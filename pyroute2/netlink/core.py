@@ -571,7 +571,7 @@ class AsyncCoreSocket:
                 enough = True
         if not noraise and error:
             if exception_factory is not None:
-                raise exception_factory(error)
+                raise exception_factory(error, msg)
             raise error
 
     async def __aenter__(self):

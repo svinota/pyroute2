@@ -11,7 +11,6 @@ rename, swap, test...)
 
 import errno
 import socket
-from functools import partial
 
 from pyroute2.common import basestring
 from pyroute2.netlink import (
@@ -72,11 +71,18 @@ def _nlmsg_error(msg):
     return msg['header']['type'] == NLMSG_ERROR
 
 
-def exception_factory(err, msg_type):
+def exception_factory(err, msg):
     cls = _IPSetError
     if err.code == errno.ENOENT:
         cls = NoSuchObject
-    return cls(err.code, cmd=msg_type)
+    msg_type = msg['header']['errmsg']['header']['type']
+    # See nfnl_msg_type in kernel
+    # static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
+    # {
+    #     return subsys << 8 | msg_type;
+    # }
+    ipset_cmd = msg_type ^ (NFNL_SUBSYS_IPSET << 8)
+    return cls(err.code, cmd=ipset_cmd)
 
 
 class PortRange(object):
@@ -177,7 +183,7 @@ class AsyncIPSet(AsyncNetlinkSocket):
             msg_type | (NFNL_SUBSYS_IPSET << 8),
             msg_flags,
             terminate=terminate,
-            exception_factory=partial(exception_factory, msg_type=msg_type),
+            exception_factory=exception_factory,
         ):
             yield response
 

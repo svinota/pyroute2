@@ -45,8 +45,8 @@ async def test_exception_factory():
     class MyException(Exception):
         pass
 
-    def my_exception_factory(error):
-        raise MyException(f"I received {error}")
+    def my_exception_factory(error, msg):
+        raise MyException(f"I received {error} with msg {msg}")
 
     async with AsyncIPRoute(exception_factory=my_exception_factory) as ipr:
         with pytest.raises(MyException):
