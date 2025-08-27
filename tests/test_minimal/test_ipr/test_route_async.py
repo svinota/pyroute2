@@ -38,3 +38,16 @@ async def test_route_filter_strict(command, kwarg):
                 async for route in await ipr.route(command, **kwarg)
             ]
         ) == set([255])
+
+
+@pytest.mark.asyncio
+async def test_exception_factory():
+    class MyException(Exception):
+        pass
+
+    def my_exception_factory(error):
+        raise MyException(f"I received {error}")
+
+    async with AsyncIPRoute(exception_factory=my_exception_factory) as ipr:
+        with pytest.raises(MyException):
+            await ipr.link("get", ifname="doesnotexists")
