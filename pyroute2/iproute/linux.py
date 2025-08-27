@@ -520,7 +520,6 @@ class RTNL_API:
             msg_type=RTM_NEWPROBE,
             msg_flags=1,
             request_filter=arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return [x async for x in request.response()]
@@ -557,7 +556,6 @@ class RTNL_API:
             msg_type=RTM_GETROUTE,
             msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
             parser=export_routes(fd),
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return [x async for x in request.response()]
@@ -599,7 +597,6 @@ class RTNL_API:
                 msg,
                 command='replace',
                 command_map={'replace': (RTM_NEWROUTE, 'replace')},
-                exception_factory=self.exception_factory,
             )
             await request.send()
             ret.extend(
@@ -648,7 +645,6 @@ class RTNL_API:
             self,
             msg,
             msg_type=RTM_GETTFILTER,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return request.response()
@@ -664,7 +660,6 @@ class RTNL_API:
             self,
             msg,
             msg_type=RTM_GETTCLASS,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return request.response()
@@ -754,7 +749,6 @@ class RTNL_API:
             self,
             msg,
             msg_type=RTM_GETNEIGHTBL,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return request.response()
@@ -890,7 +884,6 @@ class RTNL_API:
                 msg,
                 msg_type=RTM_GETNSID,
                 msg_flags=NLM_F_REQUEST,
-                exception_factory=self.exception_factory,
             )
             await request.send()
             try:
@@ -961,7 +954,6 @@ class RTNL_API:
             msg,
             msg_type=RTM_GETNSID,
             msg_flags=NLM_F_REQUEST,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         async for r in request.response():
@@ -1068,7 +1060,6 @@ class RTNL_API:
             msg_type=RTM_GETROUTE,
             msg_flags=NLM_F_DUMP | NLM_F_REQUEST,
             parser=default_routes,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return request.response()
@@ -1121,7 +1112,6 @@ class RTNL_API:
                 route,
                 msg_type=RTM_DELROUTE,
                 msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                exception_factory=self.exception_factory,
             )
             await request.send()
             ret.extend([y async for y in request.response()])
@@ -1178,7 +1168,6 @@ class RTNL_API:
                 rule,
                 msg_type=RTM_DELRULE,
                 msg_flags=NLM_F_REQUEST | NLM_F_ACK,
-                exception_factory=self.exception_factory,
             )
             await request.send()
             ret.extend([y async for y in request.response()])
@@ -1226,7 +1215,6 @@ class RTNL_API:
             command_map,
             dump_filter,
             arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         return request.response()
@@ -1591,7 +1579,6 @@ class RTNL_API:
             command_map,
             dump_filter,
             arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command == 'dump':
@@ -1955,7 +1942,6 @@ class RTNL_API:
             command_map,
             dump_filter,
             arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command == 'dump':
@@ -2036,7 +2022,6 @@ class RTNL_API:
             dump_filter,
             arguments,
             terminate=lambda x: x['header']['type'] == NLMSG_ERROR,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command == 'dump':
@@ -2162,7 +2147,6 @@ class RTNL_API:
             command_map,
             dump_filter,
             arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command.startswith('dump'):
@@ -2506,7 +2490,6 @@ class RTNL_API:
             command_map,
             dump_filter,
             arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command in ('dump', 'show'):
@@ -2606,7 +2589,6 @@ class RTNL_API:
             command_map,
             dump_filter,
             arguments,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command == 'dump':
@@ -2632,7 +2614,6 @@ class RTNL_API:
             command,
             command_map,
             dump_filter,
-            exception_factory=self.exception_factory,
         )
         await request.send()
         if command == 'dump':
@@ -2686,10 +2667,6 @@ class AsyncIPRoute(AsyncIPRSocket, RTNL_API):
         eth0
         test0
     '''
-
-    def __init__(self, *args, **kwargs):
-        self.exception_factory = kwargs.pop("exception_factory", None)
-        super().__init__(*args, **kwargs)
 
     async def __aenter__(self):
         return self
