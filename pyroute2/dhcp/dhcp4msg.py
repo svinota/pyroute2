@@ -102,6 +102,7 @@ class dhcp4msg(dhcpmsg):
         (Option.REBINDING_TIME, 'sbe32'),
         (Option.VENDOR_ID, 'string'),
         (Option.CLIENT_ID, 'client_id'),
+        (Option.SUBNET_SELECTION, 'ip4addr'),
         (Option.END, 'none'),
     )
 

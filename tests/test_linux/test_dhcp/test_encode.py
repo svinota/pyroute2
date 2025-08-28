@@ -19,6 +19,7 @@ from pyroute2.dhcp.enums import dhcp
         ('perform_mask_discovery', True),
         ('tcp_keepalive_garbage', False),
         ('host_name', [104, 97, 153, 104, 97]),
+        ('subnet_selection', '10.0.0.0'),
     ),
 )
 def test_encode_decode_options(option_name: str, option_value: Any):
