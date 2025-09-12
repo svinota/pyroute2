@@ -118,6 +118,19 @@ class NLAFilter(RequestProcessor):
             obj[key] = value
         obj.pop("stats", None)
         obj.pop("stats64", None)
+       
+        if "af" not in obj and "IPVS_SVC_ATTR_AF" in obj:
+            obj["af"] = obj["IPVS_SVC_ATTR_AF"]
+        # protocol
+        if "protocol" not in obj and "IPVS_SVC_ATTR_PROTOCOL" in obj:
+            obj["protocol"] = obj["IPVS_SVC_ATTR_PROTOCOL"]
+        # port
+        if "port" not in obj and "IPVS_SVC_ATTR_PORT" in obj:
+            obj["port"] = obj["IPVS_SVC_ATTR_PORT"]
+        # addr
+        if "addr" not in obj and "IPVS_SVC_ATTR_ADDR" in obj:
+            obj["addr"] = obj["IPVS_SVC_ATTR_ADDR"]
+   
         return obj
 
     def dump_nla(self, items=None):
@@ -194,7 +207,7 @@ class AsyncIPVS(ipvs.AsyncIPVSSocket):
             "get": (ipvs.IPVS_CMD_GET_DEST, "get"),
             "dump": (ipvs.IPVS_CMD_GET_DEST, "dump"),
         }
-        cmd, flags = self.make_request_type(command, command_map)
+        cmd, flags = NetlinkRequest.calculate_request_type(command, command_map)
         msg = ipvs.ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = 0x1
