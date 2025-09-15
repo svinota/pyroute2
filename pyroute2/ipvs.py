@@ -119,17 +119,28 @@ class NLAFilter(RequestProcessor):
         obj.pop("stats", None)
         obj.pop("stats64", None)
 
-        if "af" not in obj and "IPVS_SVC_ATTR_AF" in obj:
-            obj["af"] = obj["IPVS_SVC_ATTR_AF"]
+        # Determine the prefix based on the _nla_prefix attribute of the class
+        prefix = (
+            getattr(cls.field_filters[0], "_nla_prefix", "")
+            if cls.field_filters
+            else ""
+        )
+
+        # af / addr_family
+        if "af" not in obj and f"{prefix}AF" in obj:
+            obj["af"] = obj[f"{prefix}AF"]
+        if "addr_family" not in obj and f"{prefix}ADDR_FAMILY" in obj:
+            obj["addr_family"] = obj[f"{prefix}ADDR_FAMILY"]
+
         # protocol
-        if "protocol" not in obj and "IPVS_SVC_ATTR_PROTOCOL" in obj:
-            obj["protocol"] = obj["IPVS_SVC_ATTR_PROTOCOL"]
+        if "protocol" not in obj and f"{prefix}PROTOCOL" in obj:
+            obj["protocol"] = obj[f"{prefix}PROTOCOL"]
         # port
-        if "port" not in obj and "IPVS_SVC_ATTR_PORT" in obj:
-            obj["port"] = obj["IPVS_SVC_ATTR_PORT"]
+        if "port" not in obj and f"{prefix}PORT" in obj:
+            obj["port"] = obj[f"{prefix}PORT"]
         # addr
-        if "addr" not in obj and "IPVS_SVC_ATTR_ADDR" in obj:
-            obj["addr"] = obj["IPVS_SVC_ATTR_ADDR"]
+        if "addr" not in obj and f"{prefix}ADDR" in obj:
+            obj["addr"] = obj[f"{prefix}ADDR"]
 
         return obj
 
