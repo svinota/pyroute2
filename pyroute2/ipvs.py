@@ -1,4 +1,4 @@
-'''
+"""
 IPVS -- IP Virtual Server
 -------------------------
 
@@ -59,7 +59,7 @@ Delete a service::
         )
     )
 
-'''
+"""
 
 from socket import AF_INET
 
@@ -71,7 +71,7 @@ from pyroute2.requests.main import RequestProcessor
 
 
 class ServiceFieldFilter(NLAKeyTransform):
-    _nla_prefix = 'IPVS_SVC_ATTR_'
+    _nla_prefix = "IPVS_SVC_ATTR_"
 
     def set_addr(self, context, value):
         ret = {"addr": value}
@@ -85,7 +85,7 @@ class ServiceFieldFilter(NLAKeyTransform):
 
 
 class DestFieldFilter(NLAKeyTransform):
-    _nla_prefix = 'IPVS_DEST_ATTR_'
+    _nla_prefix = "IPVS_DEST_ATTR_"
 
     def set_addr(self, context, value):
         ret = {"addr": value}
@@ -118,7 +118,7 @@ class NLAFilter(RequestProcessor):
             obj[key] = value
         obj.pop("stats", None)
         obj.pop("stats64", None)
-       
+
         if "af" not in obj and "IPVS_SVC_ATTR_AF" in obj:
             obj["af"] = obj["IPVS_SVC_ATTR_AF"]
         # protocol
@@ -130,7 +130,7 @@ class NLAFilter(RequestProcessor):
         # addr
         if "addr" not in obj and "IPVS_SVC_ATTR_ADDR" in obj:
             obj["addr"] = obj["IPVS_SVC_ATTR_ADDR"]
-   
+
         return obj
 
     def dump_nla(self, items=None):
@@ -207,7 +207,9 @@ class AsyncIPVS(ipvs.AsyncIPVSSocket):
             "get": (ipvs.IPVS_CMD_GET_DEST, "get"),
             "dump": (ipvs.IPVS_CMD_GET_DEST, "dump"),
         }
-        cmd, flags = NetlinkRequest.calculate_request_type(command, command_map)
+        cmd, flags = NetlinkRequest.calculate_request_type(
+            command, command_map
+        )
         msg = ipvs.ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = 0x1
