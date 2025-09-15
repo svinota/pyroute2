@@ -400,3 +400,20 @@ async def test_async_replace_entries(ipset_name):
         await ipset_reloaded.destroy()
     # Swap did not leak any object
     assert ipset_names_before == await get_current_ipset_names()
+
+
+@pytest.mark.asyncio
+async def test_async_add_delete(ipset_name):
+    ip_test = "192.0.2.1"
+    async with AsyncWiSet(name=ipset_name) as ipset:
+        await ipset.create()
+        await ipset.add(ip_test)
+        assert (
+            ip_test
+            in (await async_load_ipset(ipset_name, content=True)).content
+        )
+        await ipset.delete(ip_test)
+        assert (
+            ip_test
+            not in (await async_load_ipset(ipset_name, content=True)).content
+        )

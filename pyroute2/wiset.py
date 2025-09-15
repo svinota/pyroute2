@@ -723,6 +723,11 @@ class AsyncWiSet(BaseWiSet):
         entry, kwargs = self.prepare_add_args(entry, **kwargs)
         await self.sock.add(self.name, entry, **kwargs)
 
+    async def delete(self, entry, **kwargs):
+        await self.sock.delete(
+            self.name, entry, etype=self.entry_type, **kwargs
+        )
+
     async def insert_list(self, entries):
         for entry in entries:
             await self.add(entry)
