@@ -1,4 +1,4 @@
-'''
+"""
 IPVS -- IP Virtual Server
 -------------------------
 
@@ -59,7 +59,7 @@ Delete a service::
         )
     )
 
-'''
+"""
 
 from socket import AF_INET
 
@@ -71,7 +71,7 @@ from pyroute2.requests.main import RequestProcessor
 
 
 class ServiceFieldFilter(NLAKeyTransform):
-    _nla_prefix = 'IPVS_SVC_ATTR_'
+    _nla_prefix = "IPVS_SVC_ATTR_"
 
     def set_addr(self, context, value):
         ret = {"addr": value}
@@ -85,7 +85,7 @@ class ServiceFieldFilter(NLAKeyTransform):
 
 
 class DestFieldFilter(NLAKeyTransform):
-    _nla_prefix = 'IPVS_DEST_ATTR_'
+    _nla_prefix = "IPVS_DEST_ATTR_"
 
     def set_addr(self, context, value):
         ret = {"addr": value}
@@ -118,6 +118,30 @@ class NLAFilter(RequestProcessor):
             obj[key] = value
         obj.pop("stats", None)
         obj.pop("stats64", None)
+
+        # Determine the prefix based on the _nla_prefix attribute of the class
+        prefix = (
+            getattr(cls.field_filters[0], "_nla_prefix", "")
+            if cls.field_filters
+            else ""
+        )
+
+        # af / addr_family
+        if "af" not in obj and f"{prefix}AF" in obj:
+            obj["af"] = obj[f"{prefix}AF"]
+        if "addr_family" not in obj and f"{prefix}ADDR_FAMILY" in obj:
+            obj["addr_family"] = obj[f"{prefix}ADDR_FAMILY"]
+
+        # protocol
+        if "protocol" not in obj and f"{prefix}PROTOCOL" in obj:
+            obj["protocol"] = obj[f"{prefix}PROTOCOL"]
+        # port
+        if "port" not in obj and f"{prefix}PORT" in obj:
+            obj["port"] = obj[f"{prefix}PORT"]
+        # addr
+        if "addr" not in obj and f"{prefix}ADDR" in obj:
+            obj["addr"] = obj[f"{prefix}ADDR"]
+
         return obj
 
     def dump_nla(self, items=None):
@@ -194,7 +218,9 @@ class AsyncIPVS(ipvs.AsyncIPVSSocket):
             "get": (ipvs.IPVS_CMD_GET_DEST, "get"),
             "dump": (ipvs.IPVS_CMD_GET_DEST, "dump"),
         }
-        cmd, flags = self.make_request_type(command, command_map)
+        cmd, flags = NetlinkRequest.calculate_request_type(
+            command, command_map
+        )
         msg = ipvs.ipvsmsg()
         msg["cmd"] = cmd
         msg["version"] = 0x1
