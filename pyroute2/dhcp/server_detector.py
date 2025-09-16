@@ -129,30 +129,36 @@ class DHCPServerDetector:
         ]
         started = time.time()
         remaining = self.duration
-        while remaining > 0 and discover_tasks:
-            get_response = asyncio.create_task(self._responses_queue.get())
-            try:
-                done, _ = await asyncio.wait(
-                    [get_response, *discover_tasks],
-                    timeout=remaining,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                if get_response in done:
-                    yield await get_response
-                    done.remove(get_response)
-                else:
-                    get_response.cancel()
-                    await get_response
-                for i in done:
-                    if task_exc := i.exception():
-                        LOG.error("%r: %s", i.get_name(), task_exc)
-                    discover_tasks.remove(i)
-                remaining -= time.time() - started
-            except (TimeoutError, CancelledError):
-                break
-        for i in discover_tasks:
-            i.cancel()
-            await i
+        try:
+            while remaining > 0 and discover_tasks:
+                get_response = asyncio.create_task(self._responses_queue.get())
+                try:
+                    done, _ = await asyncio.wait(
+                        [get_response, *discover_tasks],
+                        timeout=remaining,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if get_response in done:
+                        yield await get_response
+                        done.remove(get_response)
+                    for i in done:
+                        if task_exc := i.exception():
+                            LOG.error("%r: %s", i.get_name(), task_exc)
+                        discover_tasks.remove(i)
+                    remaining -= time.time() - started
+                except TimeoutError:
+                    break
+                finally:
+                    if not get_response.done():
+                        get_response.cancel()
+                        try:
+                            await get_response
+                        except CancelledError:
+                            pass
+        finally:
+            for i in discover_tasks:
+                i.cancel()
+                await i
 
 
 def get_argparser() -> argparse.ArgumentParser:
