@@ -78,6 +78,7 @@ __NR = {
     's390': {'64bit': 339},
     'loongarch64': {'64bit': 268},
     'risc': {'64bit': 268},
+    'sw_6': {'64bit': 501},
 }
 __NR_setns = __NR.get(config.machine[:4], {}).get(config.arch, 308)
 
