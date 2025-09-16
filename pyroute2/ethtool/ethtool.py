@@ -13,7 +13,11 @@ from pyroute2.ethtool.common import (
 )
 from pyroute2.ethtool.ioctl import WAKE_NAMES, IoctlEthtool
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.generic.ethtool import NlEthtool, ethtool_rings_msg
+from pyroute2.netlink.generic.ethtool import (
+    NlEthtool,
+    ethtool_module_eeprom_msg,
+    ethtool_rings_msg,
+)
 
 INT32MINUS_UINT32 = c_uint32(-1).value
 INT16MINUS_UINT16 = c_uint16(-1).value
@@ -382,6 +386,44 @@ class EthtoolRings(
         return cls(**ioctl_rings)
 
 
+class EthtoolModuleEeprom(
+    namedtuple(
+        "EthtoolModuleEeprom",
+        ("offset", "length", "page", "bank", "i2c_address", "data"),
+    )
+):
+    nl_pfx = "ETHTOOL_A_MODULE_EEPROM_{}"
+
+    def __new__(
+        cls, offset=0, length=0, page=0, bank=0, i2c_address=0, data=None
+    ):
+        return super(EthtoolModuleEeprom, cls).__new__(
+            cls, offset, length, page, bank, i2c_address, data
+        )
+
+    @classmethod
+    def from_netlink(cls, nl_eeprom):
+        nl_eeprom = nl_eeprom[0]
+        attrs = {
+            cls_attr: nl_eeprom.get_attr(cls.nl_pfx.format(cls_attr.upper()))
+            for cls_attr in cls._fields
+        }
+        if attrs["data"] is not None:
+            attrs["length"] = len(attrs["data"])
+        return cls(**attrs)
+
+    def to_netlink(self):
+        nl_module_eeprom_attrs = ethtool_module_eeprom_msg()
+        for cls_attr in self._fields:
+            cls_value = getattr(self, cls_attr)
+            if cls_value is None:
+                continue
+            nl_module_eeprom_attrs["attrs"].append(
+                (self.nl_pfx.format(cls_attr.upper()), cls_value)
+            )
+        return nl_module_eeprom_attrs
+
+
 class Ethtool:
     def __init__(self):
         self._with_ioctl = IoctlEthtool()
@@ -509,6 +551,11 @@ class Ethtool:
         ioctl_coalesce = self._with_ioctl.get_coalesce()
         EthtoolCoalesce.to_ioctl(ioctl_coalesce, coalesce)
         self._with_ioctl.set_coalesce(ioctl_coalesce)
+
+    def get_module_eeprom(self, ifname, **kwargs):
+        eeprom_request = EthtoolModuleEeprom(**kwargs).to_netlink()
+        eeprom = self._with_nl.get_module_eeprom(eeprom_request, ifname)
+        return EthtoolModuleEeprom.from_netlink(eeprom)
 
     def close(self):
         self._with_ioctl.close()
