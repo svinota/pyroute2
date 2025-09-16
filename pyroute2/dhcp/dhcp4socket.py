@@ -7,6 +7,7 @@ IPv4 DHCP socket
 import asyncio
 import logging
 import socket
+from asyncio.exceptions import CancelledError
 from typing import Optional
 
 from pyroute2.compat import ETHERTYPE_IP
@@ -196,14 +197,17 @@ class AsyncDHCP4Socket(AsyncRawSocket):
             )
 
         '''
-        msg: Optional[ReceivedDHCPMessage] = None
-        while not msg:
-            raw = await self.loop.sock_recv(self, 4096)
-            try:
-                msg = self._decode_msg(raw)
-            except ValueError as err:
-                LOG.error('%s', err)
-        return msg
+        try:
+            msg: Optional[ReceivedDHCPMessage] = None
+            while not msg:
+                raw = await self.loop.sock_recv(self, 4096)
+                try:
+                    msg = self._decode_msg(raw)
+                except ValueError as err:
+                    LOG.error('%s', err)
+            return msg
+        except CancelledError:
+            pass
 
     @classmethod
     def _decode_msg(cls, data: bytes) -> ReceivedDHCPMessage:

@@ -62,11 +62,14 @@ class DHCPServerDetector:
 
     async def _send_forever(self, sock: AsyncDHCP4Socket):
         '''Send the `DISCOVER` message at `interval` until cancelled.'''
-        msg = self.discover_messages[sock.ifname]
-        while True:
-            LOG.info('[%s] -> %s', sock.ifname, msg)
-            await sock.put(msg)
-            await asyncio.sleep(self.interval)
+        try:
+            msg = self.discover_messages[sock.ifname]
+            while True:
+                LOG.info('[%s] -> %s', sock.ifname, msg)
+                await sock.put(msg)
+                await asyncio.sleep(self.interval)
+        except CancelledError:
+            pass
 
     async def _get_offers(self, interface: str):
         '''Send DISCOVERs and wait for responses on an interface.'''
@@ -92,6 +95,7 @@ class DHCPServerDetector:
                     # if get is still pending, that means send_task is over
                     if get_next_msg in pending:
                         get_next_msg.cancel()
+                        await get_next_msg
                         continue
                     # we have a new message
                     next_msg = await get_next_msg
@@ -104,9 +108,12 @@ class DHCPServerDetector:
                         continue
                     LOG.info('[%s] <- %s', interface, next_msg)
                     await self._responses_queue.put((interface, next_msg))
-                except asyncio.CancelledError:
+                except CancelledError:
                     LOG.debug('[%s] stop discovery', interface)
                     send_task.cancel()
+                    await send_task
+                    get_next_msg.cancel()
+                    await get_next_msg
                     break
             else:
                 await send_task
@@ -135,6 +142,7 @@ class DHCPServerDetector:
                     done.remove(get_response)
                 else:
                     get_response.cancel()
+                    await get_response
                 for i in done:
                     if task_exc := i.exception():
                         LOG.error("%r: %s", i.get_name(), task_exc)
@@ -144,6 +152,7 @@ class DHCPServerDetector:
                 break
         for i in discover_tasks:
             i.cancel()
+            await i
 
 
 def get_argparser() -> argparse.ArgumentParser:
