@@ -12,6 +12,7 @@ from pyroute2.ethtool.common import (
     LMBTypePort,
 )
 from pyroute2.ethtool.ioctl import WAKE_NAMES, IoctlEthtool
+from pyroute2.ethtool.module_info import ModuleInfoParser
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.generic.ethtool import (
     NlEthtool,
@@ -556,6 +557,9 @@ class Ethtool:
         eeprom_request = EthtoolModuleEeprom(**kwargs).to_netlink()
         eeprom = self._with_nl.get_module_eeprom(eeprom_request, ifname)
         return EthtoolModuleEeprom.from_netlink(eeprom)
+
+    def get_module_info(self, ifname):
+        return ModuleInfoParser(self, ifname).parse_module_info()
 
     def close(self):
         self._with_ioctl.close()
