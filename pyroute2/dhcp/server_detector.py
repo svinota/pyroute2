@@ -69,7 +69,7 @@ class DHCPServerDetector:
                 await sock.put(msg)
                 await asyncio.sleep(self.interval)
             except CancelledError:
-                pass
+                break
 
     async def _get_offers(self, interface: str):
         '''Send DISCOVERs and wait for responses on an interface.'''
