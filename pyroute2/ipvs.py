@@ -141,6 +141,9 @@ class NLAFilter(RequestProcessor):
         # addr
         if "addr" not in obj and f"{prefix}ADDR" in obj:
             obj["addr"] = obj[f"{prefix}ADDR"]
+        # sched_name
+        if "sched_name" in obj:
+            obj["sched_name"] = obj[f"{prefix}SCHED_NAME"]
 
         return obj
 
