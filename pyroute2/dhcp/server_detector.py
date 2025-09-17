@@ -62,14 +62,14 @@ class DHCPServerDetector:
 
     async def _send_forever(self, sock: AsyncDHCP4Socket):
         '''Send the `DISCOVER` message at `interval` until cancelled.'''
-        try:
-            msg = self.discover_messages[sock.ifname]
-            while True:
-                LOG.info('[%s] -> %s', sock.ifname, msg)
+        msg = self.discover_messages[sock.ifname]
+        while True:
+            LOG.info('[%s] -> %s', sock.ifname, msg)
+            try:
                 await sock.put(msg)
                 await asyncio.sleep(self.interval)
-        except CancelledError:
-            pass
+            except CancelledError:
+                pass
 
     async def _get_offers(self, interface: str):
         '''Send DISCOVERs and wait for responses on an interface.'''
