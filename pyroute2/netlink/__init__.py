@@ -482,6 +482,7 @@ import types
 import weakref
 from collections import OrderedDict
 from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
+from typing import Dict
 
 from pyroute2.common import AF_MPLS, basestring, hexdump
 from pyroute2.netlink.exceptions import (
@@ -2446,6 +2447,14 @@ class nlmsgerr(nlmsg):
         ('NLMSGERR_ATTR_OFFS', 'uint32'),
         ('NLMSGERR_ATTR_COOKIE', 'uint8'),
     )
+
+    @property
+    def orig_msg(self) -> Dict:
+        return self["header"]["errmsg"]
+
+    @property
+    def orig_type(self) -> int:
+        return self.orig_msg["header"]["type"]
 
 
 class genlmsg(nlmsg):
