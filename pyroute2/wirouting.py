@@ -17,8 +17,8 @@ from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl import (
     RTM_GETLINK,
     RTM_NEWLINK,
-    RTM_SETLINK,
     RTM_NEWLINKPROP,
+    RTM_SETLINK,
 )
 
 

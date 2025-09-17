@@ -641,11 +641,7 @@ class RTNL_API:
         msg['index'] = index
         msg['handle'] = transform_handle(handle)
         msg['parent'] = transform_handle(parent)
-        request = NetlinkRequest(
-            self,
-            msg,
-            msg_type=RTM_GETTFILTER,
-        )
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETTFILTER)
         await request.send()
         return request.response()
 
@@ -656,11 +652,7 @@ class RTNL_API:
         msg = tcmsg()
         msg['family'] = AF_UNSPEC
         msg['index'] = index
-        request = NetlinkRequest(
-            self,
-            msg,
-            msg_type=RTM_GETTCLASS,
-        )
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETTCLASS)
         await request.send()
         return request.response()
 
@@ -745,11 +737,7 @@ class RTNL_API:
         '''
         msg = ndtmsg()
         msg['family'] = family
-        request = NetlinkRequest(
-            self,
-            msg,
-            msg_type=RTM_GETNEIGHTBL,
-        )
+        request = NetlinkRequest(self, msg, msg_type=RTM_GETNEIGHTBL)
         await request.send()
         return request.response()
 
@@ -880,10 +868,7 @@ class RTNL_API:
             #
             msg['attrs'] = [('NETNSA_FD', nsfd)]
             request = NetlinkRequest(
-                self,
-                msg,
-                msg_type=RTM_GETNSID,
-                msg_flags=NLM_F_REQUEST,
+                self, msg, msg_type=RTM_GETNSID, msg_flags=NLM_F_REQUEST
             )
             await request.send()
             try:
@@ -950,10 +935,7 @@ class RTNL_API:
             msg['attrs'].append(('NETNSA_TARGET_NSID', target_nsid))
 
         request = NetlinkRequest(
-            self,
-            msg,
-            msg_type=RTM_GETNSID,
-            msg_flags=NLM_F_REQUEST,
+            self, msg, msg_type=RTM_GETNSID, msg_flags=NLM_F_REQUEST
         )
         await request.send()
         async for r in request.response():
@@ -1209,12 +1191,7 @@ class RTNL_API:
         dump_filter, kwarg = get_dump_filter('brport', command, kwarg)
         arguments = get_arguments_processor('brport', command, kwarg)
         request = NetlinkRequest(
-            self,
-            ifinfmsg(),
-            command,
-            command_map,
-            dump_filter,
-            arguments,
+            self, ifinfmsg(), command, command_map, dump_filter, arguments
         )
         await request.send()
         return request.response()
@@ -1573,12 +1550,7 @@ class RTNL_API:
         dump_filter, kwarg = get_dump_filter('neigh', command, kwarg)
         arguments = get_arguments_processor('neigh', command, kwarg)
         request = NetlinkRequest(
-            self,
-            ndmsg.ndmsg(),
-            command,
-            command_map,
-            dump_filter,
-            arguments,
+            self, ndmsg.ndmsg(), command, command_map, dump_filter, arguments
         )
         await request.send()
         if command == 'dump':
@@ -1936,12 +1908,7 @@ class RTNL_API:
         dump_filter, kwarg = get_dump_filter('link', command, kwarg)
         arguments = get_arguments_processor('link', command, kwarg)
         request = NetlinkRequest(
-            self,
-            ifinfmsg(),
-            command,
-            command_map,
-            dump_filter,
-            arguments,
+            self, ifinfmsg(), command, command_map, dump_filter, arguments
         )
         await request.send()
         if command == 'dump':
@@ -2141,12 +2108,7 @@ class RTNL_API:
         arguments = get_arguments_processor('tc', command, kwarg)
 
         request = NetlinkRequest(
-            self,
-            tcmsg(),
-            command,
-            command_map,
-            dump_filter,
-            arguments,
+            self, tcmsg(), command, command_map, dump_filter, arguments
         )
         await request.send()
         if command.startswith('dump'):
@@ -2484,12 +2446,7 @@ class RTNL_API:
         )
 
         request = NetlinkRequest(
-            self,
-            msg,
-            command,
-            command_map,
-            dump_filter,
-            arguments,
+            self, msg, command, command_map, dump_filter, arguments
         )
         await request.send()
         if command in ('dump', 'show'):
@@ -2583,12 +2540,7 @@ class RTNL_API:
         dump_filter, kwarg = get_dump_filter('rule', command, kwarg)
         arguments = get_arguments_processor('rule', command, kwarg)
         request = NetlinkRequest(
-            self,
-            msg,
-            command,
-            command_map,
-            dump_filter,
-            arguments,
+            self, msg, command, command_map, dump_filter, arguments
         )
         await request.send()
         if command == 'dump':
@@ -2608,13 +2560,7 @@ class RTNL_API:
         msg['filter_mask'] = kwarg.get('filter_mask', 31)
         msg['ifindex'] = kwarg.get('ifindex', 0)
         dump_filter, kwarg = get_dump_filter('stats', command, kwarg)
-        request = NetlinkRequest(
-            self,
-            msg,
-            command,
-            command_map,
-            dump_filter,
-        )
+        request = NetlinkRequest(self, msg, command, command_map, dump_filter)
         await request.send()
         if command == 'dump':
             return request.response()

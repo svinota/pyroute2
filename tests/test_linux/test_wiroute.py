@@ -1,6 +1,6 @@
 import pytest
 
-from pyroute2.wirouting import InterfaceDoesNotExist, WiRoute, InterfaceExists
+from pyroute2.wirouting import InterfaceDoesNotExist, InterfaceExists, WiRoute
 
 pytestmark = [pytest.mark.asyncio]
 BAD_INTERFACE_NAME = "doesnotexist"
@@ -47,4 +47,6 @@ async def test_rename_interface_error(tmp_link_ifname):
         with pytest.raises(InterfaceExists):
             await ipr.rename_interface(tmp_link_ifname, "lo")
         with pytest.raises(InterfaceDoesNotExist):
-            await ipr.rename_interface(BAD_INTERFACE_NAME, BAD_INTERFACE_NAME + "2")
+            await ipr.rename_interface(
+                BAD_INTERFACE_NAME, BAD_INTERFACE_NAME + "2"
+            )

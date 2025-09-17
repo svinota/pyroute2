@@ -239,7 +239,6 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         telemetry=None,
         exception_factory=None,
     ):
-
         if isinstance(family, str):
             family = NlProtosFile().get_rt_id(family)
 
@@ -521,7 +520,9 @@ class NetlinkRequest:
         self.epid = sock.epid if msg_pid is None else msg_pid
         self.marshal = sock.marshal
         self.parser = parser
-        self.exception_factory = exception_factory or getattr(sock, "exception_factory", None)
+        self.exception_factory = exception_factory or getattr(
+            sock, "exception_factory", None
+        )
         # if not isinstance(msg, nlmsg):
         #    msg_class = self.marshal.msg_map[msg_type]
         #    msg = msg_class(msg)
@@ -679,7 +680,6 @@ class NetlinkRequest:
 
 
 class NetlinkSocket(SyncAPI):
-
     async_class = AsyncNetlinkSocket
 
     def __init__(
@@ -793,7 +793,6 @@ class NetlinkSocket(SyncAPI):
         return tuple(ret)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-
         async def collect_data():
             return [
                 i
