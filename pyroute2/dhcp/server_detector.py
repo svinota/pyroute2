@@ -95,7 +95,10 @@ class DHCPServerDetector:
                     # if get is still pending, that means send_task is over
                     if get_next_msg in pending:
                         get_next_msg.cancel()
-                        await get_next_msg
+                        try:
+                            await get_next_msg
+                        except CancelledError:
+                            pass
                         continue
                     # we have a new message
                     next_msg = await get_next_msg
@@ -113,7 +116,10 @@ class DHCPServerDetector:
                     send_task.cancel()
                     await send_task
                     get_next_msg.cancel()
-                    await get_next_msg
+                    try:
+                        await get_next_msg
+                    except CancelledError:
+                        pass
                     break
             else:
                 await send_task
