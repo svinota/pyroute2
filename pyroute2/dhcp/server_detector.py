@@ -65,8 +65,11 @@ class DHCPServerDetector:
         msg = self.discover_messages[sock.ifname]
         while True:
             LOG.info('[%s] -> %s', sock.ifname, msg)
-            await sock.put(msg)
-            await asyncio.sleep(self.interval)
+            try:
+                await sock.put(msg)
+                await asyncio.sleep(self.interval)
+            except CancelledError:
+                break
 
     async def _get_offers(self, interface: str):
         '''Send DISCOVERs and wait for responses on an interface.'''
@@ -92,6 +95,10 @@ class DHCPServerDetector:
                     # if get is still pending, that means send_task is over
                     if get_next_msg in pending:
                         get_next_msg.cancel()
+                        try:
+                            await get_next_msg
+                        except CancelledError:
+                            pass
                         continue
                     # we have a new message
                     next_msg = await get_next_msg
@@ -104,9 +111,15 @@ class DHCPServerDetector:
                         continue
                     LOG.info('[%s] <- %s', interface, next_msg)
                     await self._responses_queue.put((interface, next_msg))
-                except asyncio.CancelledError:
+                except CancelledError:
                     LOG.debug('[%s] stop discovery', interface)
                     send_task.cancel()
+                    await send_task
+                    get_next_msg.cancel()
+                    try:
+                        await get_next_msg
+                    except CancelledError:
+                        pass
                     break
             else:
                 await send_task
@@ -122,28 +135,36 @@ class DHCPServerDetector:
         ]
         started = time.time()
         remaining = self.duration
-        while remaining > 0 and discover_tasks:
-            get_response = asyncio.create_task(self._responses_queue.get())
-            try:
-                done, _ = await asyncio.wait(
-                    [get_response, *discover_tasks],
-                    timeout=remaining,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                if get_response in done:
-                    yield await get_response
-                    done.remove(get_response)
-                else:
-                    get_response.cancel()
-                for i in done:
-                    if task_exc := i.exception():
-                        LOG.error("%r: %s", i.get_name(), task_exc)
-                    discover_tasks.remove(i)
-                remaining -= time.time() - started
-            except (TimeoutError, CancelledError):
-                break
-        for i in discover_tasks:
-            i.cancel()
+        try:
+            while remaining > 0 and discover_tasks:
+                get_response = asyncio.create_task(self._responses_queue.get())
+                try:
+                    done, _ = await asyncio.wait(
+                        [get_response, *discover_tasks],
+                        timeout=remaining,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if get_response in done:
+                        yield await get_response
+                        done.remove(get_response)
+                    for i in done:
+                        if task_exc := i.exception():
+                            LOG.error("%r: %s", i.get_name(), task_exc)
+                        discover_tasks.remove(i)
+                    remaining -= time.time() - started
+                except TimeoutError:
+                    break
+                finally:
+                    if not get_response.done():
+                        get_response.cancel()
+                        try:
+                            await get_response
+                        except CancelledError:
+                            pass
+        finally:
+            for i in discover_tasks:
+                i.cancel()
+                await i
 
 
 def get_argparser() -> argparse.ArgumentParser:
