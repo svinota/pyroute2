@@ -31,6 +31,7 @@ ETHTOOL_MSG_PRIVFLAGS_GET = 13
 ETHTOOL_MSG_PRIVFLAGS_SET = 14
 ETHTOOL_MSG_RINGS_GET = 15
 ETHTOOL_MSG_RINGS_SET = 16
+ETHTOOL_MSG_MODULE_EEPROM_GET = 31
 
 
 class ethtoolheader(nla):
@@ -188,6 +189,21 @@ class ethtool_rings_msg(genlmsg):
     ethtoolheader = ethtoolheader
 
 
+class ethtool_module_eeprom_msg(genlmsg):
+    nla_map = (
+        ('ETHTOOL_A_MODULE_EEPROM_UNSPEC', 'none'),
+        ('ETHTOOL_A_MODULE_EEPROM_HEADER', 'ethtoolheader'),
+        ('ETHTOOL_A_MODULE_EEPROM_OFFSET', 'uint32'),
+        ('ETHTOOL_A_MODULE_EEPROM_LENGTH', 'uint32'),
+        ('ETHTOOL_A_MODULE_EEPROM_PAGE', 'uint8'),
+        ('ETHTOOL_A_MODULE_EEPROM_BANK', 'uint8'),
+        ('ETHTOOL_A_MODULE_EEPROM_I2C_ADDRESS', 'uint8'),
+        ('ETHTOOL_A_MODULE_EEPROM_DATA', 'array(uint8)'),
+    )
+
+    ethtoolheader = ethtoolheader
+
+
 class AsyncNlEthtool(AsyncGenericNetlinkSocket):
     async def _do_request(self, msg, msg_flags=NLM_F_REQUEST):
         return await self.nlm_request(
@@ -296,6 +312,19 @@ class AsyncNlEthtool(AsyncGenericNetlinkSocket):
             rings, msg_flags=NLM_F_REQUEST | NLM_F_ACK
         )
 
+    async def get_module_eeprom(self, eeprom, ifname=None, ifindex=None):
+        eeprom['cmd'] = ETHTOOL_MSG_MODULE_EEPROM_GET
+        eeprom['version'] = ETHTOOL_GENL_VERSION
+        eeprom['attrs'].append(
+            (
+                'ETHTOOL_A_MODULE_EEPROM_HEADER',
+                self._get_dev_header(ifname, ifindex),
+            )
+        )
+
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_module_eeprom_msg)
+        return await self._do_request(eeprom)
+
 
 class NlEthtool(GenericNetlinkSocket):
 
@@ -333,4 +362,9 @@ class NlEthtool(GenericNetlinkSocket):
     def set_rings(self, rings, ifname=None, ifindex=None):
         return self._run_sync_cleanup(
             self.asyncore.set_rings, rings, ifname, ifindex
+        )
+
+    def get_module_eeprom(self, eeprom, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(
+            self.asyncore.get_module_eeprom, eeprom, ifname, ifindex
         )
