@@ -55,6 +55,7 @@ class WiRoute(AsyncIPRoute):
     def __init__(self, *args, **kwargs):
         for key in ("ext_ack", "strict_check"):
             kwargs.setdefault(key, True)
+            kwargs[key] = bool(kwargs[key])
         kwargs.setdefault("exception_factory", exception_factory)
         super().__init__(*args, **kwargs)
 
