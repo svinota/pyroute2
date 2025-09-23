@@ -178,6 +178,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
         use_socket=None,
         use_event_loop=None,
         telemetry=None,
+        exception_factory=None,
     ):
         if config.mock_netlink:
             use_socket = IPEngine()
@@ -208,6 +209,7 @@ class AsyncIPRSocket(AsyncNetlinkSocket):
             libc=libc,
             use_event_loop=use_event_loop,
             telemetry=telemetry,
+            exception_factory=exception_factory,
         )
         if not config.mock_netlink:
             self.request_proxy = IPRouteProxy(netns)

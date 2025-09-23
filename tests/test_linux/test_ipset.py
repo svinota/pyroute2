@@ -445,3 +445,14 @@ def test_set_by(ipset, ipset_name):
     # restore version back to original
     ipset._proto_version = old_vers
     assert ipset_name == name_found
+
+
+def test_exception_msg(ipset, ipset_name):
+    """Test that we receive exception with friendly error message"""
+    ipset.create(ipset_name, "hash:ip")
+    ipset.add(ipset_name, "192.0.2.1")
+    with pytest.raises(IPSetError) as excinfo:
+        ipset.add(ipset_name, "192.0.2.1")
+    assert "Element cannot be added to the set: it's already added" in str(
+        excinfo.value
+    )
