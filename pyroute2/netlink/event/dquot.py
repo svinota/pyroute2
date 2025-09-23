@@ -7,7 +7,7 @@ Disk quota events monitoring:
     import pyroute2
     pyroute2.DQuotSocket = dquot.DQuotMock
 
-.. testcode::
+.. code::
 
     from pyroute2 import DQuotSocket
 
@@ -26,7 +26,7 @@ Disk quota events monitoring:
 
 from pyroute2.common import load_dump
 from pyroute2.netlink import genlmsg
-from pyroute2.netlink.event import EventSocket
+from pyroute2.netlink.event import AsyncEventSocket, EventSocket
 from pyroute2.netlink.nlsocket import Marshal
 
 QUOTA_NL_C_UNSPEC = 0
@@ -51,9 +51,13 @@ class MarshalDQuot(Marshal):
     msg_map = {QUOTA_NL_C_UNSPEC: dquotmsg, QUOTA_NL_C_WARNING: dquotmsg}
 
 
-class DQuotSocket(EventSocket):
+class AsyncDQuotSocket(AsyncEventSocket):
     marshal_class = MarshalDQuot
     genl_family = 'VFS_DQUOT'
+
+
+class DQuotSocket(EventSocket):
+    async_class = AsyncDQuotSocket
 
 
 class DQuotMock(DQuotSocket):

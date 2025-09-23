@@ -346,6 +346,14 @@ class protinfo_bridge(nla):
         ('IFLA_BRPORT_BACKUP_PORT', 'uint32'),
         ('IFLA_BRPORT_MRP_RING_OPEN', 'uint8'),
         ('IFLA_BRPORT_MRP_IN_OPEN', 'uint8'),
+        ('IFLA_BRPORT_MCAST_EHT_HOSTS_LIMIT', 'uint32'),
+        ('IFLA_BRPORT_MCAST_EHT_HOSTS_CNT', 'uint32'),
+        ('IFLA_BRPORT_LOCKED', 'uint8'),
+        ('IFLA_BRPORT_MAB', 'uint8'),
+        ('IFLA_BRPORT_MCAST_N_GROUPS', 'uint32'),
+        ('IFLA_BRPORT_MCAST_MAX_GROUPS', 'uint32'),
+        ('IFLA_BRPORT_NEIGH_VLAN_SUPPRESS', 'uint8'),
+        ('IFLA_BRPORT_BACKUP_NHID', 'uint32'),
     )
 
     class br_id(ifla_bridge_id):
@@ -613,7 +621,7 @@ class ifinfbase(object):
             sql_type = None
 
         class xdp_flags(nla):
-            fields = [('value', '>H')]
+            fields = [('value', 'I')]
             sql_type = 'INTEGER'
 
             def encode(self):
@@ -802,7 +810,7 @@ class ifinfbase(object):
     @staticmethod
     def protinfo(self, *argv, **kwarg):
         proto_map = {AF_BRIDGE: protinfo_bridge}
-        return proto_map.get(self['family'], self.hex)
+        return proto_map[self['family']]
 
     class ifinfo(nla):
         prefix = 'IFLA_INFO_'

@@ -1,8 +1,0 @@
-build
-twine
-flake8
-netaddr
-pytest
-pytest-cov
-pre-commit
-findimports

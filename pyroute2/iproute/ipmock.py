@@ -1,29 +1,43 @@
 import copy
 import errno
-import queue
+import os
 import socket
 import struct
+import threading
 from itertools import count
 
-from pyroute2.lab import LAB_API
-from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import NetlinkSocketBase, Stats
+from pyroute2.config import AF_NETLINK
+from pyroute2.netlink import (
+    NLM_F_DUMP,
+    NLM_F_MULTI,
+    NLMSG_DONE,
+    nlmsg,
+    nlmsgerr,
+)
+from pyroute2.netlink.core import Stats
+from pyroute2.netlink.rtnl import (
+    RTM_DELADDR,
+    RTM_DELROUTE,
+    RTM_GETADDR,
+    RTM_GETLINK,
+    RTM_GETROUTE,
+    RTM_NEWADDR,
+    RTM_NEWLINK,
+    RTM_NEWROUTE,
+)
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
-from pyroute2.requests.address import AddressFieldFilter, AddressIPRouteFilter
-from pyroute2.requests.link import LinkFieldFilter
-from pyroute2.requests.main import RequestProcessor
-from pyroute2.requests.route import RouteFieldFilter
 
 interface_counter = count(3)
+MAGIC_CLOSE = 0x42
 
 
 class MockLink:
     def __init__(
         self,
-        index,
+        index=0,
         ifname='',
         address='00:00:00:00:00:00',
         broadcast='ff:ff:ff:ff:ff:ff',
@@ -43,7 +57,7 @@ class MockLink:
         br_forward_delay=0,
         alt_ifname_list=None,
     ):
-        self.index = index
+        self.index = index if index > 0 else next(interface_counter)
         self.ifname = ifname
         self.flags = flags
         self.address = address
@@ -62,6 +76,32 @@ class MockLink:
         self.br_max_age = br_max_age
         self.br_forward_delay = br_forward_delay
         self.alt_ifname_list = alt_ifname_list or []
+
+    def update_from_msg(self, msg):
+        [
+            setattr(self, x, msg.get(x))
+            for x in ['address', 'broadcast', 'mtu', 'ifname', 'master']
+            if msg.get(x) is not None
+        ]
+        #
+        self.kind = msg.get(('linkinfo', 'kind'))
+        if msg.get('change') != 0:
+            self.flags = msg.get('flags')
+        # vlan
+        if self.kind == 'vlan':
+            self.vlan_id = msg.get(('linkinfo', 'data', 'vlan_id'))
+            self.link = msg.get('link')
+        elif self.kind == 'bridge':
+            self.br_max_age = msg.get(('linkinfo', 'data', 'br_max_age'))
+            self.br_forward_delay = msg.get(
+                ('linkinfo', 'data', 'br_forward_delay')
+            )
+
+    @classmethod
+    def load_from_msg(cls, msg):
+        ret = cls()
+        ret.update_from_msg(msg)
+        return ret
 
     def export(self):
         ret = {
@@ -242,9 +282,9 @@ class MockLink:
 class MockAddress:
     def __init__(
         self,
-        index,
-        address,
-        prefixlen,
+        index=0,
+        address=None,
+        prefixlen=None,
         broadcast=None,
         label=None,
         family=2,
@@ -258,6 +298,19 @@ class MockAddress:
         self.index = index
         self.label = label
         self.family = family
+
+    def update_from_msg(self, msg):
+        [
+            setattr(self, x, msg.get(x))
+            for x in ['index', 'address', 'broadcast', 'prefixlen']
+            if msg.get(x) is not None
+        ]
+
+    @classmethod
+    def load_from_msg(cls, msg):
+        ret = cls()
+        ret.update_from_msg(msg)
+        return ret
 
     def export(self):
         ret = {
@@ -302,8 +355,8 @@ class MockAddress:
 class MockRoute:
     def __init__(
         self,
-        dst,
-        oif,
+        dst=None,
+        oif=0,
         gateway=None,
         prefsrc=None,
         family=2,
@@ -327,6 +380,27 @@ class MockRoute:
         self.priority = kwarg.get('priority', 0)
         self.tos = kwarg.get('tos', 0)
         self._type = kwarg.get('type', 2)
+
+    def update_from_msg(self, msg):
+        [
+            setattr(self, x, msg.get(x))
+            for x in [
+                'dst',
+                'dst_len',
+                'gateway',
+                'oif',
+                'family',
+                'table',
+                'priority',
+            ]
+            if msg.get(x) is not None
+        ]
+
+    @classmethod
+    def load_from_msg(cls, msg):
+        ret = cls()
+        ret.update_from_msg(msg)
+        return ret
 
     def export(self):
         ret = {
@@ -489,211 +563,325 @@ presets = {
 }
 
 
-class IPRoute(LAB_API, NetlinkSocketBase):
-    def __init__(self, *argv, **kwarg):
-        super().__init__()
+class IPEngine:
+    '''Mock network objects database with the socket API.
+
+    WIP: work in progress.
+
+    A drop-in replacement to use instead of a low level RTNL socket.
+    Implements all the required socket properties and provides a
+    network objects database with RTNL protocol.
+
+    Example::
+
+        >>> ipe = IPEngine()
+        >>> ipr = IPRoute(use_socket=ipe)
+        >>> [ x.get('ifname') for x in ipr.link('dump') ]
+        ['lo', 'eth0']
+
+    '''
+
+    def __init__(
+        self,
+        sfamily=AF_NETLINK,
+        stype=socket.SOCK_DGRAM,
+        sproto=0,
+        netns='default',
+        flags=os.O_CREAT,
+    ):
         self.marshal = MarshalRtnl()
-        self.target = kwarg.get('target')
-        self.preset = copy.deepcopy(
-            presets[kwarg['preset'] if 'preset' in kwarg else 'default']
-        )
-        self.buffer_queue = queue.Queue(maxsize=512)
-        self.input_from_buffer_queue = True
+        self.netns = netns
+        self.flags = flags
+        self.magic = 0
+        self._stype = stype
+        self._sfamily = sfamily
+        self._sproto = sproto
+        self._local = threading.local()
+        self._lock = threading.Lock()
+        self._broadcast = set()
+        self.processors = {
+            RTM_GETADDR: self.RTM_GETADDR,
+            RTM_GETLINK: self.RTM_GETLINK,
+            RTM_NEWADDR: self.RTM_NEWADDR,
+            RTM_DELADDR: self.RTM_DELADDR,
+            RTM_NEWLINK: self.RTM_NEWLINK,
+            RTM_DELROUTE: self.RTM_DELROUTE,
+            RTM_NEWROUTE: self.RTM_NEWROUTE,
+            RTM_GETROUTE: self.RTM_GETROUTE,
+        }
+        self.initdb()
 
-    def bind(self, async_cache=True, clone_socket=True):
-        pass
+    @property
+    def loopback_r(self):
+        if not hasattr(self._local, 'loopback_r'):
+            self._local.loopback_r, self._local.loopback_w = socket.socketpair(
+                socket.AF_UNIX, socket.SOCK_DGRAM
+            )
+        return self._local.loopback_r
 
-    def dump(self, groups=None):
-        for method in (self.get_links, self.get_addr, self.get_routes):
-            for msg in method():
-                yield msg
+    @property
+    def loopback_w(self):
+        if not hasattr(self._local, 'loopback_w'):
+            self._local.loopback_r, self._local.loopback_w = socket.socketpair(
+                socket.AF_UNIX, socket.SOCK_DGRAM
+            )
+        return self._local.loopback_w
 
-    def _get_dump(self, dump, msg_class):
-        for data in dump:
-            loader = msg_class()
-            loader.load(data.export())
-            loader.encode()
+    def initdb(self):
+        if self.netns not in presets:
+            if not self.flags & os.O_CREAT:
+                raise FileNotFoundError()
+            presets[self.netns] = copy.deepcopy(presets['netns'])
+        self.database = copy.deepcopy(presets[self.netns])
+
+    def close(self):
+        if self.magic == MAGIC_CLOSE:
+            self.loopback_r.close()
+            self.loopback_w.close()
+
+    def bind(self, address=None):
+        self._broadcast.add(self.loopback_w)
+        msg = rtmsg()
+        msg.load(self.database['routes'][0].export())
+        msg.encode()
+        self.loopback_w.send(msg.data)
+
+    def fileno(self):
+        return self.loopback_r.fileno()
+
+    def recv(self, bufsize, flags=0):
+        return self.loopback_r.recv(bufsize, flags)
+
+    def recvfrom(self, bufsize, flags=0):
+        return self.loopback_r.recvfrom(bufsize, flags)
+
+    def recvmsg(self, bufsize, ancbufsize=0, flags=0):
+        return self.loopback_r.recvmsg(bufsize, ancbufsize, flags)
+
+    def recv_into(self, buffer, nbytes=0, flags=0):
+        return self.loopback_r.recv_into(buffer, nbytes, flags)
+
+    def recvfrom_into(self, buffer, nbytes=0, flags=0):
+        return self.loopback_r.recvfrom_into(buffer, nbytes, flags)
+
+    def recvmsg_into(self, buffers, ancbufsize=0, flags=0):
+        return self.loopback_r.recvmsg_into(buffers, ancbufsize, flags)
+
+    def send(self, data, flags=0):
+        return self.nl_handle(data)
+
+    def sendall(self, data, flags=0):
+        return self.nl_handle(data)
+
+    def sendto(self, data, flags, address=0):
+        return self.nl_handle(data)
+
+    def sendmsg(self, buffers, ancdata=None, flags=None, address=None):
+        raise NotImplementedError()
+
+    def setblocking(self, flag):
+        return self.loopback_r.setblocking(flag)
+
+    def getblocking(self):
+        return self.loopback_r.getblocking()
+
+    def getsockname(self):
+        return self.loopback_r.getsockname()
+
+    def getpeername(self):
+        return self.loopback_r.getpeername()
+
+    @property
+    def type(self):
+        return self._stype
+
+    @property
+    def family(self):
+        return self._sfamily
+
+    @property
+    def proto(self):
+        return self._sproto
+
+    def nl_handle(self, data):
+        with self._lock:
+            for msg in self.marshal.parse(data):
+                key = msg['header']['type']
+                tag = msg['header']['sequence_number']
+                if key in self.processors:
+                    self.processors[key](msg)
+                else:
+                    self.nl_done(tag)
+            return len(data)
+
+    def nl_dump(self, registry, msg_class, tag):
+        for item in registry:
             msg = msg_class()
-            msg.data = loader.data
-            msg.decode()
-            if self.target is not None:
-                msg['header']['target'] = self.target
+            msg.load(item.export())
+            msg['header']['flags'] = NLM_F_MULTI
+            msg['header']['sequence_number'] = tag
+            msg.encode()
             yield msg
 
-    def _match(self, mode, obj, spec):
-        keys = {
-            'address': ['address', 'prefixlen', 'index', 'family'],
-            'link': ['index', 'ifname'],
-            'route': ['dst', 'dst_len', 'oif', 'priority'],
-        }
-        check = False
-        for key in keys[mode]:
-            if key in spec:
-                check = True
-                if spec[key] != getattr(obj, key):
-                    return False
-        if not check:
-            return False
-        return True
+    def nl_broadcast(self, msg):
+        for sock in self._broadcast:
+            msg['header']['sequence_number'] = 0
+            msg.reset()
+            msg.encode()
+            sock.send(msg.data)
 
-    def addr(self, command, **spec):
-        if command == 'dump':
-            return self.get_addr()
-        request = RequestProcessor(context=spec, prime=spec)
-        request.apply_filter(AddressFieldFilter())
-        request.apply_filter(AddressIPRouteFilter(command))
-        request.finalize()
-        address = None
+    def nl_done(self, tag):
+        msg = nlmsg()
+        msg['header']['type'] = NLMSG_DONE
+        msg['header']['sequence_number'] = tag
+        msg.encode()
+        self.loopback_w.send(msg.data)
 
-        for address in self.preset['addr']:
-            if self._match('address', address, request):
-                if command == 'add':
-                    raise NetlinkError(errno.EEXIST, 'address exists')
-                break
-        else:
-            if command == 'del':
-                raise NetlinkError(errno.ENOENT, 'address does not exist')
-            address = MockAddress(**request)
+    def nl_error(self, tag, code):
+        msg = nlmsgerr()
+        msg['header']['sequence_number'] = tag
+        msg['error'] = code
+        msg.encode()
+        self.loopback_w.send(msg.data)
 
-        if command == 'add':
-            for link in self.preset['links']:
-                if link.index == request['index']:
+    def RTM_GETROUTE(self, req):
+        tag = req['header']['sequence_number']
+        for msg in self.nl_dump(self.database['routes'], rtmsg, tag):
+            self.loopback_w.send(msg.data)
+        self.nl_done(tag)
+
+    def RTM_GETADDR(self, msg_in):
+        tag = msg_in['header']['sequence_number']
+        for msg_out in self.nl_dump(self.database['addr'], ifaddrmsg, tag):
+            self.loopback_w.send(msg_out.data)
+        self.nl_done(tag)
+
+    def RTM_GETLINK(self, msg_in):
+        tag = msg_in['header']['sequence_number']
+        database = self.database['links']
+        if msg_in.get('index') > 0:
+            database = [
+                x
+                for x in self.database['links']
+                if x.index == msg_in.get('index')
+            ]
+        elif msg_in.get('ifname'):
+            database = [
+                x
+                for x in self.database['links']
+                if x.ifname == msg_in.get('ifname')
+            ]
+        for msg_out in self.nl_dump(database, ifinfmsg, tag):
+            self.loopback_w.send(msg_out.data)
+        if msg_in.get(('header', 'flags')) & NLM_F_DUMP:
+            return self.nl_done(tag)
+        self.nl_error(tag, 0)
+
+    def RTM_NEWROUTE(self, req):
+        tag = req['header']['sequence_number']
+        if not req.get('oif'):
+            (gateway,) = struct.unpack(
+                '>I', socket.inet_aton(req.get('gateway'))
+            )
+            for route in self.database['routes']:
+                if route.dst is None:
+                    continue
+                (dst,) = struct.unpack('>I', socket.inet_aton(route.dst))
+                if (gateway & (0xFFFFFFFF << (32 - route.dst_len))) == dst:
+                    req['attrs'].append(('RTA_OIF', route.oif))
                     break
             else:
-                raise NetlinkError(errno.ENOENT, 'link not found')
-            address.label = link.ifname
-            self.preset['addr'].append(address)
-            for msg in self._get_dump([address], ifaddrmsg):
-                msg.encode()
-                self.buffer_queue.put(msg.data)
-        elif command == 'del':
-            self.preset['addr'].remove(address)
-            for msg in self._get_dump([address], ifaddrmsg):
-                msg['header']['type'] = 21
-                msg['event'] = 'RTM_DELADDR'
-                msg.encode()
-                self.buffer_queue.put(msg.data)
+                return self.nl_error(tag, errno.ENOENT)
+        idx = {
+            (x.dst, x.dst_len, x.oif, x.priority, x.gateway, x.table): x
+            for x in self.database['routes']
+        }
+        req_index = (
+            req.get('dst'),
+            req.get('dst_len'),
+            req.get('oif'),
+            req.get('priority'),
+            req.get('gateway'),
+            req.get('IFLA_TABLE') or req.get('table'),
+        )
+        if req_index in idx:
+            return self.nl_error(tag, errno.EEXIST)
+        route = MockRoute.load_from_msg(req)
+        self.database['routes'].append(route)
+        self.nl_error(tag, 0)
+        msg = rtmsg()
+        msg.load(route.export())
+        self.nl_broadcast(msg)
 
-        return self._get_dump([address], ifaddrmsg)
+    def RTM_DELROUTE(self, req):
+        idx = {
+            (x.dst, x.dst_len, x.oif, x.priority, x.table): x
+            for x in self.database['routes']
+        }
+        req_index = (
+            req.get('dst'),
+            req.get('dst_len'),
+            req.get('oif'),
+            req.get('priority'),
+            req.get('IFLA_TABLE') or req.get('table'),
+        )
+        tag = req['header']['sequence_number']
+        if req_index not in idx:
+            return self.nl_error(tag, errno.ENOENT)
+        self.database['routes'].remove(idx[req_index])
+        self.nl_error(tag, 0)
+        self.nl_broadcast(req)
 
-    def link(self, command, **spec):
-        if command == 'dump':
-            return self.get_links()
-        if 'state' in spec:
-            spec['flags'] = 1 if spec.pop('state') == 'up' else 0
-        request = RequestProcessor(context=spec, prime=spec)
-        request.apply_filter(LinkFieldFilter())
-        request.finalize()
+    def RTM_DELADDR(self, req):
+        idx = {
+            (x.index, x.address, x.prefixlen): x for x in self.database['addr']
+        }
+        req_index = (
+            req.get("index"),
+            req.get("address"),
+            req.get("prefixlen"),
+        )
+        tag = req['header']['sequence_number']
+        if req_index not in idx:
+            return self.nl_error(tag, errno.ENOENT)
+        self.database['addr'].remove(idx[req_index])
+        self.nl_error(tag, 0)
+        self.nl_broadcast(req)
 
-        for interface in self.preset['links']:
-            if self._match('link', interface, request):
-                if command == 'add':
-                    raise NetlinkError(errno.EEXIST, 'interface exists')
-                break
+    def RTM_NEWADDR(self, req):
+        idx = {
+            (x.index, x.address, x.prefixlen) for x in self.database['addr']
+        }
+        req_index = (
+            req.get("index"),
+            req.get("address"),
+            req.get("prefixlen"),
+        )
+        tag = req['header']['sequence_number']
+        if req_index in idx:
+            return self.nl_error(tag, errno.EEXIST)
+        addr = MockAddress.load_from_msg(req)
+        self.database['addr'].append(addr)
+        self.nl_error(tag, 0)
+        msg = ifaddrmsg()
+        msg.load(addr.export())
+        self.nl_broadcast(msg)
+
+    def RTM_NEWLINK(self, req):
+        idx = {x.index: x for x in self.database['links']}
+        nmx = {x.ifname: x for x in self.database['links']}
+        tag = req['header']['sequence_number']
+        if req.get('index') in idx:
+            link = idx[req.get('index')]
+            if link.ifname == req.get('ifname'):
+                return self.nl_error(tag, errno.EEXIST)
+            link.update_from_msg(req)
+        elif req.get('ifname') in nmx:
+            return self.nl_error(tag, errno.EEXIST)
         else:
-            index = next(interface_counter)
-            if 'address' not in request:
-                request['address'] = f'00:11:22:33:44:{index:02}'
-            if 'index' not in request:
-                request['index'] = index
-            if 'tflags' in request:
-                del request['tflags']
-            if 'target' in request:
-                del request['target']
-            interface = MockLink(**request)
-
-        if command == 'add':
-            self.preset['links'].append(interface)
-            for msg in self._get_dump([interface], ifinfmsg):
-                msg.encode()
-                self.buffer_queue.put(msg.data)
-        elif command == 'set':
-            for key, value in request.items():
-                if hasattr(interface, key):
-                    setattr(interface, key, value)
-            for msg in self._get_dump([interface], ifinfmsg):
-                msg.encode()
-                self.buffer_queue.put(msg.data)
-
-        return self._get_dump([interface], ifinfmsg)
-
-    def route(self, command, **spec):
-        if command == 'dump':
-            return self.get_routes()
-        request = RequestProcessor(context=spec, prime=spec)
-        request.apply_filter(RouteFieldFilter())
-        request.finalize()
-
-        for route in self.preset['routes']:
-            if self._match('route', route, request):
-                if command == 'add':
-                    raise NetlinkError(errno.EEXIST, 'route exists')
-                break
-        else:
-            if command == 'del':
-                raise NetlinkError(errno.ENOENT, 'route does not exist')
-            if 'tflags' in request:
-                del request['tflags']
-            if 'target' in request:
-                del request['target']
-            if 'multipath' in request:
-                del request['multipath']
-            if 'metrics' in request:
-                del request['metrics']
-            if 'deps' in request:
-                del request['deps']
-            if 'oif' not in request:
-                (gateway,) = struct.unpack(
-                    '>I', socket.inet_aton(request['gateway'])
-                )
-                for route in self.preset['routes']:
-                    if route.dst is None:
-                        continue
-                    (dst,) = struct.unpack('>I', socket.inet_aton(route.dst))
-                    if (gateway & (0xFFFFFFFF << (32 - route.dst_len))) == dst:
-                        request['oif'] = route.oif
-                        break
-                else:
-                    raise NetlinkError(errno.ENOENT, 'no route to the gateway')
-            route = MockRoute(**request)
-
-        if command == 'add':
-            self.preset['routes'].append(route)
-            for msg in self._get_dump([route], rtmsg):
-                msg.encode()
-                self.buffer_queue.put(msg.data)
-        elif command == 'set':
-            for key, value in request.items():
-                if hasattr(route, key):
-                    setattr(route, key, value)
-            for msg in self._get_dump([route], rtmsg):
-                msg.encode()
-                self.buffer_queue.put(msg.data)
-        elif command == 'del':
-            self.preset['routes'].remove(route)
-            for msg in self._get_dump([route], rtmsg):
-                msg['header']['type'] = 25
-                msg['event'] = 'RTM_DELROUTE'
-                msg.encode()
-                self.buffer_queue.put(msg.data)
-
-        return self._get_dump([route], rtmsg)
-
-    def get_addr(self):
-        return self._get_dump(self.preset['addr'], ifaddrmsg)
-
-    def get_links(self):
-        return self._get_dump(self.preset['links'], ifinfmsg)
-
-    def get_routes(self):
-        return self._get_dump(self.preset['routes'], rtmsg)
-
-
-class ChaoticIPRoute:
-    def __init__(self, *argv, **kwarg):
-        raise NotImplementedError()
-
-
-class RawIPRoute:
-    def __init__(self, *argv, **kwarg):
-        raise NotImplementedError()
+            link = MockLink.load_from_msg(req)
+            self.database['links'].append(link)
+        self.nl_error(tag, 0)
+        msg = ifinfmsg()
+        msg.load(link.export())
+        self.nl_broadcast(msg)

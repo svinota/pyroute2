@@ -1,3 +1,4 @@
+import copy
 import getpass
 import json
 import os
@@ -9,18 +10,22 @@ import nox
 nox.options.envdir = f'./.nox-{getpass.getuser()}'
 nox.options.reuse_existing_virtualenvs = False
 nox.options.sessions = [
-    'linter',
+    'linter-python3.9',
+    'linter-python3.14',
+    'ci-self-python3.9',
+    'ci-self-python3.14',
     'repo',
     'unit',
-    'lab',
+    'limits',
     'neutron',
+    'process',
     'integration',
-    'linux-python3.8',
+    'core-python3.9',
+    'core-python3.14',
     'linux-python3.9',
-    'linux-python3.10',
-    'linux-python3.11',
-    'linux-python3.12',
-    'minimal',
+    'linux-python3.14',
+    'minimal-python3.9',
+    'minimal-python3.14',
 ]
 
 linux_kernel_modules = [
@@ -32,7 +37,20 @@ linux_kernel_modules = [
     'l2tp_ip',
     'l2tp_eth',
     'l2tp_netlink',
+    'netdevsim',
 ]
+
+
+def load_global_config():
+    if sys.argv[-2] == '--' and len(sys.argv[-1]):
+        return json.loads(sys.argv[-1])
+    return {}
+
+
+global_config = load_global_config()
+if global_config.get('fast'):
+    nox.options.reuse_venv = 'yes'
+    nox.options.no_install = True
 
 
 def add_session_config(func):
@@ -53,12 +71,7 @@ def add_session_config(func):
     '''
 
     def wrapper(session):
-        if session.posargs and len(session.posargs[0]) > 0:
-            config = json.loads(session.posargs[0])
-        else:
-            config = {}
-        session.debug(f'session config: {config}')
-        return func(session, config)
+        return func(session, global_config)
 
     wrapper.__name__ = func.__name__
     wrapper.__doc__ = func.__doc__
@@ -72,20 +85,26 @@ def options(module, config):
         'python',
         '-m',
         'pytest',
+        f'-r{config.get("summary", "x")}',
+        f'--timeout={config.get("timeout", 60)}',
         '--basetemp',
         './log',
-        '--exitfirst',
-        '--verbose',
-        '--junitxml=junit.xml',
     ]
+    if config.get('exitfirst', True):
+        ret.append('--exitfirst')
+    if config.get('verbose', True):
+        ret.append('--verbose')
+    if config.get('coverage', False):
+        ret.append('--cov=pyroute2')
+        ret.append('--cov-report=html')
+    if config.get('profile', False):
+        ret.append('--profile')
+        ret.append('--profile-svg')
     if config.get('fail_on_warnings'):
         ret.insert(1, 'error')
         ret.insert(1, '-W')
     if config.get('pdb'):
         ret.append('--pdb')
-    if config.get('coverage'):
-        ret.append('--cov-report=html')
-        ret.append('--cov=pyroute2')
     if config.get('tests_prefix'):
         module = f'{config["tests_prefix"]}/{module}'
     if config.get('sub'):
@@ -116,41 +135,51 @@ def setup_linux(session):
 def setup_venv_minimal(session, config):
     if not config.get('reuse'):
         session.install('--upgrade', 'pip')
-        session.install('build')
-        session.install('twine')
-        session.install('-r', 'requirements.dev.txt')
-        session.install('-r', 'requirements.docs.txt')
-        session.run('mv', '-f', 'setup.cfg', '.setup.cfg.orig', external=True)
+        session.install('.[dev]')
+        session.install('.[docs]')
         session.run(
-            'mv', '-f', 'pyroute2/__init__.py', '.init.py.orig', external=True
+            'mv', '-f', 'pyproject.toml', '.pyproject.toml.full', external=True
         )
-        session.run('cp', 'setup.minimal.cfg', 'setup.cfg', external=True)
+        session.run(
+            'mv', '-f', 'pyroute2/__init__.py', '.init.py.full', external=True
+        )
+        session.run(
+            'cp', 'pyproject.minimal.toml', 'pyproject.toml', external=True
+        )
         session.run(
             'cp', 'pyroute2/minimal.py', 'pyroute2/__init__.py', external=True
         )
         session.run('python', '-m', 'build')
         session.run('python', '-m', 'twine', 'check', 'dist/*')
         session.install('.')
-        session.run('mv', '-f', '.setup.cfg.orig', 'setup.cfg', external=True)
         session.run(
-            'mv', '-f', '.init.py.orig', 'pyroute2/__init__.py', external=True
+            'mv', '-f', '.pyproject.toml.full', 'pyproject.toml', external=True
+        )
+        session.run(
+            'mv', '-f', '.init.py.full', 'pyroute2/__init__.py', external=True
         )
         session.run('rm', '-rf', 'build', external=True)
     tmpdir = os.path.abspath(session.create_tmp())
-    session.run('cp', '-a', 'lab', tmpdir, external=True)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
     return tmpdir
 
 
-def setup_venv_common(session, flavour='dev'):
-    session.install('--upgrade', 'pip')
-    session.install('-r', f'requirements.{flavour}.txt')
-    session.install('.')
+def setup_venv_common(session, flavour='dev', config=None):
+    if config is None:
+        config = {}
+    if not config.get('fast'):
+        session.install('--upgrade', 'pip')
+        session.install(f'.[{flavour}]')
+        session.install('.')
     return os.path.abspath(session.create_tmp())
 
 
-def setup_venv_dev(session):
+def setup_venv_dev(session, config=None):
+    if config is None:
+        config = {}
+    if config.get('fast'):
+        return os.getcwd()
     tmpdir = setup_venv_common(session)
     session.run('cp', '-a', 'tests', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
@@ -168,7 +197,7 @@ def setup_venv_repo(session):
     ):
         session.run('cp', '-a', *item, external=True)
     git_ls_files = subprocess.run(
-        ['git', 'ls-files', 'requirements*'], stdout=subprocess.PIPE
+        ['git', 'ls-files', 'pyproject*'], stdout=subprocess.PIPE
     )
     files = [x.decode('utf-8') for x in git_ls_files.stdout.split()]
     for fname in files:
@@ -177,8 +206,8 @@ def setup_venv_repo(session):
     return tmpdir
 
 
-def setup_venv_docs(session):
-    tmpdir = setup_venv_common(session, 'docs')
+def setup_venv_docs(session, config=None):
+    tmpdir = setup_venv_common(session, flavour='docs', config=config)
     session.run('cp', '-a', 'docs', tmpdir, external=True)
     session.run('cp', '-a', 'examples', tmpdir, external=True)
     [
@@ -200,10 +229,11 @@ def test_platform(session):
     session.run('pyroute2-test-platform')
 
 
-@nox.session
-def docs(session):
+@nox.session(python='python3.10')
+@add_session_config
+def docs(session, config):
     '''Generate project docs.'''
-    tmpdir = setup_venv_docs(session)
+    tmpdir = setup_venv_docs(session, config)
     cwd = os.path.abspath(os.getcwd())
     # man pages
     session.chdir(f'{tmpdir}/docs/')
@@ -223,11 +253,31 @@ def docs(session):
     session.log(f'man pages -> {cwd}/docs/man')
 
 
-@nox.session
-def linter(session):
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
+@add_session_config
+def linter(session, config):
     '''Run code checks and linters.'''
-    session.install('pre-commit')
+    if not config.get('fast'):
+        session.install('pre-commit')
+        session.install('mypy')
     session.run('pre-commit', 'run', '-a')
+    with open('.mypy-check-paths', 'r') as f:
+        session.run(
+            'python',
+            '-m',
+            'mypy',
+            *f.read().split(),
+            env={'PYTHONPATH': os.getcwd()},
+        )
 
 
 @nox.session
@@ -240,53 +290,113 @@ def unit(session, config):
 
 @nox.session
 @add_session_config
+def decoder(session, config):
+    '''Run decoder tests.'''
+    setup_venv_dev(session)
+    session.run(*options('test_decoder', config))
+
+
+@nox.session
+@add_session_config
 def integration(session, config):
     '''Run integration tests (lnst, kuryr, ...).'''
     setup_venv_dev(session)
     session.run(*options('test_integration', config))
 
 
+def test_common(session, config, module):
+    setup_linux(session)
+    workspace = setup_venv_dev(session, config)
+    path = f'{workspace}/tests/mocklib'
+    if config.get('fast'):
+        path += f':{workspace}'
+        session.chdir('tests')
+    session.run(
+        *options(module, config),
+        env={'WORKSPACE': workspace, 'SKIPDB': 'postgres', 'PYTHONPATH': path},
+    )
+
+
 @nox.session(
-    python=['python3.8', 'python3.9', 'python3.10', 'python3.11', 'python3.12']
+    name='ci-self',
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ],
+)
+@add_session_config
+def ci(session, config):
+    '''Run ci self-test. No root required.'''
+    test_common(session, config, 'test_ci')
+
+
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
 )
 @add_session_config
 def linux(session, config):
     '''Run Linux functional tests. Requires root to run all the tests.'''
-    setup_linux(session)
-    workspace = setup_venv_dev(session)
-    session.run(
-        *options('test_linux', config),
-        env={
-            'WORKSPACE': workspace,
-            'SKIPDB': 'postgres',
-            'PYTHONPATH': f'{workspace}/tests/mocklib',
-        },
-    )
+    test_common(session, config, 'test_linux')
+
+
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
+@add_session_config
+def core(session, config):
+    '''Run Linux tests in asyncio.'''
+    test_common(session, config, 'test_core')
 
 
 @nox.session
+@add_session_config
+def limits(session, config):
+    '''Run limits & stress testing.'''
+    test_common(session, config, 'test_limits')
+
+
+@nox.session
+@add_session_config
+def process(session, config):
+    '''Test child process module.'''
+    setup_venv_dev(session)
+    session.run(*options('test_process', config))
+
+
+@nox.session(
+    python=[
+        'python3.9',
+        'python3.10',
+        'python3.11',
+        'python3.12',
+        'python3.13',
+        'python3.14',
+    ]
+)
 @add_session_config
 def minimal(session, config):
     '''Run tests on pyroute2.minimal package.'''
     tmpdir = setup_venv_minimal(session, config)
     session.chdir(f'{tmpdir}/tests')
     session.run(*options('test_minimal', config))
-
-
-@nox.session
-@add_session_config
-def lab(session, config):
-    '''Test lab code blocks.'''
-    workspace = setup_venv_minimal(session, config)
-    for fname in os.listdir('dist'):
-        if fname.startswith('pyroute2.minimal') and fname.endswith('whl'):
-            break
-    session.run('python', 'util/make_lab_templates.py', fname, external=True)
-    session.run('make', '-C', 'lab', 'html', external=True)
-    session.run('cp', f'dist/{fname}', 'lab/_build/html/', external=True)
-    # make tests
-    session.chdir(f'{workspace}/tests')
-    session.run(*options('test_lab', config), env={'WORKSPACE': workspace})
 
 
 @nox.session
@@ -310,6 +420,7 @@ def windows(session, config):
 def neutron(session, config):
     '''Run Neutron integration tests.'''
     setup_venv_dev(session)
+    session.install('eventlet')
     session.run(*options('test_neutron', config))
 
 
@@ -318,6 +429,7 @@ def neutron(session, config):
 def repo(session, config):
     '''Run repo tests.'''
     setup_venv_repo(session)
+    config = copy.copy(config)
     config['tests_prefix'] = 'tests'
     session.run(*options('test_repo', config))
 

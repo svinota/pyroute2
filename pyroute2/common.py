@@ -4,41 +4,22 @@ Common utilities
 '''
 import errno
 import io
-import logging
 import os
-import re
 import socket
 import struct
-import sys
 import threading
 import time
 import types
+from functools import partial
+from typing import Any, Callable, Literal, Optional, TypeVar, Union
 
-log = logging.getLogger(__name__)
-
-try:
-    #
-    # Python2 section
-    #
-    basestring = basestring
-    reduce = reduce
-    file = file
-
-except NameError:
-    #
-    # Python3 section
-    #
-    basestring = (str, bytes)
-    from functools import reduce
-
-    reduce = reduce
-    file = io.BytesIO
+basestring = (str, bytes)
+file = io.BytesIO
 
 AF_MPLS = 28
-AF_PIPE = 255  # Right now AF_MAX == 40
-DEFAULT_RCVBUF = 65536
 _uuid32 = 0  # (singleton) the last uuid32 value saved to avoid collisions
 _uuid32_lock = threading.Lock()
+USE_DEFAULT_TIMEOUT = -1
 
 size_suffixes = {
     'b': 1,
@@ -91,150 +72,24 @@ rate_suffixes = {
 ##
 # General purpose
 #
-class View(object):
-    '''
-    A read-only view of a dictionary object.
-    '''
-
-    def __init__(self, src=None, path=None, constraint=lambda k, v: True):
-        self.src = src if src is not None else {}
-        if path is not None:
-            path = path.split('/')
-            for step in path:
-                self.src = getattr(self.src, step)
-        self.constraint = constraint
-
-    def __getitem__(self, key):
-        if key in self.keys():
-            return self.src[key]
-        raise KeyError()
-
-    def __setitem__(self, key, value):
-        raise NotImplementedError()
-
-    def __delitem__(self, key):
-        raise NotImplementedError()
-
-    def get(self, key, default=None):
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def _filter(self):
-        ret = []
-        for key, value in tuple(self.src.items()):
-            try:
-                if self.constraint(key, value):
-                    ret.append((key, value))
-            except Exception as e:
-                log.error("view filter error: %s", e)
-        return ret
-
-    def keys(self):
-        return [x[0] for x in self._filter()]
-
-    def values(self):
-        return [x[1] for x in self._filter()]
-
-    def items(self):
-        return self._filter()
-
-    def __iter__(self):
-        for key in self.keys():
-            yield key
-
-    def __repr__(self):
-        return repr(dict(self._filter()))
-
-
-class Namespace(object):
+class Namespace:
     def __init__(self, parent, override=None):
-        self.parent = parent
-        self.override = override or {}
-
-    def __getattr__(self, key):
-        if key in ('parent', 'override'):
-            return object.__getattr__(self, key)
-        elif key in self.override:
-            return self.override[key]
-        else:
-            ret = getattr(self.parent, key)
-            # ACHTUNG
-            #
-            # if the attribute we got with `getattr`
-            # is a method, rebind it to the Namespace
-            # object, so all subsequent getattrs will
-            # go through the Namespace also.
-            #
-            if isinstance(ret, types.MethodType):
-                ret = type(ret)(ret.__func__, self)
-            return ret
-
-    def __setattr__(self, key, value):
-        if key in ('parent', 'override'):
-            object.__setattr__(self, key, value)
-        elif key in self.override:
-            self.override[key] = value
-        else:
-            setattr(self.parent, key, value)
+        raise NotImplementedError()
 
 
-class Dotkeys(dict):
-    '''
-    This is a sick-minded hack of dict, intended to be an eye-candy.
-    It allows to get dict's items by dot reference:
-
-    ipdb["lo"] == ipdb.lo
-    ipdb["eth0"] == ipdb.eth0
-
-    Obviously, it will not work for some cases, like unicode names
-    of interfaces and so on. Beside of that, it introduces some
-    complexity.
-
-    But it simplifies live for old-school admins, who works with good
-    old "lo", "eth0", and like that naming schemes.
-    '''
-
-    __var_name = re.compile('^[a-zA-Z_]+[a-zA-Z_0-9]*$')
-
-    def __dir__(self):
-        return [
-            i for i in self if isinstance(i, str) and self.__var_name.match(i)
-        ]
-
-    def __getattribute__(self, key, *argv):
-        try:
-            return dict.__getattribute__(self, key)
-        except AttributeError as e:
-            if key == '__deepcopy__':
-                raise e
-            elif key[:4] == 'set_':
-
-                def set_value(value):
-                    self[key[4:]] = value
-                    return self
-
-                return set_value
-            elif key in self:
-                return self[key]
-            else:
-                raise e
-
-    def __setattr__(self, key, value):
-        if key in self:
-            self[key] = value
-        else:
-            dict.__setattr__(self, key, value)
-
-    def __delattr__(self, key):
-        if key in self:
-            del self[key]
-        else:
-            dict.__delattr__(self, key)
+def _no_change(s: str) -> str:
+    return s
 
 
-def map_namespace(prefix, ns, normalize=None):
+def _default_normalize(s: str, prefix: str) -> str:
+    return s[len(prefix) :].lower()
+
+
+def map_namespace(
+    prefix: str,
+    ns: dict[str, Any],
+    normalize: Union[None, Literal[True], Callable[[str], str]] = None,
+) -> tuple[dict[str, int], dict[int, str]]:
     '''
     Take the namespace prefix, list all constants and build two
     dictionaries -- straight and reverse mappings. E.g.:
@@ -262,30 +117,34 @@ def map_namespace(prefix, ns, normalize=None):
         - True — cut the prefix and `lower()` the rest
         - lambda x: … — apply the function to every name
     '''
-    nmap = {None: lambda x: x, True: lambda x: x[len(prefix) :].lower()}
+    transform: Callable[[str], str]
 
-    if not isinstance(normalize, types.FunctionType):
-        normalize = nmap[normalize]
+    if normalize is None:
+        transform = _no_change
+    elif normalize is True:
+        transform = partial(_default_normalize, prefix=prefix)
+    elif isinstance(normalize, types.FunctionType):
+        transform = normalize
+    else:
+        raise ValueError("Invalid value for `normalize` parameter")
 
-    by_name = dict(
-        [(normalize(i), ns[i]) for i in ns.keys() if i.startswith(prefix)]
-    )
-    by_value = dict(
-        [(ns[i], normalize(i)) for i in ns.keys() if i.startswith(prefix)]
-    )
+    by_name = {transform(i): ns[i] for i in ns.keys() if i.startswith(prefix)}
+    by_value = {ns[i]: transform(i) for i in ns.keys() if i.startswith(prefix)}
     return (by_name, by_value)
 
 
-def getbroadcast(addr, mask, family=socket.AF_INET):
+def getbroadcast(
+    addr: str, mask: int, family: socket.AddressFamily = socket.AF_INET
+) -> str:
     # 1. convert addr to int
     i = socket.inet_pton(family, addr)
     if family == socket.AF_INET:
-        i = struct.unpack('>I', i)[0]
+        i_unpacked = struct.unpack('>I', i)[0]
         a = 0xFFFFFFFF
         length = 32
     elif family == socket.AF_INET6:
-        i = struct.unpack('>QQ', i)
-        i = i[0] << 64 | i[1]
+        i_unpacked = struct.unpack('>QQ', i)
+        i_unpacked = i_unpacked[0] << 64 | i_unpacked[1]
         a = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         length = 128
     else:
@@ -293,7 +152,7 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     # 2. calculate mask
     m = (a << length - mask) & a
     # 3. calculate default broadcast
-    n = (i & m) | a >> mask
+    n = (i_unpacked & m) | a >> mask
     # 4. convert it back to the normal address form
     if family == socket.AF_INET:
         n = struct.pack('>I', n)
@@ -302,7 +161,7 @@ def getbroadcast(addr, mask, family=socket.AF_INET):
     return socket.inet_ntop(family, n)
 
 
-def dqn2int(mask, family=socket.AF_INET):
+def dqn2int(mask: str, family: socket.AddressFamily = socket.AF_INET) -> int:
     '''
     IPv4 dotted quad notation to int mask conversion
     '''
@@ -315,25 +174,23 @@ def dqn2int(mask, family=socket.AF_INET):
     return ret
 
 
-def get_address_family(address):
+def get_address_family(address: str) -> socket.AddressFamily:
     if address.find(':') > -1:
         return socket.AF_INET6
     else:
         return socket.AF_INET
 
 
-def hexdump(payload, length=0):
+def hexdump(payload: bytes, length: int = 0) -> str:
     '''
     Represent byte string as hex -- for debug purposes
     '''
     return ':'.join('{0:02x}'.format(c) for c in payload[:length] or payload)
 
 
-def hexload(data):
-    return bytes(bytearray((int(x, 16) for x in data.split(':'))))
-
-
-def load_dump(f, meta=None):
+def load_dump(
+    f: Union[str, io.StringIO], meta: Optional[dict[str, str]] = None
+) -> Union[bytes, str]:
     '''
     Load a packet dump from an open file-like object or a string.
 
@@ -354,6 +211,7 @@ def load_dump(f, meta=None):
     code = None
     meta_data = None
     meta_label = None
+    io_obj: Union[io.StringIO, str]
     if isinstance(f, str):
         io_obj = io.StringIO()
         io_obj.write(f)
@@ -398,13 +256,10 @@ def load_dump(f, meta=None):
     if isinstance(meta, dict):
         if code is not None:
             meta['code'] = code
-        if meta_data is not None:
+        if meta_data is not None and meta_label is not None:
             meta[meta_label] = meta_data
 
-    if sys.version[0] == '3':
-        return bytes(data, 'iso8859-1')
-    else:
-        return data
+    return bytes(data, 'iso8859-1')
 
 
 class AddrPool(object):
@@ -415,16 +270,17 @@ class AddrPool(object):
     cell = 0xFFFFFFFFFFFFFFFF
 
     def __init__(
-        self, minaddr=0xF, maxaddr=0xFFFFFF, reverse=False, release=False
+        self,
+        minaddr: int = 0xF,
+        maxaddr: int = 0xFFFFFF,
+        reverse: bool = False,
+        release: bool = False,
     ):
         self.cell_size = 0  # in bits
         mx = self.cell
         self.reverse = reverse
         self.release = release
-        self.allocated = 0
-        if self.release and not isinstance(self.release, int):
-            raise TypeError()
-        self.ban = []
+        self.ban: list[dict[str, int]] = []
         while mx:
             mx >>= 8
             self.cell_size += 1
@@ -437,7 +293,7 @@ class AddrPool(object):
         self.maxaddr = maxaddr
         self.lock = threading.RLock()
 
-    def alloc(self):
+    def alloc(self) -> int:
         with self.lock:
             # gc self.ban:
             for item in tuple(self.ban):
@@ -468,7 +324,6 @@ class AddrPool(object):
                     if self.minaddr <= ret <= self.maxaddr:
                         if self.release:
                             self.free(ret, ban=self.release)
-                        self.allocated += 1
                         return ret
                     else:
                         self.free(ret)
@@ -483,29 +338,7 @@ class AddrPool(object):
             else:
                 raise KeyError('no free address available')
 
-    def alloc_multi(self, count):
-        with self.lock:
-            addresses = []
-            raised = False
-            try:
-                for _ in range(count):
-                    addr = self.alloc()
-                    try:
-                        addresses.append(addr)
-                    except:
-                        # In case of a MemoryError during appending,
-                        # the finally block would not free the address.
-                        self.free(addr)
-                return addresses
-            except:
-                raised = True
-                raise
-            finally:
-                if raised:
-                    for addr in addresses:
-                        self.free(addr)
-
-    def locate(self, addr):
+    def locate(self, addr: int) -> tuple[int, int, bool]:
         if self.reverse:
             addr = self.maxaddr - addr
         else:
@@ -518,60 +351,24 @@ class AddrPool(object):
             is_allocated = False
         return (base, bit, is_allocated)
 
-    def setaddr(self, addr, value):
-        if value not in ('free', 'allocated'):
-            raise TypeError()
-        with self.lock:
-            base, bit, is_allocated = self.locate(addr)
-            if value == 'free' and is_allocated:
-                self.allocated -= 1
-                self.addr_map[base] |= 1 << bit
-            elif value == 'allocated' and not is_allocated:
-                self.allocated += 1
-                self.addr_map[base] &= ~(1 << bit)
-
-    def free(self, addr, ban=0):
+    def free(self, addr: int, ban: int = 0):
         with self.lock:
             if ban != 0:
                 self.ban.append({'addr': addr, 'counter': ban})
             else:
-                base, bit, is_allocated = self.locate(addr)
+                base, bit, _ = self.locate(addr)
                 if len(self.addr_map) <= base:
                     raise KeyError('address is not allocated')
                 if self.addr_map[base] & (1 << bit):
                     raise KeyError('address is not allocated')
-                self.allocated -= 1
                 self.addr_map[base] ^= 1 << bit
 
 
-def _fnv1_python2(data):
-    '''
-    FNV1 -- 32bit hash, python2 version
-
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
-
-    See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-    '''
-    hval = 0x811C9DC5
-    for i in range(len(data)):
-        hval *= 0x01000193
-        hval ^= struct.unpack('B', data[i])[0]
-    return hval & 0xFFFFFFFF
-
-
-def _fnv1_python3(data):
+def fnv1(data: bytes) -> int:
     '''
     FNV1 -- 32bit hash, python3 version
 
-    @param data: input
-    @type data: bytes
-
-    @return: 32bit int hash
-    @rtype: int
+    Returns: 32bit int hash
 
     See: http://www.isthe.com/chongo/tech/comp/fnv/index.html
     '''
@@ -582,18 +379,9 @@ def _fnv1_python3(data):
     return hval & 0xFFFFFFFF
 
 
-if sys.version[0] == '3':
-    fnv1 = _fnv1_python3
-else:
-    fnv1 = _fnv1_python2
-
-
-def uuid32():
+def uuid32() -> int:
     '''
     Return 32bit UUID, based on the current time and pid.
-
-    @return: 32bit int uuid
-    @rtype: int
 
     The uuid is guaranteed to be unique within one process.
     '''
@@ -610,23 +398,25 @@ def uuid32():
         return candidate
 
 
-def uifname():
+def uifname() -> str:
     '''
     Return a unique interface name based on a prime function
-
-    @return: interface name
-    @rtype: str
     '''
     return 'pr%x' % uuid32()
 
 
-def map_exception(match, subst):
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def map_exception(
+    match: Callable[[Exception], bool], subst: Callable[[Exception], Exception]
+) -> Callable[[F], F]:
     '''
     Decorator to map exception types
     '''
 
-    def wrapper(f):
-        def decorated(*argv, **kwarg):
+    def wrapper(f: F) -> F:
+        def decorated(*argv: Any, **kwarg: Any) -> Any:
             try:
                 f(*argv, **kwarg)
             except Exception as e:
@@ -634,12 +424,12 @@ def map_exception(match, subst):
                     raise subst(e)
                 raise
 
-        return decorated
+        return decorated  # type: ignore
 
     return wrapper
 
 
-def map_enoent(f):
+def map_enoent(f: F) -> F:
     '''
     Shortcut to map OSError(2) -> OSError(95)
     '''
@@ -649,8 +439,11 @@ def map_enoent(f):
     )(f)
 
 
-def metaclass(mc):
-    def wrapped(cls):
+T = TypeVar('T', bound=type)
+
+
+def metaclass(mc: T) -> Callable[[T], T]:
+    def wrapped(cls: T) -> T:
         nvars = {}
         skip = ['__dict__', '__weakref__']
         slots = cls.__dict__.get('__slots__')
@@ -666,11 +459,21 @@ def metaclass(mc):
     return wrapped
 
 
-def failed_class(message):
-    class FailedClass(object):
-        def __init__(self, *argv, **kwarg):
-            ret = RuntimeError(message)
-            ret.feature_supported = False
-            raise ret
+def msg_done(msg) -> bytes:
+    newmsg = struct.pack('IHH', 40, 2, 0)
+    newmsg += msg.data[8:16]
+    newmsg += struct.pack('I', 0)
+    # nlmsgerr struct alignment
+    newmsg += b'\0' * 20
+    return newmsg
 
-    return FailedClass
+
+def get_time() -> float:
+    '''
+    Return seconds since arbitrary start point.
+
+    It cannot go backward. It includes any time that the system is suspended.
+    You should use this instead of time.time() to measure time between two
+    execution points, like a timeout.
+    '''
+    return time.monotonic()

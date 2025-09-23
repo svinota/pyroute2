@@ -4,7 +4,6 @@ import getpass
 import itertools
 import logging
 import os
-import sys
 import uuid
 from collections import namedtuple
 from socket import AF_INET, AF_INET6
@@ -12,13 +11,10 @@ from socket import AF_INET, AF_INET6
 import pytest
 from utils import allocate_network, free_network
 
-from pyroute2 import netns
+from pyroute2 import NDB, IPRoute, NetNS, netns
 from pyroute2.common import basestring, uifname
-from pyroute2.iproute.linux import IPRoute
-from pyroute2.ndb.main import NDB
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.generic.wireguard import WireGuard
-from pyroute2.nslink.nslink import NetNS
 
 
 def skip_if_not_implemented(func):
@@ -179,7 +175,10 @@ class NDBContextManager(object):
         # in utility methods
         self.db_provider = kwarg['db_provider']
         self.ndb = NDB(**kwarg)
-        self.ipr = self.ndb.sources['localhost'].nl.clone()
+        if self.netns is None:
+            self.ipr = IPRoute()
+        else:
+            self.ipr = IPRoute(netns=self.netns)
         self.wg = WireGuard()
         #
         # IPAM
@@ -313,8 +312,8 @@ class NDBContextManager(object):
         2. remove the registered interfaces, ignore not existing
         '''
         # save postmortem DB for SQLite3
-        if self.db_provider == 'sqlite3' and sys.version_info >= (3, 7):
-            self.ndb.backup(f'{self.spec.uid}-post.db')
+        if self.db_provider == 'sqlite3':
+            self.ndb.db.backup(f'{self.spec.uid}-post.db')
         self.ndb.close()
         self.ipr.close()
         self.wg.close()

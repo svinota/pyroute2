@@ -2,12 +2,18 @@ import ipaddress
 from socket import AF_INET, AF_INET6
 
 from pyroute2.common import dqn2int, get_address_family, getbroadcast
+from pyroute2.netlink.rt_files import RtAddrProtosFile
 
 from .common import Index, IPRouteFilter, NLAKeyTransform
 
 
 class AddressFieldFilter(Index, NLAKeyTransform):
     _nla_prefix = 'IFA_'
+
+    def get_flags(self, context, mode):
+        if mode == 'field':
+            return 0
+        return context['flags']
 
     def set_prefixlen(self, context, value):
         if isinstance(value, str):
@@ -60,9 +66,14 @@ class AddressIPRouteFilter(IPRouteFilter):
         cacheinfo = value.copy()
         if self.command != 'dump':
             for i in ('preferred', 'valid'):
-                cacheinfo[f'ifa_{i}'] = cacheinfo.get(i, pow(2, 32) - 1)
+                cacheinfo[f'ifa_{i}'] = context.get(i, pow(2, 32) - 1)
             return {'cacheinfo': cacheinfo}
         return {}
+
+    def set_proto(self, context, value):
+        if isinstance(value, str):
+            value = RtAddrProtosFile().get_rt_id(value)
+        return {'proto': value}
 
     def set_broadcast(self, context, value):
         ret = {}
@@ -84,6 +95,14 @@ class AddressIPRouteFilter(IPRouteFilter):
 
     def finalize(self, context):
         if self.command != 'dump':
+            if 'cacheinfo' in context:
+                context.pop('preferred', None)
+                context.pop('valid', None)
+                if (
+                    context['cacheinfo']['ifa_valid']
+                    < context['cacheinfo']['ifa_preferred']
+                ):
+                    raise ValueError('preferred_lft is greater than valid_lft')
             if 'family' not in context and 'address' in context:
                 context['family'] = get_address_family(context['address'])
             if 'prefixlen' not in context:

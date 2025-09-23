@@ -1,6 +1,11 @@
+from functools import reduce
+
+from pyroute2.config import AF_BRIDGE
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg, protinfo_bridge
 
 from .common import Index, IPRouteFilter, NLAKeyTransform
+
+PREFIXLEN = len(protinfo_bridge.prefix)
 
 
 class BridgeFieldFilter(Index, NLAKeyTransform):
@@ -122,13 +127,33 @@ class BridgeIPRouteFilter(IPRouteFilter):
 
 class BridgePortFieldFilter(IPRouteFilter):
     _nla_prefix = ifinfmsg.prefix
-    _allowed = [x[0] for x in protinfo_bridge.nla_map]
-    _allowed.append('attrs')
+    _nla_names = [x[0] for x in protinfo_bridge.nla_map]
+    # allow lowercase names w/o prefixes
+    _nla_names = reduce(
+        lambda x, y: x + y, [[x, x[PREFIXLEN:].lower()] for x in _nla_names]
+    )
+    # allow tuple ids for the dump_filter lookup
+    _nla_names = reduce(
+        lambda x, y: x + y, [[x, ('protinfo', x)] for x in _nla_names]
+    )
+    allowed = list(_nla_names)
+    allowed.append('attrs')
+    allowed.append('family')
+    allowed.append('index')
 
     def finalize(self, context):
+        context['family'] = AF_BRIDGE
         keys = tuple(context.keys())
-        context['attrs'] = []
+        if self.command in ('show', 'dump'):
+            for key in keys:
+                if isinstance(key, str) and key in self._nla_names:
+                    value = context[key]
+                    if isinstance(value, bool):
+                        value = int(value)
+                    context[('protinfo', key)] = value
+                    del context[key]
+            return
+        attrs = []
         for key in keys:
-            context['attrs'].append(
-                (protinfo_bridge.name2nla(key), context[key])
-            )
+            attrs.append((protinfo_bridge.name2nla(key), context[key]))
+        context['attrs'] = [('IFLA_PROTINFO', {'attrs': attrs}, 0x8000)]

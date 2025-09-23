@@ -57,27 +57,6 @@ short form. The full form would be::
      'netns': 'test01'}     #
 
 See also: :ref:`netns`
-
-Remote systems
---------------
-
-It is possible also to connect to remote systems using SSH. In order to
-use this kind of sources it is required to install the
-`mitogen <https://github.com/dw/mitogen>`_ module. The `remote` kind
-of sources uses the `RemoteIPRoute` class. The short form::
-
-    ndb.sources.add(hostname='worker1.example.com')
-
-
-In some more extended form::
-
-    ndb.sources.add(**{'target': 'worker1.example.com',
-                       'kind': 'remote',
-                       'hostname': 'worker1.example.com',
-                       'username': 'jenkins',
-                       'check_host_keys': False})
-
-See also: :ref:`remote`
 '''
 
 import errno
@@ -91,19 +70,18 @@ import time
 import uuid
 
 from pyroute2.common import basestring
-from pyroute2.iproute import IPRoute
+from pyroute2.iproute import AsyncIPRoute
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.nlsocket import NetlinkSocketBase
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
-from pyroute2.remote import RemoteIPRoute
 
 from .events import ShutdownException, State
-from .messages import cmsg_event, cmsg_failed, cmsg_sstart
+from .messages import cmsg_event
+from .objects import RTNL_Object
 
 if sys.platform.startswith('linux'):
     from pyroute2 import netns
+    from pyroute2.iproute.linux import NetNS
     from pyroute2.netns.manager import NetNSManager
-    from pyroute2.nslink.nslink import NetNS
 else:
     NetNS = None
     NetNSManager = None
@@ -156,31 +134,28 @@ class Source(dict):
     summary_header = None
     view = None
     table = 'sources'
-    vmap = {
-        'local': IPRoute,
-        'netns': NetNS,
-        'remote': RemoteIPRoute,
-        'nsmanager': NetNSManager,
-    }
+    vmap = {'local': AsyncIPRoute, 'netns': NetNS, 'nsmanager': NetNSManager}
 
     def __init__(self, ndb, **spec):
         self.th = None
+        self.task = None
         self.nl = None
         self.ndb = ndb
-        self.evq = self.ndb._event_queue
+        self.evq = self.ndb.task_manager.event_queue
         # the target id -- just in case
         self.target = spec['target']
         self.kind = spec.pop('kind', 'local')
         self.max_errors = spec.pop('max_errors', SOURCE_MAX_ERRORS)
         self.event = spec.pop('event')
         # RTNL API
-        self.nl_prime = self.get_prime(self.kind)
         self.nl_kwarg = spec
+        self.nl_kwarg['nlm_echo'] = True
         #
         if self.ndb.messenger is not None:
             self.ndb.messenger.targets.add(self.target)
         #
         self.errors_counter = 0
+        self.exception = None
         self.shutdown = threading.Event()
         self.started = threading.Event()
         self.lock = threading.RLock()
@@ -189,14 +164,12 @@ class Source(dict):
         self.log = ndb.log.channel('sources.%s' % self.target)
         self.state = State(log=self.log, wait_list=['running'])
         self.state.set('init')
-        self.ndb.task_manager.db_add_nl_source(self.target, self.kind, spec)
+        self.ndb.schema.add_nl_source(self.target, self.kind, spec)
         self.load_sql()
 
     @classmethod
     def _count(cls, view):
-        return view.ndb.task_manager.db_fetchone(
-            "SELECT count(*) FROM %s" % view.table
-        )
+        return view.ndb.schema.fetchone(f'SELECT count(*) FROM {view.table}')
 
     @property
     def must_restart(self):
@@ -217,14 +190,10 @@ class Source(dict):
             )
         )
 
-    def set_ready(self):
+    async def set_ready(self):
         try:
             if self.event is not None:
-                self.evq.put(
-                    (cmsg_event(self.target, self.event),), source=self.target
-                )
-            else:
-                self.evq.put((cmsg_sstart(self.target),), source=self.target)
+                await self.evq.put(cmsg_event(self.target, self.event))
         except ShutdownException:
             self.state.set('stop')
             return False
@@ -248,12 +217,7 @@ class Source(dict):
         return ret
 
     def __repr__(self):
-        if isinstance(self.nl_prime, NetlinkSocketBase):
-            name = self.nl_prime.__class__.__name__
-        elif isinstance(self.nl_prime, type):
-            name = self.nl_prime.__name__
-
-        return '[%s] <%s %s>' % (self.state.get(), name, self.nl_kwarg)
+        return '[%s] <%s>' % (self.state.get(), self.nl_kwarg)
 
     @classmethod
     def nla2name(cls, name):
@@ -284,12 +248,16 @@ class Source(dict):
             importlib.import_module('pyroute2'), self.kind
         )
 
-    def api(self, name, *argv, **kwarg):
+    async def api(self, name, *argv, **kwarg):
         for _ in range(100):  # FIXME make a constant
             with self.lock:
                 try:
                     self.log.debug(f'source api run {name} {argv} {kwarg}')
-                    return getattr(self.nl, name)(*argv, **kwarg)
+                    result = await getattr(self.nl, name)(*argv, **kwarg)
+                    if isinstance(result, list):
+                        for msg in result:
+                            await self.evq.put(msg)
+                    return result
                 except (
                     NetlinkError,
                     AttributeError,
@@ -307,12 +275,13 @@ class Source(dict):
                     time.sleep(1)
         raise RuntimeError('api call failed')
 
-    def fake_zero_if(self):
+    async def fake_zero_if(self):
         url = 'https://github.com/svinota/pyroute2/issues/737'
         zero_if = ifinfmsg()
         zero_if['index'] = 0
         zero_if['state'] = 'up'
         zero_if['flags'] = 1
+        zero_if['family'] = 0
         zero_if['header']['flags'] = 2
         zero_if['header']['type'] = 16
         zero_if['header']['target'] = self.target
@@ -322,140 +291,48 @@ class Source(dict):
             ('IFLA_ADDRESS', '00:00:00:00:00:00'),
         ]
         zero_if.encode()
-        self.evq.put([zero_if], source=self.target)
+        await self.evq.put(zero_if)
 
-    def receiver(self):
+    async def receiver(self):
         #
         # The source thread routine -- get events from the
         # channel and forward them into the common event queue
         #
         # The routine exists on an event with error code == 104
         #
-        while self.state.get() != 'stop':
-            if self.shutdown.is_set():
-                break
-
-            with self.lock:
-                if self.nl is not None:
-                    try:
-                        self.nl.close(code=0)
-                    except Exception as e:
-                        self.log.warning('source restart: %s' % e)
-                try:
-                    self.state.set('connecting')
-                    if isinstance(self.nl_prime, type):
-                        spec = {}
-                        spec.update(self.nl_kwarg)
-                        if self.kind in ('nsmanager',):
-                            spec['libc'] = self.ndb.libc
-                        self.nl = self.nl_prime(**spec)
-                    else:
-                        raise TypeError('source channel not supported')
-                    self.state.set('loading')
-                    #
-                    self.nl.bind(**self.bind_arguments)
-                    #
-                    # Initial load -- enqueue the data
-                    #
-                    try:
-                        self.ndb.task_manager.db_flush(self.target)
-                        if self.kind in ('local', 'netns', 'remote'):
-                            self.fake_zero_if()
-                        self.evq.put(self.nl.dump(), source=self.target)
-                    finally:
-                        pass
-                    self.errors_counter = 0
-                except Exception as e:
-                    self.errors_counter += 1
-                    self.started.set()
-                    self.state.set(f'failed, counter {self.errors_counter}')
-                    self.log.error(f'source error: {type(e)} {e}')
-                    try:
-                        self.evq.put(
-                            (cmsg_failed(self.target),), source=self.target
-                        )
-                    except ShutdownException:
-                        self.state.set('stop')
-                        break
-                    if self.must_restart:
-                        self.log.debug('sleeping before restart')
-                        self.state.set('restart')
-                        self.shutdown.wait(SOURCE_FAIL_PAUSE)
-                        if self.shutdown.is_set():
-                            self.log.debug('source shutdown')
-                            self.state.set('stop')
-                            break
-                    else:
-                        return self.set_ready()
-                    continue
-
-            with self.lock:
-                if self.state.get() == 'loading':
-                    if not self.set_ready():
-                        break
-                    self.started.set()
-                    self.shutdown.clear()
-                    self.state.set('running')
-
-            while self.state.get() not in ('stop', 'restart'):
-                try:
-                    msg = tuple(self.nl.get())
-                except Exception as e:
-                    self.errors_counter += 1
-                    self.log.error('source error: %s %s' % (type(e), e))
-                    msg = None
-                    if self.must_restart:
-                        self.state.set('restart')
-                    else:
-                        self.state.set('stop')
-                    break
-
-                code = 0
-                if msg and msg[0]['header']['error']:
-                    code = msg[0]['header']['error'].code
-
-                if msg is None or code == errno.ECONNRESET:
-                    self.state.set('stop')
-                    break
-
-                try:
-                    self.evq.put(msg, source=self.target)
-                except ShutdownException:
-                    self.state.set('stop')
-                    break
-
-        # thus we make sure that all the events from
-        # this source are consumed by the main loop
-        # in __dbm__() routine
+        if self.nl is not None:
+            try:
+                self.nl.close(code=0)
+            except Exception as e:
+                self.log.warning('source restart: %s' % e)
         try:
-            self.sync()
-            self.log.debug('flush DB for the target')
-            self.ndb.task_manager.db_flush(self.target)
-        except ShutdownException:
-            self.log.debug('shutdown handled by the main thread')
-            pass
-        self.state.set('stopped')
+            self.state.set('connecting')
+            spec = {}
+            spec.update(self.nl_kwarg)
+            self.nl = AsyncIPRoute(**spec)
+            self.state.set('loading')
+            #
+            await self.nl.setup_endpoint()
+            await self.nl.bind(**self.bind_arguments)
+            self.log.debug(f'source fd {self.nl.fileno()}')
+            #
+            # Initial load -- enqueue the data
+            #
+            self.ndb.schema.flush(self.target)
+            if self.kind in ('local', 'netns', 'remote'):
+                await self.fake_zero_if()
+            async for x in await self.nl.dump():
+                await self.evq.put(x)
+            self.state.set('running')
+        finally:
+            await self.set_ready()
 
-    def sync(self):
-        self.log.debug('sync')
-        sync = threading.Event()
-        self.evq.put((cmsg_event(self.target, sync),), source=self.target)
-        sync.wait()
-
-    def start(self):
-        #
-        # Start source thread
-        with self.lock:
-            self.log.debug('starting the source')
-            if (self.th is not None) and self.th.is_alive():
-                raise RuntimeError('source is running')
-
-            self.th = threading.Thread(
-                target=self.receiver,
-                name='NDB event source: %s' % (self.target),
-            )
-            self.th.start()
-            return self
+        while self.state.get() not in ('stop', 'restart'):
+            async for msg in self.nl.get():
+                error = msg['header']['error']
+                if error:
+                    raise error
+                await self.evq.put(msg)
 
     def close(self, code=errno.ECONNRESET, sync=True):
         with self.shutdown_lock:
@@ -499,22 +376,42 @@ class Source(dict):
 
     def load_sql(self):
         #
-        spec = self.ndb.task_manager.db_fetchone(
-            '''
-                                        SELECT * FROM sources
-                                        WHERE f_target = %s
-                                        '''
-            % self.ndb.schema.plch,
-            (self.target,),
+        spec = self.ndb.schema.fetchone(
+            'SELECT * FROM sources WHERE f_target = ?', (self.target,)
         )
         self['target'], self['kind'] = spec
-        for spec in self.ndb.task_manager.db_fetch(
-            '''
-                                          SELECT * FROM sources_options
-                                          WHERE f_target = %s
-                                          '''
-            % self.ndb.schema.plch,
-            (self.target,),
+        for spec in self.ndb.schema.fetch(
+            'SELECT * FROM sources_options WHERE f_target = ?', (self.target,)
         ):
             f_target, f_name, f_type, f_value = spec
             self[f_name] = int(f_value) if f_type == 'int' else f_value
+
+
+class SyncSource(RTNL_Object):
+
+    @property
+    def nl(self):
+        return self.asyncore.nl
+
+    def api(self, name, *argv, **kwarg):
+        return self._main_sync_call(self.asyncore.api, name, *argv, **kwarg)
+
+    def set(self, key, value):
+        if key == 'state':
+            self.asyncore.ndb.task_manager.task_map[
+                self.asyncore.task_id
+            ].state.set(value)
+            return
+        raise RuntimeError('unknown property')
+
+    def restart(self, reason='no reason'):
+        self.asyncore.event.clear()
+        self.close(next_state='running')
+        self._main_async_call(self.asyncore.event.wait)
+
+    def close(self, code=errno.ECONNRESET, sync=None, next_state='stopped'):
+        self.set('state', next_state)
+        self._main_sync_call(
+            self.asyncore.ndb.schema.flush, self.asyncore.target
+        )
+        self._main_sync_call(self.asyncore.nl.close, code)

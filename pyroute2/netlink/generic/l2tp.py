@@ -1,12 +1,14 @@
 from pyroute2.netlink import (
     NLA_F_NESTED,
-    NLM_F_ACK,
     NLM_F_DUMP,
     NLM_F_REQUEST,
     genlmsg,
     nla,
 )
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 
 # Defines from uapi/linux/l2tp.h
 L2TP_GENL_NAME = "l2tp"
@@ -144,15 +146,15 @@ class l2tpmsg(genlmsg):
         )
 
 
-class L2tp(GenericNetlinkSocket):
-    def __init__(self, *args, **kwargs):
-        GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.bind(L2TP_GENL_NAME, l2tpmsg)
+class AsyncL2tp(AsyncGenericNetlinkSocket):
 
-    def _do_request(self, msg, msg_flags=NLM_F_REQUEST | NLM_F_ACK):
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=msg_flags)
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        await super().setup_endpoint()
+        await self.bind(L2TP_GENL_NAME, l2tpmsg)
 
-    def _send_tunnel(
+    async def _send_tunnel(
         self,
         cmd,
         tunnel_id,
@@ -249,9 +251,9 @@ class L2tp(GenericNetlinkSocket):
         if debug is not None:
             msg["attrs"].append(["L2TP_ATTR_DEBUG", debug])
 
-        return self._do_request(msg)
+        return await self._do_request(msg)
 
-    def create_tunnel(
+    async def create_tunnel(
         self,
         tunnel_id,
         peer_tunnel_id,
@@ -306,7 +308,7 @@ class L2tp(GenericNetlinkSocket):
                     "selected"
                 )
 
-        return self._send_tunnel(
+        return await self._send_tunnel(
             cmd=L2TP_CMD_TUNNEL_CREATE,
             tunnel_id=tunnel_id,
             peer_tunnel_id=peer_tunnel_id,
@@ -323,7 +325,7 @@ class L2tp(GenericNetlinkSocket):
             debug=debug,
         )
 
-    def modify_tunnel(self, tunnel_id, debug):
+    async def modify_tunnel(self, tunnel_id, debug):
         """
         Modify an existing L2TP tunnel
         :param tunnel_id: local tunnel id
@@ -331,11 +333,11 @@ class L2tp(GenericNetlinkSocket):
                       tunnel
         :return: netlink response
         """
-        return self._send_tunnel(
+        return await self._send_tunnel(
             L2TP_CMD_TUNNEL_MODIFY, tunnel_id=tunnel_id, debug=debug
         )
 
-    def delete_tunnel(self, tunnel_id):
+    async def delete_tunnel(self, tunnel_id):
         """
         Delete a tunnel
         :param tunnel_id: tunnel id of the tunnel to be deleted
@@ -346,9 +348,9 @@ class L2tp(GenericNetlinkSocket):
         msg["version"] = L2TP_GENL_VERSION
         msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
 
-        return self._do_request(msg)
+        return await self._do_request(msg)
 
-    def _send_session(
+    async def _send_session(
         self,
         cmd,
         tunnel_id,
@@ -440,9 +442,9 @@ class L2tp(GenericNetlinkSocket):
         if cmd == L2TP_CMD_SESSION_CREATE:
             msg["attrs"].append(["L2TP_ATTR_PW_TYPE", pwtype])
 
-        return self._do_request(msg)
+        return await self._do_request(msg)
 
-    def create_session(
+    async def create_session(
         self,
         tunnel_id,
         session_id,
@@ -475,7 +477,7 @@ class L2tp(GenericNetlinkSocket):
         :param pwtype: pseudowire type
         :return: netlink response
         """
-        self._send_session(
+        await self._send_session(
             cmd=L2TP_CMD_SESSION_CREATE,
             tunnel_id=tunnel_id,
             session_id=session_id,
@@ -491,7 +493,7 @@ class L2tp(GenericNetlinkSocket):
             pwtype=pwtype,
         )
 
-    def modify_session(
+    async def modify_session(
         self,
         tunnel_id,
         session_id,
@@ -511,7 +513,7 @@ class L2tp(GenericNetlinkSocket):
         :param recv_timeout: Reorder timeout
         :return: netlink response
         """
-        self._send_session(
+        await self._send_session(
             cmd=L2TP_CMD_SESSION_MODIFY,
             tunnel_id=tunnel_id,
             session_id=session_id,
@@ -521,7 +523,7 @@ class L2tp(GenericNetlinkSocket):
             recv_timeout=recv_timeout,
         )
 
-    def delete_session(self, tunnel_id, session_id):
+    async def delete_session(self, tunnel_id, session_id):
         """
         Delete a session
         :param tunnel_id: tunnel id in which the session to be deleted is
@@ -535,9 +537,9 @@ class L2tp(GenericNetlinkSocket):
         msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
         msg["attrs"].append(["L2TP_ATTR_SESSION_ID", session_id])
 
-        return self._do_request(msg)
+        return await self._do_request(msg)
 
-    def get_tunnel(self, tunnel_id):
+    async def get_tunnel(self, tunnel_id):
         """
         Get one tunnel
         :param tunnel_id: tunnel id of the tunnel to show
@@ -547,9 +549,9 @@ class L2tp(GenericNetlinkSocket):
         msg["cmd"] = L2TP_CMD_TUNNEL_GET
         msg["version"] = L2TP_GENL_VERSION
         msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
-        return self._do_request(msg, msg_flags=NLM_F_REQUEST)[0]
+        return (await self._do_request(msg, msg_flags=NLM_F_REQUEST))[0]
 
-    def dump_tunnels(self, tunnel_id):
+    async def dump_tunnels(self, tunnel_id):
         """
         Dump all tunnels
         :return: netlink response
@@ -557,9 +559,9 @@ class L2tp(GenericNetlinkSocket):
         msg = l2tpmsg()
         msg["cmd"] = L2TP_CMD_TUNNEL_GET
         msg["version"] = L2TP_GENL_VERSION
-        return self._do_request(msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+        return await self._do_dump(msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
-    def get_session(self, tunnel_id, session_id):
+    async def get_session(self, tunnel_id, session_id):
         """
         Get one session
         :param tunnel_id: tunnel id of the session
@@ -571,10 +573,9 @@ class L2tp(GenericNetlinkSocket):
         msg["version"] = L2TP_GENL_VERSION
         msg["attrs"].append(["L2TP_ATTR_CONN_ID", tunnel_id])
         msg["attrs"].append(["L2TP_ATTR_SESSION_ID", session_id])
+        return (await self._do_request(msg, msg_flags=NLM_F_REQUEST))[0]
 
-        return self._do_request(msg, msg_flags=NLM_F_REQUEST)[0]
-
-    def dump_sessions(self):
+    async def dump_sessions(self):
         """
         Dump all sessions
         :return: netlink response
@@ -582,5 +583,118 @@ class L2tp(GenericNetlinkSocket):
         msg = l2tpmsg()
         msg["cmd"] = L2TP_CMD_SESSION_GET
         msg["version"] = L2TP_GENL_VERSION
+        return await self._do_dump(msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
 
-        return self._do_request(msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP)
+
+class L2tp(GenericNetlinkSocket):
+    async_class = AsyncL2tp
+
+    def create_tunnel(
+        self,
+        tunnel_id,
+        peer_tunnel_id,
+        protocol=3,
+        remote=None,
+        local=None,
+        fd=None,
+        encap="udp",
+        udp_sport=None,
+        udp_dport=None,
+        udp_csum=None,
+        udp6_csum_rx=None,
+        udp6_csum_tx=None,
+        debug=False,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.create_tunnel,
+            tunnel_id,
+            peer_tunnel_id,
+            protocol,
+            remote,
+            local,
+            fd,
+            encap,
+            udp_sport,
+            udp_dport,
+            udp_csum,
+            udp6_csum_rx,
+            udp6_csum_tx,
+            debug,
+        )
+
+    def modify_tunnel(self, tunnel_id, debug):
+        return self._run_with_cleanup(
+            self.asyncore.modify_tunnel, tunnel_id, debug
+        )
+
+    def delete_tunnel(self, tunnel_id):
+        return self._run_with_cleanup(self.asyncore.delete_tunnel, tunnel_id)
+
+    def create_session(
+        self,
+        tunnel_id,
+        session_id,
+        peer_session_id=None,
+        ifname=None,
+        l2spec_type=None,
+        cookie=None,
+        peer_cookie=None,
+        debug=None,
+        seq=None,
+        lns_mode=None,
+        recv_timeout=None,
+        pwtype=L2TP_PWTYPE_ETH,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.create_session,
+            tunnel_id,
+            session_id,
+            peer_session_id,
+            ifname,
+            l2spec_type,
+            cookie,
+            peer_cookie,
+            debug,
+            seq,
+            lns_mode,
+            recv_timeout,
+            pwtype,
+        )
+
+    def modify_session(
+        self,
+        tunnel_id,
+        session_id,
+        debug=None,
+        seq=None,
+        lns_mode=None,
+        recv_timeout=None,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.modify_session,
+            tunnel_id,
+            session_id,
+            debug,
+            seq,
+            lns_mode,
+            recv_timeout,
+        )
+
+    def delete_session(self, tunnel_id, session_id):
+        return self._run_with_cleanup(
+            self.asyncore.delete_session, tunnel_id, session_id
+        )
+
+    def get_tunnel(self, tunnel_id):
+        return self._run_with_cleanup(self.asyncore.get_tunnel, tunnel_id)
+
+    def dump_tunnels(self):
+        return self._generate_with_cleanup(self.asyncore.dump_tunnels)
+
+    def get_session(self, tunnel_id, session_id):
+        return self._run_with_cleanup(
+            self.asyncore.get_session, tunnel_id, session_id
+        )
+
+    def dump_sessions(self):
+        return self._generate_with_cleanup(self.asyncore.dump_sessions)

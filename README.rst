@@ -1,10 +1,16 @@
 Pyroute2
 ========
 
-Pyroute2 is a pure Python **netlink** library. The core requires only Python
+Pyroute2 is a pure Python networking framework. The core requires only Python
 stdlib, no 3rd party libraries. The library was started as an RTNL protocol
-implementation, so the name is **pyroute2**, but now it supports many netlink
-protocols. Some supported netlink families and protocols:
+implementation, so the name is **pyroute2**, but now it supports several
+protocols, including non-netlink. Here are some supported netlink families
+and protocols:
+
+* **dhcp** --- dynamic host configuration protocol for IPv4
+* **9p2000** --- Plan9 file system protocol
+
+Netlink:
 
 * **rtnl**, network settings --- addresses, routes, traffic controls
 * **nfnetlink** --- netfilter API
@@ -45,104 +51,22 @@ and standard system tools.
 
 Other platforms are not supported.
 
-NDB -- high level RTNL API
---------------------------
+IPRoute -- synchronous RTNL API
+-------------------------------
 
-Key features:
-
-* Data integrity
-* Transactions with commit/rollback changes
-* State synchronization
-* Multiple sources, including netns and remote systems
-
-A "Hello world" example:
-
-.. code-block:: python
-
-    from pyroute2 import NDB
-
-    with NDB() as ndb:
-        with ndb.interfaces['eth0'] as eth0:
-            # set one parameter
-            eth0.set(state='down')
-            eth0.commit()  # make sure that the interface is down
-            # or multiple parameters at once
-            eth0.set(ifname='hello_world!', state='up')
-            eth0.commit()  # rename, bring up and wait for success
-        # --> <-- here you can be sure that the interface is up & renamed
-
-More examples:
-
-.. code-block:: python
-
-    from pyroute2 import NDB
-
-    ndb = NDB(log='debug')
-
-    for record in ndb.interfaces.summary():
-        print(record.ifname, record.address, record.state)
-
-    if_dump = ndb.interfaces.dump()
-    if_dump.select_records(state='up')
-    if_dump.select_fields('index', 'ifname', 'kind')
-    for line in if_dump.format('json'):
-        print(line)
-
-    addr_summary = ndb.addresses.summary()
-    addr_summary.select_records(ifname='eth0')
-    for line in addr_summary.format('csv'):
-        print(line)
-
-    with ndb.interfaces.create(ifname='br0', kind='bridge') as br0:
-        br0.add_port('eth0')
-        br0.add_port('eth1')
-        br0.add_ip('10.0.0.1/24')
-        br0.add_ip('192.168.0.1/24')
-        br0.set(
-            br_stp_state=1,  # set STP on
-            br_group_fwd_mask=0x4000,  # set LLDP forwarding
-            state='up',  # bring the interface up
-        )
-    # --> <-- commit() will be run by the context manager
-
-    # operate on netns:
-    ndb.sources.add(netns='testns')  # connect to a namespace
-
-    with (
-        ndb.interfaces.create(
-            ifname='veth0',  # create veth
-            kind='veth',
-            peer={
-                'ifname': 'eth0',  # setup peer
-                'net_ns_fd': 'testns',  # in a namespace
-            },
-            state='up',
-        )
-    ) as veth0:
-        veth0.add_ip(address='172.16.230.1', prefixlen=24)
-
-    with ndb.interfaces.wait(
-        target='testns', ifname='eth0'
-    ) as peer:  # wait for the peer
-        peer.set(state='up')  # bring it up
-        peer.add_ip('172.16.230.2/24')  # add address
-
-IPRoute -- Low level RTNL API
------------------------------
-
-Low-level **IPRoute** utility --- Linux network configuration.
-The **IPRoute** class is a 1-to-1 RTNL mapping. There are no implicit
+Low-level **IPRoute** utility --- Linux network configuration, this
+class is almost a 1-to-1 RTNL mapping. There are no implicit
 interface lookups and so on.
 
-Get notifications about network settings changes with IPRoute:
+Get notifications about network settings changes:
 
 .. code-block:: python
 
     from pyroute2 import IPRoute
+
     with IPRoute() as ipr:
-        # With IPRoute objects you have to call bind() manually
-        ipr.bind()
-        for message in ipr.get():
+        ipr.bind()  # <--- start listening for RTNL broadcasts
+        for message in ipr.get():  # receive the broadcasts
             print(message)
 
 More examples:
@@ -175,10 +99,45 @@ More examples:
     # release Netlink socket
     ip.close()
 
-Network namespace examples
---------------------------
+AsyncIPRoute -- asynchronous RTNL API
+-------------------------------------
 
-Network namespace manipulation:
+While `IPRoute` provides a synchronous RTNL API, it is actually build
+around the asyncio-based core.
+
+The same example as above can look like that:
+
+.. code-block:: python
+
+    import asyncio
+
+    from pyroute2 import AsyncIPRoute
+
+    async def main():
+        # get access to the netlink socket
+        ipr = AsyncIPRoute()
+
+        # print interfaces
+        async for link in await ipr.get_links():
+            print(link)
+
+        # create VETH pair and move v0p1 to netns 'test'
+        await ipr.link('add', ifname='v0p0', peer='v0p1', kind='veth')
+
+        # wait for the devices:
+        peer, veth = await ipr.poll(
+            ipr.link, 'dump', timeout=5, ifname=lambda x: x in ('v0p0', 'v0p1')
+        )
+        await ipr.link('set', index=peer['index'], net_ns_fd='test')
+        ...
+        ipr.close()
+
+     asyncio.run(main())
+
+Please notice that `.close()` is synchronous in any case.
+
+Network namespace management
+----------------------------
 
 .. code-block:: python
 
@@ -211,14 +170,39 @@ List interfaces in some **netns**:
 
 .. code-block:: python
 
-    from pyroute2 import NetNS
-    from pprint import pprint
+    from pyroute2 import IPRoute
 
-    ns = NetNS('test')
-    pprint(ns.get_links())
-    ns.close()
+    with IPRoute(netns='test') as ipr:
+        for link in ipr.get_links():
+            print(link)
 
 More details and samples see in the documentation.
+
+NDB -- high level RTNL API
+--------------------------
+
+Key features:
+
+* Data integrity
+* Transactions with commit/rollback changes
+* State synchronization
+* Multiple sources, including netns and remote systems
+
+A "Hello world" example:
+
+.. code-block:: python
+
+    from pyroute2 import NDB
+
+    with NDB() as ndb:
+        with ndb.interfaces['eth0'] as eth0:
+            # set one parameter
+            eth0.set(state='down')
+            eth0.commit()  # make sure that the interface is down
+            # or multiple parameters at once
+            eth0.set(ifname='hello_world!', state='up')
+            eth0.commit()  # rename, bring up and wait for success
+        # --> <-- here you can be sure that the interface is up & renamed
 
 Installation
 ------------
@@ -246,7 +230,7 @@ Using source, requires make and nox
 Requirements
 ------------
 
-Python >= 3.6
+Python >= 3.9
 
 Links
 -----

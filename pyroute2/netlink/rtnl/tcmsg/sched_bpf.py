@@ -20,11 +20,13 @@ parent = TC_H_ROOT
 TCA_BPF_FLAG_ACT_DIRECT = 1
 
 
-def fix_msg(msg, kwarg):
-    if 'info' not in kwarg:
-        msg['info'] = htons(kwarg.pop('protocol', ETH_P_ALL) & 0xFFFF) | (
-            (kwarg.pop('prio', 0) << 16) & 0xFFFF0000
-        )
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+    if 'info' not in request:
+        request['info'] = htons(
+            request.pop('protocol', ETH_P_ALL) & 0xFFFF
+        ) | ((request.pop('prio', 0) << 16) & 0xFFFF0000)
 
 
 def get_parameters(kwarg):

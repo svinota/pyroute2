@@ -473,6 +473,7 @@ Please notice, that NLA list *MUST* be mutable.
 
 import io
 import logging
+import socket
 import struct
 import sys
 import threading
@@ -502,8 +503,7 @@ class NotInitialized(Exception):
 ##
 # That's a hack for the code linter, which works under
 # Python3, see unicode reference in the code below
-if sys.version[0] == '3':
-    unicode = str
+unicode = str
 
 NLMSG_MIN_TYPE = 0x10
 
@@ -827,6 +827,7 @@ class nlmsg_base(dict):
 
     fields = ()
     header = ()
+    defaults = {}
     pack = None  # pack pragma
     cell_header = None
     align = 4
@@ -841,6 +842,8 @@ class nlmsg_base(dict):
     prefix = None
     own_parent = False
     header_type = None
+    header_fmt = None
+    decode_as = None
     # caches
     __compiled_nla = False
     __compiled_ft = False
@@ -873,8 +876,6 @@ class nlmsg_base(dict):
     ):
         global cache_jit
         dict.__init__(self)
-        for i in self.fields:
-            self[i[0]] = 0  # FIXME: only for number values
         self._buf = None
         self.data = data or bytearray()
         self.offset = offset
@@ -894,7 +895,7 @@ class nlmsg_base(dict):
         self.value = NotInitialized
         # work only on non-empty mappings
         if self.nla_map and not self.__class__.__compiled_nla:
-            self.compile_nla()
+            self.compile_nla_table()
         if self.header:
             self['header'] = {}
 
@@ -983,11 +984,11 @@ class nlmsg_base(dict):
         lvalue = self.getvalue()
         res = self.__class__()
         for key, _ in res.fields:
-            del res[key]
+            res.pop(key, None)
         if 'header' in res:
-            del res['header']
+            res.pop('header', None)
         if 'value' in res:
-            del res['value']
+            res.pop('value', None)
         for key in lvalue:
             if key not in ('header', 'attrs', '__align'):
                 if op0 == '__sub__':
@@ -1002,12 +1003,10 @@ class nlmsg_base(dict):
             res['attrs'] = []
             for attr in lvalue['attrs']:
                 if isinstance(attr[1], nlmsg_base):
-                    print("recursion")
                     diff = getattr(attr[1], op0)(rvalue.get_attr(attr[0]))
                     if diff is not None:
                         res['attrs'].append([attr[0], diff])
                 else:
-                    print("fail", type(attr[1]))
                     if op0 == '__sub__':
                         # operator -, complement
                         if rvalue.get_attr(attr[0]) != attr[1]:
@@ -1020,7 +1019,6 @@ class nlmsg_base(dict):
             del res['attrs']
         if not res:
             return None
-        print(res)
         return res
 
     def __bool__(self):
@@ -1233,8 +1231,9 @@ class nlmsg_base(dict):
             )
             offset = self.offset
             for name, fmt in self.header:
+                default = self.defaults.get('header', {}).get(name, 0)
                 struct.pack_into(
-                    fmt, self.data, offset, self['header'].get(name, 0)
+                    fmt, self.data, offset, self['header'].get(name, default)
                 )
                 offset += struct.calcsize(fmt)
 
@@ -1349,6 +1348,10 @@ class nlmsg_base(dict):
             return self.chain[key]
         if key == 'value' and key not in self:
             return NotInitialized
+        if key not in self:
+            fields = dict(self.fields)
+            if key in fields:
+                return 0
         return dict.__getitem__(self, key)
 
     def __delitem__(self, key):
@@ -1387,6 +1390,30 @@ class nlmsg_base(dict):
             self.setvalue(dump)
         return self
 
+    def dump_attrs(self, attrs):
+        ret = []
+        for i in attrs:
+            if isinstance(i, nlmsg_base):
+                ret.append(i.dump())
+            elif isinstance(i, (set, list, tuple, nla_slot)):
+                if isinstance(i[1], nlmsg_base):
+                    # catch nlmsg
+                    ret.append([i[0], i[1].dump()])
+                elif isinstance(i[1], (set, list, tuple)):
+                    # catch iterables
+                    ret.append([i[0], self.dump_attrs(i[1])])
+                elif isinstance(i[1], bytes):
+                    ret.append([i[0], hexdump(i[1])])
+                else:
+                    ret.append([i[0], i[1]])
+            elif isinstance(i, dict):
+                if 'attrs' in i:
+                    i['attrs'] = self.dump_attrs(i['attrs'])
+                ret.append(i)
+            else:
+                ret.append(i)
+        return ret
+
     def dump(self):
         '''
         Dump packet as a dict
@@ -1398,16 +1425,11 @@ class nlmsg_base(dict):
                 if k == 'header':
                     ret['header'] = dict(a['header'])
                 elif k == 'attrs':
-                    ret['attrs'] = attrs = []
-                    for i in a['attrs']:
-                        if isinstance(i[1], nlmsg_base):
-                            attrs.append([i[0], i[1].dump()])
-                        elif isinstance(i[1], set):
-                            attrs.append([i[0], tuple(i[1])])
-                        else:
-                            attrs.append([i[0], i[1]])
+                    ret['attrs'] = self.dump_attrs(v)
                 else:
                     ret[k] = v
+        elif isinstance(a, nlmsg_base):
+            ret = a.dump()
         else:
             ret = a
         return ret
@@ -1434,7 +1456,7 @@ class nlmsg_base(dict):
 
         return self
 
-    def compile_nla(self):
+    def compile_nla_table(self):
         # Bug-Url: https://github.com/svinota/pyroute2/issues/980
         # Bug-Url: https://github.com/svinota/pyroute2/pull/981
         if isinstance(self.nla_map, NlaMapAdapter):
@@ -1615,27 +1637,35 @@ class nlmsg_base(dict):
 # NLMSG fields codecs, mixin classes
 #
 class nlmsg_decoder_generic(object):
-    def ft_decode(self, offset):
+
+    @staticmethod
+    def decode_field(fmt, data, offset):
         global cache_fmt
+        ##
+        # ~~ size = struct.calcsize(efmt)
+        #
+        # The use of the cache gives here a tiny performance
+        # improvement, but it is an improvement anyways
+        #
+        size = (
+            cache_fmt.get(fmt, None)
+            or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
+            or cache_fmt[fmt]
+        )
+        ##
+        value = struct.unpack_from(fmt, data, offset)
+        offset += size
+        if len(value) == 1:
+            return value[0], offset
+        else:
+            return value, offset
+
+    def ft_decode(self, offset):
         for name, fmt in self.fields:
-            ##
-            # ~~ size = struct.calcsize(efmt)
-            #
-            # The use of the cache gives here a tiny performance
-            # improvement, but it is an improvement anyways
-            #
-            size = (
-                cache_fmt.get(fmt, None)
-                or cache_fmt.__setitem__(fmt, struct.calcsize(fmt))
-                or cache_fmt[fmt]
-            )
-            ##
-            value = struct.unpack_from(fmt, self.data, offset)
-            offset += size
-            if len(value) == 1:
-                self[name] = value[0]
-            else:
-                self[name] = value
+            if isinstance(fmt, str):
+                self[name], offset = self.decode_field(fmt, self.data, offset)
+            elif isinstance(fmt, type):
+                self[name], offset = fmt.decode_from(self.data, offset)
         # read NLA chain
         if self.nla_map:
             offset = (offset + 4 - 1) & ~(4 - 1)
@@ -1688,48 +1718,60 @@ class nlmsg_decoder_struct(object):
 
 
 class nlmsg_encoder_generic(object):
-    def ft_encode(self, offset):
-        for name, fmt in self.fields:
-            value = self[name]
 
-            if fmt == 's':
-                length = len(value or '') + self.zstring
-                efmt = '%is' % (length)
+    @staticmethod
+    def encode_field(fmt, data, offset, value, zstring=0):
+        if fmt == 's':
+            length = len(value or '') + zstring
+            efmt = '%is' % (length)
+        else:
+            length = struct.calcsize(fmt)
+            efmt = fmt
+
+        data.extend([0] * length)
+
+        # in python3 we should force it
+        if isinstance(value, str):
+            value = bytes(value, 'utf-8')
+        elif isinstance(value, float):
+            value = int(value)
+
+        try:
+            if fmt[-1] == 'x':
+                struct.pack_into(efmt, data, offset)
+            elif type(value) in (list, tuple, set):
+                struct.pack_into(efmt, data, offset, *value)
+            elif len(fmt) > 1 and fmt[-1] == 'B' and value == 0:
+                struct.pack_into(fmt[:-1] + 'x', data, offset)
             else:
-                length = struct.calcsize(fmt)
-                efmt = fmt
+                struct.pack_into(efmt, data, offset, value)
+        except struct.error:
+            log.error(''.join(traceback.format_stack()))
+            log.error(traceback.format_exc())
+            log.error("error pack: %s %s %s" % (efmt, value, type(value)))
+            raise
 
-            self.data.extend([0] * length)
+        return offset + length
 
-            # in python3 we should force it
-            if sys.version[0] == '3':
-                if isinstance(value, str):
-                    value = bytes(value, 'utf-8')
-                elif isinstance(value, float):
-                    value = int(value)
-            elif sys.version[0] == '2':
-                if isinstance(value, unicode):
-                    value = value.encode('utf-8')
+    def ft_encode(self, offset):
+        if hasattr(self, 'zstring'):
+            zs = self.zstring
+        else:
+            zs = 0
+        for name, fmt in self.fields:
+            default = self.defaults.get(name, 0)
+            value = self[name] if self.get(name) is not None else default
 
-            try:
-                if fmt[-1] == 'x':
-                    struct.pack_into(efmt, self.data, offset)
-                elif type(value) in (list, tuple, set):
-                    struct.pack_into(efmt, self.data, offset, *value)
-                else:
-                    struct.pack_into(efmt, self.data, offset, value)
-            except struct.error:
-                log.error(''.join(traceback.format_stack()))
-                log.error(traceback.format_exc())
-                log.error("error pack: %s %s %s" % (efmt, value, type(value)))
-                raise
+            if isinstance(fmt, str):
+                offset = self.encode_field(fmt, self.data, offset, value, zs)
+            elif isinstance(fmt, type):
+                offset = fmt.encode_into(self.data, offset, value)
 
-            offset += length
-
-        diff = ((offset + 4 - 1) & ~(4 - 1)) - offset
-        offset += diff
-        self.data.extend([0] * diff)
-
+        diff = 0
+        if self.align > 0:
+            diff = ((offset + self.align - 1) & ~(self.align - 1)) - offset
+            offset += diff
+            self.data.extend([0] * diff)
         return offset, diff
 
 
@@ -2051,15 +2093,37 @@ class nlmsg_atoms(object):
         __slots__ = ()
         sql_type = 'TEXT'
         family = None
+        family_attr = None
         own_parent = True
+
+        def __init__(self, *argv, **kwarg):
+            init = kwarg.get('init', None)
+            if init is not None:
+                key, value = init.split(',')
+                if key == 'family' and value.startswith('AF_'):
+                    self.family = getattr(socket, value)
+                elif key == 'nla':
+                    self.family_attr = value
+            super().__init__(*argv, **kwarg)
 
         def get_family(self):
             if self.family is not None:
                 return self.family
             pointer = self
+            if self.family_attr is not None:
+                nla = self.family_attr
+            else:
+                nla = 'family'
             while pointer.parent is not None:
                 pointer = pointer.parent
-            return pointer.get('family', AF_UNSPEC)
+                family = pointer.get(nla)
+                if family is not None:
+                    return family
+            return AF_UNSPEC
+
+        @staticmethod
+        def get_addrlen(family):
+            return {AF_INET: 4, AF_INET6: 16, AF_MPLS: 4}.get(family, 4)
 
         def encode(self):
             family = self.get_family()
@@ -2096,14 +2160,17 @@ class nlmsg_atoms(object):
         def decode(self):
             nla_base_string.decode(self)
             family = self.get_family()
+            data = self['value']
             if family in (AF_INET, AF_INET6):
-                self.value = inet_ntop(family, self['value'])
+                if family == AF_INET:
+                    data = data[:4]
+                elif family == AF_INET6:
+                    data = data[:16]
+                self.value = inet_ntop(family, data)
             elif family == AF_MPLS:
                 self.value = []
-                for i in range(len(self['value']) // 4):
-                    label = struct.unpack(
-                        '>I', self['value'][i * 4 : i * 4 + 4]
-                    )[0]
+                for i in range(len(data) // 4):
+                    label = struct.unpack('>I', data[i * 4 : i * 4 + 4])[0]
                     record = {
                         'label': (label & 0xFFFFF000) >> 12,
                         'tc': (label & 0x00000E00) >> 9,
@@ -2268,11 +2335,10 @@ class nlmsg_atoms(object):
         def decode(self):
             nla_base_string.decode(self)
             self.value = self['value']
-            if sys.version_info[0] >= 3:
-                try:
-                    self.value = self.value.decode('utf-8')
-                except UnicodeDecodeError:
-                    pass  # Failed to decode, keep undecoded value
+            try:
+                self.value = self.value.decode('utf-8')
+            except UnicodeDecodeError:
+                pass  # Failed to decode, keep undecoded value
 
     class asciiz(string):
         '''
@@ -2362,6 +2428,8 @@ class nlmsgerr(nlmsg):
     __slots__ = ()
 
     fields = (('error', 'i'),)
+
+    prefix = 'NLMSGERR_ATTR_'
 
     nla_map = (
         ('NLMSGERR_ATTR_UNUSED', 'none'),

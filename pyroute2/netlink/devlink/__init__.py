@@ -5,7 +5,10 @@ devlink module
 
 from pyroute2.common import map_namespace
 from pyroute2.netlink import genlmsg, nla
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 from pyroute2.netlink.nlsocket import Marshal
 
 # devlink commands
@@ -492,12 +495,15 @@ class MarshalDevlink(Marshal):
             pass
 
 
+class AsyncDevlinkSocket(AsyncGenericNetlinkSocket):
+    marshal_class = MarshalDevlink
+
+    async def bind(self, groups=0, **kwarg):
+        await super().bind('devlink', devlinkcmd, groups, None, **kwarg)
+
+
 class DevlinkSocket(GenericNetlinkSocket):
-    def __init__(self, *args, **kwargs):
-        GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.marshal = MarshalDevlink()
+    async_class = AsyncDevlinkSocket
 
     def bind(self, groups=0, **kwarg):
-        GenericNetlinkSocket.bind(
-            self, 'devlink', devlinkcmd, groups, None, **kwarg
-        )
+        return self._run_with_cleanup(self.asyncore.bind, groups, **kwarg)

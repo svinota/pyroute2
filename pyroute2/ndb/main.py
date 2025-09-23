@@ -1,22 +1,11 @@
 '''
-.. testsetup::
+.. testsetup:: *
 
-    from pyroute2 import NDB
-    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
-
-.. testsetup:: netns
-
-    from types import MethodType
-
+    from pyroute2 import config
     from pyroute2 import NDB
 
-    ndb = NDB(sources=[{'target': 'localhost', 'kind': 'IPMock'}])
-
-    def add_mock_netns(self, netns):
-        return self.add_orig(target=netns, kind='IPMock', preset='netns')
-
-    ndb.sources.add_orig = ndb.sources.add
-    ndb.sources.add = MethodType(add_mock_netns, ndb.sources)
+    config.mock_netlink = True
+    ndb = NDB()
 
 .. testcleanup:: *
 
@@ -282,47 +271,29 @@ Change an interface property:
 import atexit
 import ctypes
 import ctypes.util
+import inspect
 import logging
 import logging.handlers
-import sys
+import queue
 import threading
+from functools import reduce
+from urllib.parse import urlparse
 
-from pyroute2 import config
 from pyroute2.common import basestring
 
 ##
 # NDB stuff
-from .auth_manager import AuthManager
 from .events import ShutdownException
-from .messages import cmsg
-from .schema import DBProvider
+from .objects import RTNL_Object
+from .objects.interface import SyncInterface
+from .objects.route import SyncRoute
+from .source import SyncSource
+from .sync_api import Flags, SyncDB, SyncSources, SyncView
 from .task_manager import TaskManager
 from .transaction import Transaction
 from .view import SourcesView, View
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
-
-try:
-    import queue
-except ImportError:
-    import Queue as queue
-
 log = logging.getLogger(__name__)
-
-
-NDB_VIEWS_SPECS = (
-    ('interfaces', 'interfaces'),
-    ('addresses', 'addresses'),
-    ('routes', 'routes'),
-    ('neighbours', 'neighbours'),
-    ('af_bridge_fdb', 'fdb'),
-    ('rules', 'rules'),
-    ('netns', 'netns'),
-    ('af_bridge_vlans', 'vlans'),
-)
 
 
 class Log:
@@ -403,6 +374,24 @@ class Log:
     def channel(self, name):
         return logging.getLogger('pyroute2.ndb.%s.%s' % (self.log_id, name))
 
+    def callstack(self, *argv, **kwarg):
+        # frame 0: self.debug()
+        # frame 1: the function that sends the logging
+        # frame 2: the caller function
+        self.main.debug(
+            'call stack: %s:%s %s() -> %s:%s %s()',
+            *reduce(
+                lambda x, y: x + y,
+                reversed(
+                    [
+                        (x.filename, x.lineno, x.function)
+                        for x in inspect.stack()[1:3]
+                    ]
+                ),
+            ),
+        )
+        return self.debug(*argv, **kwarg)
+
     def debug(self, *argv, **kwarg):
         return self.main.debug(*argv, **kwarg)
 
@@ -444,17 +433,8 @@ class EventQueue:
         return self._bypass.qsize()
 
 
-class AuthProxy:
-    def __init__(self, ndb, auth_managers):
-        self._ndb = ndb
-        self._auth_managers = auth_managers
-
-        for vtable, vname in NDB_VIEWS_SPECS:
-            view = View(self._ndb, vtable, auth_managers=self._auth_managers)
-            setattr(self, vname, view)
-
-
 class NDB:
+
     @property
     def nsmanager(self):
         return '%s/nsmanager' % self.localhost
@@ -463,7 +443,7 @@ class NDB:
         self,
         sources=None,
         localhost='localhost',
-        db_provider='sqlite3',
+        db_provider=None,
         db_spec=':memory:',
         db_cleanup=True,
         rtnl_debug=False,
@@ -471,9 +451,6 @@ class NDB:
         auto_netns=False,
         libc=None,
     ):
-        if db_provider == 'postgres':
-            db_provider = 'psycopg2'
-
         self.localhost = localhost
         self.schema = None
         self.libc = libc or ctypes.CDLL(
@@ -500,20 +477,9 @@ class NDB:
         #
         # fix sources prime
         if sources is None:
-            if config.mock_iproute:
-                sources = [{'target': 'localhost', 'kind': 'IPMock'}]
-            else:
-                sources = [
-                    {
-                        'target': self.localhost,
-                        'kind': 'local',
-                        'nlm_generator': 1,
-                    }
-                ]
-                if sys.platform.startswith('linux'):
-                    sources.append(
-                        {'target': self.nsmanager, 'kind': 'nsmanager'}
-                    )
+            sources = [
+                {'target': self.localhost, 'kind': 'local', 'nlm_generator': 1}
+            ]
         elif not isinstance(sources, (list, tuple)):
             raise ValueError('sources format not supported')
 
@@ -522,40 +488,67 @@ class NDB:
                 spec['target'] = self.localhost
                 break
 
-        am = AuthManager(
-            {'obj:list': True, 'obj:read': True, 'obj:modify': True},
-            self.log.channel('auth'),
-        )
-        self.sources = SourcesView(self, auth_managers=[am])
         self._call_registry = {}
         self._nl = sources
         atexit.register(self.close)
         self._dbm_ready.clear()
         self._dbm_error = None
         self.config = {
-            'provider': str(DBProvider(db_provider)),
             'spec': db_spec,
             'rtnl_debug': rtnl_debug,
             'db_cleanup': db_cleanup,
             'auto_netns': auto_netns,
             'recordset_pipe': 'false',
         }
+        #
         self.task_manager = TaskManager(self)
+        #
         self._dbm_thread = threading.Thread(
-            target=self.task_manager.run, name='NDB main loop'
+            target=self.task_manager.main, name='NDB main loop'
         )
         self._dbm_thread.daemon = True
         self._dbm_thread.start()
         self._dbm_ready.wait()
+        for vname, view in self._create_views():
+            setattr(self, vname, view)
+        self.db = SyncDB(self.task_manager.event_loop, self)
+        for spec in self._nl:
+            spec['event'] = None
+            self.sources.add(**spec)
         if self._dbm_error is not None:
             raise self._dbm_error
-        for vtable, vname in NDB_VIEWS_SPECS:
-            view = View(self, vtable, auth_managers=[am])
-            setattr(self, vname, view)
         # self.query = Query(self.schema)
 
-    def _get_view(self, table, chain=None, auth_managers=None):
-        return View(self, table, chain, auth_managers)
+    def _create_views(self, flags=Flags.UNSPEC):
+        views_map = (
+            ('interfaces', 'interfaces', View, SyncView),
+            ('addresses', 'addresses', View, SyncView),
+            ('routes', 'routes', View, SyncView),
+            ('neighbours', 'neighbours', View, SyncView),
+            ('af_bridge_fdb', 'fdb', View, SyncView),
+            ('rules', 'rules', View, SyncView),
+            ('netns', 'netns', View, SyncView),
+            ('probes', 'probes', View, SyncView),
+            ('af_bridge_vlans', 'vlans', View, SyncView),
+            ('sources', 'sources', SourcesView, SyncSources),
+        )
+        class_map = {
+            'interfaces': SyncInterface,
+            'routes': SyncRoute,
+            'sources': SyncSource,
+            'default': RTNL_Object,
+        }
+        ret = {}
+        for vtable, vname, vclass, sync_vclass in views_map:
+            view = vclass(self, vtable)
+            sview = sync_vclass(
+                self.task_manager.event_loop, view, class_map, flags=flags
+            )
+            ret[vname] = sview
+        return iter(ret.items())
+
+    def _get_view(self, table, chain=None):
+        return View(self, table, chain)
 
     def __enter__(self):
         return self
@@ -567,15 +560,16 @@ class NDB:
         return Transaction(self.log.channel('transaction'))
 
     def readonly(self):
-        return self.auth_proxy(
-            AuthManager(
-                {'obj:list': True, 'obj:read': True, 'obj:modify': False},
-                self.log.channel('auth'),
-            )
-        )
+        class AuthProxy:
+            pass
+
+        ap = AuthProxy()
+        for vname, view in self._create_views(flags=Flags.RO):
+            setattr(ap, vname, view)
+        return ap
 
     def auth_proxy(self, auth_manager):
-        return AuthProxy(self, [auth_manager])
+        raise NotImplementedError()
 
     def close(self):
         with self._global_lock:
@@ -591,8 +585,10 @@ class NDB:
                 except ValueError:
                     pass
             # shutdown the _dbm_thread
-            self._event_queue.shutdown()
-            self._event_queue.bypass((cmsg(None, ShutdownException()),))
+            self.task_manager.event_loop.call_soon_threadsafe(
+                self.task_manager.stop_event.set
+            )
+            self._dbm_shutdown.wait()
             self._dbm_thread.join()
             # shutdown the logger -- free the resources
             self.log.close()

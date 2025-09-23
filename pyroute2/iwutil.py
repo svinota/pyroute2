@@ -132,7 +132,7 @@ your patches this module will not evolve.
 '''
 import logging
 
-from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST
+from pyroute2.netlink import NLM_F_DUMP, NLM_F_REQUEST
 from pyroute2.netlink.nl80211 import (
     BSS_STATUS_NAMES,
     CHAN_WIDTH,
@@ -140,49 +140,22 @@ from pyroute2.netlink.nl80211 import (
     NL80211,
     NL80211_NAMES,
     SCAN_FLAGS_NAMES,
+    AsyncNL80211,
     nl80211cmd,
 )
 
 log = logging.getLogger(__name__)
 
 
-class IW(NL80211):
-    def __init__(self, *argv, **kwarg):
-        # get specific groups kwarg
-        if 'groups' in kwarg:
-            groups = kwarg['groups']
-            del kwarg['groups']
-        else:
-            groups = None
+class AsyncIW(AsyncNL80211):
 
-        # get specific async kwarg
-        if 'async' in kwarg:
-            # FIXME
-            # raise deprecation error after 0.5.3
-            #
-            log.warning(
-                'use "async_cache" instead of "async", '
-                '"async" is a keyword from Python 3.7'
-            )
-            kwarg['async_cache'] = kwarg.pop('async')
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        await super().setup_endpoint()
+        await self.bind()
 
-        if 'async_cache' in kwarg:
-            async_cache = kwarg.pop('async_cache')
-        else:
-            async_cache = False
-
-        # align groups with async_cache
-        if groups is None:
-            groups = ~0 if async_cache else 0
-
-        # continue with init
-        super(IW, self).__init__(*argv, **kwarg)
-
-        # do automatic bind
-        # FIXME: unfortunately we can not omit it here
-        self.bind(groups, async_cache=async_cache)
-
-    def del_interface(self, dev):
+    async def del_interface(self, dev):
         '''
         Delete a virtual interface
 
@@ -191,11 +164,9 @@ class IW(NL80211):
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DEL_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', dev]]
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def add_interface(self, ifname, iftype, dev=None, phy=0):
+    async def add_interface(self, ifname, iftype, dev=None, phy=0):
         '''
         Create a virtual interface
 
@@ -238,25 +209,21 @@ class IW(NL80211):
             msg['attrs'].append(['NL80211_ATTR_WIPHY', phy])
         else:
             raise TypeError('no device specified')
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def list_dev(self):
+    async def list_dev(self):
         '''
         Get list of all wifi network interfaces
         '''
-        return self.get_interfaces_dump()
+        return await self.get_interfaces_dump()
 
-    def list_wiphy(self):
+    async def list_wiphy(self):
         '''
         Get list of all phy devices
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_WIPHY']
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
-        )
+        return await self._do_dump(msg)
 
     def _get_phy_name(self, attr):
         return 'phy%i' % attr.get_attr('NL80211_ATTR_WIPHY')
@@ -264,12 +231,12 @@ class IW(NL80211):
     def _get_frequency(self, attr):
         return attr.get_attr('NL80211_ATTR_WIPHY_FREQ') or 0
 
-    def get_interfaces_dict(self):
+    async def get_interfaces_dict(self):
         '''
         Get interfaces dictionary
         '''
         ret = {}
-        for wif in self.get_interfaces_dump():
+        async for wif in await self.get_interfaces_dump():
             chan_width = wif.get_attr('NL80211_ATTR_CHANNEL_WIDTH')
             freq = self._get_frequency(wif) if chan_width is not None else 0
             wifname = wif.get_attr('NL80211_ATTR_IFNAME')
@@ -282,50 +249,44 @@ class IW(NL80211):
             ]
         return ret
 
-    def get_interfaces_dump(self):
+    async def get_interfaces_dump(self):
         '''
         Get interfaces dump
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
-        )
+        return await self._do_dump(msg)
 
-    def get_interface_by_phy(self, attr):
+    async def get_interface_by_phy(self, attr):
         '''
         Get interface by phy ( use x.get_attr('NL80211_ATTR_WIPHY') )
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
+        return await self._do_request(
+            msg, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
         )
 
-    def get_interface_by_ifindex(self, ifindex):
+    async def get_interface_by_ifindex(self, ifindex):
         '''
         Get interface by ifindex ( use x.get_attr('NL80211_ATTR_IFINDEX')
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_INTERFACE']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST
-        )
+        return await self._do_request(msg)
 
-    def get_stations(self, ifindex):
+    async def get_stations(self, ifindex):
         '''
         Get stations by ifindex
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_STATION']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
-        )
+        return await self._do_dump(msg)
 
-    def join_ibss(
+    async def join_ibss(
         self,
         ifindex,
         ssid,
@@ -390,11 +351,9 @@ class IW(NL80211):
         if bssid is not None:
             msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def leave_ibss(self, ifindex):
+    async def leave_ibss(self, ifindex):
         '''
         Leave the IBSS -- the IBSS is determined by the network interface
         '''
@@ -402,11 +361,9 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_LEAVE_IBSS']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def authenticate(self, ifindex, bssid, ssid, freq, auth_type=0):
+    async def authenticate(self, ifindex, bssid, ssid, freq, auth_type=0):
         '''
         Send an Authentication management frame.
         '''
@@ -421,11 +378,9 @@ class IW(NL80211):
             ['NL80211_ATTR_AUTH_TYPE', auth_type],
         ]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def deauthenticate(self, ifindex, bssid, reason_code=0x01):
+    async def deauthenticate(self, ifindex, bssid, reason_code=0x01):
         '''
         Send a Deauthentication management frame.
         '''
@@ -438,11 +393,9 @@ class IW(NL80211):
             ['NL80211_ATTR_REASON_CODE', reason_code],
         ]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def associate(self, ifindex, bssid, ssid, freq, info_elements=None):
+    async def associate(self, ifindex, bssid, ssid, freq, info_elements=None):
         '''
         Send an Association request frame.
         '''
@@ -459,11 +412,9 @@ class IW(NL80211):
         if info_elements is not None:
             msg['attrs'].append(['NL80211_ATTR_IE', info_elements])
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def disassociate(self, ifindex, bssid, reason_code=0x03):
+    async def disassociate(self, ifindex, bssid, reason_code=0x03):
         '''
         Send a Disassociation management frame.
         '''
@@ -476,11 +427,9 @@ class IW(NL80211):
             ['NL80211_ATTR_REASON_CODE', reason_code],
         ]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def connect(self, ifindex, ssid, bssid=None):
+    async def connect(self, ifindex, ssid, bssid=None):
         '''
         Connect to the ap with ssid and bssid
         '''
@@ -493,33 +442,28 @@ class IW(NL80211):
         if bssid is not None:
             msg['attrs'].append(['NL80211_ATTR_MAC', bssid])
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def disconnect(self, ifindex):
+    async def disconnect(self, ifindex):
         '''
         Disconnect the device
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_DISCONNECT']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
 
-    def survey(self, ifindex):
+        return await self._do_request(msg)
+
+    async def survey(self, ifindex):
         '''
         Return the survey info.
         '''
         msg = nl80211cmd()
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SURVEY']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
-        )
+        return await self._do_dump(msg)
 
-    def scan(self, ifindex, ssids=None, flush_cache=False):
+    async def scan(self, ifindex, ssids=None, flush_cache=False):
         '''
         Trigger scan and get results.
 
@@ -549,18 +493,19 @@ class IW(NL80211):
             scan_flags |= SCAN_FLAGS_NAMES['NL80211_SCAN_FLAG_FLUSH']
             msg['attrs'].append(['NL80211_ATTR_SCAN_FLAGS', scan_flags])
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        await self._do_request(msg)
 
         # monitor the results notification on the secondary socket
         scanResultNotFound = True
         while scanResultNotFound:
-            listMsg = nsock.get()
-            for msg in listMsg:
-                if msg["event"] == "NL80211_CMD_NEW_SCAN_RESULTS":
-                    scanResultNotFound = False
-                    break
+            listMsg = await nsock.get()
+            try:
+                async for msg in listMsg:
+                    if msg["event"] == "NL80211_CMD_NEW_SCAN_RESULTS":
+                        scanResultNotFound = False
+                        break
+            finally:
+                await listMsg.aclose()
         # close the secondary socket
         nsock.close()
 
@@ -568,11 +513,9 @@ class IW(NL80211):
         msg2 = nl80211cmd()
         msg2['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
         msg2['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
-        return self.nlm_request(
-            msg2, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
-        )
+        return await self._do_dump(msg2)
 
-    def get_associated_bss(self, ifindex):
+    async def get_associated_bss(self, ifindex):
         '''
         Returns the same info like scan() does, but only about the
         currently associated BSS.
@@ -589,23 +532,23 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
 
-        res = self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_DUMP
-        )
-
-        for x in res:
-            attr_bss = x.get_attr('NL80211_ATTR_BSS')
-            if attr_bss is not None:
-                status = attr_bss.get_attr('NL80211_BSS_STATUS')
-                if status in (
-                    BSS_STATUS_NAMES['associated'],
-                    BSS_STATUS_NAMES['ibss_joined'],
-                ):
-                    return x
+        coro = self._do_dump(msg)
+        try:
+            async for x in coro:
+                attr_bss = x.get_attr('NL80211_ATTR_BSS')
+                if attr_bss is not None:
+                    status = attr_bss.get_attr('NL80211_BSS_STATUS')
+                    if status in (
+                        BSS_STATUS_NAMES['associated'],
+                        BSS_STATUS_NAMES['ibss_joined'],
+                    ):
+                        return x
+        finally:
+            await coro.aclose()
 
         return None
 
-    def get_regulatory_domain(self, attr=None):
+    async def get_regulatory_domain(self, attr=None):
         '''
         Get regulatory domain information. If attr specified, get regulatory
         domain information for this device
@@ -619,9 +562,9 @@ class IW(NL80211):
         else:
             msg['attrs'] = [['NL80211_ATTR_WIPHY', attr]]
 
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self._do_request(msg)
 
-    def set_regulatory_domain(self, alpha2):
+    async def set_regulatory_domain(self, alpha2):
         '''
         Set regulatory domain.
         '''
@@ -629,11 +572,9 @@ class IW(NL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_REQ_SET_REG']
         msg['attrs'] = [['NL80211_ATTR_REG_ALPHA2', alpha2]]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def set_tx_power(self, dev, mode, mbm=None):
+    async def set_tx_power(self, dev, mode, mbm=None):
         '''
         Set TX power of interface.
 
@@ -650,11 +591,9 @@ class IW(NL80211):
         if mbm is not None:
             msg['attrs'].append(['NL80211_ATTR_WIPHY_TX_POWER_LEVEL', mbm])
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def set_wiphy_netns_by_pid(self, wiphy, pid):
+    async def set_wiphy_netns_by_pid(self, wiphy, pid):
         '''
         Set wiphy network namespace to process network namespace.
         '''
@@ -665,11 +604,9 @@ class IW(NL80211):
             ['NL80211_ATTR_PID', pid],
         ]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def set_wiphy_netns_by_fd(self, wiphy, netns_fd):
+    async def set_wiphy_netns_by_fd(self, wiphy, netns_fd):
         '''
         Set wiphy network namespace to namespace referenced by fd.
         '''
@@ -680,11 +617,9 @@ class IW(NL80211):
             ['NL80211_ATTR_NETNS_FD', netns_fd],
         ]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def set_interface_type(self, ifindex, iftype):
+    async def set_interface_type(self, ifindex, iftype):
         '''
         Set interface type
             - ifindex — device index
@@ -716,15 +651,13 @@ class IW(NL80211):
             ['NL80211_ATTR_IFTYPE', iftype],
         ]
 
-        self.nlm_request(
-            msg, msg_type=self.prid, msg_flags=NLM_F_REQUEST | NLM_F_ACK
-        )
+        return await self._do_request(msg)
 
-    def get_interface_type(self, ifindex) -> str:
+    async def get_interface_type(self, ifindex) -> str:
         '''
         return interface type name
         '''
-        dump = self.get_interface_by_ifindex(ifindex)
+        dump = await self.get_interface_by_ifindex(ifindex)
         type = None
         for d in dump:
             type = d.get_attr('NL80211_ATTR_IFTYPE')
@@ -737,3 +670,140 @@ class IW(NL80211):
             res = 'Not Found Type'
 
         return res
+
+
+class IW(NL80211):
+    async_class = AsyncIW
+
+    def del_interface(self, dev):
+        return self._run_with_cleanup(self.asyncore.del_interface, dev)
+
+    def add_interface(self, ifname, iftype, dev=None, phy=0):
+        return self._run_with_cleanup(
+            self.asyncore.add_interface, ifname, iftype, dev, phy
+        )
+
+    def list_dev(self):
+        return self._generate_with_cleanup(self.asyncore.list_dev)
+
+    def list_wiphy(self):
+        return self._generate_with_cleanup(self.asyncore.list_wiphy)
+
+    def get_interfaces_dict(self):
+        return self._run_with_cleanup(self.asyncore.get_interfaces_dict)
+
+    def get_interfaces_dump(self):
+        return self._generate_with_cleanup(self.asyncore.get_interfaces_dump)
+
+    def get_interface_by_phy(self, attr):
+        return self._run_with_cleanup(self.asyncore.get_interface_by_phy, attr)
+
+    def get_interface_by_ifindex(self, ifindex):
+        return self._run_with_cleanup(
+            self.asyncore.get_interface_by_ifindex, ifindex
+        )
+
+    def get_stations(self, ifindex):
+        return self._generate_with_cleanup(self.asyncore.get_stations, ifindex)
+
+    def join_ibss(
+        self,
+        ifindex,
+        ssid,
+        freq,
+        bssid=None,
+        channel_fixed=False,
+        width=None,
+        center=None,
+        center2=None,
+    ):
+        return self._run_with_cleanup(
+            self.asyncore.join_ibss,
+            ifindex,
+            ssid,
+            freq,
+            bssid,
+            channel_fixed,
+            width,
+            center,
+            center2,
+        )
+
+    def leave_ibss(self, ifindex):
+        return self._run_with_cleanup(self.asyncore.leave_ibss, ifindex)
+
+    def authenticate(self, ifindex, bssid, ssid, freq, auth_type=0):
+        return self._run_with_cleanup(
+            self.asyncore.authenticate, ifindex, bssid, ssid, freq, auth_type
+        )
+
+    def deauthenticate(self, ifindex, bssid, reason_code=0x01):
+        return self._run_with_cleanup(
+            self.asyncore.deauthenticate, ifindex, bssid, reason_code
+        )
+
+    def associate(self, ifindex, bssid, ssid, freq, info_elements=None):
+        return self._run_with_cleanup(
+            self.asyncore.associate, ifindex, bssid, ssid, freq, info_elements
+        )
+
+    def disassociate(self, ifindex, bssid, reason_code=0x03):
+        return self._run_with_cleanup(
+            self.asyncore.disassociate, ifindex, bssid, reason_code
+        )
+
+    def connect(self, ifindex, ssid, bssid=None):
+        return self._run_with_cleanup(
+            self.asyncore.connect, ifindex, ssid, bssid
+        )
+
+    def disconnect(self, ifindex):
+        return self._run_with_cleanup(self.asyncore.disconnect, ifindex)
+
+    def survey(self, ifindex):
+        return self._generate_with_cleanup(self.asyncore.survey, ifindex)
+
+    def scan(self, ifindex, ssids=None, flush_cache=False):
+        return self._generate_with_cleanup(
+            self.asyncore.scan, ifindex, ssids, flush_cache
+        )
+
+    def get_associated_bss(self, ifindex):
+        return self._run_with_cleanup(
+            self.asyncore.get_associated_bss, ifindex
+        )
+
+    def get_regulatory_domain(self, attr=None):
+        return self._run_with_cleanup(
+            self.asyncore.get_regulatory_domain, attr
+        )
+
+    def set_regulatory_domain(self, alpha2):
+        return self._run_with_cleanup(
+            self.asyncore.set_regulatory_domain, alpha2
+        )
+
+    def set_tx_power(self, dev, mode, mbm=None):
+        return self._run_with_cleanup(
+            self.asyncore.set_tx_power, dev, mode, mbm
+        )
+
+    def set_wiphy_netns_by_pid(self, wiphy, pid):
+        return self._run_with_cleanup(
+            self.asyncore.set_wiphy_netns_by_pid, wiphy, pid
+        )
+
+    def set_wiphy_netns_by_fd(self, wiphy, netns_fd):
+        return self._run_with_cleanup(
+            self.asyncore.set_wiphy_netns_by_fd, wiphy, netns_fd
+        )
+
+    def set_interface_type(self, ifindex, iftype):
+        return self._run_with_cleanup(
+            self.asyncore.set_interface_type, ifindex, iftype
+        )
+
+    def get_interface_type(self, ifindex) -> str:
+        return self._run_with_cleanup(
+            self.asyncore.get_interface_type, ifindex
+        )

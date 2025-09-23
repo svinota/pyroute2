@@ -232,15 +232,20 @@ pre {
     color: #333333;
     line-height: 120%;
     border: 1px solid #ac9;
-    border-left: none;
-    border-right: none;
     border-radius: 10px;
 }
 
+div.highlight-python > div.highlight > pre {
+    padding-bottom: 2em;
+}
+
 div.highlight-none > div.highlight > pre {
-    border: none;
-    margin-top: -1.5em;
-    padding-top: 1.5em;
+    background-color: #fffeed;
+}
+
+div.highlight-python + div.highlight-none {
+    margin-top: -2em;
+    padding-left: 1em;
 }
 
 tt {
@@ -278,6 +283,9 @@ div.viewcode-block:target {
 dl.method > dt {
     margin-bottom: 1em;
     padding: 1em;
+    border-left: solid 1px #a00000;
+    border-bottom: solid 1px #a00000;
+    border-radius: 10px;
 }
 
 dl.class > dt {

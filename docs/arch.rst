@@ -9,124 +9,77 @@ Sockets
 The idea behind the pyroute2 framework is pretty simple. The
 library provides socket objects, that have:
 
-* shortcuts to establish netlink connections
-* extra methods to run netlink queries
-* some magic to handle packet bursts
-* another magic to transparently mangle netlink messages
+* shortcuts to establish higher level connections (netlink, 9p, ...)
+* extra methods to run queries and protocols
 
-In other sense any netlink socket is just an ordinary socket
-with `fileno()`, `recv()`, `sendto()` etc. Of course, one
-can use it in `poll()`.
+The library core is based on asyncio, and provides both asynchronous
+and synchronous versions of API, where the synchronous one is a
+wrapper around the async code. This way we avoid keeping two separate
+codebase while providing the legacy sync API.
 
-There is an inheritance diagram of Linux netlink sockets, provided
-by the library:
+The library provides asynchronous sockets:
 
-.. inheritance-diagram:: pyroute2.iproute.linux.IPRoute
-    pyroute2.iproute.linux.IPBatch
-    pyroute2.iproute.linux.RawIPRoute
-    pyroute2.iwutil.IW
-    pyroute2.ipset.IPSet
-    pyroute2.netlink.uevent.UeventSocket
-    pyroute2.netlink.taskstats.TaskStats
-    pyroute2.netlink.generic.wireguard.WireGuard
-    pyroute2.netlink.generic.ethtool.NlEthtool
-    pyroute2.netlink.ipq.IPQSocket
-    pyroute2.netlink.nfnetlink.nfctsocket.NFCTSocket
-    pyroute2.netlink.nfnetlink.nftsocket.NFTSocket
-    pyroute2.netlink.event.EventSocket
-    pyroute2.netlink.event.acpi_event.AcpiEventSocket
-    pyroute2.netlink.event.dquot.DQuotSocket
-    pyroute2.netlink.event.thermal.ThermalEventSocket
-    pyroute2.netlink.devlink.DevlinkSocket
-    pyroute2.netlink.diag.DiagSocket
-    pyroute2.remote.RemoteIPRoute
-    pyroute2.remote.transport.RemoteSocket
-    pyroute2.remote.shell.ShellIPR
-    pyroute2.nslink.nslink.NetNS
+.. inheritance-diagram:: pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket
+    pyroute2.AsyncAcpiEventSocket
+    pyroute2.AsyncConntrack
+    pyroute2.AsyncDL
+    pyroute2.AsyncDQuotSocket
+    pyroute2.AsyncDevlinkSocket
+    pyroute2.AsyncEventSocket
+    pyroute2.AsyncGenericNetlinkSocket
+    pyroute2.AsyncIPRSocket
+    pyroute2.AsyncIPRoute
+    pyroute2.AsyncIPVSSocket
+    pyroute2.AsyncIW
+    pyroute2.AsyncL2tp
+    pyroute2.AsyncMPTCP
+    pyroute2.AsyncNFCTSocket
+    pyroute2.AsyncNFTSocket
+    pyroute2.AsyncNL80211
+    pyroute2.AsyncNlEthtool
+    pyroute2.AsyncTaskStats
+    pyroute2.AsyncThermalEventSocket
+    pyroute2.AsyncWireGuard
+    pyroute2.Plan9ClientSocket
+    pyroute2.Plan9ServerSocket
+    pyroute2.dhcp.dhcp4socket.AsyncDHCP4Socket
     :parts: 1
 
-under the hood
---------------
+And synchronous sockets:
 
-Let's assume we use an `IPRoute` object to get the
-interface list of the system::
+.. inheritance-diagram:: pyroute2.AcpiEventSocket
+    pyroute2.Conntrack
+    pyroute2.DL
+    pyroute2.DQuotSocket
+    pyroute2.DevlinkSocket
+    pyroute2.DiagSocket
+    pyroute2.EventSocket
+    pyroute2.GenericNetlinkSocket
+    pyroute2.IPBatch
+    pyroute2.IPQSocket
+    pyroute2.IPRSocket
+    pyroute2.IPRoute
+    pyroute2.IPSet
+    pyroute2.IPVS
+    pyroute2.IPVSSocket
+    pyroute2.IW
+    pyroute2.L2tp
+    pyroute2.MPTCP
+    pyroute2.NFCTSocket
+    pyroute2.NFTSocket
+    pyroute2.NL80211
+    pyroute2.NetNS
+    pyroute2.NlEthtool
+    pyroute2.ProcEventSocket
+    pyroute2.RawIPRoute
+    pyroute2.TaskStats
+    pyroute2.ThermalEventSocket
+    pyroute2.UeventSocket
+    pyroute2.WireGuard
+    :parts: 1
 
-    from pyroute2 import IPRoute
-    ipr = IPRoute()
-    ipr.get_links()
-    ipr.close()
-
-The `get_links()` method is provided by the `IPRouteMixin`
-class. It chooses the message to send (`ifinfmsg`), prepares
-required fields and passes it to the next layer::
-
-    result.extend(self.nlm_request(msg, RTM_GETLINK, msg_flags))
-
-The `nlm_request()` is a method of the `NetlinkSocketBase` class.
-It wraps the pair request/response in one method. The request
-is done via `put()`, response comes with `get()`. These
-methods hide under the hood the asynchronous nature of the
-netlink protocol, where the response can come whenever --
-the time and packet order are not guaranteed. But one can
-use the `sequence_number` field of a netlink message to
-match responses, and the pair `put()/get()` does it.
-
-cache thread
-------------
-
-Sometimes it is preferable to get incoming messages asap
-and parse them only when there is time for that. For that
-case the `NetlinkSocketBase` provides a possibility to start a
-dedicated cache thread, that will collect and queue incoming
-messages as they arrive. The thread doesn't affect the
-socket behaviour: it will behave exactly in the same way,
-the only difference is that `recv()` will return already
-cached in the userspace message. To start the thread,
-one should call `bind()` with `async_cache=True`::
-
-    ipr = IPRoute()
-    ipr.bind(async_cache=True)
-    ...  # do some stuff
-    ipr.close()
-
-message mangling
-----------------
-
-An interesting feature of the `IPRSocketBase` is a netlink
-proxy code, that allows to register callbacks for different
-message types. The callback API is simple. The callback
-must accept the message as a binary data, and must return
-a dictionary with two keys, `verdict` and `data`. The
-verdict can be:
-
-    * for `sendto()`: `forward`, `return` or `error`
-    * for `recv()`: `forward` or `error`
-
-E.g.::
-
-    msg = ifinfmsg(data)
-    msg.decode()
-    ...  # mangle msg
-    msg.reset()
-    msg.encode()
-    return {'verdict': 'forward',
-            'data': msg.buf.getvalue()}
-
-The `error` verdict raises an exception from `data`. The
-`forward` verdict causes the `data` to be passed. The
-`return` verdict is valid only in `sendto()` callbacks and
-means that the `data` should not be passed to the kernel,
-but instead it must be returned to the user.
-
-This magic allows the library to transparently support
-ovs, teamd, tuntap calls via netlink. The corresponding
-callbacks transparently route the call to an external
-utility or to `ioctl()` API.
-
-How to register callbacks, see `IPRSocketBase` init.
-The `_sproxy` serves `sendto()` mangling, the `_rproxy`
-serves the `recv()` mangling. Later this API can become
-public.
+Not all the synchronous sockets have got their asynchronous counterpart yet,
+but this work is ongoing.
 
 Netlink messages
 ================
@@ -209,42 +162,6 @@ kernel. The PF_ROUTE messages:
     pyroute2.bsd.pf_route.rt_msg
     pyroute2.bsd.pf_route.ifa_msg
     pyroute2.bsd.pf_route.ifma_msg
-    :parts: 1
-
-IPDB
-====
-
-The `IPDB` module implements high-level logic to manage
-some of the system network settings. It is completely
-agnostic to the netlink object's nature, the only requirement
-is that the netlink transport must provide RTNL API.
-
-So, using proper mixin classes one can create a custom
-RTNL-compatible transport. E.g., this way `IPDB` can work
-over `NetNS` objects, providing the network management
-within some network namespace — while itself it runs in the
-main namespace.
-
-The `IPDB` architecture is not too complicated, but it
-implements some useful transaction magic, see `commit()`
-methods of the `Transactional` objects.
-
-.. inheritance-diagram:: pyroute2.ipdb.main.IPDB
-    pyroute2.ipdb.interfaces.Interface
-    pyroute2.ipdb.linkedset.LinkedSet
-    pyroute2.ipdb.linkedset.IPaddrSet
-    pyroute2.ipdb.routes.NextHopSet
-    pyroute2.ipdb.routes.Via
-    pyroute2.ipdb.routes.Encap
-    pyroute2.ipdb.routes.Metrics
-    pyroute2.ipdb.routes.BaseRoute
-    pyroute2.ipdb.routes.Route
-    pyroute2.ipdb.routes.MPLSRoute
-    pyroute2.ipdb.routes.RoutingTable
-    pyroute2.ipdb.routes.MPLSTable
-    pyroute2.ipdb.routes.RoutingTableSet
-    pyroute2.ipdb.rules.Rule
-    pyroute2.ipdb.rules.RulesDict
     :parts: 1
 
 Internet protocols

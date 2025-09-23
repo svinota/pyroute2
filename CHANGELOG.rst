@@ -1,6 +1,72 @@
 Changelog
 =========
 
+* 0.9.4
+    * iwutil: fix get_interfaces_dict <https://github.com/svinota/pyroute2/issues/1380>
+* 0.9.3
+    * packaging: use only pyproject files
+    * packaging: update pyroute2-minimal modules list
+    * fixtures: split out ndb fixture
+    * ndb: use AsyncIPRoute as RTNL source
+    * ndb: deprecate and remove NDB cli
+    * async versions for:
+      * acpi events
+      * conntrack
+      * devlink
+      * diag
+      * dquot
+      * ethtool
+      * event
+      * generic
+      * ipvs
+      * iwutil
+      * l2tp
+      * mptcp
+      * nl80211
+      * taskstats
+      * thermal events
+      * wireguard
+    * iproute: rt_files management <https://github.com/svinota/pyroute2/pull/1360>
+    * examples: update kernel module example
+* 0.9.2
+    * iproute: basic Darwin support <https://github.com/svinota/pyroute2/pull/1328>
+    * nftables: asynchronous API <https://github.com/svinota/pyroute2/pull/1327>
+    * plan9: Inode class context manager API
+    * plan9: support call on read
+    * code: provide again .epid <https://github.com/svinota/pyroute2/pull/1337>
+* 0.9.1
+    * nftables: fix comment size
+* 0.9.1rc2
+    * nftables: fix work with the new core, add basic masq and comment support
+    * nlsocket: fix batch requests
+    * dhcp client: add InterfaceNotFound exception
+    * ethtool: use byref instead of cpointer
+* 0.9.1rc1
+    * core: rewritten using asyncio, and the async API is now first class
+    * core: provide compatibility synchronous API classes
+    * telemetry: a basic internal implementation using statsd protocol
+    * dhcp: a huge upgrade, all the protocol module reimplemented using asyncio
+    * 9p: a basic client / server / fs implementation (no 9p2000.L yet)
+    * fixtures: added public pytest fixtures
+    * NetNS: obsoleted, all the functionality merged into the core
+    * proxy: deprecated and removed, see NetlinkRequest
+    * netns: provide unified socket creation function, netns.create_socket()
+    * process: separate class to manage external processes
+
+.. warning::
+
+    0.8.1 is the final minor thread-based version of the library. All updates to
+    the synchronous core will follow as 0.8.x. The asynchronous core will follow
+    as 0.9.x and up.
+
+* 0.8.1
+    * ndb: fix route replace <https://github.com/svinota/pyroute2/pull/1179>
+    * ndb: fix af_bridge_fdb indexes <https://github.com/svinota/pyroute2/pull/1215>
+    * rtnl: probe API <https://github.com/svinota/pyroute2/pull/1175>
+    * tc: htb rate64 <https://github.com/svinota/pyroute2/pull/1182>
+    * ipvs: basic support <https://github.com/svinota/pyroute2/pull/1187>
+    * decoder: support pcap format <https://github.com/svinota/pyroute2/pull/1191>
+    * ethtool: get/set channels <https://github.com/svinota/pyroute2/pull/1192>
 * 0.7.12
     * cli: move readline import to the script <https://github.com/svinota/pyroute2/pull/1165>
     * ci: update tools versions <https://github.com/svinota/pyroute2/pull/1167>

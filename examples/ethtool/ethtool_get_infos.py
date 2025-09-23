@@ -1,4 +1,5 @@
 import sys
+
 from pyroute2.ethtool import Ethtool
 
 if len(sys.argv) != 2:

@@ -62,10 +62,10 @@ def ipr():
 )
 def test_get_leaf(ipr, spec, query, result):
     spec = RequestProcessor(context=spec, prime=spec)
-    spec.apply_filter(LinkFieldFilter())
-    spec.apply_filter(LinkIPRouteFilter('dump'))
+    spec.add_filter(LinkFieldFilter())
+    spec.add_filter(LinkIPRouteFilter('dump'))
     spec.finalize()
 
-    msg = ipr.filter_messages(spec, ifinfmsg_sample)
+    msg = tuple(ipr.filter_messages(spec, ifinfmsg_sample))
     assert len(msg) == 1
     assert msg[0].get_nested(*query) == result

@@ -64,6 +64,10 @@ class _SocketWrapper(object):
     def dup(self):
         return self.__class__(_sock=self._sock.dup())
 
+    @property
+    def type(self):
+        return self._sock.type
+
 
 class _MpConnection(object):
     """Highly limited multiprocessing.Connection alternative"""

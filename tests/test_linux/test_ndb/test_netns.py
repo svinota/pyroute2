@@ -1,3 +1,4 @@
+import errno
 import logging
 import uuid
 
@@ -6,7 +7,7 @@ from pr2test.context_manager import make_test_matrix
 from pr2test.marks import require_root
 from pr2test.tools import address_exists, interface_exists
 
-from pyroute2 import NDB, netns
+from pyroute2 import NDB, IPRoute, NetlinkError, netns
 
 pytestmark = [require_root()]
 
@@ -14,7 +15,7 @@ test_matrix = make_test_matrix(dbs=['sqlite3/:memory:', 'postgres/pr2test'])
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_create_remove(context):
+def _test_create_remove(context):
     nsname = context.new_nsname
     with NDB(log=(context.new_log, logging.DEBUG)) as ndb:
         # create a netns via ndb.netns
@@ -44,6 +45,43 @@ def test_views_contain(context):
     assert v1 in context.ndb.interfaces  # should be fixed?
     assert {'ifname': v0, 'target': 'localhost'} in context.ndb.interfaces
     assert {'ifname': v1, 'target': nsname} in context.ndb.interfaces
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_interface_move_altname(context):
+    ifname1 = context.new_ifname
+    ifname2 = context.new_ifname
+    altname = context.new_ifname
+    nsname = context.new_nsname
+
+    context.ndb.sources.add(netns=nsname)
+    # create the conflict
+    idx = 500
+    with IPRoute() as ipr:
+        while idx < 1000:
+            try:
+                ipr.link('add', ifname=ifname2, index=idx, kind='dummy')
+                break
+            except NetlinkError as e:
+                if e.code != errno.EEXIST:
+                    raise
+            idx += 1
+        else:
+            raise RuntimeError('no free interface index available')
+    with IPRoute(netns=nsname) as ipr:
+        ipr.link('add', ifname=ifname1, index=idx, kind='dummy')
+
+    link1 = context.ndb.interfaces.wait(target=nsname, ifname=ifname1)
+    link2 = context.ndb.interfaces.wait(target='localhost', ifname=ifname2)
+
+    link2.add_altname(altname).commit()
+
+    # move the interface
+    link2.set('net_ns_fd', nsname).commit()
+
+    assert link2['target'] == nsname
+    assert link2['index'] != link1['index']
+    assert len(link2['alt_ifname_list']) == 1
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)

@@ -46,26 +46,26 @@ API
 ===
 '''
 
+import asyncio
 import errno
 import gc
 import json
-import queue
 import threading
 import time
 from collections import OrderedDict
 from functools import partial
 
-from pyroute2 import cli, config
+from pyroute2 import config
 from pyroute2.common import basestring
 
 ##
 # NDB stuff
-from .auth_manager import check_auth
 from .objects import RSLV_DELETE
 from .objects.address import Address
 from .objects.interface import Interface, Vlan
 from .objects.neighbour import FDBRecord, Neighbour
 from .objects.netns import NetNS
+from .objects.probe import Probe
 from .objects.route import Route
 from .objects.rule import Rule
 from .report import Record, RecordSet
@@ -99,18 +99,13 @@ class View(dict):
         # ifobj1 != ifobj2
     '''
 
-    def __init__(self, ndb, table, chain=None, auth_managers=None):
+    def __init__(self, ndb, table, chain=None):
         self.ndb = ndb
         self.log = ndb.log.channel('view.%s' % table)
         self.table = table
         self.event = table  # FIXME
         self.chain = chain
         self.cache = {}
-        if auth_managers is None:
-            auth_managers = []
-        if chain:
-            auth_managers += chain.auth_managers
-        self.auth_managers = auth_managers
         self.constraints = {}
         self.classes = OrderedDict()
         self.classes['interfaces'] = Interface
@@ -120,6 +115,7 @@ class View(dict):
         self.classes['routes'] = Route
         self.classes['rules'] = Rule
         self.classes['netns'] = NetNS
+        self.classes['probes'] = Probe
         self.classes['af_bridge_vlans'] = Vlan
 
     def __enter__(self):
@@ -143,14 +139,12 @@ class View(dict):
             return {}
 
     def getmany(self, spec, table=None):
-        return self.ndb.task_manager.db_get(table or self.table, spec)
+        return self.ndb.schema.get(table or self.table, spec)
 
     def getone(self, spec, table=None):
         for obj in self.getmany(spec, table):
             return obj
 
-    @cli.change_pointer
-    @check_auth('obj:read')
     def get(self, spec=None, table=None, **kwarg):
         spec = spec or kwarg
         try:
@@ -165,16 +159,8 @@ class View(dict):
             context = {}
         iclass = self.classes[table or self.table]
         spec = iclass.new_spec(key, context, self.default_target)
-        return iclass(
-            self,
-            spec,
-            load=False,
-            master=self.chain,
-            auth_managers=self.auth_managers,
-        )
+        return iclass(self, spec, load=False, master=self.chain)
 
-    @cli.change_pointer
-    @check_auth('obj:modify')
     def create(self, *argspec, **kwspec):
         iclass = self.classes[self.table]
         if self.chain:
@@ -189,8 +175,6 @@ class View(dict):
         spec['create'] = True
         return self[spec]
 
-    @cli.change_pointer
-    @check_auth('obj:modify')
     def ensure(self, *argspec, **kwspec):
         try:
             obj = self.locate(**kwspec)
@@ -200,8 +184,6 @@ class View(dict):
             obj[key] = value
         return obj
 
-    @cli.change_pointer
-    @check_auth('obj:modify')
     def add(self, *argspec, **kwspec):
         self.log.warning(
             '''\n
@@ -216,17 +198,16 @@ class View(dict):
         )
         return self.create(*argspec, **kwspec)
 
-    @check_auth('obj:read')
-    def wait(self, **spec):
+    async def wait(self, **spec):
         ret = None
         timeout = spec.pop('timeout', -1)
         action = spec.pop('action', 'add')
         ctime = time.time()
 
         # install a limited events queue -- for a possible immediate reaction
-        evq = queue.Queue(maxsize=100)
+        evq = asyncio.Queue(maxsize=100)
 
-        def handler(evq, target, event):
+        async def handler(evq, target, event):
             # ignore the "queue full" exception
             #
             # if we miss some events here, nothing bad happens: we just
@@ -236,7 +217,7 @@ class View(dict):
             # the most important here is not to allocate too much memory
             try:
                 evq.put_nowait((target, event))
-            except queue.Full:
+            except asyncio.queues.QueueFull:
                 pass
 
         with TmpHandler(self.ndb, self.event, partial(handler, evq)):
@@ -247,14 +228,13 @@ class View(dict):
                 ):
                     return ret
                 try:
-                    target, msg = evq.get(timeout=1)
-                except queue.Empty:
+                    target, msg = await asyncio.wait_for(evq.get(), 1)
+                except asyncio.TimeoutError:
                     pass
                 if timeout > -1:
                     if ctime + timeout < time.time():
                         raise TimeoutError()
 
-    @check_auth('obj:read')
     def locate(self, spec=None, table=None, **kwarg):
         '''
         This method works like `__getitem__()`, but the important
@@ -292,7 +272,6 @@ class View(dict):
             raise KeyError('got an empty key')
         return self[request]
 
-    @check_auth('obj:read')
     def __getitem__(self, key, table=None):
         ret = self.template(key, table)
 
@@ -367,7 +346,6 @@ class View(dict):
 
         table = table or self.table
         schema = self.ndb.schema
-        task_manager = self.ndb.task_manager
         names = schema.compiled[self.table]['all_names']
 
         self.log.debug('check if the key %s exists in table %s' % (key, table))
@@ -378,11 +356,11 @@ class View(dict):
             if nla_name in names:
                 name = nla_name
             if value is not None and name in names:
-                keys.append('f_%s = %s' % (name, schema.plch))
+                keys.append(f'f_{name} = ?')
                 if isinstance(value, (dict, list, tuple, set)):
                     value = json.dumps(value)
                 values.append(value)
-        spec = task_manager.db_fetchone(
+        spec = schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (self.table, ' AND '.join(keys)),
             values,
         )
@@ -405,22 +383,18 @@ class View(dict):
     def __contains__(self, key):
         return key in self.dump()
 
-    @check_auth('obj:list')
     def keys(self):
         for record in self.dump():
             yield record
 
-    @check_auth('obj:list')
     def values(self):
         for key in self.keys():
             yield self[key]
 
-    @check_auth('obj:list')
     def items(self):
         for key in self.keys():
             yield (key, self[key])
 
-    @cli.show_result
     def count(self):
         return self.classes[self.table]._count(self)[0]
 
@@ -437,31 +411,13 @@ class View(dict):
         for record in dump:
             yield Record(fnames, record, self.classes[self.table])
 
-    @cli.show_result
-    @check_auth('obj:list')
     def dump(self):
         iclass = self.classes[self.table]
-        return RecordSet(
-            self._native(iclass.dump(self)),
-            config={
-                'recordset_pipe': self.ndb.config.get(
-                    'recordset_pipe', 'false'
-                )
-            },
-        )
+        return RecordSet(self._native(iclass.dump(self)))
 
-    @cli.show_result
-    @check_auth('obj:list')
     def summary(self):
         iclass = self.classes[self.table]
-        return RecordSet(
-            self._native(iclass.summary(self)),
-            config={
-                'recordset_pipe': self.ndb.config.get(
-                    'recordset_pipe', 'false'
-                )
-            },
-        )
+        return RecordSet(self._native(iclass.summary(self)))
 
     def __repr__(self):
         if self.chain and 'ifname' in self.chain:
@@ -483,34 +439,35 @@ to get objects use ...[key] / .__getitem__(key)
 
 
 class SourcesView(View):
-    def __init__(self, ndb, auth_managers=None):
-        super(SourcesView, self).__init__(ndb, 'sources')
-        self.classes['sources'] = Source
+    def __init__(self, ndb, table='sources'):
+        super(SourcesView, self).__init__(ndb, table)
+        self.classes[table] = Source
         self.cache = {}
         self.proxy = {}
         self.lock = threading.Lock()
-        if auth_managers is None:
-            auth_managers = []
-        self.auth_managers = auth_managers
 
     def async_add(self, **spec):
         spec = dict(Source.defaults(spec))
         self.cache[spec['target']] = Source(self.ndb, **spec).start()
         return self.cache[spec['target']]
 
-    def add(self, **spec):
+    async def add(self, **spec):
         spec = dict(Source.defaults(spec))
         target = spec['target']
         if target in self:
             raise KeyError(f'source {target} exists')
-        if 'event' not in spec:
+        if spec.get('event') is None:
             sync = True
-            spec['event'] = threading.Event()
+            spec['event'] = asyncio.Event()
         else:
             sync = False
-        self.cache[spec['target']] = Source(self.ndb, **spec).start()
+        source = Source(self.ndb, **spec)
+        self.cache[spec['target']] = source
+        task = self.ndb.task_manager.create_task(source.receiver, obj=source)
         if sync:
-            self.cache[spec['target']].event.wait()
+            await task.event.wait()
+            if task.exception:
+                raise task.exception
         return self.cache[spec['target']]
 
     def remove(self, target, code=errno.ECONNRESET, sync=True):
@@ -519,10 +476,12 @@ class SourcesView(View):
         with self.lock:
             if target in self.cache:
                 source = self.cache[target]
-                source.close(code=code, sync=sync)
+                task = self.ndb.task_manager.task_map[source.task_id]
+                task.target_state = 'stopped'
+                self.ndb.schema.flush(target)
+                source.nl.close(code)
                 return self.cache.pop(target)
 
-    @check_auth('obj:list')
     def keys(self):
         for key in self.cache:
             yield key

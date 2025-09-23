@@ -1,10 +1,8 @@
-import inspect
+import asyncio
 import logging
-import queue
 import threading
 import time
 import traceback
-from functools import partial
 
 from pyroute2 import config
 
@@ -14,17 +12,11 @@ from .events import (
     InvalidateHandlerException,
     RescheduleException,
     ShutdownException,
+    State,
 )
-from .messages import cmsg, cmsg_event, cmsg_failed, cmsg_sstart
+from .messages import cmsg_event, cmsg_failed
 
 log = logging.getLogger(__name__)
-
-
-def Events(*argv):
-    for sequence in argv:
-        if sequence is not None:
-            for item in sequence:
-                yield item
 
 
 class NDBConfig(dict):
@@ -50,14 +42,54 @@ class NDBConfig(dict):
         return self.task_manager.config_values()
 
 
+class TaskAdapter:
+    def __init__(self):
+        self.event = asyncio.Event()
+        self.state = State()
+
+
+class Task:
+    def __init__(self, coro, target_state, obj):
+        self.exception = None
+        self.coro = coro
+        self.target_state = target_state
+        self.obj = obj if obj is not None else TaskAdapter()
+        self.restart()
+
+    def restart(self):
+        self.task = asyncio.create_task(self.coro())
+        self.obj.task_id = id(self.task)
+
+    def commit(self):
+        self.exception = self.task.exception()
+
+    @property
+    def event(self):
+        return self.obj.event
+
+    @property
+    def state(self):
+        return self.obj.state
+
+    @property
+    def task_id(self):
+        return id(self.task)
+
+
 class TaskManager:
     def __init__(self, ndb):
         self.ndb = ndb
         self.log = ndb.log
         self.event_map = {}
-        self.event_queue = ndb._event_queue
+        self.task_map = {}
+        self.event_queue = (
+            asyncio.Queue()
+        )  # LoggingQueue(log=self.ndb.log.channel('queue'))
+        self.stop_event = asyncio.Event()
+        self.reload_event = asyncio.Event()
         self.thread = None
         self.ctime = self.gctime = time.time()
+        self.ready = asyncio.Event()
 
     def register_handler(self, event, handler):
         if event not in self.event_map:
@@ -67,211 +99,129 @@ class TaskManager:
     def unregister_handler(self, event, handler):
         self.event_map[event].remove(handler)
 
-    def default_handler(self, target, event):
+    async def handler_default(self, sources, target, event):
         if isinstance(getattr(event, 'payload', None), Exception):
             raise event.payload
         log.debug('unsupported event ignored: %s' % type(event))
 
-    def check_sources_started(self, _locals, target, event):
-        _locals['countdown'] -= 1
-        if _locals['countdown'] == 0:
-            self.ndb._dbm_ready.set()
+    async def handler_event(self, sources, target, event):
+        event.payload.set()
 
-    def wrap_method(self, method):
-        #
-        # this wrapper will be published in the DBM thread
-        #
-        def _do_local_generator(target, request):
-            try:
-                for item in method(*request.argv, **request.kwarg):
-                    request.response.put(item)
-                request.response.put(StopIteration())
-            except Exception as e:
-                request.response.put(e)
+    async def handler_failed(self, sources, target, event):
+        self.ndb.schema.mark(target, 1)
 
-        def _do_local_single(target, request):
-            try:
-                (request.response.put(method(*request.argv, **request.kwarg)))
-            except Exception as e:
-                (request.response.put(e))
+    def main(self):
+        asyncio.run(self.run())
 
-        #
-        # this class will be used to map the requests
-        #
-        class cmsg_req(cmsg):
-            def __init__(self, response, *argv, **kwarg):
-                self['header'] = {'target': None}
-                self.response = response
-                self.argv = argv
-                self.kwarg = kwarg
+    def create_task(self, coro, state='running', obj=None):
+        task = Task(coro, state, obj)
+        self.task_map[task.task_id] = task
+        self.reload_event.set()
+        return task
 
-        #
-        # this method will proxy the original one
-        #
-        def _do_dispatch_generator(self, *argv, **kwarg):
-            if self.thread == id(threading.current_thread()):
-                # same thread, run method locally
-                for item in method(*argv, **kwarg):
-                    yield item
-            else:
-                # another thread, run via message bus
-                response = queue.Queue()
-                request = cmsg_req(response, *argv, **kwarg)
-                self.event_queue.put((request,))
-                while True:
-                    item = response.get()
-                    if isinstance(item, StopIteration):
-                        return
-                    elif isinstance(item, Exception):
-                        raise item
+    def restart_task(self, task):
+        task.restart()
+        self.task_map[task.task_id] = task
+        self.reload_event.set()
+        return task
+
+    async def stop(self):
+        await self.stop_event.wait()
+
+    async def reload(self):
+        await self.reload_event.wait()
+
+    async def task_watch(self):
+        while True:
+            tasks = list([x.task for x in self.task_map.values()])
+            done, pending = await asyncio.wait(
+                tasks, return_when=asyncio.FIRST_COMPLETED
+            )
+            self.log.debug(f'task done {done}')
+            if self.stop_event.is_set():
+                return
+            for t in done:
+                task = self.task_map.pop(id(t))
+                task.commit()
+                if task.target_state == 'running':
+                    self.restart_task(task)
+            self.reload_event.clear()
+
+    async def receiver(self):
+        while True:
+            event = await self.event_queue.get()
+            reschedule = []
+            handlers = self.event_map.get(
+                event.__class__, [self.handler_default]
+            )
+
+            for handler in tuple(handlers):
+                try:
+                    target = event['header']['target']
+                    # self.log.debug(f'await {handler} for {event}')
+                    await handler(self.ndb.sources.asyncore, target, event)
+                except RescheduleException:
+                    if 'rcounter' not in event['header']:
+                        event['header']['rcounter'] = 0
+                    if event['header']['rcounter'] < 3:
+                        event['header']['rcounter'] += 1
+                        self.log.debug('reschedule %s' % (event,))
+                        reschedule.append(event)
                     else:
-                        yield item
+                        self.log.error('drop %s' % (event,))
+                except InvalidateHandlerException:
+                    try:
+                        handlers.remove(handler)
+                    except Exception:
+                        self.log.error(
+                            'could not invalidate '
+                            'event handler:\n%s' % traceback.format_exc()
+                        )
+                except ShutdownException:
+                    return
+                except DBMExitException:
+                    return
+                except Exception:
+                    self.log.error(
+                        'could not load event:\n%s\n%s'
+                        % (event, traceback.format_exc())
+                    )
+            if time.time() - self.gctime > config.gc_timeout:
+                self.gctime = time.time()
 
-        def _do_dispatch_single(self, *argv, **kwarg):
-            if self.thread == id(threading.current_thread()):
-                # same thread, run method locally
-                return method(*argv, **kwarg)
-            else:
-                # another thread, run via message bus
-                response = queue.Queue(maxsize=1)
-                request = cmsg_req(response, *argv, **kwarg)
-                self.event_queue.put((request,))
-                ret = response.get()
-                if isinstance(ret, Exception):
-                    raise ret
-                else:
-                    return ret
-
-        #
-        # return the method spec to be announced
-        #
-        handler = _do_local_single
-        proxy = _do_dispatch_single
-        if inspect.isgeneratorfunction(method):
-            handler = _do_local_generator
-            proxy = _do_dispatch_generator
-        return (cmsg_req, handler, proxy)
-
-    def register_api(self, api_obj, prefix=''):
-        for name in dir(api_obj):
-            method = getattr(api_obj, name, None)
-            if hasattr(method, 'publish'):
-                if isinstance(method.publish, str):
-                    name = method.publish
-                name = f'{prefix}{name}'
-                event, handler, proxy = self.wrap_method(method)
-                setattr(self, name, partial(proxy, self))
-                self.event_map[event] = [handler]
-
-    def run(self):
-        _locals = {'countdown': len(self.ndb._nl)}
+    async def run(self):
         self.thread = id(threading.current_thread())
 
         # init the events map
         event_map = {
-            cmsg_event: [lambda t, x: x.payload.set()],
-            cmsg_failed: [lambda t, x: (self.ndb.schema.mark(t, 1))],
-            cmsg_sstart: [partial(self.check_sources_started, _locals)],
+            cmsg_event: [self.handler_event],
+            cmsg_failed: [self.handler_failed],
         }
         self.event_map = event_map
 
         try:
             self.ndb.schema = schema.DBSchema(
-                self.ndb.config,
-                self.ndb.sources,
-                self.event_map,
-                self.log.channel('schema'),
+                self.ndb.config, self.event_map, self.log.channel('schema')
             )
-            self.register_api(self.ndb.schema, 'db_')
-            self.register_api(self.ndb.schema.config, 'config_')
-            self.ndb.bonfig = NDBConfig(self)
+            self.ndb.config = NDBConfig(self)
 
         except Exception as e:
             self.ndb._dbm_error = e
-            self.ndb._dbm_ready.set()
+            self.ready.set()
             return
-
-        for spec in self.ndb._nl:
-            spec['event'] = None
-            self.ndb.sources.add(**spec)
 
         for event, handlers in self.ndb.schema.event_map.items():
             for handler in handlers:
                 self.register_handler(event, handler)
 
-        stop = False
-        source = None
-        reschedule = []
-        while not stop:
-            source, events = self.event_queue.get()
-            events = Events(events, reschedule)
-            reschedule = []
-            try:
-                for event in events:
-                    handlers = event_map.get(
-                        event.__class__, [self.default_handler]
-                    )
-
-                    for handler in tuple(handlers):
-                        try:
-                            target = event['header']['target']
-                            handler(target, event)
-                        except RescheduleException:
-                            if 'rcounter' not in event['header']:
-                                event['header']['rcounter'] = 0
-                            if event['header']['rcounter'] < 3:
-                                event['header']['rcounter'] += 1
-                                self.log.debug('reschedule %s' % (event,))
-                                reschedule.append(event)
-                            else:
-                                self.log.error('drop %s' % (event,))
-                        except InvalidateHandlerException:
-                            try:
-                                handlers.remove(handler)
-                            except Exception:
-                                self.log.error(
-                                    'could not invalidate '
-                                    'event handler:\n%s'
-                                    % traceback.format_exc()
-                                )
-                        except ShutdownException:
-                            stop = True
-                            break
-                        except DBMExitException:
-                            return
-                        except Exception:
-                            self.log.error(
-                                'could not load event:\n%s\n%s'
-                                % (event, traceback.format_exc())
-                            )
-                    if time.time() - self.gctime > config.gc_timeout:
-                        self.gctime = time.time()
-            except Exception as e:
-                self.log.error(f'exception <{e}> in source {source}')
-                # restart the target
-                try:
-                    self.log.debug(f'requesting source {source} restart')
-                    self.ndb.sources[source].state.set('restart')
-                except KeyError:
-                    self.log.debug(f'key error for {source}')
-                    pass
-
-        # release all the sources
-        for target in tuple(self.ndb.sources.cache):
-            source = self.ndb.sources.remove(target, sync=False)
-            if source is not None and source.th is not None:
-                self.log.debug(f'closing source {source}')
-                source.close()
-                if self.ndb.schema.config['db_cleanup']:
-                    self.log.debug('flush DB for the target %s' % target)
-                    self.ndb.schema.flush(target)
-                else:
-                    self.log.debug('leave DB for debug')
-
-        # close the database
-        self.ndb.schema.commit()
+        # create an event loop
+        self.event_loop = asyncio.get_event_loop()
+        self.ndb.event_loop = self.event_loop
+        self.create_task(self.receiver)
+        self.create_task(self.stop)
+        self.create_task(self.reload)
+        self.ndb._dbm_ready.set()
+        await self.task_watch()
         self.ndb.schema.close()
-
-        # close the logging
-        for handler in self.log.logger.handlers:
-            handler.close()
+        self.ndb._dbm_shutdown.set()
+        self.ready.set()

@@ -24,38 +24,8 @@ Create veth and move the peer to a netns with IPRoute::
     from pyroute2 import IPRoute
     ipr = IPRoute()
     ipr.link('add', ifname='v0p0', kind='veth', peer='v0p1')
-    idx = ipr.link_lookup(ifname='v0p1')[0]
+    idx = ipr.link_lookup(ifname='v0p1')
     ipr.link('set', index=idx, net_ns_fd='netns_name')
-
-Create veth and move the peer to a netns with IPDB::
-
-    from pyroute2 import IPDB
-    ipdb = IPDB()
-    ipdb.create(ifname='v0p0', kind='veth', peer='v0p1').commit()
-    with ipdb.interfaces.v0p1 as i:
-        i.net_ns_fd = 'netns_name'
-
-Manage interfaces within a netns
---------------------------------
-
-This task can be done with `NetNS` objects. A `NetNS` object
-spawns a child and runs it within a netns, providing the same
-API as `IPRoute` does::
-
-    from pyroute2 import NetNS
-    ns = NetNS('netns_name')
-    # do some stuff within the netns
-    ns.close()
-
-One can even start `IPDB` on the top of `NetNS`::
-
-    from pyroute2 import NetNS
-    from pyroute2 import IPDB
-    ns = NetNS('netns_name')
-    ipdb = IPDB(nl=ns)
-    # do some stuff within the netns
-    ipdb.release()
-    ns.close()
 
 Spawn a process within a netns
 ------------------------------
@@ -63,14 +33,8 @@ Spawn a process within a netns
 For that purpose one can use `NSPopen` API. It works just
 as normal `Popen`, but starts a process within a netns.
 
-List, set, create, attach and remove netns
-------------------------------------------
-
-These functions are described below. To use them, import
-`netns` module::
-
-    from pyroute2 import netns
-    netns.listnetns()
+Network namespace management
+----------------------------
 
 Please be aware, that in order to run system calls the
 library uses `ctypes` module. It can fail on platforms
@@ -84,14 +48,17 @@ import ctypes
 import ctypes.util
 import errno
 import io
+import logging
 import os
 import os.path
-import pickle
-import struct
-import traceback
+import socket
+from typing import Optional
 
 from pyroute2 import config
-from pyroute2.common import basestring
+from pyroute2.common import USE_DEFAULT_TIMEOUT, basestring, get_time
+from pyroute2.process import ChildProcess, ChildProcessReturnValue
+
+log = logging.getLogger(__name__)
 
 try:
     file = file
@@ -270,35 +237,19 @@ def _create(netns, libc=None, pid=None):
         raise OSError(ctypes.get_errno(), 'mount failed', netns)
 
 
+@config.mock_if('mock_netns')
 def create(netns, libc=None):
     '''
     Create a network namespace.
     '''
-    rctl, wctl = os.pipe()
-    pid = os.fork()
-    if pid == 0:
-        # child
-        error = None
-        try:
-            _create(netns, libc)
-        except Exception as e:
-            error = e
-            error.tb = traceback.format_exc()
-        msg = pickle.dumps(error)
-        os.write(wctl, struct.pack('I', len(msg)))
-        os.write(wctl, msg)
-        os._exit(0)
-    else:
-        # parent
-        msglen = struct.unpack('I', os.read(rctl, 4))[0]
-        error = pickle.loads(os.read(rctl, msglen))
-        os.close(rctl)
-        os.close(wctl)
-        os.waitpid(pid, 0)
-        if error is not None:
-            raise error
+    proc = ChildProcess(target=_create, args=[netns, libc])
+    proc.run()
+    proc.communicate()
+    proc.stop(kill=True)
+    proc.close()
 
 
+@config.mock_if('mock_netns')
 def attach(netns, pid, libc=None):
     '''
     Attach the network namespace of the process `pid`
@@ -307,6 +258,7 @@ def attach(netns, pid, libc=None):
     _create(netns, libc, pid)
 
 
+@config.mock_if('mock_netns')
 def remove(netns, libc=None):
     '''
     Remove a network namespace.
@@ -317,7 +269,8 @@ def remove(netns, libc=None):
     os.unlink(netnspath)
 
 
-def setns(netns, flags=os.O_CREAT, libc=None):
+@config.mock_if('mock_netns')
+def setns(netns, flags=os.O_CREAT, libc=None, fork=True):
     '''
     Set netns for the current process.
 
@@ -346,7 +299,10 @@ def setns(netns, flags=os.O_CREAT, libc=None):
                 raise OSError(errno.EEXIST, 'netns exists', netns)
         else:
             if flags & os.O_CREAT:
-                create(netns, libc=libc)
+                if fork:
+                    create(netns, libc=libc)
+                else:
+                    _create(netns, libc=libc)
         nsfd = os.open(netnspath, os.O_RDONLY)
         newfd = True
     elif isinstance(netns, file):
@@ -362,6 +318,7 @@ def setns(netns, flags=os.O_CREAT, libc=None):
         raise OSError(ctypes.get_errno(), 'failed to open netns', netns)
 
 
+@config.mock_if('mock_netns')
 def pushns(newns=None, libc=None):
     '''
     Save the current netns in order to return to it later. If newns is
@@ -379,6 +336,7 @@ def pushns(newns=None, libc=None):
         setns(newns, libc=libc)
 
 
+@config.mock_if('mock_netns')
 def popns(libc=None):
     '''
     Restore the previously saved netns.
@@ -393,6 +351,7 @@ def popns(libc=None):
     os.close(fd)
 
 
+@config.mock_if('mock_netns')
 def dropns(libc=None):
     '''
     Discard the last saved with `pushns()` namespace
@@ -403,3 +362,47 @@ def dropns(libc=None):
         os.close(fd)
     except Exception:
         pass
+
+
+def _create_socket_child(nsname, flags, family, socket_type, proto, libc=None):
+    setns(nsname, flags=flags, libc=libc, fork=False)
+    sock = socket.socket(family, socket_type, proto)
+    return ChildProcessReturnValue(b'', [sock])
+
+
+@config.mock_if('mock_netns')
+def create_socket(
+    netns: Optional[str] = None,
+    family: int = socket.AF_INET,
+    socket_type: int = socket.SOCK_STREAM,
+    proto: int = 0,
+    fileno: Optional[int] = None,
+    flags: int = os.O_CREAT,
+    libc: Optional[ctypes.CDLL] = None,
+    timeout: int = USE_DEFAULT_TIMEOUT,
+) -> socket.socket:
+    if fileno is not None and netns is not None:
+        raise TypeError('you can not specify both fileno and netns')
+    if fileno is not None:
+        return socket.socket(fileno=fileno)
+    if netns is None:
+        return socket.socket(family, socket_type, proto)
+    if timeout == USE_DEFAULT_TIMEOUT:
+        timeout = config.default_create_socket_timeout
+
+    start_time = get_time()
+    while get_time() - start_time < timeout:
+        with ChildProcess(
+            target=_create_socket_child,
+            args=[netns, flags, family, socket_type, proto, libc],
+        ) as proc:
+            try:
+                return socket.socket(
+                    fileno=proc.get_fds(
+                        timeout=config.default_communicate_timeout
+                    )[0]
+                )
+            except TimeoutError:
+                continue
+
+    raise TimeoutError('could not start netns socket within timeout')

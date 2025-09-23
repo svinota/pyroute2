@@ -210,8 +210,10 @@ def test_filter_delete(context, bpf_cls):
         classid=1,
         direct_action=True,
     )
-    filters = context.ipr.get_filters(
-        index=context.default_interface.index, parent='ffff:fff2'
+    filters = tuple(
+        context.ipr.get_filters(
+            index=context.default_interface.index, parent='ffff:fff2'
+        )
     )
     # len == 2: handles 0 and 1
     assert len(filters) == 2
@@ -222,7 +224,9 @@ def test_filter_delete(context, bpf_cls):
         parent='ffff:fff2',
         info=filters[0]['info'],
     )
-    filters = context.ipr.get_filters(
-        index=context.default_interface.index, parent='ffff:fff2'
+    filters = tuple(
+        context.ipr.get_filters(
+            index=context.default_interface.index, parent='ffff:fff2'
+        )
     )
     assert len(filters) == 0

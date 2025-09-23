@@ -2,8 +2,9 @@
 Simplest example to monitor Netlink events with a Python script.
 '''
 
-from pyroute2 import IPRSocket
 from pprint import pprint
+
+from pyroute2 import IPRSocket
 
 ip = IPRSocket()
 ip.bind()

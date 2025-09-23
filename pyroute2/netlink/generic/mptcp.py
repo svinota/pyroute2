@@ -1,7 +1,10 @@
 from socket import AF_INET, AF_INET6
 
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, genlmsg, nla
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 
 MPTCP_GENL_NAME = 'mptcp_pm'
 
@@ -38,16 +41,15 @@ class mptcp_msg(genlmsg):
         )
 
 
-class MPTCP(GenericNetlinkSocket):
-    def __init__(self, ext_ack=True):
-        super(MPTCP, self).__init__(ext_ack=ext_ack)
-        try:
-            self.bind(MPTCP_GENL_NAME, mptcp_msg)
-        except Exception as e:
-            self.close()
-            raise e
+class AsyncMPTCP(AsyncGenericNetlinkSocket):
 
-    def endpoint(self, cmd, **kwarg):
+    async def setup_endpoint(self):
+        if getattr(self.local, 'transport', None) is not None:
+            return
+        await super().setup_endpoint()
+        await self.bind(MPTCP_GENL_NAME, mptcp_msg)
+
+    async def endpoint(self, cmd, **kwarg):
         '''
         Usage::
 
@@ -87,9 +89,9 @@ class MPTCP(GenericNetlinkSocket):
                 )
             msg['attrs'] = [('MPTCP_PM_ATTR_ADDR', addr_info, 0x8000)]
 
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
 
-    def limits(self, cmd, **kwarg):
+    async def limits(self, cmd, **kwarg):
         '''
         Usage::
 
@@ -118,4 +120,15 @@ class MPTCP(GenericNetlinkSocket):
                     key = 'rcv_add_addrs'
                 msg['attrs'].append((mptcp_msg.name2nla(key), value))
 
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+        return await self.nlm_request(msg, msg_type=self.prid, msg_flags=flags)
+
+
+class MPTCP(GenericNetlinkSocket):
+
+    async_class = AsyncMPTCP
+
+    def endpoint(self, cmd, **kwarg):
+        return self._run_sync_cleanup(self.asyncore.endpoint, cmd, **kwarg)
+
+    def limits(self, cmd, **kwarg):
+        return self._run_sync_cleanup(self.asyncore.limits, cmd, **kwarg)

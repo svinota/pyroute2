@@ -15,9 +15,8 @@ import ctypes
 import os
 from socket import AF_INET
 
-from pyroute2.common import AddrPool, Namespace, dqn2int
+from pyroute2.common import dqn2int
 from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST, NLMSG_DONE
-from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl import (
     RTM_GETADDR,
     RTM_GETLINK,
@@ -80,10 +79,6 @@ IP_ADAPTER_INFO._fields_ = [
 class IPRoute(object):
     def __init__(self, *argv, **kwarg):
         self.marshal = MarshalRtnl()
-        send_ns = Namespace(
-            self, {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False}
-        )
-        self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self.target = kwarg.get('target') or 'localhost'
 
     def __enter__(self):
@@ -273,5 +268,10 @@ class RawIPRoute(IPRoute):
 
 
 class ChaoticIPRoute:
+    def __init__(self, *argv, **kwarg):
+        raise NotImplementedError()
+
+
+class NetNS:
     def __init__(self, *argv, **kwarg):
         raise NotImplementedError()

@@ -3,6 +3,7 @@ from socket import AF_INET, AF_INET6, AF_UNSPEC, inet_ntop, inet_pton
 
 from pyroute2.common import AF_MPLS, hexdump, map_namespace
 from pyroute2.netlink import nla, nla_string, nlmsg
+from pyroute2.netlink.rtnl import rt_proto, rt_scope, rt_type
 
 RTNH_F_DEAD = 1
 RTNH_F_PERVASIVE = 2
@@ -98,6 +99,15 @@ class rtmsg_base(nlflags):
         'RTA_VIA': "NOT NULL DEFAULT ''",
         'RTA_NEWDST': "NOT NULL DEFAULT ''",
     }
+
+    defaults = {
+        'family': AF_INET,
+        'scope': rt_scope['universe'],
+        'type': rt_type['unspec'],
+        'proto': rt_proto['unspec'],
+    }
+
+    field_policies = {('field', 'table'): lambda x: 252 if x > 255 else x}
 
     fields = (
         ('family', 'B'),

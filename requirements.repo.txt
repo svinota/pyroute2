@@ -1,4 +1,0 @@
-nox
-pytest
-pytest-cov
-setuptools

@@ -2,8 +2,10 @@ import errno
 import os
 import struct
 from fcntl import ioctl
+from typing import Optional
 
 from pyroute2 import config
+from pyroute2.netlink import nlmsg
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.rtnl.ifinfmsg import (
     IFT_MULTI_QUEUE,
@@ -14,7 +16,6 @@ from pyroute2.netlink.rtnl.ifinfmsg import (
     IFT_VNET_HDR,
     RTM_NEWLINK,
 )
-from pyroute2.netlink.rtnl.ifinfmsg.sync import sync
 
 IFNAMSIZ = 16
 
@@ -29,6 +30,7 @@ PLATFORMS = (
     'aarch64',
     'loongarch64',
 )
+TUNSETIFF: Optional[int] = None
 if config.machine in PLATFORMS:
     TUNSETIFF = 0x400454CA
     TUNSETPERSIST = 0x400454CB
@@ -39,12 +41,9 @@ elif config.machine in ('ppc64', 'mips'):
     TUNSETPERSIST = 0x800454CB
     TUNSETOWNER = 0x800454CC
     TUNSETGROUP = 0x800454CE
-else:
-    TUNSETIFF = None
 
 
-@sync
-def manage_tun(msg):
+def manage_tun(msg: nlmsg) -> bytes:
     if TUNSETIFF is None:
         raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
 
@@ -90,10 +89,10 @@ def manage_tun(msg):
         raise
     finally:
         os.close(fd)
+    return b''
 
 
-@sync
-def manage_tuntap(msg):
+def manage_tuntap(msg: nlmsg) -> bytes:
     if TUNSETIFF is None:
         raise NetlinkError(errno.EOPNOTSUPP, 'Arch not supported')
 
@@ -142,3 +141,4 @@ def manage_tuntap(msg):
         raise
     finally:
         os.close(fd)
+    return b''

@@ -6,7 +6,10 @@ from pyroute2.netlink import (
     nla,
 )
 from pyroute2.netlink.exceptions import NetlinkError
-from pyroute2.netlink.generic import GenericNetlinkSocket
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
 
 ETHTOOL_GENL_NAME = "ethtool"
 ETHTOOL_GENL_VERSION = 1
@@ -185,13 +188,15 @@ class ethtool_rings_msg(genlmsg):
     ethtoolheader = ethtoolheader
 
 
-class NlEthtool(GenericNetlinkSocket):
-    def _do_request(self, msg, msg_flags=NLM_F_REQUEST):
-        return self.nlm_request(msg, msg_type=self.prid, msg_flags=msg_flags)
+class AsyncNlEthtool(AsyncGenericNetlinkSocket):
+    async def _do_request(self, msg, msg_flags=NLM_F_REQUEST):
+        return await self.nlm_request(
+            msg, msg_type=self.prid, msg_flags=msg_flags
+        )
 
-    def is_nlethtool_in_kernel(self):
+    async def is_nlethtool_in_kernel(self):
         try:
-            self.bind(ETHTOOL_GENL_NAME, ethtool_linkinfo_msg)
+            await self.bind(ETHTOOL_GENL_NAME, ethtool_linkinfo_msg)
         except NetlinkError:
             return False
         return True
@@ -204,7 +209,7 @@ class NlEthtool(GenericNetlinkSocket):
         else:
             raise ValueError("Need ifname or ifindex")
 
-    def get_linkinfo(self, ifname=None, ifindex=None):
+    async def get_linkinfo(self, ifname=None, ifindex=None):
         msg = ethtool_linkinfo_msg()
         msg["cmd"] = ETHTOOL_MSG_LINKINFO_GET
         msg['version'] = ETHTOOL_GENL_VERSION
@@ -215,10 +220,10 @@ class NlEthtool(GenericNetlinkSocket):
             )
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_linkinfo_msg)
-        return self._do_request(msg)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_linkinfo_msg)
+        return await self._do_request(msg)
 
-    def get_linkmode(self, ifname=None, ifindex=None):
+    async def get_linkmode(self, ifname=None, ifindex=None):
         msg = ethtool_linkmode_msg()
         msg["cmd"] = ETHTOOL_MSG_LINKMODES_GET
         msg['version'] = ETHTOOL_GENL_VERSION
@@ -229,10 +234,10 @@ class NlEthtool(GenericNetlinkSocket):
             )
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_linkmode_msg)
-        return self._do_request(msg)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_linkmode_msg)
+        return await self._do_request(msg)
 
-    def get_stringset(self, ifname=None, ifindex=None):
+    async def get_stringset(self, ifname=None, ifindex=None):
         msg = ethtool_strset_msg()
         msg["cmd"] = ETHTOOL_MSG_STRSET_GET
         msg['version'] = ETHTOOL_GENL_VERSION
@@ -240,10 +245,10 @@ class NlEthtool(GenericNetlinkSocket):
             ('ETHTOOL_A_STRSET_HEADER', self._get_dev_header(ifname, ifindex))
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_strset_msg)
-        return self._do_request(msg)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_strset_msg)
+        return await self._do_request(msg)
 
-    def get_linkstate(self, ifname=None, ifindex=None):
+    async def get_linkstate(self, ifname=None, ifindex=None):
         msg = ethtool_linkstate_msg()
         msg["cmd"] = ETHTOOL_MSG_LINKSTATE_GET
         msg['version'] = ETHTOOL_GENL_VERSION
@@ -254,10 +259,10 @@ class NlEthtool(GenericNetlinkSocket):
             )
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_linkstate_msg)
-        return self._do_request(msg)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_linkstate_msg)
+        return await self._do_request(msg)
 
-    def get_wol(self, ifname=None, ifindex=None):
+    async def get_wol(self, ifname=None, ifindex=None):
         msg = ethtool_wol_msg()
         msg["cmd"] = ETHTOOL_MSG_WOL_GET
         msg['version'] = ETHTOOL_GENL_VERSION
@@ -265,10 +270,10 @@ class NlEthtool(GenericNetlinkSocket):
             ('ETHTOOL_A_WOL_HEADER', self._get_dev_header(ifname, ifindex))
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_wol_msg)
-        return self._do_request(msg)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_wol_msg)
+        return await self._do_request(msg)
 
-    def get_rings(self, ifname=None, ifindex=None):
+    async def get_rings(self, ifname=None, ifindex=None):
         msg = ethtool_rings_msg()
         msg["cmd"] = ETHTOOL_MSG_RINGS_GET
         msg["version"] = ETHTOOL_GENL_VERSION
@@ -276,15 +281,56 @@ class NlEthtool(GenericNetlinkSocket):
             ('ETHTOOL_A_RINGS_HEADER', self._get_dev_header(ifname, ifindex))
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_rings_msg)
-        return self._do_request(msg)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_rings_msg)
+        return await self._do_request(msg)
 
-    def set_rings(self, rings, ifname=None, ifindex=None):
+    async def set_rings(self, rings, ifname=None, ifindex=None):
         rings["cmd"] = ETHTOOL_MSG_RINGS_SET
         rings["version"] = ETHTOOL_GENL_VERSION
         rings["attrs"].append(
             ('ETHTOOL_A_RINGS_HEADER', self._get_dev_header(ifname, ifindex))
         )
 
-        self.bind(ETHTOOL_GENL_NAME, ethtool_rings_msg)
-        return self._do_request(rings, msg_flags=NLM_F_REQUEST | NLM_F_ACK)
+        await self.bind(ETHTOOL_GENL_NAME, ethtool_rings_msg)
+        return await self._do_request(
+            rings, msg_flags=NLM_F_REQUEST | NLM_F_ACK
+        )
+
+
+class NlEthtool(GenericNetlinkSocket):
+
+    async_class = AsyncNlEthtool
+
+    def is_nlethtool_in_kernel(self):
+        return self._run_with_cleanup(self.asyncore.is_nlethtool_in_kernel)
+
+    def get_linkinfo(self, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(
+            self.asyncore.get_linkinfo, ifname, ifindex
+        )
+
+    def get_linkmode(self, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(
+            self.asyncore.get_linkmode, ifname, ifindex
+        )
+
+    def get_stringset(self, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(
+            self.asyncore.get_stringset, ifname, ifindex
+        )
+
+    def get_linkstate(self, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(
+            self.asyncore.get_linkstate, ifname, ifindex
+        )
+
+    def get_wol(self, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(self.asyncore.get_wol, ifname, ifindex)
+
+    def get_rings(self, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(self.asyncore.get_rings, ifname, ifindex)
+
+    def set_rings(self, rings, ifname=None, ifindex=None):
+        return self._run_sync_cleanup(
+            self.asyncore.set_rings, rings, ifname, ifindex
+        )

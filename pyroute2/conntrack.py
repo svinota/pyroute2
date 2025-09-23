@@ -4,6 +4,7 @@ from pyroute2.netlink.nfnetlink.nfctsocket import (
     IP_CT_TCP_FLAG_TO_NAME,
     IPSBIT_TO_NAME,
     TCP_CONNTRACK_TO_NAME,
+    AsyncNFCTSocket,
     NFCTAttrTuple,
     NFCTSocket,
 )
@@ -118,22 +119,19 @@ class ConntrackEntry(object):
         return s
 
 
-class Conntrack(NFCTSocket):
+class AsyncConntrack(AsyncNFCTSocket):
     """
     High level conntrack functions
     """
 
-    def __init__(self, nlm_generator=True, **kwargs):
-        super(Conntrack, self).__init__(nlm_generator=nlm_generator, **kwargs)
-
-    def stat(self):
+    async def stat(self):
         """Return current statistics per CPU
 
         Same result than conntrack -S command but a list of dictionaries
         """
         stats = []
 
-        for msg in super(Conntrack, self).stat():
+        for msg in await super().stat():
             stats.append({'cpu': msg['res_id']})
             stats[-1].update(
                 (k[10:].lower(), v)
@@ -143,65 +141,45 @@ class Conntrack(NFCTSocket):
 
         return stats
 
-    def count(self):
+    async def count(self):
         """Return current number of conntrack entries
 
         Same result than /proc/sys/net/netfilter/nf_conntrack_count file
         or conntrack -C command
         """
-        for ndmsg in super(Conntrack, self).count():
+        for ndmsg in await super().count():
             return ndmsg.get_attr('CTA_STATS_GLOBAL_ENTRIES')
 
-    def conntrack_max_size(self):
+    async def conntrack_max_size(self):
         """
         Return the max size of connection tracking table
         /proc/sys/net/netfilter/nf_conntrack_max
         """
-        for ndmsg in super(Conntrack, self).conntrack_max_size():
+        for ndmsg in await super().conntrack_max_size():
             return ndmsg.get_attr('CTA_STATS_GLOBAL_MAX_ENTRIES')
 
-    def delete(self, entry):
+    async def delete(self, entry):
         if isinstance(entry, ConntrackEntry):
             tuple_orig = entry.tuple_orig
         elif isinstance(entry, NFCTAttrTuple):
             tuple_orig = entry
         else:
             raise NotImplementedError()
-        for ndmsg in self.entry('del', tuple_orig=tuple_orig):
+        for ndmsg in await self.entry('del', tuple_orig=tuple_orig):
             return ndmsg
 
-    def entry(self, cmd, **kwargs):
-        for res in super(Conntrack, self).entry(cmd, **kwargs):
+    async def entry(self, cmd, **kwarg):
+        for res in await super().entry(cmd, **kwarg):
             return res
 
-    def dump_entries(
+    async def _dump_entries_task(
         self,
         mark=None,
         mark_mask=0xFFFFFFFF,
         tuple_orig=None,
         tuple_reply=None,
     ):
-        """
-        Dump all entries from conntrack table with filters
-
-        Filters can be only part of a conntrack tuple
-
-        :param NFCTAttrTuple tuple_orig: filter on original tuple
-        :param NFCTAttrTuple tuple_reply: filter on reply tuple
-
-        Examples::
-            # Filter only on tcp connections
-            for entry in ct.dump_entries(tuple_orig=NFCTAttrTuple(
-                                             proto=socket.IPPROTO_TCP)):
-                print("This entry is tcp: {}".format(entry))
-
-            # Filter only on icmp message to 8.8.8.8
-            for entry in ct.dump_entries(tuple_orig=NFCTAttrTuple(
-                                             proto=socket.IPPROTO_ICMP,
-                                             daddr='8.8.8.8')):
-                print("This entry is icmp to 8.8.8.8: {}".format(entry))
-        """
-        for ndmsg in self.dump(
+        async for ndmsg in await self.dump(
             mark=mark,
             mark_mask=mark_mask,
             tuple_orig=tuple_orig,
@@ -228,3 +206,70 @@ class Conntrack(NFCTSocket):
                 ndmsg.get_attr('CTA_ID'),
                 ndmsg.get_attr('CTA_USE'),
             )
+
+    async def dump_entries(
+        self,
+        mark=None,
+        mark_mask=0xFFFFFFFF,
+        tuple_orig=None,
+        tuple_reply=None,
+    ):
+        """
+        Dump all entries from conntrack table with filters
+
+        Filters can be only part of a conntrack tuple
+
+        :param NFCTAttrTuple tuple_orig: filter on original tuple
+        :param NFCTAttrTuple tuple_reply: filter on reply tuple
+
+        Examples::
+            # Filter only on tcp connections
+            for entry in ct.dump_entries(tuple_orig=NFCTAttrTuple(
+                                             proto=socket.IPPROTO_TCP)):
+                print("This entry is tcp: {}".format(entry))
+
+            # Filter only on icmp message to 8.8.8.8
+            for entry in ct.dump_entries(tuple_orig=NFCTAttrTuple(
+                                             proto=socket.IPPROTO_ICMP,
+                                             daddr='8.8.8.8')):
+                print("This entry is icmp to 8.8.8.8: {}".format(entry))
+        """
+        return self._dump_entries_task(
+            mark, mark_mask, tuple_orig, tuple_reply
+        )
+
+
+class Conntrack(NFCTSocket):
+
+    def __init__(self, nlm_generator=True, **kwarg):
+        self.asyncore = AsyncConntrack(**kwarg)
+
+    def stat(self):
+        return self._run_with_cleanup(self.asyncore.stat)
+
+    def count(self):
+        return self._run_with_cleanup(self.asyncore.count)
+
+    def conntrack_max_size(self):
+        return self._run_with_cleanup(self.asyncore.conntrack_max_size)
+
+    def delete(self, entry):
+        return self._run_with_cleanup(self.asyncore.delete, entry)
+
+    def entry(self, cmd, **kwarg):
+        return self._run_with_cleanup(self.asyncore.entry, cmd, **kwarg)
+
+    def dump_entries(
+        self,
+        mark=None,
+        mark_mask=0xFFFFFFFF,
+        tuple_orig=None,
+        tuple_reply=None,
+    ):
+        return self._generate_with_cleanup(
+            self.asyncore.dump_entries,
+            mark,
+            mark_mask,
+            tuple_orig,
+            tuple_reply,
+        )

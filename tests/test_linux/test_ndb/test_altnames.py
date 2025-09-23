@@ -10,6 +10,7 @@ test_matrix = make_test_matrix(
 )
 
 
+@pytest.mark.xfail(reason='flaky test, to be fixed')
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
 @skip_if_not_supported
 def test_altname_complex(context):

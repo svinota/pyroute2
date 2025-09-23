@@ -7,7 +7,7 @@ Monitor and receive ACPI events messages via generic netlink.
     import pyroute2
     pyroute2.AcpiEventSocket = acpi_event.AcpiEventMock
 
-.. testcode::
+.. code::
 
     from pprint import pprint
     from pyroute2 import AcpiEventSocket
@@ -27,7 +27,7 @@ Monitor and receive ACPI events messages via generic netlink.
 
 from pyroute2.common import load_dump
 from pyroute2.netlink import genlmsg, nla
-from pyroute2.netlink.event import EventSocket
+from pyroute2.netlink.event import AsyncEventSocket, EventSocket
 from pyroute2.netlink.nlsocket import Marshal
 
 ACPI_GENL_CMD_UNSPEC = 0
@@ -60,9 +60,13 @@ class MarshalAcpiEvent(Marshal):
     msg_map = {ACPI_GENL_CMD_UNSPEC: acpimsg, ACPI_GENL_CMD_EVENT: acpimsg}
 
 
-class AcpiEventSocket(EventSocket):
+class AsyncAcpiEventSocket(AsyncEventSocket):
     marshal_class = MarshalAcpiEvent
     genl_family = 'acpi_event'
+
+
+class AcpiEventSocket(EventSocket):
+    async_class = AsyncAcpiEventSocket
 
 
 class AcpiEventMock(AcpiEventSocket):
@@ -79,5 +83,5 @@ class AcpiEventMock(AcpiEventSocket):
         self.marshal.msg_map[27] = acpimsg
 
     def get(self):
-        self.buffer_queue.put(load_dump(self.sample_data))
+        self.mock_data(load_dump(self.sample_data))
         return super().get()

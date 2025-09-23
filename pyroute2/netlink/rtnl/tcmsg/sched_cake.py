@@ -102,9 +102,11 @@ CAKE_ATM_PTM = 2
 TCA_CAKE_MAX_TINS = 8
 
 
-def fix_msg(msg, kwarg):
-    if 'parent' not in kwarg:
-        msg['parent'] = TC_H_ROOT
+def fix_request(request):
+    if 'rate' in request:
+        del request['rate']
+    if 'parent' not in request or request['parent'] == 0:
+        request['parent'] = TC_H_ROOT
 
 
 def convert_bandwidth(value):

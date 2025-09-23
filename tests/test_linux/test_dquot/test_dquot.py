@@ -1,19 +1,9 @@
 import os
 import subprocess
-import sys
 
 import pytest
-from pr2test.marks import require_root
 
 from pyroute2 import DQuotSocket
-
-pytestmark = [
-    pytest.mark.skipif(
-        sys.version_info < (3, 7),
-        reason='the test module requires Python > 3.6',
-    ),
-    require_root(),
-]
 
 
 class DQuotContextManager:

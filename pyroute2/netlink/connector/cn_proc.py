@@ -59,7 +59,7 @@ class proc_event_uid(proc_event_base):
         ('process_pid', 'I'),
         ('process_tgid', 'I'),
         ('ruid', 'I'),
-        ('rgid', 'I'),
+        ('euid', 'I'),
     )
 
 
@@ -67,7 +67,7 @@ class proc_event_gid(proc_event_base):
     fields = proc_event_base.fields + (
         ('process_pid', 'I'),
         ('process_tgid', 'I'),
-        ('euid', 'I'),
+        ('rgid', 'I'),
         ('egid', 'I'),
     )
 
@@ -141,14 +141,17 @@ class ProcEventMarshal(Marshal):
         PROC_EVENT_EXIT: proc_event_exit,
     }
 
+    def is_enough(self, msg):
+        return False
+
 
 class ProcEventSocket(ConnectorSocket):
     def __init__(self, fileno=None):
         super().__init__(fileno=fileno)
-        self.marshal = ProcEventMarshal()
+        self.set_marshal(ProcEventMarshal())
 
-    def bind(self):
-        return super().bind(groups=CN_IDX_PROC)
+    def bind(self, **kwarg):
+        return super().bind(groups=CN_IDX_PROC, **kwarg)
 
     def control(self, listen):
         msg = proc_event_control()

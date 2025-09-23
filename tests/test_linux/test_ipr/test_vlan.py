@@ -74,7 +74,7 @@ def test_qos_add(context, spec, key, check):
         kind='vlan',
         link=index,
         vlan_id=vlan_id,
-        **spec
+        **spec,
     )
     (vlan,) = context.ipr.poll(context.ipr.link, 'dump', ifname=vlan_name)
 

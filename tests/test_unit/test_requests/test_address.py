@@ -15,6 +15,139 @@ config = {
 
 ##
 #
+# IPv6 cacheinfo
+#
+@pytest.mark.parametrize(
+    'spec,result',
+    (
+        (
+            Request(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'preferred_lft': 99,
+                }
+            ),
+            Result(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'family': AF_INET6,
+                    'cacheinfo': {
+                        'ifa_preferred': 99,
+                        'ifa_valid': 4294967295,
+                    },
+                }
+            ),
+        ),
+        (
+            Request(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'preferred': 99,
+                }
+            ),
+            Result(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'family': AF_INET6,
+                    'cacheinfo': {
+                        'ifa_preferred': 99,
+                        'ifa_valid': 4294967295,
+                    },
+                }
+            ),
+        ),
+        (
+            Request(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'valid_lft': 109,
+                    'preferred': 99,
+                }
+            ),
+            Result(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'family': AF_INET6,
+                    'cacheinfo': {'ifa_preferred': 99, 'ifa_valid': 109},
+                }
+            ),
+        ),
+        (
+            Request(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'valid': 109,
+                    'preferred': 99,
+                }
+            ),
+            Result(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'family': AF_INET6,
+                    'cacheinfo': {'ifa_preferred': 99, 'ifa_valid': 109},
+                }
+            ),
+        ),
+    ),
+    ids=('preferred_lft', 'preferred', 'valid_lft', 'valid'),
+)
+def test_cacheinfo(spec, result):
+    return run_test(config, spec, result)
+
+
+@pytest.mark.parametrize(
+    'spec,result',
+    (
+        (
+            Request(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'valid': 109,
+                    'preferred': 990,
+                }
+            ),
+            Result({}),
+        ),
+        (
+            Request(
+                {
+                    'index': 1,
+                    'address': '2001:db8::5678',
+                    'prefixlen': 128,
+                    'valid': 109,
+                }
+            ),
+            Result({}),
+        ),
+    ),
+    ids=('with-preferred', 'without-preferred'),
+)
+def test_cacheinfo_valid_fail(spec, result):
+    with pytest.raises(ValueError) as e:
+        run_test(config, spec, result)
+    assert e.value.args == ('preferred_lft is greater than valid_lft',)
+
+
+##
+#
 # broadcast tests: bool
 #
 @pytest.mark.parametrize(

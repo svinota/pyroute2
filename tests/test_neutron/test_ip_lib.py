@@ -1,11 +1,16 @@
 from inspect import signature
 
+import eventlet
 import pytest
 
 import pyroute2
 from pyroute2 import netlink, netns
+from pyroute2.config.eventlet import eventlet_config
 from pyroute2.netlink import exceptions, rtnl
 from pyroute2.netlink.rtnl import ifinfmsg, ndmsg
+
+eventlet.monkey_patch()
+eventlet_config()
 
 
 def parameters(func):
@@ -26,7 +31,6 @@ def test_imports():
     assert parameters(rtnl.rt_scope.get) == set(('key', 'default'))
     assert isinstance(rtnl.rt_proto, dict) and 'static' in rtnl.rt_proto
     assert parameters(netns._create) == set(('netns', 'libc', 'pid'))
-    assert parameters(netns.remove) == set(('netns', 'libc'))
     assert parameters(netns.listnetns) == set(('nspath',))
     assert ifinfmsg.IFF_ALLMULTI == 0x200
     assert {state[1]: state[0] for state in ndmsg.states.items()} == {
@@ -40,3 +44,9 @@ def test_imports():
         64: 'noarp',
         128: 'permanent',
     }
+
+
+def test_dump():
+    with pyroute2.IPRoute() as ipr:
+        assert len(tuple(ipr.route('dump'))) > 0
+        assert len(tuple(ipr.link('dump'))) > 0

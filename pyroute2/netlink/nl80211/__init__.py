@@ -7,13 +7,14 @@ TODO
 
 import datetime
 import struct
-import datetime
-from pr2modules.common import map_namespace
-from pr2modules.netlink import genlmsg
-from pr2modules.netlink.generic import GenericNetlinkSocket
-from pr2modules.netlink.nlsocket import Marshal
-from pr2modules.netlink import nla
-from pr2modules.netlink import nla_base
+
+from pyroute2.common import map_namespace
+from pyroute2.netlink import genlmsg, nla, nla_base
+from pyroute2.netlink.generic import (
+    AsyncGenericNetlinkSocket,
+    GenericNetlinkSocket,
+)
+from pyroute2.netlink.nlsocket import Marshal
 
 # Define from uapi/linux/nl80211.h
 NL80211_GENL_NAME = "nl80211"
@@ -268,9 +269,9 @@ class nl80211cmd(genlmsg):
         ('NL80211_ATTR_DTIM_PERIOD', 'hex'),
         ('NL80211_ATTR_BEACON_HEAD', 'hex'),
         ('NL80211_ATTR_BEACON_TAIL', 'hex'),
-        ('NL80211_ATTR_STA_AID', 'hex'),
+        ('NL80211_ATTR_STA_AID', 'uint16'),
         ('NL80211_ATTR_STA_FLAGS', 'hex'),
-        ('NL80211_ATTR_STA_LISTEN_INTERVAL', 'hex'),
+        ('NL80211_ATTR_STA_LISTEN_INTERVAL', 'uint16'),
         ('NL80211_ATTR_STA_SUPPORTED_RATES', 'hex'),
         ('NL80211_ATTR_STA_VLAN', 'hex'),
         ('NL80211_ATTR_STA_INFO', 'STAInfo'),
@@ -423,7 +424,7 @@ class nl80211cmd(genlmsg):
         ('NL80211_ATTR_RADAR_EVENT', 'hex'),
         ('NL80211_ATTR_EXT_CAPA', 'array(uint8)'),
         ('NL80211_ATTR_EXT_CAPA_MASK', 'array(uint8)'),
-        ('NL80211_ATTR_STA_CAPABILITY', 'hex'),
+        ('NL80211_ATTR_STA_CAPABILITY', 'uint16'),
         ('NL80211_ATTR_STA_EXT_CAPABILITY', 'hex'),
         ('NL80211_ATTR_PROTOCOL_FEATURES', 'hex'),
         ('NL80211_ATTR_SPLIT_WIPHY_DUMP', 'hex'),
@@ -1611,13 +1612,17 @@ class MarshalNl80211(Marshal):
             pass
 
 
-class NL80211(GenericNetlinkSocket):
+class AsyncNL80211(AsyncGenericNetlinkSocket):
+    marshal_class = MarshalNl80211
 
-    def __init__(self, *args, **kwargs):
-        GenericNetlinkSocket.__init__(self, *args, **kwargs)
-        self.marshal = MarshalNl80211()
+    async def bind(self, groups=0, **kwarg):
+        await super().bind(
+            NL80211_GENL_NAME, nl80211cmd, groups, None, **kwarg
+        )
+
+
+class NL80211(GenericNetlinkSocket):
+    async_class = AsyncNL80211
 
     def bind(self, groups=0, **kwarg):
-        GenericNetlinkSocket.bind(
-            self, NL80211_GENL_NAME, nl80211cmd, groups, None, **kwarg
-        )
+        return self._run_with_cleanup(self.asyncore.bind, groups, **kwarg)

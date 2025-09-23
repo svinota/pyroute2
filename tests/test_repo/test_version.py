@@ -2,7 +2,7 @@ import io
 import re
 
 import pytest
-from setuptools._vendor import packaging
+from packaging.version import InvalidVersion, Version
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def files():
 
 def test_static_version_file(files):
     assert re.match(
-        r'^[0-9]\.[0-9]\.[0-9]{1,2}(\.post[0-9]+|\.rc[0-9]+){0,1}$',
+        r'^[0-9]\.[0-9]\.[0-9]{1,2}(a[0-9]+|b[0-9]+|rc[0-9]+){0,1}$',
         files['VERSION'].getvalue().strip(),
     )
 
@@ -29,6 +29,11 @@ def test_changelog(files):
     for line in files['CHANGELOG.rst'].readlines():
         if line[0] == '*':
             break
-    static_version = packaging.version.parse(files['VERSION'].getvalue())
-    last_changelog_version = packaging.version.parse(line.split()[1])
+
+    try:
+        static_version = Version(files['VERSION'].getvalue().strip())
+        last_changelog_version = Version(line.split()[1])
+    except InvalidVersion as e:
+        pytest.fail(f"Invalid version encountered: {e}")
+
     assert static_version >= last_changelog_version

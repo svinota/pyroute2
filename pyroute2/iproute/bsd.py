@@ -46,6 +46,7 @@ payload and `IPRoute.get(...)` returns parsed RTNL messages.
 
 import errno
 import os
+import queue
 import select
 import struct
 import threading
@@ -54,9 +55,7 @@ from pyroute2 import config
 from pyroute2.bsd.pf_route import IFF_VALUES
 from pyroute2.bsd.rtmsocket import RTMSocket
 from pyroute2.bsd.util import ARP, Ifconfig, Route
-from pyroute2.common import AddrPool, Namespace
 from pyroute2.netlink import NLM_F_DUMP, NLM_F_MULTI, NLM_F_REQUEST, NLMSG_DONE
-from pyroute2.netlink.proxy import NetlinkProxy
 from pyroute2.netlink.rtnl import (
     RTM_GETADDR,
     RTM_GETLINK,
@@ -73,11 +72,6 @@ from pyroute2.netlink.rtnl.marshal import MarshalRtnl
 from pyroute2.netlink.rtnl.ndmsg import ndmsg
 from pyroute2.netlink.rtnl.rtmsg import rtmsg
 
-try:
-    import queue
-except ImportError:
-    import Queue as queue
-
 
 class IPRoute(object):
     def __init__(self, *argv, **kwarg):
@@ -91,10 +85,6 @@ class IPRoute(object):
         self._route = Route(cmd=self._ssh + ['netstat', '-rn'])
         self.marshal = MarshalRtnl()
         self.target = kwarg.get('target') or 'localhost'
-        send_ns = Namespace(
-            self, {'addr_pool': AddrPool(0x10000, 0x1FFFF), 'monitor': False}
-        )
-        self._sproxy = NetlinkProxy(policy='return', nl=send_ns)
         self._mon_th = None
         self._rtm = None
         self._brd_socket = None
@@ -325,5 +315,10 @@ class RawIPRoute(IPRoute):
 
 
 class ChaoticIPRoute:
+    def __init__(self, *argv, **kwarg):
+        raise NotImplementedError()
+
+
+class NetNS:
     def __init__(self, *argv, **kwarg):
         raise NotImplementedError()

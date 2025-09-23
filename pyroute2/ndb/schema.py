@@ -4,35 +4,12 @@ Backends
 
 NDB stores all the records in an SQL database. By default it uses
 the SQLite3 module, which is a part of the Python stdlib, so no
-extra packages are required::
-
-    # SQLite3 -- simple in-memory DB
-    ndb = NDB()
-
-    # SQLite3 -- same as above with explicit arguments
-    ndb = NDB(db_provider='sqlite3', db_spec=':memory:')
-
-    # SQLite3 -- file DB
-    ndb = NDB(db_provider='sqlite3', db_spec='test.db')
-
-It is also possible to use a PostgreSQL database via psycopg2
-module::
-
-    # PostgreSQL -- local DB
-    ndb = NDB(db_provider='psycopg2',
-              db_spec={'dbname': 'test'})
-
-    # PostgreSQL -- remote DB
-    ndb = NDB(db_provider='psycopg2',
-              db_spec={'dbname': 'test',
-                       'host': 'db1.example.com'})
+extra packages are required.
 
 Database backup
 ---------------
 
-Built-in database backup is implemented now only for SQLite3 backend.
-For the PostgresSQL backend you have to use external utilities like
-`pg_dump`::
+Built-in database backup is implemented now only for SQLite3 backend::
 
     # create an NDB instance
     ndb = NDB()  # the defaults: db_provider='sqlite3', db_spec=':memory:'
@@ -117,7 +94,6 @@ all the tables from the DB, and NDB will create them from scratch
 on startup.
 '''
 
-import enum
 import json
 import random
 import sqlite3
@@ -129,29 +105,17 @@ from functools import partial
 
 from pyroute2 import config
 from pyroute2.common import basestring, uuid32
+from pyroute2.netlink import NLM_F_REPLACE
 
 #
-from .objects import address, interface, neighbour, netns, route, rule
-
-try:
-    import psycopg2
-except ImportError:
-    psycopg2 = None
+from .objects import address, interface, neighbour, netns, probe, route, rule
 
 #
 # the order is important
 #
-plugins = [interface, address, neighbour, route, netns, rule]
+plugins = [interface, address, neighbour, route, netns, rule, probe]
 
 MAX_ATTEMPTS = 5
-
-
-class DBProvider(enum.Enum):
-    sqlite3 = 'sqlite3'
-    psycopg2 = 'psycopg2'
-
-    def __eq__(self, r):
-        return str(self) == r
 
 
 def publish(f):
@@ -172,14 +136,9 @@ class DBDict(dict):
         self.schema = schema
         self.table = table
 
-    @publish('get')
     def __getitem__(self, key):
         for (record,) in self.schema.fetch(
-            f'''
-            SELECT f_value FROM {self.table}
-            WHERE f_key = {self.schema.plch}
-            ''',
-            (key,),
+            f'SELECT f_value FROM {self.table} WHERE f_key = ?', (key,)
         ):
             return json.loads(record)
         raise KeyError(f'key {key} not found')
@@ -188,21 +147,13 @@ class DBDict(dict):
     def __setitem__(self, key, value):
         del self[key]
         self.schema.execute(
-            f'''
-            INSERT INTO {self.table}
-            VALUES ({self.schema.plch}, {self.schema.plch})
-            ''',
-            (key, json.dumps(value)),
+            f'INSERT INTO {self.table} VALUES (?, ?)', (key, json.dumps(value))
         )
 
     @publish('del')
     def __delitem__(self, key):
         self.schema.execute(
-            f'''
-            DELETE FROM {self.table}
-            WHERE f_key = {self.schema.plch}
-            ''',
-            (key,),
+            f'DELETE FROM {self.table} WHERE f_key = ?', (key,)
         )
 
     @publish
@@ -239,13 +190,11 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(self, config, sources, event_map, log_channel):
+    def __init__(self, config, event_map, log_channel):
         global plugins
-        self.sources = sources
         self.config = DBDict(self, 'config')
         self.stats = {}
         self.connection = None
-        self.cursor = None
         self.log = log_channel
         self.snapshots = {}
         self.key_defaults = {}
@@ -255,7 +204,7 @@ class DBSchema:
         # means also that these variables can not be changed
         # in runtime
         self.rtnl_log = config['rtnl_debug']
-        self.provider = config['provider']
+        self.provider = None
         #
         for plugin in plugins:
             #
@@ -291,16 +240,8 @@ class DBSchema:
     def initdb(self, config):
         if self.connection is not None:
             self.close()
-        if config['provider'] == DBProvider.sqlite3:
-            self.connection = sqlite3.connect(config['spec'])
-            self.plch = '?'
-            self.connection.execute('PRAGMA foreign_keys = ON')
-        elif config['provider'] == DBProvider.psycopg2:
-            self.connection = psycopg2.connect(**config['spec'])
-            self.plch = '%s'
-        else:
-            raise TypeError('DB provider not supported')
-        self.cursor = self.connection.cursor()
+        self.connection = sqlite3.connect(config['spec'])
+        self.connection.execute('PRAGMA foreign_keys = ON')
         #
         # compile request lines
         #
@@ -364,11 +305,11 @@ class DBSchema:
         all_names = spec1['all_names'] + spec2['all_names'][2:-1]
         norm_names = spec1['norm_names'] + spec2['norm_names'][2:-1]
         idx = ('target', 'tflags') + schema_idx
-        f_names = ['f_%s' % x for x in all_names]
-        f_set = ['f_%s = %s' % (x, self.plch) for x in all_names]
-        f_idx = ['f_%s' % x for x in idx]
-        f_idx_match = ['%s.%s = %s' % (table2, x, self.plch) for x in f_idx]
-        plchs = [self.plch] * len(f_names)
+        f_names = [f'f_{x}' for x in all_names]
+        f_set = [f'f_{x} = ?' for x in all_names]
+        f_idx = [f'f_{x}' for x in idx]
+        f_idx_match = [f'{table}.{x} = ?' for x in f_idx]
+        plchs = ['?'] * len(f_names)
         return {
             'names': names,
             'all_names': all_names,
@@ -413,22 +354,17 @@ class DBSchema:
         # and we can not use them; neither can we change the
         # C structure
         #
-        f_names = ['f_%s' % x for x in all_names]
+        f_names = [f'f_{x}' for x in all_names]
         #
         # set the fields
         #
         # e.g.: f_flags = ?, f_IFLA_IFNAME = ?
         #
-        # there are different placeholders:
-        # ? -- SQLite3
-        # %s -- PostgreSQL
-        # so use self.plch here
-        #
-        f_set = ['f_%s = %s' % (x, self.plch) for x in all_names]
+        f_set = [f'f_{x} = ?' for x in all_names]
         #
         # the set of the placeholders to use in the INSERT statements
         #
-        plchs = [self.plch] * len(f_names)
+        plchs = ['?'] * len(f_names)
         #
         # the index schema; use target and tflags in every index
         #
@@ -436,7 +372,7 @@ class DBSchema:
         #
         # the same, escaped: f_target, f_tflags etc.
         #
-        f_idx = ['f_%s' % x for x in idx]
+        f_idx = [f'f_{x}' for x in idx]
         #
         # normalized idx names
         #
@@ -448,7 +384,7 @@ class DBSchema:
         #
         # the same issue with the placeholders
         #
-        f_idx_match = ['%s.%s = %s' % (table, x, self.plch) for x in f_idx]
+        f_idx_match = [f'{table}.{x} = ?' for x in f_idx]
 
         return {
             'names': names,
@@ -473,26 +409,23 @@ class DBSchema:
         self.execute(
             '''
                 DELETE FROM sources_options
-                WHERE f_target = %s
-            '''
-            % self.plch,
+                WHERE f_target = ?
+            ''',
             (target,),
         )
         self.execute(
             '''
                 DELETE FROM sources
-                WHERE f_target = %s
-            '''
-            % self.plch,
+                WHERE f_target = ?
+            ''',
             (target,),
         )
         # add
         self.execute(
             '''
                 INSERT INTO sources (f_target, f_kind)
-                VALUES (%s, %s)
-            '''
-            % (self.plch, self.plch),
+                VALUES (?, ?)
+            ''',
             (target, kind),
         )
         for key, value in spec.items():
@@ -501,23 +434,23 @@ class DBSchema:
                 '''
                     INSERT INTO sources_options
                     (f_target, f_name, f_type, f_value)
-                    VALUES (%s, %s, %s, %s)
-                '''
-                % (self.plch, self.plch, self.plch, self.plch),
+                    VALUES (?, ?, ?, ?)
+                ''',
                 (target, key, vtype, value),
             )
 
     def execute(self, *argv, **kwarg):
+        cursor = self.connection.cursor()
         try:
             #
             # FIXME: add logging
             #
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    self.cursor.execute(*argv, **kwarg)
+                    cursor.execute(*argv, **kwarg)
                     break
                 except (sqlite3.InterfaceError, sqlite3.OperationalError) as e:
-                    self.log.debug('%s' % e)
+                    self.log.debug(f'{e}')
                     #
                     # Retry on:
                     # -- InterfaceError: Error binding parameter ...
@@ -525,39 +458,32 @@ class DBSchema:
                     #
                     pass
             else:
-                raise Exception('DB execute error: %s %s' % (argv, kwarg))
+                raise Exception('DB execute error: {argv} {kwarg}')
         except Exception:
             raise
         finally:
             self.connection.commit()  # no performance optimisation yet
-        return self.cursor
+        return cursor
 
-    @publish
     def fetchone(self, *argv, **kwarg):
         for row in self.fetch(*argv, **kwarg):
             return row
         return None
 
-    @publish
     def fetch(self, *argv, **kwarg):
-        self.execute(*argv, **kwarg)
+        cursor = self.execute(*argv, **kwarg)
         while True:
-            row_set = self.cursor.fetchmany()
+            row_set = cursor.fetchmany()
             if not row_set:
                 return
             for row in row_set:
                 yield row
 
-    @publish
     def backup(self, spec):
-        if sys.version_info >= (3, 7) and self.provider == DBProvider.sqlite3:
-            backup_connection = sqlite3.connect(spec)
-            self.connection.backup(backup_connection)
-            backup_connection.close()
-        else:
-            raise NotImplementedError()
+        backup_connection = sqlite3.connect(spec)
+        self.connection.backup(backup_connection)
+        backup_connection.close()
 
-    @publish
     def export(self, f='stdout'):
         close = False
         if f in ('stdout', 'stderr'):
@@ -567,13 +493,13 @@ class DBSchema:
             close = True
         try:
             for table in self.spec.keys():
-                f.write('\ntable %s\n' % table)
-                for record in self.execute('SELECT * FROM %s' % table):
+                f.write(f'\ntable {table}\n')
+                for record in self.execute(f'SELECT * FROM {table}'):
                     f.write(' '.join([str(x) for x in record]))
                     f.write('\n')
                 if self.rtnl_log:
-                    f.write('\ntable %s_log\n' % table)
-                    for record in self.execute('SELECT * FROM %s_log' % table):
+                    f.write(f'\ntable {table}_log\n')
+                    for record in self.execute(f'SELECT * FROM {table}_log'):
                         f.write(' '.join([str(x) for x in record]))
                         f.write('\n')
         finally:
@@ -678,24 +604,14 @@ class DBSchema:
     def mark(self, target, mark):
         for table in self.spec:
             self.execute(
-                '''
-                         UPDATE %s SET f_tflags = %s
-                         WHERE f_target = %s
-                         '''
-                % (table, self.plch, self.plch),
-                (mark, target),
+                'UPDATE ? SET f_tflags = ? WHERE f_target = ?',
+                (table, mark, target),
             )
 
     @publish
     def flush(self, target):
         for table in self.spec:
-            self.execute(
-                '''
-                         DELETE FROM %s WHERE f_target = %s
-                         '''
-                % (table, self.plch),
-                (target,),
-            )
+            self.execute(f'DELETE FROM {table} WHERE f_target = ?', (target,))
 
     @publish
     def save_deps(self, ctxid, weak_ref, iclass):
@@ -706,7 +622,7 @@ class DBSchema:
         conditions = []
         values = []
         for key in idx:
-            conditions.append('f_%s = %s' % (key, self.plch))
+            conditions.append(f'f_{key} = ?')
             if key in obj_k:
                 values.append(obj_k[key])
             else:
@@ -737,26 +653,22 @@ class DBSchema:
             # create the snapshot table
             #
             self.execute(
+                f'''
+                    CREATE TABLE IF NOT EXISTS {table}_{ctxid}
+                    AS SELECT * FROM {table}
+                    WHERE f_tflags IS NULL
                 '''
-                         CREATE TABLE IF NOT EXISTS %s_%s
-                         AS SELECT * FROM %s
-                         WHERE
-                             f_tflags IS NULL
-                         '''
-                % (table, ctxid, table)
             )
             #
             # copy the data -- is it possible to do it in one step?
             #
             self.execute(
-                '''
-                         INSERT INTO %s_%s
-                         SELECT * FROM %s
-                         WHERE
-                             f_tflags = %s
-                         '''
-                % (table, ctxid, table, self.plch),
-                [uuid],
+                f'''
+                    INSERT INTO {table}_{ctxid}
+                    SELECT * FROM {table}
+                    WHERE f_tflags = ?
+                ''',
+                (uuid,),
             )
         #
         # unmark all the data
@@ -764,24 +676,15 @@ class DBSchema:
         obj.mark_tflags(tflags)
 
         for table in self.spec:
-            self.execute(
-                '''
-                         UPDATE %s_%s SET f_tflags = %s
-                         '''
-                % (table, ctxid, self.plch),
-                [tflags],
-            )
-            self.snapshots['%s_%s' % (table, ctxid)] = weak_ref
+            self.execute(f'UPDATE {table}_{ctxid} SET f_tflags = ?', (tflags,))
+            self.snapshots[f'{table}_{ctxid}'] = weak_ref
 
     @publish
     def purge_snapshots(self):
         for table in tuple(self.snapshots):
             for _ in range(MAX_ATTEMPTS):
                 try:
-                    if self.provider == DBProvider.sqlite3:
-                        self.execute('DROP TABLE %s' % table)
-                    elif self.provider == DBProvider.psycopg2:
-                        self.execute('DROP TABLE %s CASCADE' % table)
+                    self.execute(f'DROP TABLE {table}')
                     self.connection.commit()
                     del self.snapshots[table]
                     break
@@ -810,7 +713,7 @@ class DBSchema:
                 key = cls.name2nla(key)
             if key not in cspec['all_names']:
                 raise KeyError('field name not found')
-            conditions.append('f_%s = %s' % (key, self.plch))
+            conditions.append(f'f_{key} = ?')
             values.append(value)
         req = 'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(conditions))
         for record in self.fetch(req, values):
@@ -824,7 +727,7 @@ class DBSchema:
         fields = ','.join(
             ['f_tstamp', 'f_target', 'f_event'] + ['f_%s' % x for x in fkeys]
         )
-        pch = ','.join([self.plch] * (len(fkeys) + 3))
+        pch = ','.join(['?'] * (len(fkeys) + 3))
         values = [
             int(time.time() * 1000),
             target,
@@ -842,7 +745,9 @@ class DBSchema:
             values,
         )
 
-    def load_netlink(self, table, target, event, ctable=None, propagate=False):
+    async def load_netlink(
+        self, table, sources, target, event, ctable=None, propagate=False
+    ):
         #
         if self.rtnl_log:
             self.log_netlink(table, target, event, ctable)
@@ -870,7 +775,7 @@ class DBSchema:
 
             # clean marked routes
             self.execute(
-                'DELETE FROM routes WHERE ' '(f_gc_mark + 5) < %s' % self.plch,
+                'DELETE FROM routes WHERE ' '(f_gc_mark + 5) < ?',
                 (int(time.time()),),
             )
         #
@@ -880,10 +785,10 @@ class DBSchema:
             #
             # Delete an object
             #
-            conditions = ['f_target = %s' % self.plch]
+            conditions = ['f_target = ?']
             values = [target]
             for key in self.indices[table]:
-                conditions.append('f_%s = %s' % (key, self.plch))
+                conditions.append(f'f_{key} = ?')
                 value = event.get(key) or event.get_attr(key)
                 if value is None:
                     value = self.key_defaults[table][key]
@@ -906,6 +811,34 @@ class DBSchema:
             compiled = self.compiled[table]
             # a map of sub-NLAs
             nodes = {}
+            # replace
+            r_conditions = []
+            r_values = []
+
+            # Check route replace
+            if (
+                event['header'].get('flags', 0) == NLM_F_REPLACE
+                and event['event'] == 'RTM_NEWROUTE'
+            ):
+                # Replace existing route
+                r_conditions = [table + '.f_target = ?']
+                r_values = [target]
+                for key in self.indices[table]:
+                    if key not in [
+                        'RTA_DST',
+                        'dst_len',
+                        'table',
+                        'RTA_PRIORITY',
+                    ]:
+                        continue
+
+                    r_conditions.append(table + f'.f_{key} = ?')
+                    value = event.get(key) or event.get_attr(key)
+                    if value is None:
+                        value = self.key_defaults[table][key]
+                    if isinstance(value, (dict, list, tuple, set)):
+                        value = json.dumps(value)
+                    r_values.append(value)
 
             # fetch values (exc. the first two columns)
             for fname, ftype in self.spec[table].items():
@@ -942,62 +875,41 @@ class DBSchema:
                 values.append(value)
 
             try:
-                if self.provider == DBProvider.psycopg2:
-                    #
-                    # run UPSERT -- the DB provider must support it
-                    #
-                    (
-                        self.execute(
-                            'INSERT INTO %s (%s) VALUES (%s) '
-                            'ON CONFLICT (%s) '
-                            'DO UPDATE SET %s WHERE %s'
-                            % (
-                                table,
-                                compiled['fnames'],
-                                compiled['plchs'],
-                                compiled['knames'],
-                                compiled['fset'],
-                                compiled['fidx'],
-                            ),
-                            (values + values + ivalues),
-                        )
+                w_fidx = compiled['fidx']
+                w_ivalues = ivalues
+                if r_conditions:
+                    w_fidx = ' AND '.join(r_conditions)
+                    w_ivalues = r_values
+
+                #
+                # SQLite3 >= 3.24 actually has UPSERT, but ...
+                #
+                # We can not use here INSERT OR REPLACE as well, since
+                # it drops (almost always) records with foreign key
+                # dependencies. Maybe a bug in SQLite3, who knows.
+                #
+                count = (
+                    self.execute(
+                        f'SELECT count(*) FROM {table} WHERE {w_fidx}',
+                        w_ivalues,
+                    ).fetchone()
+                )[0]
+                if count == 0:
+                    self.execute(
+                        f'''
+                            INSERT INTO {table} ({compiled["fnames"]})
+                            VALUES ({compiled["plchs"]})
+                        ''',
+                        values,
                     )
-                    #
-                elif self.provider == DBProvider.sqlite3:
-                    #
-                    # SQLite3 >= 3.24 actually has UPSERT, but ...
-                    #
-                    # We can not use here INSERT OR REPLACE as well, since
-                    # it drops (almost always) records with foreign key
-                    # dependencies. Maybe a bug in SQLite3, who knows.
-                    #
-                    count = (
-                        self.execute(
-                            '''
-                                      SELECT count(*) FROM %s WHERE %s
-                                      '''
-                            % (table, compiled['fidx']),
-                            ivalues,
-                        ).fetchone()
-                    )[0]
-                    if count == 0:
-                        self.execute(
-                            '''
-                                     INSERT INTO %s (%s) VALUES (%s)
-                                     '''
-                            % (table, compiled['fnames'], compiled['plchs']),
-                            values,
-                        )
-                    else:
-                        self.execute(
-                            '''
-                                     UPDATE %s SET %s WHERE %s
-                                     '''
-                            % (table, compiled['fset'], compiled['fidx']),
-                            (values + ivalues),
-                        )
                 else:
-                    raise NotImplementedError()
+                    self.execute(
+                        f'''
+                            UPDATE {table} SET {compiled["fset"]}
+                            WHERE {w_fidx}
+                        ''',
+                        (values + w_ivalues),
+                    )
                 #
             except Exception as e:
                 #

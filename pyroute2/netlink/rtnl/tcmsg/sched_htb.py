@@ -81,6 +81,8 @@ def get_class_parameters(kwarg):
     quantum = kwarg.get('quantum', 0)
     rate = get_rate(kwarg.get('rate', None))
     ceil = get_rate(kwarg.get('ceil', 0)) or rate
+    rate64 = 0
+    ceil64 = 0
 
     burst = (
         kwarg.get('burst', None)
@@ -104,7 +106,13 @@ def get_class_parameters(kwarg):
             cburst = ceil / get_hz() + mtu
         cburst = calc_xmittime(ceil, cburst)
 
-    return {
+    if rate is not None and rate >= 1 << 32:
+        rate64 = rate
+        rate = (1 << 32) - 1
+    if ceil is not None and ceil >= 1 << 32:
+        ceil64 = ceil
+        ceil = (1 << 32) - 1
+    ret = {
         'attrs': [
             [
                 'TCA_HTB_PARMS',
@@ -125,6 +133,11 @@ def get_class_parameters(kwarg):
             ['TCA_HTB_CTAB', True],
         ]
     }
+    if rate64 > 0:
+        ret['attrs'].append(['TCA_HTB_RATE64', rate64])
+    if ceil64 > 0:
+        ret['attrs'].append(['TCA_HTB_CEIL64', ceil64])
+    return ret
 
 
 def get_parameters(kwarg):
@@ -148,10 +161,14 @@ def get_parameters(kwarg):
     }
 
 
-def fix_msg(msg, kwarg):
-    if not kwarg:
+def fix_request(request):
+    if not request:
         opts = get_parameters({})
-        msg['attrs'].append(['TCA_OPTIONS', opts])
+        request['attrs'].append(['TCA_OPTIONS', opts])
+    if 'options' not in request:
+        request['options'] = get_parameters({})
+    if 'rate' in request:
+        del request['rate']
 
 
 # The tokens and ctokens are badly defined in the kernel structure
@@ -195,6 +212,11 @@ class options(nla_plus_rtab):
         ('TCA_HTB_INIT', 'htb_glob'),
         ('TCA_HTB_CTAB', 'ctab'),
         ('TCA_HTB_RTAB', 'rtab'),
+        ('TCA_HTB_DIRECT_QLEN', 'uint32'),
+        ('TCA_HTB_RATE64', 'uint64'),
+        ('TCA_HTB_CEIL64', 'uint64'),
+        ('TCA_HTB_PAD', 'hex'),
+        ('TCA_HTB_OFFLOAD', 'hex'),
     )
 
     class htb_glob(nla):

@@ -1,3 +1,89 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyroute2"
+dynamic = ["version"]
+description = "Python Netlink library"
+readme = "README.rst"
+license = "GPL-2.0-or-later OR Apache-2.0"
+license-files = ["LICENSE*"]
+authors = [
+    {name = "Peter Saveliev", email = "peter@svinota.eu"}
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Systems Administration",
+    "Operating System :: POSIX :: Linux",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Development Status :: 4 - Beta"
+]
+urls = {Homepage = "https://github.com/svinota/pyroute2"}
+dependencies = [
+    "win_inet_pton ; platform_system == \"Windows\""
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "flake8",
+    "netaddr",
+    "pytest",
+    "pytest-asyncio==0.26.0",
+    "pytest-timeout",
+    "pytest-cov",
+    "pytest-profiling",
+    "pre-commit",
+    "findimports",
+]
+docs = [
+    "build",
+    "twine",
+    "aafigure",
+    "sphinx",
+    "sphinx-code-include",
+    "pre-commit",
+    "pytest",
+    "pytest-asyncio==0.26.0",
+    "docutils",
+]
+repo = [
+    "nox",
+    "pytest",
+    "pytest-cov",
+    "pytest-html",
+    "pytest-timeout",
+    "setuptools",
+]
+
+[project.scripts]
+ss2 = "pyroute2.netlink.diag.ss2:run [psutil]"
+pyroute2-decoder = "pyroute2.decoder.main:run"
+pyroute2-dhcp-client = "pyroute2.dhcp.cli:run"
+pyroute2-test-platform = "pyroute2.config.test_platform:run"
+dhcp-server-detector = "pyroute2.dhcp.server_detector:run"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyroute2*"]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+[[tool.mypy.overrides]]
+module = ["pytest.*", "pytest_asyncio.*"]
+ignore_missing_imports = true
