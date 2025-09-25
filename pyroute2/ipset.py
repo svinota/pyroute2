@@ -75,6 +75,8 @@ def exception_factory(err, msg):
     cls = _IPSetError
     if err.code == errno.ENOENT:
         cls = NoSuchObject
+    elif err.code == errno.EEXIST:
+        cls = AlreadyExists
     # See nfnl_msg_type in kernel
     # static inline u16 nfnl_msg_type(u8 subsys, u8 msg_type)
     # {
@@ -788,6 +790,10 @@ class _IPSetError(IPSetError):
 
 class NoSuchObject(_IPSetError):
     """Specific exception on No such file or directory error"""
+
+
+class AlreadyExists(_IPSetError):
+    """Specific exception on EEXIST error code"""
 
 
 class IPSet(NetlinkSocket):
