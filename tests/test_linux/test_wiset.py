@@ -433,3 +433,16 @@ async def test_complicated_objects(ipset_name):
         assert net_test in content
         assert content[net_test].comment == comment
         assert content[net_test].skbmark == mark
+
+
+@pytest.mark.asyncio
+async def test_async_flush(ipset_name):
+    ip_test = "192.0.2.1"
+    async with AsyncWiSet(name=ipset_name) as ipset:
+        await ipset.create()
+        await ipset.add(ip_test)
+        content = (await async_load_ipset(ipset_name, content=True)).content
+        assert len(content) == 1
+        await ipset.flush()
+        content = (await async_load_ipset(ipset_name, content=True)).content
+        assert len(content) == 0

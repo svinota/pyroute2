@@ -727,6 +727,9 @@ class AsyncWiSet(BaseWiSet):
             self.name, entry, etype=self.entry_type, **kwargs
         )
 
+    async def flush(self, **kwargs):
+        await self.sock.flush(self.name, **kwargs)
+
     async def insert_list(self, entries):
         for entry in entries:
             await self.add(entry)
