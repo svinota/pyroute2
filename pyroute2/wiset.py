@@ -296,6 +296,7 @@ class BaseWiSet:
         if isinstance(entry, dict):
             kwargs.update(entry)
             entry = kwargs.pop("entry")
+        kwargs["etype"] = self.entry_type
         if self.counters:
             for key in ("packets", "bytes"):
                 kwargs.setdefault(key, 0)
@@ -434,9 +435,7 @@ class WiSet(BaseWiSet):
         values and can add very strange behavior on counters.
         """
         entry, kwargs = self.prepare_add_args(entry, **kwargs)
-        add_ipset_entry(
-            self.name, entry, etype=self.entry_type, sock=self.sock, **kwargs
-        )
+        add_ipset_entry(self.name, entry, sock=self.sock, **kwargs)
 
     def delete(self, entry, **kwargs):
         """Delete/remove an entry in this ipset"""
@@ -722,6 +721,14 @@ class AsyncWiSet(BaseWiSet):
     async def add(self, entry, **kwargs):
         entry, kwargs = self.prepare_add_args(entry, **kwargs)
         await self.sock.add(self.name, entry, **kwargs)
+
+    async def delete(self, entry, **kwargs):
+        await self.sock.delete(
+            self.name, entry, etype=self.entry_type, **kwargs
+        )
+
+    async def flush(self, **kwargs):
+        await self.sock.flush(self.name, **kwargs)
 
     async def insert_list(self, entries):
         for entry in entries:

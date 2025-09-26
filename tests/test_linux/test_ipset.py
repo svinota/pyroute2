@@ -1,4 +1,3 @@
-import errno
 import socket
 from time import sleep
 from uuid import uuid4
@@ -6,7 +5,14 @@ from uuid import uuid4
 import pytest
 from pr2test.marks import require_root
 
-from pyroute2.ipset import IPSet, IPSetError, PortEntry, PortRange
+from pyroute2.ipset import (
+    AlreadyExists,
+    IPSet,
+    IPSetError,
+    NoSuchObject,
+    PortEntry,
+    PortRange,
+)
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nfnetlink.ipset import (
     IPSET_ERR_TYPE_SPECIFIC,
@@ -76,20 +82,15 @@ def ipset_exists(ipset_name):
         try:
             tuple(sock.headers(ipset_name))
             return True
-        except IPSetError as e:
-            if e.code == errno.ENOENT:
-                return False
-            raise
+        except NoSuchObject:
+            return False
 
 
 def test_create_exclusive_fail(ipset, ipset_name):
     ipset.create(ipset_name)
     assert ipset_exists(ipset_name)
-    try:
+    with pytest.raises(AlreadyExists):
         ipset.create(ipset_name)
-    except NetlinkError as e:
-        if e.code != errno.EEXIST:
-            raise
 
 
 def test_create_exclusive_success(ipset, ipset_name):
