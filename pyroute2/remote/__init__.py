@@ -13,6 +13,7 @@ from socket import SOL_SOCKET
 from socket import SO_RCVBUF
 from pyroute2 import config
 from pyroute2 import netns as netnsmod
+from pyroute2.common import hexdump
 from pyroute2.netlink.nlsocket import NetlinkMixin
 if config.uname[0][-3:] == 'BSD':
     from pyroute2.iproute.bsd import IPRoute
@@ -44,15 +45,25 @@ class Transport(object):
     def send(self, obj):
         dump = BytesIO()
         pickle.dump(obj, dump)
-        packet = struct.pack("II", len(dump.getvalue()) + 8, 0)
-        packet += dump.getvalue()
-        self.file_obj.write(packet)
-        self.file_obj.flush()
+        total_length = len(dump.getvalue())
+        offset = 0
+        while offset < total_length:
+            chunk = dump.getvalue()[offset:offset+32000]
+            chunk_length = len(chunk)
+            packet = struct.pack("II", chunk_length, offset)
+            packet += chunk
+            offset += chunk_length
+            self.file_obj.write(packet)
+            self.file_obj.flush()
+        self.file_obj.write(struct.pack("II", 0, 0))
 
     def __recv(self):
-        length, offset = struct.unpack("II", self.file_obj.read(8))
         dump = BytesIO()
-        dump.write(self.file_obj.read(length - 8))
+        while True:
+            length, offset = struct.unpack("II", self.file_obj.read(8))
+            if length == offset == 0:
+                break
+            dump.write(self.file_obj.read(length))
         dump.seek(0)
         ret = pickle.load(dump)
         return ret
