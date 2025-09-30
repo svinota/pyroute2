@@ -102,7 +102,10 @@ class ndmsg(nlmsg):
         ('NDA_SRC_VNI', 'uint32'),
         ('NDA_PROTOCOL', 'uint8'),
         ('NDA_NH_ID', 'uint32'),
+        ('NDA_FDB_EXT_ATTRS', 'nested'),
         ('NDA_FLAGS_EXT', 'uint32'),
+        ('NDA_NDM_STATE_MASK', 'uint16'),
+        ('NDA_NDM_FLAGS_MASK', 'uint8'),
     )
 
     class cacheinfo(nla):
