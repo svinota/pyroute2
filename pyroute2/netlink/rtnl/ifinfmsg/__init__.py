@@ -144,6 +144,16 @@ BRIDGE_FLAGS_SELF = 2
 
 ##
 #
+# bridge mode
+#
+BRIDGE_MODE_UNSPEC = 0  # mode unspecified
+BRIDGE_MODE_HAIRPIN = 1  # hairpin mode on
+(BRIDGE_MODE_NAMES, BRIDGE_MODE_VALUES) = map_namespace(
+    'BRIDGE_MODE', globals()
+)
+
+##
+#
 # XDP flags
 #
 XDP_FLAGS_UPDATE_IF_NOEXIST = 1 << 0
