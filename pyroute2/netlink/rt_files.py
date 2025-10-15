@@ -165,9 +165,7 @@ def main(cls_list):
 
         cls = cls()
         print(f"====  Show rt maps for: {cls.filename} ===")
-        print(
-            "get_rt_id('default') ==", cls.get_rt_id("default", "pas trouvé")
-        )
+        print("get_rt_id('default') ==", cls.get_rt_id("default", "not found"))
         for id, name in cls:
             print(f"{id} {name}")
 
