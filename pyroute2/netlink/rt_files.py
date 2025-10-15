@@ -127,8 +127,8 @@ class RtDsfieldFile(IPRouteRtFile):
 
 
 @dataclass
-class RtGroupFile(IPRouteRtFile):
-    filename: str = 'rt_group'
+class GroupFile(IPRouteRtFile):
+    filename: str = 'group'
 
 
 @dataclass
