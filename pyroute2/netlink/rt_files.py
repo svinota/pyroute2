@@ -127,8 +127,8 @@ class RtDsfieldFile(IPRouteRtFile):
 
 
 @dataclass
-class RtGroupFile(IPRouteRtFile):
-    filename: str = 'rt_group'
+class GroupFile(IPRouteRtFile):
+    filename: str = 'group'
 
 
 @dataclass
@@ -165,11 +165,9 @@ def main(cls_list):
 
         cls = cls()
         print(f"====  Show rt maps for: {cls.filename} ===")
-        print(
-            "get_rt_id('default') ==", cls.get_rt_id("default", "pas trouvé")
-        )
-        for id, name in cls:
-            print(f"{id} {name}")
+        print("get_rt_id('default') ==", cls.get_rt_id("default", "not found"))
+        for rt_id, rt_name in cls:
+            print(f"{rt_id} {rt_name}")
 
 
 if __name__ == "__main__":
