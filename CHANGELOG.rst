@@ -1,6 +1,11 @@
 Changelog
 =========
 
+* 0.9.5
+    * async: AsyncIPSet, AsyncIPVS, AsyncWiSet
+    * ndb: fix snapshot cleanup <https://github.com/svinota/pyroute2/issues/1364>
+    * wirouting: initial version <https://github.com/svinota/pyroute2/pull/1411>
+    * process: use poll instead of select <https://github.com/svinota/pyroute2/pull/1431>
 * 0.9.4
     * iwutil: fix get_interfaces_dict <https://github.com/svinota/pyroute2/issues/1380>
 * 0.9.3
