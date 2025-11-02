@@ -29,7 +29,7 @@ rcvbuf: `int`
     Receive buffer limit in bytes.
 
 rcvsize: `int`
-    Maximum recieve packet size.
+    Maximum receive packet size.
 
 all_ns: `bool`
     Turns on `NETLINK_LISTEN_ALL_NSID` on the socket.

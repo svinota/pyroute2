@@ -5,7 +5,7 @@ choke
 Parameters:
 
     * `limit` (required) -- int
-    * `bandwith` (required) -- str/int
+    * `bandwidth` (required) -- str/int
     * `min` -- int
     * `max` -- int
     * `avpkt` -- str/int, packet size
@@ -17,7 +17,7 @@ Example::
 
     ip.tc('add', 'choke', interface,
           limit=5500,
-          bandwith="10mbit",
+          bandwidth="10mbit",
           ecn=True)
 
 '''

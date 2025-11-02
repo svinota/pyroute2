@@ -244,7 +244,7 @@ class wgmsg(genlmsg):
                 family = self.get_attr('WGALLOWEDIP_A_FAMILY')
                 if family is None:
                     # Prevent when decode() is called without attrs because all
-                    # datas transfered to 'value' entry.
+                    # data transferred to 'value' entry.
                     #  {'attrs': [], 'value': [{'attrs' ...
                     return
                 ipaddr = self.get_attr('WGALLOWEDIP_A_IPADDR')

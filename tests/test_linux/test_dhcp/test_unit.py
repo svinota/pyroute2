@@ -252,7 +252,7 @@ async def test_requesting_timeout(
         # The client sends a DISCOVER, the servers sends an OFFER
         await cli.wait_for_state(State.SELECTING, timeout=1)
         await cli.wait_for_state(State.REQUESTING, timeout=1)
-        # and then the server nevers send an ack
+        # and then the server never send an ack
         # the client goes back to SELECTING after the timeout
         await cli.wait_for_state(State.SELECTING, timeout=3)
 

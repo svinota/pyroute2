@@ -23,7 +23,7 @@ class Trigger(StrEnum):
     UNBOUND = auto()
     # The client has renewed its lease after the renewal timer expired
     RENEWED = auto()
-    # The client has rebound its leas after the rebinding timer expired
+    # The client has rebound its lease after the rebinding timer expired
     REBOUND = auto()
     # The lease has expired (the client will restart the lease process)
     EXPIRED = auto()

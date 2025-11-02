@@ -404,7 +404,7 @@ class DBSchema:
     @publish
     def add_nl_source(self, target, kind, spec):
         '''
-        A temprorary method, to be moved out
+        A temporary method, to be moved out
         '''
         # flush
         self.execute(

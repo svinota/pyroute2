@@ -142,7 +142,7 @@ class Lease(abc.ABC):
     def default_gateway(self) -> str:
         '''The default gateway for this interface.
 
-        As mentioned by the RFC, the first router is the most prioritary.
+        As mentioned by the RFC, the first router is the most priority.
         '''
         # TODO: unit test to make this crash
         return self.routers[0]
