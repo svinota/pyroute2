@@ -264,7 +264,7 @@ further you can run a request with `sequence_number == 2` before the final
 response with `sequence_number == 1` comes.
 
 To handle that, pyroute2 protocol objects buffer all the messages, and
-`NetlinkRequest` only gets the reponse.
+`NetlinkRequest` only gets the response.
 
 **pyroute2.netlink.nlsocket.NetlinkRequest**
 

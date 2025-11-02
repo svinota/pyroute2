@@ -27,7 +27,7 @@ class NetlinkDecodeError(Exception):
 
 class NetlinkHeaderDecodeError(NetlinkDecodeError):
     '''
-    The error occured while decoding a header
+    The error occurred while decoding a header
     '''
 
     pass
@@ -35,7 +35,7 @@ class NetlinkHeaderDecodeError(NetlinkDecodeError):
 
 class NetlinkDataDecodeError(NetlinkDecodeError):
     '''
-    The error occured while decoding the message fields
+    The error occurred while decoding the message fields
     '''
 
     pass
@@ -43,7 +43,7 @@ class NetlinkDataDecodeError(NetlinkDecodeError):
 
 class NetlinkNLADecodeError(NetlinkDecodeError):
     '''
-    The error occured while decoding NLA chain
+    The error occurred while decoding NLA chain
     '''
 
     pass

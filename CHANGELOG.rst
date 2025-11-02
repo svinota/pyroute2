@@ -149,7 +149,7 @@ Changelog
 * 0.6.10
     * ndb: fix DB reload on incomplete requests in the IPRoute API fallbacks: <https://github.com/svinota/pyroute2/issues/890>
     * ndb: basic ipvlan support
-    * ndb: support `ndb.schema.backup("filename")` fro SQLite3 backend
+    * ndb: support `ndb.schema.backup("filename")` for SQLite3 backend
     * ndb: transactions, CheckProcess, PingAddress, see `test_ndb/test_transaction.py` and docs
     * ndb: make snapshots only for `commit()` calls, no automatic snapshots for `apply()`
     * netlink: filter out all the subsequent messages starting from the first error: <https://github.com/svinota/pyroute2/issues/892>

@@ -5,7 +5,7 @@ choke
 Parameters:
 
     * `limit` (required) -- int
-    * `bandwith` (required) -- str/int
+    * `bandwidth` (required) -- str/int
     * `min` -- int
     * `max` -- int
     * `avpkt` -- str/int, packet size
@@ -17,7 +17,7 @@ Example::
 
     ip.tc('add', 'choke', interface,
           limit=5500,
-          bandwith="10mbit",
+          bandwidth="10mbit",
           ecn=True)
 
 '''
@@ -54,7 +54,7 @@ def get_parameters(kwarg):
         'flags': 1 if kwarg.get('ecn') else 0,
     }
 
-    rate = get_rate(kwarg['bandwith'])  # required
+    rate = get_rate(kwarg['bandwidth'])  # required
     burst = kwarg.get('burst', 0)
     avpkt = get_size(kwarg.get('avpkt', 1000))
     probability = kwarg.get('probability', 0.02)

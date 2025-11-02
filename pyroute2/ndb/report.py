@@ -1,5 +1,5 @@
 '''
-.. note:: New in verision 0.5.11
+.. note:: New in version 0.5.11
 
 .. testsetup::
 

@@ -185,7 +185,7 @@ class Plan9ClientSocket(AsyncCoreSocket):
         * `fid` -- fid of the file that represents a registered function
         * `argv` (optional) -- positional arguments as an iterable
         * `kwarg` (optional) -- keyword arguments as a dictionary
-        * `data` (opional) -- optional binary data
+        * `data` (optional) -- optional binary data
         * `data_arg` (optional) -- name of the argument to use with
           the binary data
         * `loader` (optional, default `json.loads`) -- loader for the

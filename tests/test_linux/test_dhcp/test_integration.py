@@ -318,7 +318,7 @@ async def test_fixed_client_id_changing_mac(
 
     if release and delete_lease:
         # the lease was released from the server and deleted locally,
-        # and the mac changed: we might get another IP but withot guarantee
+        # and the mac changed: we might get another IP but without guarantee
         # assert first_lease.ip != second_lease.ip
         pass
     else:
