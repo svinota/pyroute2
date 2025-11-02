@@ -69,7 +69,7 @@ class AsyncDHCP4Socket(AsyncRawSocket):
     This raw socket binds to an interface and installs a BPF filter
     to receive (non-VLAN) messages only on the specified UDP port.
     It can be used in poll/select and implements the async context manager
-    protocol, so can be used in `aysnc with` statements.
+    protocol, so can be used in `async with` statements.
     '''
 
     def __init__(self, ifname: str, port: int = 68):

@@ -104,7 +104,7 @@ def test_choke(context):
     index, ifname = context.default_interface
     try:
         context.ipr.tc(
-            'add', 'choke', index=index, limit=5500, bandwith=3000, ecn=True
+            'add', 'choke', index=index, limit=5500, bandwidth=3000, ecn=True
         )
     except NetlinkError as e:
         if e.code == errno.ENOENT:

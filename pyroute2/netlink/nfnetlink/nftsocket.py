@@ -1375,7 +1375,7 @@ class AsyncNFTSocket(AsyncNetlinkSocket):
             return self.request_get(msg, msg['header']['type'], flags)[0]
 
 
-# call nft describe "data_type" for more informations
+# call nft describe "data_type" for more information
 DATA_TYPE_NAME_TO_INFO = {
     "verdict": (DATA_TYPE_VERDICT, 4, nft_data.nfta_data.verdict.verdict_code),
     "nf_proto": (DATA_TYPE_NFPROTO, 1, nlmsg_atoms.uint8),

@@ -391,7 +391,7 @@ class RouteIPRouteFilter(IPRouteFilter):
             segs = header['segs']
             # If they are in the form in_addr6,in_addr6
             if isinstance(segs, str):
-                # Create an array with the splitted values
+                # Create an array with the split values
                 temp = segs.split(',')
                 # Init segs
                 segs = []
@@ -483,7 +483,7 @@ class RouteIPRouteFilter(IPRouteFilter):
                 segs = header['srh']['segs']
                 # If they are in the form in_addr6,in_addr6
                 if isinstance(segs, str):
-                    # Create an array with the splitted values
+                    # Create an array with the split values
                     temp = segs.split(',')
                     # Init segs
                     segs = []
@@ -526,7 +526,7 @@ class RouteIPRouteFilter(IPRouteFilter):
                 segs = header['srh']['segs']
                 # If they are in the form in_addr6,in_addr6
                 if isinstance(segs, str):
-                    # Create an array with the splitted values
+                    # Create an array with the split values
                     temp = segs.split(',')
                     # Init segs
                     segs = []
@@ -549,7 +549,7 @@ class RouteIPRouteFilter(IPRouteFilter):
                 segs = header['srh']['segs']
                 # If they are in the form in_addr6,in_addr6
                 if isinstance(segs, str):
-                    # Create an array with the splitted values
+                    # Create an array with the split values
                     temp = segs.split(',')
                     # Init segs
                     segs = []

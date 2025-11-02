@@ -80,7 +80,7 @@ async def test_enobufs_async(async_ipr, nsname):
     # Create a socket and start receiving broadcasts
     ipr = AsyncIPRoute(netns=nsname, rcvbuf=1024)
     await ipr.bind()
-    # Make some netlink trafic
+    # Make some netlink traffic
     await async_ipr.link('add', ifname=ifname, kind='dummy', state='up')
     (link,) = await async_ipr.poll(
         async_ipr.link, 'dump', ifname=ifname, state='up', timeout=2
@@ -111,7 +111,7 @@ def test_enobufs_sync(sync_ipr, nsname):
     # Create a socket and start receiving broadcasts
     ipr = IPRoute(netns=nsname, rcvbuf=1024)
     ipr.bind()
-    # Make some netlink trafic
+    # Make some netlink traffic
     sync_ipr.link('add', ifname=ifname, kind='dummy', state='up')
     (link,) = sync_ipr.poll(
         sync_ipr.link, 'dump', ifname=ifname, state='up', timeout=2

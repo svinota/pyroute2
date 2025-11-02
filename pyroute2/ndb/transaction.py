@@ -140,7 +140,7 @@ or other shell syntax are allowed.
 
     CheckProcess('/path/to/script.sh', timeout=10).commit()
 
-If the subprocess doens't finish within the timeout, it will be terminated
+If the subprocess doesn't finish within the timeout, it will be terminated
 with SIGTERM. SIGKILL is not used.
 
 Logging and debug

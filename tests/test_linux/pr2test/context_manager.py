@@ -240,7 +240,7 @@ class NDBContextManager(object):
         '''
         if network is None:
             network = allocate_network(family)
-        # regsiter for cleanup
+        # register for cleanup
         self.allocated_networks[family].append(network)
         # return a simple convenient named tuple
         return Network(family, network.network.format(), network.prefixlen)
