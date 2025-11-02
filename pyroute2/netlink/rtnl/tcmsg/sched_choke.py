@@ -54,7 +54,7 @@ def get_parameters(kwarg):
         'flags': 1 if kwarg.get('ecn') else 0,
     }
 
-    rate = get_rate(kwarg['bandwith'])  # required
+    rate = get_rate(kwarg['bandwidth'])  # required
     burst = kwarg.get('burst', 0)
     avpkt = get_size(kwarg.get('avpkt', 1000))
     probability = kwarg.get('probability', 0.02)
