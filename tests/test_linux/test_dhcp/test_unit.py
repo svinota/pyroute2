@@ -1,4 +1,5 @@
 import asyncio
+from logging import getLogger
 from typing import Callable
 
 import pytest
@@ -13,7 +14,8 @@ from pyroute2.dhcp.client import (
 from pyroute2.dhcp.dhcp4msg import dhcp4msg
 from pyroute2.dhcp.enums import bootp, dhcp
 from pyroute2.dhcp.fsm import State
-from pyroute2.dhcp.leases import JSONFileLease
+from pyroute2.dhcp.hooks import Trigger, hook
+from pyroute2.dhcp.leases import JSONFileLease, Lease
 
 pytestmark = pytest.mark.asyncio
 
@@ -170,9 +172,18 @@ async def test_init_reboot_nak(
     '''The server doesn't like the requested IP in INIT-REBOOT.
 
     It sends a NAK and the client goes back to INIT and gets a new lease.
+
+    This also triggers an UNBOUND hook when receiving the NAK.
     '''
+
+    @hook(Trigger.UNBOUND)
+    async def received_a_nak(lease: Lease):
+        logger = getLogger("unbound_hook_logger")
+        logger.error("Unbound hook called !")
+
+    client_config.hooks = [received_a_nak]
     set_fixed_xid(0xDD435A20)
-    caplog.set_level('INFO')
+    caplog.set_level('ERROR')
     # Create a fake lease to start the client in INIT-REBOOT
     old_lease = JSONFileLease(
         ack=dhcp4msg(
@@ -198,6 +209,8 @@ async def test_init_reboot_nak(
         await cli.wait_for_state(State.REBOOTING, timeout=1)
         # The server sends a NAK, so the client goes back to INIT
         await cli.wait_for_state(State.INIT, timeout=1)
+        # since we got a NAK, the hook for the UNBOUND trigger was called
+        assert caplog.messages == ['Unbound hook called !']
         await cli.wait_for_state(State.SELECTING, timeout=1)
         # The server sends an OFFER an the client requests it
         await cli.wait_for_state(State.REQUESTING, timeout=1)
