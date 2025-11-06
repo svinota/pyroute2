@@ -493,6 +493,11 @@ class AsyncDHCPClient:
 
         Resets the client and starts looking for a new IP.
         '''
+        # If we get a NAK when rebooting, renewing, or rebinding,
+        # that means we have an active lease which is not valid anymore.
+        # In these cases, we have to run the UNBOUND trigger
+        if msg.xid.request_state != fsm.State.REQUESTING:
+            await self._run_hooks(trigger=Trigger.UNBOUND)
         await self.reset()
 
     @fsm.state_guard(fsm.State.SELECTING)
