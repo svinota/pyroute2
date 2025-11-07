@@ -882,8 +882,13 @@ class AsyncObject(dict):
 
         first_call_success = False
         for itn in range(10):
+            localns = None
             try:
                 self.log.debug('API call %s (%s)' % (method, req))
+                # resolve localhost reference in the net_ns_fd
+                if req.get('net_ns_fd') == self.ndb.localhost:
+                    localns = open('/proc/self/ns/net', 'r')
+                    req['net_ns_fd'] = localns.fileno()
                 await self.sources[self['target']].api(self.api, method, **req)
                 first_call_success = True
                 await self.hook_apply(method, **req)
@@ -924,7 +929,9 @@ class AsyncObject(dict):
                             pass
                 else:
                     raise e
-
+            finally:
+                if localns is not None:
+                    localns.close()
             nq = self.schema.stats.get(self['target'])
             if nq is not None:
                 nqsize = nq.qsize
