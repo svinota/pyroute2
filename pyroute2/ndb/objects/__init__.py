@@ -898,6 +898,9 @@ class AsyncObject(dict):
         for itn in range(10):
             try:
                 self.log.debug('API call %s (%s)' % (method, req))
+                # resolve localhost reference in the net_ns_fd
+                if req.get('net_ns_fd') == self.ndb.localhost:
+                    req['net_ns_fd'] = self.ndb.localns
                 await self.sources[self['target']].api(self.api, method, **req)
                 first_call_success = True
                 await self.hook_apply(method, **req)
