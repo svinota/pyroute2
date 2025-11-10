@@ -298,6 +298,7 @@ import ctypes.util
 import inspect
 import logging
 import logging.handlers
+import os
 import threading
 from dataclasses import dataclass
 from functools import reduce
@@ -456,6 +457,7 @@ class NDB:
         self.libc = libc or ctypes.CDLL(
             ctypes.util.find_library('c'), use_errno=True
         )
+        self.localns = os.open('/proc/self/ns/net', os.O_RDONLY)
         self.log = Log(log_id=id(self))
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
@@ -589,6 +591,8 @@ class NDB:
         self._dbm_thread.join()
         # shutdown the logger -- free the resources
         self.log.close()
+        # close the netns
+        os.close(self.localns)
 
     def backup(self, spec):
         return self.db.backup(spec)
