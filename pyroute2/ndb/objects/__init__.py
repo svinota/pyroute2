@@ -109,6 +109,12 @@ class ObjectFlags(IntFlag):
     SNAPSHOT = 0x1
 
 
+class ReplacementPolicy(IntFlag):
+    FAIL = 0x0
+    ADD_REMOVE = 0x1
+    CHANGE = 0x2
+
+
 class AsyncObject(dict):
     '''
     The common base class for NDB objects -- interfaces, routes, rules
@@ -141,7 +147,7 @@ class AsyncObject(dict):
     _apply_script_snapshots = []
     _key = None
     _replace = None
-    _replace_on_key_change = False
+    _replace_on_key_change = ReplacementPolicy.FAIL
     _init_complete = False
 
     # 8<------------------------------------------------------------
@@ -424,13 +430,18 @@ class AsyncObject(dict):
         for nkey, nvalue in self.object_data.filter(key, value).items():
             if self.get(nkey) == nvalue:
                 continue
-            if self.state == 'system' and nkey in self.knorm:
-                if self._replace_on_key_change:
+            if self.state in ('system', 'change') and nkey in self.knorm:
+                if self._replace_on_key_change & ReplacementPolicy.ADD_REMOVE:
                     self.log.debug(
                         f'prepare replace {nkey} = {nvalue} in {self.key}'
                     )
                     self._replace = type(self)(self.view, self.key)
                     self.state.set('replace')
+                elif (
+                    self._replace_on_key_change & ReplacementPolicy.CHANGE
+                    and key in self.key_extra_fields
+                ):
+                    self.state.set('change')
                 else:
                     raise ValueError(
                         'attempt to change a key field (%s)' % nkey
@@ -753,6 +764,7 @@ class AsyncObject(dict):
             ('setns', 'invalid'),
             ('setns', 'system'),
             ('replace', 'system'),
+            ('change', 'system'),
         )
 
         self.load_sql()
@@ -865,6 +877,8 @@ class AsyncObject(dict):
                 )
 
             method = 'add'
+        elif state == 'change':
+            method = 'set'  # FIXME
         elif state == 'system':
             method = 'set'
         elif state == 'setns':
@@ -925,24 +939,16 @@ class AsyncObject(dict):
                 else:
                     raise e
 
-            nq = self.schema.stats.get(self['target'])
-            if nq is not None:
-                nqsize = nq.qsize
-            else:
-                nqsize = 0
-            self.log.debug(
-                f'stats: apply {method} '
-                f'{{ objid {id(self)}, nqsize {nqsize} }}'
-            )
-            if self.check():
-                self.log.debug('checked')
-                break
-            self.log.debug('check failed')
+            self.log.debug(f'stats: apply {method} {{ objid {id(self)} }}')
             try:
                 await asyncio.wait_for(self.load_event.wait(), 1)
             except asyncio.TimeoutError:
                 pass
             self.load_event.clear()
+            if self.check():
+                self.log.debug('checked')
+                break
+            self.log.debug('check failed')
         else:
             self.log.debug('stats: %s apply %s fail' % (id(self), method))
             if not await self.use_db_resync(lambda x: x, self.check):

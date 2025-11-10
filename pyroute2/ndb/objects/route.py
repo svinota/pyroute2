@@ -121,7 +121,7 @@ from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, nh, rtmsg
 from pyroute2.requests.common import MPLSTarget
 from pyroute2.requests.route import RouteFieldFilter
 
-from ..objects import AsyncObject, RTNL_Object
+from ..objects import AsyncObject, ReplacementPolicy, RTNL_Object
 from ..report import Record
 from ..sync_api import Flags, SyncBase
 
@@ -422,8 +422,11 @@ class Route(AsyncObject):
     hidden_fields = ['route_id']
     api = 'route'
     field_filter = RouteFieldFilter
+    key_extra_fields = ['RTA_GATEWAY']
 
-    _replace_on_key_change = True
+    _replace_on_key_change = (
+        ReplacementPolicy.CHANGE | ReplacementPolicy.ADD_REMOVE
+    )
 
     @classmethod
     def _count(cls, view):

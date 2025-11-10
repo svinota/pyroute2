@@ -3,7 +3,7 @@ from collections import OrderedDict
 from pyroute2.common import get_address_family
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 
-from ..objects import AsyncObject
+from ..objects import AsyncObject, ReplacementPolicy
 
 schema = fibmsg.sql_schema().unique_index(
     'family',
@@ -44,7 +44,7 @@ class Rule(AsyncObject):
     table = 'rules'
     msg_class = fibmsg
     api = 'rule'
-    _replace_on_key_change = True
+    _replace_on_key_change = ReplacementPolicy.ADD_REMOVE
 
     @classmethod
     def summary(cls, view):
