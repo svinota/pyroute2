@@ -270,12 +270,12 @@ class View(dict):
         return self[request]
 
     def __getitem__(self, key, table=None):
-        ret = self.template(key, table)
+        template = self.template(key, table)
 
         # rtnl_object.key() returns a dictionary that can not
         # be used as a cache key. Create here a tuple from it.
         # The key order guaranteed by the dictionary.
-        cache_key = tuple(ret.key.items())
+        cache_key = tuple(template.key.items())
 
         rtime = time.time()
 
@@ -301,22 +301,24 @@ class View(dict):
 
         if cache_key in self.cache:
             self.log.debug('cache hit %s' % (cache_key,))
-            # Explicitly get rid of the created object
-            del ret
-            # The object from the cache has already
-            # registered callbacks, simply return it
-            ret = self.cache[cache_key]
-            ret.atime = rtime
-            return ret
-        else:
-            # Cache only existing objects
-            if self.exists(key):
-                ret.load_sql()
-                self.log.debug('cache add %s' % (cache_key,))
-                self.cache[cache_key] = ret
+            cached = self.cache[cache_key]
+            cached.atime = rtime
+            if cached.fetch_sql() is not None:
+                # explicitly get rid of the template
+                del template
+                # The object from the cache has already
+                # registered callbacks, simply return it
+                return cached
+            del cached
 
-        ret.register()
-        return ret
+        # Cache only existing objects
+        if self.exists(key):
+            template.load_sql()
+            self.log.debug('cache add %s' % (cache_key,))
+            self.cache[cache_key] = template
+
+        template.register()
+        return template
 
     def exists(self, key, table=None):
         '''
