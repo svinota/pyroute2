@@ -849,7 +849,6 @@ class AsyncObject(dict):
             self.schema.commit()
         except Exception:
             pass
-        self.load_sql(set_state=False)
         if self.state == 'system' and self.get_count() == 0:
             state = self.state.set('invalid')
         else:
@@ -1084,13 +1083,10 @@ class AsyncObject(dict):
                 'discard %s: %s (expected %s)' % (key, value, self.get(key))
             )
 
-    def load_sql(self, table=None, ctxid=None, set_state=True):
+    def fetch_sql(self, table=None, ctxid=None):
         '''
-        Load the data from the database.
+        Fetch data from the database.
         '''
-        if not self.key:
-            return
-
         if table is None:
             if ctxid is None:
                 table = self.etable
@@ -1108,18 +1104,25 @@ class AsyncObject(dict):
         spec = self.ndb.schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(keys)), values
         )
-        self.log.debug('load_sql load: %s' % str(spec))
-        self.log.debug('load_sql names: %s' % str(self.names))
-        if set_state:
-            with self.lock:
-                if spec is None:
-                    if self.state != 'invalid':
-                        # No such object (anymore)
-                        self.state.set('invalid')
-                        self.changed = set()
-                elif self.state not in ('remove', 'setns'):
-                    self.update_from_sql(spec)
-                    self.state.set('system')
+        self.log.debug('fetch_sql data: %s' % str(spec))
+        self.log.debug('fetch_sql names: %s' % str(self.names))
+        return spec
+
+    def load_sql(self, table=None, ctxid=None):
+        '''
+        Load the data from the database.
+        '''
+        if not self.key:
+            return
+        spec = self.fetch_sql(table, ctxid)
+        if spec is None:
+            if self.state != 'invalid':
+                # No such object (anymore)
+                self.state.set('invalid')
+                self.changed = set()
+        elif self.state not in ('remove', 'setns'):
+            self.update_from_sql(spec)
+            self.state.set('system')
         return spec
 
     async def load_rtnlmsg(self, sources, target, event):
@@ -1194,10 +1197,8 @@ class RTNL_Object(SyncBase):
     def exists(self, key):
         return self._main_sync_call(self.asyncore.exists, key)
 
-    def load_sql(self, table=None, ctxid=None, set_state=True):
-        return self._main_sync_call(
-            self.asyncore.load_sql, table, ctxid, set_state
-        )
+    def load_sql(self, table=None, ctxid=None):
+        return self._main_sync_call(self.asyncore.load_sql, table, ctxid)
 
     def load_value(self, key, value):
         return self._main_sync_call(self.asyncore.load_value, key, value)

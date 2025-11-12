@@ -959,7 +959,6 @@ class Interface(AsyncObject):
         if alt_ifname_current is None:
             # load the current state
             await self.load_from_system()
-            self.load_sql(set_state=False)
             alt_ifname_current = set(self['alt_ifname_list'])
 
         alt_ifname_remove = alt_ifname_current - alt_ifname_setup
@@ -974,7 +973,6 @@ class Interface(AsyncObject):
             )
         # reload alt ifnames from the system to check the state
         await self.load_from_system()
-        self.load_sql(set_state=False)
         if old_ifname is not None and old_ifname in self['alt_ifname_list']:
             alt_ifname_setup.add(old_ifname)
         if set(self['alt_ifname_list']) != alt_ifname_setup:
