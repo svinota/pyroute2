@@ -1116,14 +1116,15 @@ class AsyncObject(dict):
         if not self.key:
             return
         spec = self.fetch_sql(table, ctxid)
-        if spec is None:
-            if self.state != 'invalid':
-                # No such object (anymore)
-                self.state.set('invalid')
-                self.changed = set()
-        elif self.state not in ('remove', 'setns'):
-            self.update_from_sql(spec)
-            self.state.set('system')
+        if set_state:
+            if spec is None:
+                if self.state != 'invalid':
+                    # No such object (anymore)
+                    self.state.set('invalid')
+                    self.changed = set()
+            elif self.state not in ('remove', 'setns'):
+                self.update_from_sql(spec)
+                self.state.set('system')
         return spec
 
     async def load_rtnlmsg(self, sources, target, event):
