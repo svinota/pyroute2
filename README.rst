@@ -230,7 +230,7 @@ Using source, requires make and nox
 Requirements
 ------------
 
-Python >= 3.9
+Python >= 3.10
 
 Links
 -----
