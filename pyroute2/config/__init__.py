@@ -26,6 +26,15 @@ class LocalMock:
     def fileno(self) -> None:
         pass
 
+    def __gt__(self, other) -> bool:
+        return int(self) > other
+
+    def __lt__(self, other) -> bool:
+        return int(self) < other
+
+    def __int__(self) -> int:
+        return -1
+
     def put(
         self, name: str, value: Union[int, str], kind: metric_type
     ) -> None:

@@ -15,6 +15,33 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 T = TypeVar('T', AsyncIPRoute, IPRoute)
 
 
+class TestCleanup:
+    '''Test cleanup registry.'''
+
+    def __init__(self):
+        self.netns = set()
+        self.interfaces = set()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.cleanup()
+
+    def cleanup(self):
+        for ns in self.netns:
+            try:
+                netns.remove(ns)
+            except FileNotFoundError:
+                pass
+        with IPRoute() as ipr:
+            for i in self.interfaces:
+                try:
+                    ipr.link('del', index=ipr.link_lookup(i))
+                except IndexError:
+                    pass
+
+
 class TestInterface:
     '''Test interface spec.
 
@@ -399,4 +426,11 @@ def setns_context(nsname: str) -> Generator[SetNSContext]:
     Please notice that `setns()` call affects the whole python process.
     '''
     with SetNSContext(nsname) as ctx:
+        yield ctx
+
+
+@pytest.fixture
+def cleanup() -> Generator[TestCleanup]:
+    '''Cleanup registry.'''
+    with TestCleanup() as ctx:
         yield ctx
