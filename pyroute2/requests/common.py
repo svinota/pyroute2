@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import warnings
 from collections import OrderedDict
 from socket import AF_INET, AF_INET6
 
@@ -125,7 +126,10 @@ class IPTargets:
         return self.parse_target('newdst', context, value)
 
     def set_gateway(self, context, value):
-        return self.parse_target('gateway', context, value)
+        ret = self.parse_target('gateway', context, value)
+        if ret.pop('gateway_len', None):
+            warnings.warn('Gateway can not have a network mask')
+        return ret
 
 
 class Index:

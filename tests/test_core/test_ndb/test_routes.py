@@ -34,6 +34,19 @@ def test_change_default(ndb, test_link_ifname, sync_ipr):
     assert len(routes) == 1
 
 
+def test_gateway_warn(ndb, test_link_ifname, sync_ipr):
+    '''Bug-Url: https://github.com/svinota/pyroute2/issues/1438'''
+    ipaddr = '10.1.2.3/24'
+    gw0 = '10.1.2.4'
+    ndb.interfaces[test_link_ifname].add_ip(ipaddr).commit()
+    with pytest.warns() as warnings:
+        ndb.routes.create(gateway=f'{gw0}/24').commit()
+    routes = sync_ipr.route('dump', gateway=gw0)
+    assert len(routes) == 1
+    assert len(warnings) == 1
+    assert 'network mask' in str(warnings[0].message)
+
+
 @pytest.mark.parametrize(
     'prio0,gw0,prio1,gw1',
     (
