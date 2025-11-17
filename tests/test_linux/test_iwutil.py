@@ -1,5 +1,6 @@
 import collections
 import errno
+from types import NoneType
 from typing import Generator
 
 import pytest
@@ -8,12 +9,6 @@ from pr2test.marks import require_root
 from pyroute2 import IW, IPRoute
 from pyroute2.netlink.exceptions import NetlinkError
 from pyroute2.netlink.nl80211 import nl80211cmd
-
-# FIXME: should be fixed after dropping support for Python 3.9
-try:
-    from types import NoneType
-except ImportError:
-    NoneType = type(None)
 
 pytestmark = [require_root()]
 
