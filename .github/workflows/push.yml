@@ -16,5 +16,5 @@ jobs:
         python: [python3.9, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: make nox session=linter-${{ matrix.python }}
