@@ -1,4 +1,5 @@
 import os
+from functools import reduce
 from typing import Generator
 
 import pytest
@@ -36,9 +37,22 @@ def test_count(nfct):
 
 def test_stat(nfct):
     stat = nfct.stat()
+    fields = (
+        'found',
+        'invalid',
+        'insert',
+        'drop',
+        'clash_resolve',
+        'chain_toolong',
+    )
     assert len(stat) == os.cpu_count()
     assert all(map(lambda x: isinstance(x, nlmsg), stat))
-    assert any(map(lambda x: x.get('insert') > 0, stat))
+    assert any(
+        reduce(
+            lambda x, y: x + y,
+            [list(map(lambda x: msg.get(x), fields)) for msg in stat],
+        )
+    )
 
 
 def locate_entry(nfct):

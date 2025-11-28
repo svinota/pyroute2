@@ -223,6 +223,8 @@ class nfct_stats_cpu(nfgen_msg):
         ('CTA_STATS_EARLY_DROP', 'be32'),
         ('CTA_STATS_ERROR', 'be32'),
         ('CTA_STATS_SEARCH_RESTART', 'be32'),
+        ('CTA_STATS_CLASH_RESOLVE', 'be32'),
+        ('CTA_STATS_CHAIN_TOOLONG', 'be32'),
     )
 
 
