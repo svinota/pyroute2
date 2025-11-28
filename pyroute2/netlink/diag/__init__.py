@@ -342,6 +342,8 @@ class DiagSocket(NetlinkSocket):
             | UDIAG_SHOW_PEER
             | UDIAG_SHOW_ICONS
         ),
+        sport=0,
+        dport=0,
     ):
         '''
         Get sockets statistics.
@@ -359,6 +361,8 @@ class DiagSocket(NetlinkSocket):
             req['idiag_states'] = states
             req['sdiag_protocol'] = protocol
             req['idiag_ext'] = extensions
+            req['idiag_dport'] = dport
+            req['idiag_sport'] = sport
         else:
             raise NotImplementedError()
         req['sdiag_family'] = family
