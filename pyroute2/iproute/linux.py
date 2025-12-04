@@ -40,6 +40,7 @@ from pyroute2.netlink.rtnl import (
     RTM_GETSTATS,
     RTM_GETTCLASS,
     RTM_GETTFILTER,
+    RTM_GETVLAN,
     RTM_NEWADDR,
     RTM_NEWLINK,
     RTM_NEWLINKPROP,
@@ -65,6 +66,7 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_NEIGH,
     ndmsg,
 )
+from pyroute2.netlink.rtnl.br_vlan import br_vlan_query
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -93,6 +95,7 @@ from pyroute2.requests.probe import ProbeFieldFilter
 from pyroute2.requests.route import RouteFieldFilter, RouteIPRouteFilter
 from pyroute2.requests.rule import RuleFieldFilter, RuleIPRouteFilter
 from pyroute2.requests.tc import TcIPRouteFilter, TcRequestFilter
+from pyroute2.requests.vlan import VlanFieldFilter, VlanIPRouteFilter
 
 from .parsers import default_routes, export_routes
 
@@ -112,6 +115,7 @@ def get_default_request_filters(mode, command):
         ],
         'rule': [RuleFieldFilter(), RuleIPRouteFilter(command)],
         'tc': [TcRequestFilter(), TcIPRouteFilter(command)],
+        'vlan': [VlanFieldFilter(), VlanIPRouteFilter(command)],
         'brport': [BridgePortFieldFilter(command)],
         'vlan_filter': [BridgeFieldFilter(), BridgeIPRouteFilter(command)],
         'probe': [ProbeFieldFilter()],
@@ -130,6 +134,8 @@ def get_dump_filter(mode, command, query, parameters=None):
         new_query['family'] = query.pop('family')
     if 'ext_mask' in query:
         new_query['ext_mask'] = query.pop('ext_mask')
+    if 'dump_flags' in query:
+        new_query['dump_flags'] = query.pop('dump_flags')
     if 'match' in query:
         query = query['match']
     if callable(query):
@@ -1374,6 +1380,28 @@ class RTNL_API:
             'vlan_filter', command, kwarg
         )
         return await self.link(command, **kwarg)
+
+    async def vlan(self, command, **kwarg):
+        '''
+        Perform RTM vlan operations.
+
+        **dump**
+
+        Dump VLAN database:
+
+        * dump_flags = 1 -- dump VLANDB database entries
+        * dump_flags = 2 -- dump VLANDB global options
+        '''
+        command_map = {'dump': (RTM_GETVLAN, 'dump')}
+        dump_filter, kwarg = get_dump_filter('vlan', command, kwarg)
+        arguments = get_arguments_processor('vlan', command, kwarg)
+        request = NetlinkRequest(
+            self, br_vlan_query(), command, command_map, dump_filter, arguments
+        )
+        await request.send()
+        if command == 'dump':
+            return request.response()
+        return [x async for x in request.response()]
 
     async def fdb(self, command, **kwarg):
         '''
@@ -2767,6 +2795,7 @@ class IPRoute(NetlinkSocket):
                 'brport',
                 'probe',
                 'stats',
+                'vlan',
                 'link_lookup',
                 'vlan_filter',
                 'flush_addr',

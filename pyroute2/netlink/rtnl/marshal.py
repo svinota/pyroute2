@@ -1,5 +1,6 @@
 from pyroute2.netlink import rtnl
 from pyroute2.netlink.nlsocket import Marshal
+from pyroute2.netlink.rtnl.br_vlan import br_vlan_msg
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -50,6 +51,7 @@ class MarshalRtnl(Marshal):
         rtnl.RTM_NEWLINKPROP: ifinfmsg,
         rtnl.RTM_DELLINKPROP: ifinfmsg,
         rtnl.RTM_NEWPROBE: probe_msg,
+        rtnl.RTM_NEWVLAN: br_vlan_msg,
     }
 
     def fix_message(self, msg):

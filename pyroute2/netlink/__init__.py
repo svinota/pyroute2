@@ -1333,6 +1333,8 @@ class nlmsg_base(dict):
         '''
         Return attrs by name or an empty list
         '''
+        if self.prefix is not None:
+            attr = self.name2nla(attr)
         return [i[1] for i in self['attrs'] if i[0] == attr]
 
     def nla(self, attr=None, default=NotInitialized):
