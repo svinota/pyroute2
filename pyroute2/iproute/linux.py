@@ -1000,7 +1000,7 @@ class RTNL_API:
 
         return ret()
 
-    def set_netnsid(self, nsid=None, pid=None, fd=None):
+    async def set_netnsid(self, nsid=None, pid=None, fd=None):
         '''Assigns an id to a peer netns using RTM_NEWNSID query.
         The kernel chooses an unique id if nsid is omitted.
         This corresponds to the "ip netns set" command.
@@ -1019,7 +1019,14 @@ class RTNL_API:
         if fd is not None:
             msg['attrs'].append(('NETNSA_FD', fd))
 
-        return self.nlm_request(msg, RTM_NEWNSID, NLM_F_REQUEST | NLM_F_ACK)
+        request = NetlinkRequest(
+            self,
+            msg,
+            msg_type=RTM_NEWNSID,
+            msg_flags=NLM_F_REQUEST | NLM_F_ACK,
+        )
+        await request.send()
+        return [x async for x in request.response()]
 
     # 8<---------------------------------------------------------------
 
@@ -2773,6 +2780,7 @@ class IPRoute(NetlinkSocket):
                 'flush_rules',
                 'flush_routes',
                 'get_netnsid',
+                'set_netnsid',
                 'route_dump',
                 'route_dumps',
                 'route_load',
@@ -2788,7 +2796,6 @@ class IPRoute(NetlinkSocket):
                 'close_file',
                 'open_file',
                 'filter_messages',
-                'set_netnsid',
             )
         )
 
