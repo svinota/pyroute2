@@ -29,6 +29,7 @@ from pyroute2.netlink.rtnl import (
     RTM_DELRULE,
     RTM_DELTCLASS,
     RTM_DELTFILTER,
+    RTM_DELVLAN,
     RTM_GETADDR,
     RTM_GETLINK,
     RTM_GETNEIGH,
@@ -53,6 +54,7 @@ from pyroute2.netlink.rtnl import (
     RTM_NEWRULE,
     RTM_NEWTCLASS,
     RTM_NEWTFILTER,
+    RTM_NEWVLAN,
     RTM_SETLINK,
     RTMGRP_DEFAULTS,
     RTMGRP_IPV4_IFADDR,
@@ -1381,9 +1383,9 @@ class RTNL_API:
         )
         return await self.link(command, **kwarg)
 
-    async def vlan(self, command, **kwarg):
+    async def vlandb(self, command, **kwarg):
         '''
-        Perform RTM vlan operations.
+        Perform RTM vlan DB operations.
 
         **dump**
 
@@ -1392,7 +1394,12 @@ class RTNL_API:
         * dump_flags = 1 -- dump VLANDB database entries
         * dump_flags = 2 -- dump VLANDB global options
         '''
-        command_map = {'dump': (RTM_GETVLAN, 'dump')}
+        command_map = {
+            'add': (RTM_NEWVLAN, 'create'),
+            'set': (RTM_NEWVLAN, 'req'),
+            'del': (RTM_DELVLAN, 'req'),
+            'dump': (RTM_GETVLAN, 'dump'),
+        }
         dump_filter, kwarg = get_dump_filter('vlan', command, kwarg)
         arguments = get_arguments_processor('vlan', command, kwarg)
         request = NetlinkRequest(

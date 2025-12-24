@@ -52,6 +52,8 @@ class MarshalRtnl(Marshal):
         rtnl.RTM_DELLINKPROP: ifinfmsg,
         rtnl.RTM_NEWPROBE: probe_msg,
         rtnl.RTM_NEWVLAN: br_vlan_msg,
+        rtnl.RTM_DELVLAN: br_vlan_msg,
+        rtnl.RTM_GETVLAN: br_vlan_msg,
     }
 
     def fix_message(self, msg):

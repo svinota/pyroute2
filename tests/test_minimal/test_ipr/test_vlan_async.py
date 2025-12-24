@@ -15,7 +15,7 @@ async def test_vlan_dumpdb(async_ipr, flags, option, check):
     await async_ipr.ensure(
         async_ipr.link, ifname=uifname(), kind='bridge', state='up'
     )
-    async for response in await async_ipr.vlan('dump', dump_flags=flags):
+    async for response in await async_ipr.vlandb('dump', dump_flags=flags):
         for vlan in response.get_attrs(option):
             assert check(vlan)
         break

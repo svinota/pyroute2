@@ -12,7 +12,8 @@ from pyroute2.common import uifname
 )
 def test_vlan_dumpdb(sync_ipr, flags, option, check):
     sync_ipr.ensure(sync_ipr.link, ifname=uifname(), kind='bridge', state='up')
-    for response in sync_ipr.vlan('dump', dump_flags=flags):
+    breakpoint()
+    for response in sync_ipr.vlandb('dump', dump_flags=flags):
         for vlan in response.get_attrs(option):
             assert check(vlan)
         break
