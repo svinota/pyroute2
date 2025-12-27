@@ -29,7 +29,6 @@ from pyroute2.netlink.rtnl import (
     RTM_DELRULE,
     RTM_DELTCLASS,
     RTM_DELTFILTER,
-    RTM_DELVLAN,
     RTM_GETADDR,
     RTM_GETLINK,
     RTM_GETNEIGH,
@@ -68,7 +67,7 @@ from pyroute2.netlink.rtnl import (
     RTMGRP_NEIGH,
     ndmsg,
 )
-from pyroute2.netlink.rtnl.br_vlan import br_vlan_query
+from pyroute2.netlink.rtnl.br_vlan import br_vlan_msg, br_vlan_query
 from pyroute2.netlink.rtnl.fibmsg import fibmsg
 from pyroute2.netlink.rtnl.ifaddrmsg import ifaddrmsg
 from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
@@ -1395,15 +1394,18 @@ class RTNL_API:
         * dump_flags = 2 -- dump VLANDB global options
         '''
         command_map = {
-            'add': (RTM_NEWVLAN, 'create'),
             'set': (RTM_NEWVLAN, 'req'),
-            'del': (RTM_DELVLAN, 'req'),
             'dump': (RTM_GETVLAN, 'dump'),
         }
         dump_filter, kwarg = get_dump_filter('vlan', command, kwarg)
         arguments = get_arguments_processor('vlan', command, kwarg)
         request = NetlinkRequest(
-            self, br_vlan_query(), command, command_map, dump_filter, arguments
+            self,
+            br_vlan_query() if command == 'dump' else br_vlan_msg(),
+            command,
+            command_map,
+            dump_filter,
+            arguments,
         )
         await request.send()
         if command == 'dump':
@@ -2802,7 +2804,7 @@ class IPRoute(NetlinkSocket):
                 'brport',
                 'probe',
                 'stats',
-                'vlan',
+                'vlandb',
                 'link_lookup',
                 'vlan_filter',
                 'flush_addr',

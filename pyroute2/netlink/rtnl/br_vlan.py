@@ -23,7 +23,7 @@ class br_vlan_msg(br_vlan_base):
 
     nla_map = (
         ('BRIDGE_VLANDB_UNSPEC', 'none'),
-        ('BRIDGE_VLANDB_ENTRY', 'entry'),
+        ('BRIDGE_VLANDB_ENTRY', 'entry | nested'),
         ('BRIDGE_VLANDB_GLOBAL_OPTIONS', 'gopts'),
     )
 
