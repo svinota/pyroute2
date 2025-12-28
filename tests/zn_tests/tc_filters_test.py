@@ -165,3 +165,80 @@ def tc_state_before_after_test(request):
         yield
     finally:
         tc_show_state("AFTER {}".format(request.node.name))
+
+
+def test_flower_ip_port(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='192.168.1.0',
+        dst_ip='10.0.0.1',
+        ip_proto="tcp",
+        dst_port=60,
+        actions= [
+        {
+            'kind': 'gact',
+            'action': 'drop',
+        }
+    ])
+
+def test_flower_ip_cidr_port(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='192.168.1.0/24',
+        dst_ip='10.0.0.1/24',
+        ip_proto="udp",
+        dst_port=68,
+        actions= [
+        {
+            'kind': 'gact',
+            'action': 'drop',
+        }
+    ])
+
+
+def test_flower_enc_fields(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        enc_src_ip="192.168.1.0",
+        enc_dst_ip="10.0.0.1",
+        enc_key_id=124,
+        enc_dst_port=6000,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
+
+def test_flower_geneve_opts(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        protocol=0x0800,
+        prio=priority,
+        enc_src_ip='1.1.1.1',
+        enc_key_id=1234,
+        enc_dst_port=6000,
+        geneve_opts="0141:20:00000200",
+        action=[
+            {"kind": "gact", "action": "drop"}
+        ],
+    )
+
+@pytest.mark.xfail(reason="ip range is not supported in flower filter")
+def test_flower_ip_range(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='192.168.1.0-192.168.1.10',
+        actions=[{"kind": "gact", "action": "drop"}],
+    )
