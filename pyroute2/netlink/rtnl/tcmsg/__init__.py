@@ -4,6 +4,7 @@ from pyroute2.netlink import nla, nlmsg
 from pyroute2.netlink.rtnl.tcmsg import (
     cls_basic,
     cls_flow,
+    cls_flower,
     cls_fw,
     cls_matchall,
     cls_u32,
@@ -42,6 +43,7 @@ plugins = {
     'matchall': cls_matchall,
     'basic': cls_basic,
     'flow': cls_flow,
+    'flower': cls_flower,
     'ingress': sched_ingress,
     'pfifo': sched_pfifo,
     'pfifo_fast': sched_pfifo_fast,
