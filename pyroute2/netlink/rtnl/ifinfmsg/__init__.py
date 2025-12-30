@@ -126,6 +126,7 @@ BRIDGE_VLAN_INFO_UNTAGGED = 0x4  # egress untagged
 BRIDGE_VLAN_INFO_RANGE_BEGIN = 0x8  # range start
 BRIDGE_VLAN_INFO_RANGE_END = 0x10  # range end
 BRIDGE_VLAN_INFO_BRENTRY = 0x20  # global bridge vlan entry
+BRIDGE_VLAN_INFO_ONLY_OPTS = 0x40  # skip create/delete/flags
 (BRIDGE_VLAN_NAMES, BRIDGE_VLAN_VALUES) = map_namespace(
     'BRIDGE_VLAN_INFO', globals()
 )

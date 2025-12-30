@@ -616,6 +616,7 @@ NETLINK_SCSITRANSPORT = 18  # SCSI Transports
 # NLA flags
 NLA_F_NESTED = 1 << 15
 NLA_F_NET_BYTEORDER = 1 << 14
+NLA_F_FLAGS = {'nested': NLA_F_NESTED, 'net_byteorder': NLA_F_NET_BYTEORDER}
 
 
 # Netlink message flags values (nlmsghdr.flags)
@@ -1333,6 +1334,8 @@ class nlmsg_base(dict):
         '''
         Return attrs by name or an empty list
         '''
+        if self.prefix is not None:
+            attr = self.name2nla(attr)
         return [i[1] for i in self['attrs'] if i[0] == attr]
 
     def nla(self, attr=None, default=NotInitialized):
@@ -1526,6 +1529,13 @@ class nlmsg_base(dict):
                 nla_class = nla_class[:lb]
             else:
                 init = None
+            # flags hotfix
+            nla_class = [x.strip() for x in nla_class.split('|')]
+            if len(nla_class) == 2:
+                nla_flags |= NLA_F_FLAGS[nla_class.pop(1)]
+            if len(nla_class) > 1:
+                raise ValueError(f'error in {nla_class} definition')
+            nla_class = nla_class[0]
             # lookup NLA class
             if nla_class == 'recursive':
                 nla_class = type(self)

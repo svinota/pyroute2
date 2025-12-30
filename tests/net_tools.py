@@ -192,3 +192,83 @@ def qdisc_exists(
         timeout,
         retry,
     )
+
+
+OPS = {
+    'eq': lambda a, b: a == b,
+    'ne': lambda a, b: a != b,
+    'in': lambda a, b: a in b,
+}
+
+
+def match_conditions(obj, conditions):
+    return [
+        OPS[c.get('op', 'eq')](obj.get(c['field']), c['value'])
+        for c in conditions
+    ]
+
+
+def step_select(data, spec):
+    path = spec.get('path', '.')
+    func = spec.get('func', all)
+    conditions = spec['select']
+    result = []
+    items = []
+    for obj in data:
+        if path == '.':
+            items = [obj]
+        else:
+            items = obj.get(path, [])
+        for item in items:
+            if func(match_conditions(item, conditions)):
+                result.append(obj)
+                break
+    return result
+
+
+def check_pipeline(data, pipeline):
+    current = data
+    for step in pipeline:
+        current = step_select(current, step)
+    return current
+
+
+def wait_for_ip_object2(cmd, pipeline, timeout, retry):
+    timeout_ns = timeout * 1_000_000_000
+    ts = time.time_ns()
+    found = False
+
+    while not found:
+        check = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if check.returncode != 0:
+            break
+
+        dump = json.loads(check.stdout)
+        if check_pipeline(dump, pipeline):
+            found = True
+            break
+
+        if found or (time.time_ns() > ts + timeout_ns):
+            break
+
+        time.sleep(retry)
+    return found
+
+
+def vlandb_exists(ifname, vlan, state, netns=None, timeout=1, retry=0.2):
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
+    pipeline = [
+        {'select': [{'field': 'ifname', 'value': ifname}]},
+        {
+            'path': 'vlans',
+            'select': [
+                {'field': 'vlan', 'value': vlan},
+                {'field': 'state', 'value': state},
+            ],
+        },
+    ]
+    return wait_for_ip_object2(
+        ns + ['bridge', '-j', '-d', 'vlan'], pipeline, timeout, retry
+    )
