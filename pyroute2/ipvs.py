@@ -147,6 +147,9 @@ class NLAFilter(RequestProcessor):
         # sched_name
         if "sched_name" in obj:
             obj["sched_name"] = obj[f"{prefix}SCHED_NAME"]
+        # weight
+        if "weight" in obj:
+            obj["weight"] = obj[f"{prefix}WEIGHT"]
 
         return obj
 
