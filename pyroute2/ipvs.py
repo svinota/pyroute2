@@ -141,9 +141,15 @@ class NLAFilter(RequestProcessor):
         # addr
         if "addr" not in obj and f"{prefix}ADDR" in obj:
             obj["addr"] = obj[f"{prefix}ADDR"]
+        # fwmark
+        if "fwmark" not in obj and f"{prefix}FWMARK" in obj:
+            obj["fwmark"] = obj[f"{prefix}FWMARK"]
         # sched_name
         if "sched_name" in obj:
             obj["sched_name"] = obj[f"{prefix}SCHED_NAME"]
+        # weight
+        if "weight" in obj:
+            obj["weight"] = obj[f"{prefix}WEIGHT"]
 
         return obj
 
@@ -167,7 +173,7 @@ class NLAFilter(RequestProcessor):
 class IPVSService(NLAFilter):
     field_filters = [ServiceFieldFilter()]
     msg = ipvs.ipvsmsg.service
-    key_fields = ("af", "protocol", "addr", "port")
+    key_fields = ("af", "protocol", "addr", "port", "fwmark")
     nla = "IPVS_CMD_ATTR_SERVICE"
     default_values = {
         "timeout": 0,
