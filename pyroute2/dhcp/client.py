@@ -633,8 +633,13 @@ class AsyncDHCPClient:
         '''
         msg_type = dhcp.MessageType(msg.dhcp['options']['message_type'])
         LOG.info('Received %s', msg)
+        # It is normal to receive DHCP messages with an unexpected xid.
+        # A lot of DHCP messages are broadcast, we read them all,
+        # and they aren't all intended for us.
+        # However it can be useful to know when it's the case,
+        # hence the debug log.
         if not self.xid.matches(msg.xid):
-            LOG.error(
+            LOG.debug(
                 'Incorrect xid %s (expected %sX), discarding',
                 msg.xid,
                 hex(self.xid.random_part)[:-1],
