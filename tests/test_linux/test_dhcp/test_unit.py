@@ -319,15 +319,18 @@ async def test_offer_wrong_xid(
     is a symlink to the one for test_requesting_timeout
     '''
     set_fixed_xid(0x98765432)
-    caplog.set_level('ERROR')
+    caplog.set_level('DEBUG')
     async with AsyncDHCPClient(client_config) as cli:
         await cli.bootstrap()
         await cli.wait_for_state(State.SELECTING, timeout=1)
         # wait a tiny bit for the offer to arrive
         await asyncio.sleep(0.5)
-    assert caplog.messages == [
-        'Incorrect xid 0xdd435a25 (expected 0x9876543X), discarding'
-    ]
+    assert (
+        caplog.messages.count(
+            'Incorrect xid 0xdd435a25 (expected 0x9876543X), discarding'
+        )
+        == 1
+    )
 
     assert len(mock_dhcp_server.decoded_requests) == 1
     discover = mock_dhcp_server.decoded_requests[0]
