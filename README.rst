@@ -97,7 +97,7 @@ More examples:
     ipr.addr('add', index=veth['index'], address='10.0.0.1', prefixlen=24)
 
     # release Netlink socket
-    ip.close()
+    ipr.close()
 
 AsyncIPRoute -- asynchronous RTNL API
 -------------------------------------
