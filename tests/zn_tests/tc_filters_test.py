@@ -4,7 +4,7 @@ import subprocess
 import pytest
 
 import pyroute2
-from pyroute2 import IPRoute
+from pyroute2 import IPRoute, protocols
 
 
 EXPECTED_PYROUTE2_VERSION = "0.5.18.2"
@@ -161,11 +161,19 @@ def reset_clsact_before_suite(ipr, ifindex, gnv_ifindex):
 
 @pytest.fixture(scope="session")
 def _prio_counter():
+    """Session-wide counter for generating unique priority values."""
     return itertools.count(100, 100)
 
 
 @pytest.fixture(scope="function")
 def priority(_prio_counter):
+    """
+    Provide a unique TC filter priority for each test.
+
+    TC filters are identified by (parent, prio, protocol, handle). Using
+    unique priorities prevents 'file exists' errors and allows filters
+    from different tests to coexist without cleanup between tests.
+    """
     return next(_prio_counter)
 
 
@@ -180,3 +188,98 @@ def tc_state_before_after_test(request):
         yield
     finally:
         tc_show_state("AFTER {}".format(request.node.name))
+
+
+def test_flower_ip_port(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='192.168.1.0',
+        dst_ip='10.0.0.1',
+        ip_proto="tcp",
+        dst_port=60,
+        action=[
+            {
+                'kind': 'gact',
+                'action': 'drop',
+            }
+        ])
+
+
+def test_flower_ip_cidr_port(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='192.168.1.0/24',
+        dst_ip='10.0.0.1/24',
+        ip_proto="udp",
+        dst_port=68,
+        actions=[
+            {
+                'kind': 'gact',
+                'action': 'drop',
+            }
+        ])
+
+def test_flower_ipv6(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='fe80::1ff:fe23:4567:890a',
+        dst_ip='fe80::1ff:fe23:4567:891b',
+        actions=[
+            {
+                'kind': 'gact',
+                'action': 'drop',
+            }
+        ])
+
+def test_flower_enc_fields(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "flower",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        enc_src_ip="192.168.1.0",
+        enc_dst_ip="10.0.0.1",
+        enc_key_id=124,
+        enc_dst_port=6000,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
+
+
+def test_flower_geneve_opts(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        protocol=protocols.ETH_P_IP,
+        prio=priority,
+        enc_src_ip='1.1.1.1',
+        enc_key_id=1234,
+        enc_dst_port=6000,
+        geneve_opts="0141:20:00000200",
+        action=[
+            {"kind": "gact", "action": "drop"}
+        ],
+    )
+
+
+@pytest.mark.xfail(reason="ip range is not supported in flower filter")
+def test_flower_ip_range(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        src_ip='192.168.1.0-192.168.1.10',
+        actions=[{"kind": "gact", "action": "drop"}],
+    )
