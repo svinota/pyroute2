@@ -285,6 +285,24 @@ def test_flower_ip_range(ipr, ifindex, priority):
     )
 
 
+def test_flower_ip_frags(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        ip_flags="frag",
+        actions=[{"kind": "gact", "action": "drop"}],
+    )
+
+    ipr.tc(
+        "add-filter", "flower", ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority + 1,
+        ip_flags="nofrag",
+        actions=[{"kind": "gact", "action": "drop"}],
+    )
+
+
 def test_pedit_munge_set_src(ipr, ifindex, priority):
     ipr.tc(
         "add-filter",
@@ -344,4 +362,37 @@ def test_tunnel_key(ipr, ifindex, priority):
                 "geneve_opts": "0141:20:00000201",
             }
         ],
+    )
+
+
+def test_chain(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        chain=10,
+        action=[{"kind": "gact", "action": "drop"}],
+    )
+
+
+def test_goto_chain(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        action=[{"kind": "gact", "action": "goto", "chain": 20}],
+    )
+
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        chain=20,
+        action=[{"kind": "gact", "action": "drop"}],
     )
