@@ -8,14 +8,18 @@ from pyroute2.netlink.rtnl.tcmsg import act_mirred
 from pyroute2.netlink.rtnl.tcmsg import act_connmark
 from pyroute2.netlink.rtnl.tcmsg import act_vlan
 from pyroute2.netlink.rtnl.tcmsg import act_skbedit
+from pyroute2.netlink.rtnl.tcmsg import act_pedit
+from pyroute2.netlink.rtnl.tcmsg import act_tunnel_key
 
 plugins = {'gact': act_gact,
            'bpf': act_bpf,
            'police': act_police,
            'mirred': act_mirred,
+           'pedit': act_pedit,
            'connmark': act_connmark,
            'vlan': act_vlan,
            'skbedit': act_skbedit,
+           'tunnel_key': act_tunnel_key,
            }
 
 
