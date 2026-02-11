@@ -2,7 +2,7 @@ import ctypes
 import struct
 
 from pyroute2.netlink import NLA_F_NESTED, nla
-from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
+from pyroute2.netlink.rtnl.tcmsg.common import CommonTcArgs, tc_actions
 from pyroute2.netlink.rtnl.tcmsg.utils import parse_mac
 
 # Pedit masks (0 = write byte, 1 = preserve byte)
@@ -23,8 +23,7 @@ ETH_FIELD_OFFSETS = {
 }
 
 
-class PeditArgs:
-    TC_ACTION = 'tc_action'
+class PeditArgs(CommonTcArgs):
     MUNGE = 'munge'
 
     # Munge operation parameters

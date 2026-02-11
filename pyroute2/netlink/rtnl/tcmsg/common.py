@@ -300,6 +300,14 @@ tc_actions = {'unspec': -1,     # TC_ACT_UNSPEC
               }
 
 
+class CommonTcArgs:
+    TC_ACTION = 'tc_action'
+    SRC_IP = 'src_ip'
+    DST_IP = 'dst_ip'
+    DST_PORT = 'dst_port'
+    GENEVE_OPTS = 'geneve_opts'
+
+
 class nla_plus_rtab(nla):
     class parms(nla):
         def adjust_size(self, size, mpu, linklayer):

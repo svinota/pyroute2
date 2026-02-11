@@ -2,6 +2,7 @@ import socket
 
 from pyroute2 import protocols
 from pyroute2.netlink import nla
+from pyroute2.netlink.rtnl.tcmsg.common import CommonTcArgs
 from pyroute2.netlink.rtnl.tcmsg.common_act import get_tca_action, tca_act_prio
 from pyroute2.netlink.rtnl.tcmsg.utils import (build_tc_info_field,
                                                detect_protocol,
@@ -30,7 +31,7 @@ TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE = 'TCA_FLOWER_KEY_ENC_OPT_GENEVE_TYPE'
 TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA = 'TCA_FLOWER_KEY_ENC_OPT_GENEVE_DATA'
 
 
-class FlowerArgs(object):
+class FlowerArgs(CommonTcArgs):
     PROTOCOL = 'protocol'
     SRC_MAC = 'src_mac'
     SRC_MAC_MASK = 'src_mac_mask'
@@ -38,15 +39,12 @@ class FlowerArgs(object):
     DST_MAC_MASK = 'dst_mac_mask'
     ETH_TYPE = 'eth_type'
 
-    SRC_IP = 'src_ip'
     SRC_MASK_IP = 'src_mask_ip'
-    DST_IP = 'dst_ip'
     DST_MASK_IP = 'dst_mask_ip'
     IP_PROTO = 'ip_proto'
     VLAN_ID = 'vlan_id'
 
     SRC_PORT = 'src_port'
-    DST_PORT = 'dst_port'
 
     IP_FLAGS = 'ip_flags'
 
@@ -58,7 +56,6 @@ class FlowerArgs(object):
     ENC_DST_IP_MASK = 'enc_dst_ip_mask'
     ENC_SRC_PORT = 'enc_src_port'
     ENC_DST_PORT = 'enc_dst_port'
-    GENEVE_OPTS = 'geneve_opts'
 
     ACTION = 'action'
 
