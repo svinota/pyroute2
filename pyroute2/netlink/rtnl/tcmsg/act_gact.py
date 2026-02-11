@@ -1,6 +1,10 @@
 from pyroute2.netlink import nla
 from pyroute2.netlink import NLA_F_NESTED
-from pyroute2.netlink.rtnl.tcmsg.common import tc_actions
+from pyroute2.netlink.rtnl.tcmsg.common import (
+    tc_actions,
+    TC_ACT_GOTO_CHAIN,
+    TC_ACT_EXT_VAL_MASK,
+)
 
 
 class options(nla):
@@ -20,6 +24,22 @@ class options(nla):
 
 def get_parameters(kwarg):
     ret = {'attrs': []}
-    a = tc_actions[kwarg.get('action', 'drop')]
-    ret['attrs'].append(['TCA_GACT_PARMS', {'action': a}])
+    action_name = kwarg.get('action', 'drop')
+
+    if action_name == 'goto':
+        if 'chain' not in kwarg:
+            raise ValueError("'goto' action requires 'chain' parameter")
+
+        chain_id = int(kwarg['chain'])
+
+        if chain_id < 0 or chain_id > TC_ACT_EXT_VAL_MASK:
+            raise ValueError(
+                "chain id must be between 0 and {}".format(TC_ACT_EXT_VAL_MASK)
+            )
+
+        action_value = TC_ACT_GOTO_CHAIN | chain_id
+    else:
+        action_value = tc_actions[action_name]
+
+    ret['attrs'].append(['TCA_GACT_PARMS', {'action': action_value}])
     return ret
