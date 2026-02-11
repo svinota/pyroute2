@@ -323,3 +323,25 @@ def test_pedit_munge_set_dst(ipr, ifindex, priority):
             }
         ],
     )
+
+
+def test_tunnel_key(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        action=[
+            {
+                "kind": "tunnel_key",
+                "action": "set",
+                "tc_action": "pipe",
+                "id": 48813,
+                "src_ip": "0.0.0.0",
+                "dst_ip": "192.168.4.106",
+                "dst_port": 6081,
+                "geneve_opts": "0141:20:00000201",
+            }
+        ],
+    )
