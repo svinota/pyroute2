@@ -62,6 +62,7 @@ class tcmsg(nlmsg):
               ('parent', 'I'),
               ('info', 'I'))
 
+    # Extended from /include/uapi/linux/rtnetlink.h and /net/sched/sch_api.c
     nla_map = (('TCA_UNSPEC', 'none'),
                ('TCA_KIND', 'asciiz'),
                ('TCA_OPTIONS', 'get_options'),
@@ -70,7 +71,10 @@ class tcmsg(nlmsg):
                ('TCA_RATE', 'hex'),
                ('TCA_FCNT', 'hex'),
                ('TCA_STATS2', 'get_stats2'),
-               ('TCA_STAB', 'hex'))
+               ('TCA_STAB', 'hex'),
+               ('TCA_PAD', 'uint32'),
+               ('TCA_DUMP_INVISIBLE', 'none'),
+               ('TCA_CHAIN', 'uint32'))
 
     class stats(nla):
         fields = (('bytes', 'Q'),
