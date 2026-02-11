@@ -283,3 +283,43 @@ def test_flower_ip_range(ipr, ifindex, priority):
         src_ip='192.168.1.0-192.168.1.10',
         actions=[{"kind": "gact", "action": "drop"}],
     )
+
+
+def test_pedit_munge_set_src(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        action=[
+            {
+                "kind": "pedit",
+                "extended": True,
+                "munge": [
+                    {"htype": "eth", "cmd": "set", "field": "src", "value": "12:34:56:78:9a:bc"}
+                ],
+                "tc_action": "pipe",
+            }
+        ],
+    )
+
+
+def test_pedit_munge_set_dst(ipr, ifindex, priority):
+    ipr.tc(
+        "add-filter",
+        "matchall",
+        ifindex,
+        parent=CLSACT_INGRESS,
+        prio=priority,
+        action=[
+            {
+                "kind": "pedit",
+                "extended": True,
+                "munge": [
+                    {"htype": "eth", "cmd": "set", "field": "dst", "value": "12:34:56:78:9a:bc"}
+                ],
+                "tc_action": "pipe",
+            }
+        ],
+    )
