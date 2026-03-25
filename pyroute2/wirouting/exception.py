@@ -22,6 +22,10 @@ class InterfaceExists(NetlinkError):
     """Creation failed since interface already exists"""
 
 
+class NotPhyDevice(NetlinkError):
+    """Device is not a physical interface"""
+
+
 exception_map: Dict[int, Dict[int, Type[Exception]]] = {
     RTM_NEWLINK: {
         errno.EEXIST: InterfaceExists,
