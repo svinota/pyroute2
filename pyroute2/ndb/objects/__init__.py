@@ -115,7 +115,49 @@ class ReplacementPolicy(IntFlag):
     CHANGE = 0x2
 
 
-class AsyncObject(dict):
+class BatchData:
+    def __init__(self, data=None):
+        self.data = [data or {}]
+        self.pointer = 0
+
+    def sets_num(self):
+        return len(self.data)
+
+    def __repr__(self):
+        return repr(self.data[self.pointer])
+
+    def __getitem__(self, key):
+        return self.data[self.pointer][key]
+
+    def __setitem__(self, key, value):
+        self.data[self.pointer][key] = value
+
+    def __delitem__(self, key):
+        del self.data[self.pointer][key]
+
+    def __iter__(self):
+        return self.data[self.pointer].__iter__()
+
+    def __contains__(self, key):
+        return key in self.data[self.pointer]
+
+    def __len__(self):
+        return len(self.data[self.pointer])
+
+    def keys(self):
+        return self.data[self.pointer].keys()
+
+    def items(self):
+        return self.data[self.pointer].items()
+
+    def values(self):
+        return self.data[self.pointer].values()
+
+    def get(self, key, default=None):
+        return self.data[self.pointer].get(key, default)
+
+
+class AsyncObject:
     '''
     The common base class for NDB objects -- interfaces, routes, rules
     addresses etc. Implements common logic for all the classes, like
@@ -214,7 +256,7 @@ class AsyncObject(dict):
             return
         for key, value in k.items():
             if value is not None:
-                dict.__setitem__(self, self.iclass.nla2name(key), value)
+                self.data[self.iclass.nla2name(key)] = value
 
     #
     # 8<------------------------------------------------------------
@@ -274,6 +316,7 @@ class AsyncObject(dict):
         master=None,
         check=True,
         flags=ObjectFlags.UNSPEC,
+        data=None,
     ):
         self.view = view
         self.ndb = view.ndb
@@ -300,6 +343,7 @@ class AsyncObject(dict):
         self.lock = threading.Lock()
         self.object_data = RequestProcessor(context=weakref.proxy(self))
         self.object_data.add_filter(self.field_filter())
+        self.data = data or BatchData()
         self.kspec = self.schema.compiled[self.table]['idx']
         self.knorm = self.schema.compiled[self.table]['norm_idx']
         self.spec = self.schema.compiled[self.table]['all_names']
@@ -391,11 +435,11 @@ class AsyncObject(dict):
         pass
 
     def keys(self):
-        return filter(lambda x: x not in self.hidden_fields, dict.keys(self))
+        return filter(lambda x: x not in self.hidden_fields, self.data.keys())
 
     def items(self):
         return filter(
-            lambda x: x[0] not in self.hidden_fields, dict.items(self)
+            lambda x: x[0] not in self.hidden_fields, self.data.items()
         )
 
     @property
@@ -420,11 +464,47 @@ class AsyncObject(dict):
     def __exit__(self, exc_type, exc_value, traceback):
         self.commit()
 
+    def __eq__(self, other):
+        if not isinstance(other, (dict, collections.OrderedDict, type(self))):
+            return False
+        if len(other) != len(self):
+            return False
+        if self.data.sets_num() > 1:
+            return False
+        for k, v in self.items():
+            if other[k] != v:
+                return False
+        return True
+
+    def __bool__(self):
+        return True
+
     def __hash__(self):
         return id(self)
 
+    def __repr__(self):
+        return repr(self.data)
+
+    def __contains__(self, key):
+        return key in self.data
+
+    def __iter__(self):
+        return self.data.__iter__()
+
+    def __len__(self):
+        return len(self.data)
+
+    def values(self):
+        return self.data.values()
+
+    def get(self, key, default=None):
+        return self.data.get(key, default)
+
+    def __delitem__(self, key):
+        del self.data[key]
+
     def __getitem__(self, key):
-        return dict.__getitem__(self, key)
+        return self.data[key]
 
     def __setitem__(self, key, value):
         for nkey, nvalue in self.object_data.filter(key, value).items():
@@ -451,7 +531,7 @@ class AsyncObject(dict):
             if nvalue != self.get(nkey, None):
                 if nkey != 'target':
                     self.changed.add(nkey)
-                dict.__setitem__(self, nkey, nvalue)
+                self.data[nkey] = nvalue
 
     def fields(self, *argv):
         # TODO: deprecate and move to show()
@@ -504,7 +584,7 @@ class AsyncObject(dict):
         '''
         fmt = fmt or self.view.ndb.config.show_format
         if fmt == 'native':
-            return dict(self)
+            return dict(self.data)
         else:
             out = collections.OrderedDict()
             for key in sorted(self):
@@ -701,7 +781,7 @@ class AsyncObject(dict):
         # Is it a new object?
         if self.state == 'invalid':
             # Save values, try to apply
-            save = dict(self)
+            save = dict(self.data)
             self.last_save = -1
             try:
                 return await self.apply(mode='commit')
@@ -714,7 +794,7 @@ class AsyncObject(dict):
                 for key in tuple(self.keys()):
                     del self[key]
                 for key in save:
-                    dict.__setitem__(self, key, save[key])
+                    self.data[key] = save[key]
                 raise e_i
 
         # Continue with an existing object
@@ -1060,9 +1140,6 @@ class AsyncObject(dict):
             if count == 1 or value is not None:
                 self.load_value(key, value)
 
-    def load_direct(self, key, value):
-        super(RTNL_Object, self).__setitem__(key, value)
-
     def load_value(self, key, value):
         '''
         Load a value and clean up the `self.changed` set if the
@@ -1073,7 +1150,7 @@ class AsyncObject(dict):
         if self.load_debug:
             self.log.debug('load %s: %s' % (key, value))
         if key not in self.changed:
-            dict.__setitem__(self, key, value)
+            self.data[key] = value
         elif self.get(key) == value:
             self.changed.remove(key)
         elif key in self.fields_cmp and self.fields_cmp[key](self, value):
@@ -1104,8 +1181,12 @@ class AsyncObject(dict):
         spec = self.ndb.schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(keys)), values
         )
-        self.log.debug('fetch_sql data: %s' % str(spec))
+        if not spec:
+            self.ndb.schema.export()
         self.log.debug('fetch_sql names: %s' % str(self.names))
+        self.log.debug('fetch_sql keys: %s' % str(keys))
+        self.log.debug('fetch_sql values: %s' % str(values))
+        self.log.debug('fetch_sql data: %s' % str(spec))
         return spec
 
     def load_sql(self, table=None, ctxid=None):

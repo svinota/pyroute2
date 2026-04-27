@@ -121,7 +121,7 @@ from pyroute2.netlink.rtnl.rtmsg import LWTUNNEL_ENCAP_MPLS, nh, rtmsg
 from pyroute2.requests.common import MPLSTarget
 from pyroute2.requests.route import RouteFieldFilter
 
-from ..objects import AsyncObject, ReplacementPolicy, RTNL_Object
+from ..objects import AsyncObject, BatchData, ReplacementPolicy, RTNL_Object
 from ..report import Record
 from ..sync_api import Flags, SyncBase
 
@@ -602,10 +602,10 @@ class Route(AsyncObject):
 
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = rtmsg
+        kwarg['data'] = BatchData(
+            {'multipath': [], 'metrics': MetricsStub(self), 'deps': 0}
+        )
         self.event_map = {rtmsg: "load_rtnlmsg"}
-        dict.__setitem__(self, 'multipath', [])
-        dict.__setitem__(self, 'metrics', MetricsStub(self))
-        dict.__setitem__(self, 'deps', 0)
         super(Route, self).__init__(*argv, **kwarg)
 
     def complete_key(self, key):
@@ -703,9 +703,11 @@ class Route(AsyncObject):
                 value['create'] = True
             obj = Metrics(self, self.view, value)
             obj.state.set(self.state.get())
-            super(Route, self).__setitem__('metrics', obj)
+            super().__setitem__('metrics', obj)
             if key in self.changed:
                 self.changed.remove(key)
+        elif key == 'via':
+            super().__setitem__('via', Via(value))
         elif self.get('family', 0) == AF_MPLS and key in (
             'dst',
             'src',
@@ -734,7 +736,7 @@ class Route(AsyncObject):
             return self
         else:
             if self.get('family', AF_INET) == AF_MPLS and not self.get('dst'):
-                dict.__setitem__(self, 'dst', [MPLSTarget()])
+                self.data['dst'] = [MPLSTarget()]
             return super(Route, self).apply(rollback, req_filter, mode)
 
     def load_sql(self, *argv, **kwarg):
@@ -745,10 +747,10 @@ class Route(AsyncObject):
                 value = self.get(field, None)
                 if isinstance(value, basestring) and value != '':
                     if field == 'via':
-                        na = json.loads(value)
+                        na = Via(json.loads(value))
                     else:
                         na = [MPLSTarget(x) for x in json.loads(value)]
-                    dict.__setitem__(self, field, na)
+                    self.data[field] = na
         #
         # fetch encap deps
         if self['deps'] & F_RTA_ENCAP:

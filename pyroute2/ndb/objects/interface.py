@@ -197,7 +197,7 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg
 from pyroute2.netlink.rtnl.p2pmsg import p2pmsg
 from pyroute2.requests.link import LinkFieldFilter
 
-from ..objects import AsyncObject, RTNL_Object
+from ..objects import AsyncObject, BatchData, RTNL_Object
 from ..sync_api import Flags, SyncView
 
 
@@ -405,7 +405,7 @@ def _cmp_master(self, value):
     if self['master'] == value:
         return True
     elif self['master'] == 0 and value is None:
-        dict.__setitem__(self, 'master', None)
+        self.data['master'] = None
         return True
     return False
 
@@ -549,9 +549,6 @@ class Interface(AsyncObject):
     def __init__(self, *argv, **kwarg):
         kwarg['iclass'] = ifinfmsg
         self.event_map = {ifinfmsg: "load_rtnlmsg"}
-        self._alt_ifname_orig = set()
-        dict.__setitem__(self, 'alt_ifname_list', list())
-        dict.__setitem__(self, 'state', 'unknown')
         warnings = []
         if isinstance(argv[1], dict):
             if 'reuse' in argv[1]:
@@ -575,6 +572,10 @@ class Interface(AsyncObject):
                     argv[1]['tun_owner'] = argv[1].pop('uid')
                 if 'gid' in argv[1]:
                     argv[1]['tun_owner'] = argv[1].pop('gid')
+        kwarg['data'] = BatchData(
+            {'alt_ifname_list': list(), 'state': 'unknown'}
+        )
+        self._alt_ifname_orig = set()
         super(Interface, self).__init__(*argv, **kwarg)
         for line in warnings:
             self.log.warning(line)
@@ -824,7 +825,7 @@ class Interface(AsyncObject):
 
     def __setitem__(self, key, value):
         if key == 'peer':
-            dict.__setitem__(self, key, value)
+            self.data[key] = value
         elif key == 'ifname':
             if value in self['alt_ifname_list']:
                 self.del_altname(value)
@@ -832,9 +833,9 @@ class Interface(AsyncObject):
                 self.old_ifname = self[key]
             super(Interface, self).__setitem__(key, value)
         elif key == 'target' and self.state == 'invalid':
-            dict.__setitem__(self, key, value)
+            self.data[key] = value
         elif key == 'net_ns_fd' and self.state == 'invalid':
-            dict.__setitem__(self, 'target', value)
+            self.data['target'] = value
         elif (
             key == 'target' and self.get('target') and self['target'] != value
         ):
@@ -997,7 +998,7 @@ class Interface(AsyncObject):
             await super().apply(rollback, req_filter, mode)
             if setns and self['net_ns_fd'] in self.sources:
                 self.load_value('target', self['net_ns_fd'])
-                dict.__setitem__(self, 'net_ns_fd', None)
+                self.data['net_ns_fd'] = None
                 for link in await self.sources[self['target']].api(
                     'link', 'get', ifname=self['ifname']
                 ):
