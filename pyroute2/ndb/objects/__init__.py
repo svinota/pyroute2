@@ -1181,8 +1181,6 @@ class AsyncObject:
         spec = self.ndb.schema.fetchone(
             'SELECT * FROM %s WHERE %s' % (table, ' AND '.join(keys)), values
         )
-        if not spec:
-            self.ndb.schema.export()
         self.log.debug('fetch_sql names: %s' % str(self.names))
         self.log.debug('fetch_sql keys: %s' % str(keys))
         self.log.debug('fetch_sql values: %s' % str(values))
