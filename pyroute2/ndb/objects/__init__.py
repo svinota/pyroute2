@@ -65,6 +65,7 @@ import asyncio
 import collections
 import errno
 import json
+from copy import copy
 import threading
 import time
 import traceback
@@ -127,6 +128,8 @@ class BatchData:
         return repr(self.data[self.pointer])
 
     def __getitem__(self, key):
+        if self.pointer != 0 and key not in self.data[self.pointer]:
+            return self.data[0][key]
         return self.data[self.pointer][key]
 
     def __setitem__(self, key, value):
@@ -136,25 +139,55 @@ class BatchData:
         del self.data[self.pointer][key]
 
     def __iter__(self):
-        return self.data[self.pointer].__iter__()
+        if self.pointer != 0:
+            return iter(set(self.data[0]) | set(self.data[self.pointer]))
+        return self.data[0].__iter__()
 
     def __contains__(self, key):
-        return key in self.data[self.pointer]
+        if self.pointer != 0:
+            return key in self.data[self.pointer] or key in self.data[0]
+        return key in self.data[0]
 
     def __len__(self):
-        return len(self.data[self.pointer])
+        if self.pointer != 0:
+            return len(set(self.data[0]) | set(self.data[self.pointer]))
+        return len(self.data[0])
 
     def keys(self):
-        return self.data[self.pointer].keys()
+        if self.pointer != 0:
+            return set(self.data[0]) | set(self.data[self.pointer])
+        return self.data[0].keys()
 
     def items(self):
-        return self.data[self.pointer].items()
+        if self.pointer != 0:
+            merged = dict(self.data[0])
+            merged.update(self.data[self.pointer])
+            return merged.items()
+        return self.data[0].items()
 
     def values(self):
-        return self.data[self.pointer].values()
+        if self.pointer != 0:
+            merged = dict(self.data[0])
+            merged.update(self.data[self.pointer])
+            return merged.values()
+        return self.data[0].values()
 
     def get(self, key, default=None):
-        return self.data[self.pointer].get(key, default)
+        if self.pointer != 0:
+            if key in self.data[self.pointer]:
+                return self.data[self.pointer][key]
+            return self.data[0].get(key, default)
+        return self.data[0].get(key, default)
+
+    def append(self, spec):
+        self.data.append(spec)
+
+    def records(self):
+        iterator = self.data.__iter__()
+        for record in iterator:
+            spec = copy(self.data[0])
+            spec.update(record)
+            yield spec
 
 
 class AsyncObject:
@@ -315,6 +348,7 @@ class AsyncObject:
         load=True,
         master=None,
         check=True,
+        batch=False,
         flags=ObjectFlags.UNSPEC,
         data=None,
     ):
@@ -341,6 +375,7 @@ class AsyncObject:
         self.load_event.set()
         self.load_debug = False
         self.lock = threading.Lock()
+        self.batch = batch
         self.object_data = RequestProcessor(context=weakref.proxy(self))
         self.object_data.add_filter(self.field_filter())
         self.data = data or BatchData()
@@ -372,10 +407,11 @@ class AsyncObject:
         else:
             self.chain = None
             create = False
-        exists = self.exists(key)
-        ckey = self.complete_key(key)
-        if create:
-            if check & exists:
+        if not batch:
+            exists = self.exists(key)
+            ckey = self.complete_key(key)
+        if create or batch:
+            if not batch and (check and exists):
                 raise KeyError('object exists')
             for name in key:
                 self[self.iclass.nla2name(name)] = key[name]
@@ -532,6 +568,11 @@ class AsyncObject:
                 if nkey != 'target':
                     self.changed.add(nkey)
                 self.data[nkey] = nvalue
+
+    def add(self, **spec):
+        if not self.batch:
+            raise RuntimeError('batch only operation')
+        self.data.append(spec)
 
     def fields(self, *argv):
         # TODO: deprecate and move to show()
@@ -896,35 +937,17 @@ class AsyncObject:
             self.last_save = await self.snapshot()
         return self
 
-    async def apply(self, rollback=False, req_filter=None, mode='apply'):
-        '''
-        Apply the pending changes. If an exception is raised during
-        `apply()`, no `rollback()` is called. No automatic snapshots
-        are made.
-
-        In order to properly revert the changes, you have to run::
-
-            await obj.save_context()
-            try:
-                await obj.apply()
-            except Exception:
-                await obj.rollback()
-        '''
-
-        # Resolve the fields
+    async def _fire_one(self, req_filter=None):
         self.resolve(
             view=self.view,
             spec=self,
             fields=self.resolve_fields,
             policy=RSLV_RAISE,
         )
-
         self.log.debug('events log: %s' % str(self.state.events))
         self.log.debug('run apply')
         self.load_event.clear()
         self._apply_script_snapshots = []
-
-        # Load the current state
         try:
             self.schema.commit()
         except Exception:
@@ -933,8 +956,6 @@ class AsyncObject:
             state = self.state.set('invalid')
         else:
             state = self.state.get()
-
-        # Create the request.
         prime = {
             x: self[x]
             for x in self.schema.compiled[self.table]['norm_idx']
@@ -944,8 +965,6 @@ class AsyncObject:
         idx_req = self.make_idx_req(prime)
         self.log.debug('apply req: %s' % str(req))
         self.log.debug('apply idx_req: %s' % str(idx_req))
-        method = None
-        #
         if state in ('invalid', 'replace'):
             for k, v in tuple(self.items()):
                 if k not in req and v is not None:
@@ -954,10 +973,9 @@ class AsyncObject:
                 req = self.new_spec(
                     req, self.master.context, self.ndb.config.localhost
                 )
-
             method = 'add'
         elif state == 'change':
-            method = 'set'  # FIXME
+            method = 'set'
         elif state == 'system':
             method = 'set'
         elif state == 'setns':
@@ -969,59 +987,18 @@ class AsyncObject:
             raise Exception('state transition not supported')
         self.log.debug(f'apply transition from: {state}')
         self.log.debug(f'apply method: {method}')
-
         if req_filter is not None:
             req = req_filter(req)
+        self.log.debug('API call %s (%s)' % (method, req))
+        if req.get('net_ns_fd') == self.ndb.localhost:
+            req['net_ns_fd'] = self.ndb.localns
+        await self.sources[self['target']].api(self.api, method, **req)
+        await self.hook_apply(method, **req)
+        return state, method, req, idx_req
 
-        first_call_success = False
+    async def _check_one(self, method):
+        self.log.debug(f'stats: apply {method} {{ objid {id(self)} }}')
         for itn in range(10):
-            try:
-                self.log.debug('API call %s (%s)' % (method, req))
-                # resolve localhost reference in the net_ns_fd
-                if req.get('net_ns_fd') == self.ndb.localhost:
-                    req['net_ns_fd'] = self.ndb.localns
-                await self.sources[self['target']].api(self.api, method, **req)
-                first_call_success = True
-                await self.hook_apply(method, **req)
-            except NetlinkError as e:
-                self.log.debug('error: %s' % e)
-                if not first_call_success:
-                    self.log.debug('error on the first API call, escalate')
-                    raise
-                ##
-                #
-                # FIXME: performance penalty
-                # required now only in some NDA corner cases
-                # must be moved to objects.neighbour
-                #
-                #
-                ##
-                if e.code in self.fallback_for[method]:
-                    self.log.debug('ignore error %s for %s' % (e.code, self))
-                    if self.fallback_for[method][e.code] is not None:
-                        self.log.debug(
-                            'run fallback %s (%s)'
-                            % (self.fallback_for[method][e.code], req)
-                        )
-                        try:
-                            if isinstance(
-                                self.fallback_for[method][e.code], str
-                            ):
-                                await self.sources[self['target']].api(
-                                    self.api,
-                                    self.fallback_for[method][e.code],
-                                    **req,
-                                )
-                            else:
-                                await self.fallback_for[method][e.code](
-                                    self, idx_req, req
-                                )
-                        except NetlinkError:
-                            pass
-                else:
-                    raise e
-
-            self.log.debug(f'stats: apply {method} {{ objid {id(self)} }}')
             try:
                 await asyncio.wait_for(self.load_event.wait(), 1)
             except asyncio.TimeoutError:
@@ -1029,28 +1006,78 @@ class AsyncObject:
             self.load_event.clear()
             if self.check():
                 self.log.debug('checked')
-                break
+                return True
             self.log.debug('check failed')
-        else:
-            self.log.debug('stats: %s apply %s fail' % (id(self), method))
-            if not await self.use_db_resync(lambda x: x, self.check):
-                self._apply_script = []
-                raise Exception('could not apply the changes')
+        self.log.debug('stats: %s apply %s fail' % (id(self), method))
+        return await self.use_db_resync(lambda x: x, self.check)
 
-        self.log.debug('stats: %s pass' % (id(self)))
-        #
-        if state == 'replace':
-            self._replace.remove()
-            await self._replace.apply()
-        #
+    async def apply(self, rollback=False, req_filter=None, mode='apply'):
+        '''
+        Apply (or rollback) pending changes.
+
+        Iterates all records in `self.data` (one for non-batch objects,
+        multiple for batch objects with `.add()` calls). Fires all API
+        calls first without waiting between records, then checks each
+        result. On any error, rolls back all successfully applied records
+        in reverse order and re-raises.
+
+        In order to properly revert the changes on error, use::
+
+            await obj.save_context()
+            try:
+                await obj.apply()
+            except Exception:
+                await obj.rollback()
+        '''
+        indices = [0]
+        if self.batch:
+            indices = list(range(1, self.data.sets_num()))
         if rollback:
-            #
-            # Iterate all the snapshot tables and collect the diff
+            indices = list(reversed(indices))
+        initial_state = self.state.get()
+        fired = []
+        errors = []
+        for i in indices:
+            self.data.pointer = i
+            try:
+                state, method, req, idx_req = await self._fire_one(
+                    req_filter=req_filter
+                )
+                fired.append((i, state, method, req, idx_req))
+            except Exception as e:
+                errors.append(e)
+        for i, state, method, req, idx_req in fired:
+            self.data.pointer = i
+            self.state.set(initial_state)
+            if not await self._check_one(method):
+                errors.append(Exception('could not apply the changes'))
+        self.data.pointer = 0
+        if errors and not rollback:
+            inverse = {'add': 'del', 'del': 'add', 'set': 'set'}
+            for i, state, method, req, idx_req in reversed(fired):
+                self.data.pointer = i
+                inv_method = inverse[method]
+                inv_req = idx_req if inv_method == 'del' else req
+                try:
+                    await self.sources[self['target']].api(
+                        self.api, inv_method, **inv_req
+                    )
+                except Exception:
+                    pass
+            self.data.pointer = 0
+            raise errors[0]
+        self.log.debug('stats: %s pass' % id(self))
+        for i, state, method, req, idx_req in fired:
+            if state == 'replace':
+                self.data.pointer = i
+                self._replace.remove()
+                await self._replace.apply()
+        self.data.pointer = 0
+        if rollback:
             for cls in self.view.classes.values():
                 if issubclass(type(self), cls) or issubclass(cls, type(self)):
                     continue
                 table = cls.table
-                # comprare the tables
                 diff = self.ndb.schema.fetch(
                     '''
                     SELECT * FROM %s_%s
@@ -1269,6 +1296,9 @@ class RTNL_Object(SyncBase):
     @property
     def key(self):
         return self.asyncore.key
+
+    def add(self, **spec):
+        return self.asyncore.add(**spec)
 
     def complete_key(self, key):
         return self._main_sync_call(self.asyncore.complete_key, key)
