@@ -937,6 +937,26 @@ class AsyncObject:
             self.last_save = await self.snapshot()
         return self
 
+    def _build_req(self, state, req_filter=None):
+        prime = {
+            x: self[x]
+            for x in self.schema.compiled[self.table]['norm_idx']
+            if self.get(x) is not None
+        }
+        req = self.make_req(prime)
+        idx_req = self.make_idx_req(prime)
+        if state in ('invalid', 'replace'):
+            for k, v in tuple(self.items()):
+                if k not in req and v is not None:
+                    req[k] = v
+            if self.master is not None:
+                req = self.new_spec(
+                    req, self.master.context, self.ndb.config.localhost
+                )
+        if req_filter is not None:
+            req = req_filter(req)
+        return req, idx_req
+
     async def _fire_one(self, req_filter=None):
         self.resolve(
             view=self.view,
@@ -956,29 +976,12 @@ class AsyncObject:
             state = self.state.set('invalid')
         else:
             state = self.state.get()
-        prime = {
-            x: self[x]
-            for x in self.schema.compiled[self.table]['norm_idx']
-            if self.get(x) is not None
-        }
-        req = self.make_req(prime)
-        idx_req = self.make_idx_req(prime)
+        req, idx_req = self._build_req(state, req_filter)
         self.log.debug('apply req: %s' % str(req))
         self.log.debug('apply idx_req: %s' % str(idx_req))
         if state in ('invalid', 'replace'):
-            for k, v in tuple(self.items()):
-                if k not in req and v is not None:
-                    req[k] = v
-            if self.master is not None:
-                req = self.new_spec(
-                    req, self.master.context, self.ndb.config.localhost
-                )
             method = 'add'
-        elif state == 'change':
-            method = 'set'
-        elif state == 'system':
-            method = 'set'
-        elif state == 'setns':
+        elif state in ('change', 'system', 'setns'):
             method = 'set'
         elif state == 'remove':
             method = 'del'
@@ -987,14 +990,12 @@ class AsyncObject:
             raise Exception('state transition not supported')
         self.log.debug(f'apply transition from: {state}')
         self.log.debug(f'apply method: {method}')
-        if req_filter is not None:
-            req = req_filter(req)
         self.log.debug('API call %s (%s)' % (method, req))
         if req.get('net_ns_fd') == self.ndb.localhost:
             req['net_ns_fd'] = self.ndb.localns
         await self.sources[self['target']].api(self.api, method, **req)
         await self.hook_apply(method, **req)
-        return state, method, req, idx_req
+        return state, method
 
     async def _check_one(self, method):
         self.log.debug(f'stats: apply {method} {{ objid {id(self)} }}')
@@ -1040,13 +1041,11 @@ class AsyncObject:
         for i in indices:
             self.data.pointer = i
             try:
-                state, method, req, idx_req = await self._fire_one(
-                    req_filter=req_filter
-                )
-                fired.append((i, state, method, req, idx_req))
+                state, method = await self._fire_one(req_filter=req_filter)
+                fired.append((i, state, method))
             except Exception as e:
                 errors.append(e)
-        for i, state, method, req, idx_req in fired:
+        for i, state, method in fired:
             self.data.pointer = i
             self.state.set(initial_state)
             if not await self._check_one(method):
@@ -1054,9 +1053,10 @@ class AsyncObject:
         self.data.pointer = 0
         if errors and not rollback:
             inverse = {'add': 'del', 'del': 'add', 'set': 'set'}
-            for i, state, method, req, idx_req in reversed(fired):
+            for i, state, method in reversed(fired):
                 self.data.pointer = i
                 inv_method = inverse[method]
+                req, idx_req = self._build_req(state)
                 inv_req = idx_req if inv_method == 'del' else req
                 try:
                     await self.sources[self['target']].api(
@@ -1067,7 +1067,7 @@ class AsyncObject:
             self.data.pointer = 0
             raise errors[0]
         self.log.debug('stats: %s pass' % id(self))
-        for i, state, method, req, idx_req in fired:
+        for i, state, method in fired:
             if state == 'replace':
                 self.data.pointer = i
                 self._replace.remove()
