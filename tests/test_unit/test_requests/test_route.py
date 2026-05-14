@@ -144,3 +144,28 @@ def test_dst(spec, result):
 )
 def test_empty_target(spec, result):
     return run_test(config, spec, result)
+
+
+@pytest.mark.parametrize(
+    'metrics,expected_attrs',
+    (
+        ({'mtu': 1500}, [['RTAX_MTU', 1500]]),
+        ({'cc_algo': 'cubic'}, [['RTAX_CC_ALGO', 'cubic']]),
+        (
+            {'mtu': 1280, 'cc_algo': 'bbr'},
+            [['RTAX_MTU', 1280], ['RTAX_CC_ALGO', 'bbr']],
+        ),
+    ),
+    ids=['mtu-only', 'cc_algo-only', 'mtu-and-cc_algo'],
+)
+def test_metrics(metrics, expected_attrs):
+    spec = Request({'dst': '10.0.0.0/24', 'metrics': metrics})
+    result = Result(
+        {
+            'dst': '10.0.0.0',
+            'dst_len': 24,
+            'family': AF_INET,
+            'metrics': {'attrs': expected_attrs},
+        }
+    )
+    run_test(config, spec, result)

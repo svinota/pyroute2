@@ -468,6 +468,29 @@ def test_metrics_set(context):
     )
 
 
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_metrics_cc_algo_set(context):
+    index, ifname = context.default_interface
+    ifaddr = context.new_ipaddr
+    gateway = context.new_ipaddr
+    ipnet = str(context.ipnets[1].network)
+    # use reno for testing as it's availalbe on all kernels.
+    target = 'reno'
+
+    with context.ndb.interfaces[ifname] as dummy:
+        dummy.add_ip(address=ifaddr, prefixlen=24)
+        dummy.set(state='up')
+
+    route = context.ndb.routes.create(
+        dst=ipnet, dst_len=24, gateway=gateway, metrics={'cc_algo': target}
+    )
+    route.commit()
+
+    assert route_exists(
+        context.netns, match=partial(match_metrics, target, gateway)
+    )
+
+
 def _test_metrics_update(context, method):
     ifaddr = context.new_ipaddr
     gateway1 = context.new_ipaddr
