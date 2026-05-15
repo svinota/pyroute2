@@ -435,7 +435,8 @@ def test_same_metrics(context):
     # but lets double check
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(
-        context.netns, match=partial(match_metrics, 'RTAX_MTU', target, gateway2)
+        context.netns,
+        match=partial(match_metrics, 'RTAX_MTU', target, gateway2),
     )
 
 
@@ -464,7 +465,8 @@ def test_metrics_set(context):
 
     route.commit()
     assert route_exists(
-        context.netns, match=partial(match_metrics, 'RTAX_MTU', target, gateway)
+        context.netns,
+        match=partial(match_metrics, 'RTAX_MTU', target, gateway),
     )
 
 
