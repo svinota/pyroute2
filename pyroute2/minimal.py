@@ -26,7 +26,6 @@ except ImportError:
 from pyroute2.config import log
 from pyroute2.conntrack import AsyncConntrack, Conntrack, ConntrackEntry
 from pyroute2.devlink import DL, AsyncDL
-from pyroute2.ethtool.ethtool import Ethtool
 from pyroute2.iproute import (
     AsyncIPRoute,
     ChaoticIPRoute,
@@ -38,7 +37,6 @@ from pyroute2.iproute import (
 from pyroute2.ipset import IPSet
 from pyroute2.ipvs import IPVS, IPVSDest, IPVSService
 from pyroute2.iwutil import IW, AsyncIW
-from pyroute2.netlink.connector.cn_proc import ProcEventSocket
 from pyroute2.netlink.devlink import AsyncDevlinkSocket, DevlinkSocket
 from pyroute2.netlink.diag import DiagSocket, ss2
 from pyroute2.netlink.event import AsyncEventSocket, EventSocket
@@ -73,8 +71,6 @@ from pyroute2.netlink.nl80211 import NL80211, AsyncNL80211
 from pyroute2.netlink.rtnl.iprsocket import AsyncIPRSocket, IPRSocket
 from pyroute2.netlink.taskstats import AsyncTaskStats, TaskStats
 from pyroute2.netlink.uevent import UeventSocket
-from pyroute2.plan9.client import Plan9ClientSocket
-from pyroute2.plan9.server import Plan9ServerSocket
 from pyroute2.wiset import WiSet
 
 modules = [
@@ -107,7 +103,6 @@ modules = [
     DQuotSocket,
     DevlinkSocket,
     DiagSocket,
-    Ethtool,
     EventSocket,
     GenericNetlinkSocket,
     IPBatch,
@@ -130,9 +125,6 @@ modules = [
     NetlinkDumpInterrupted,
     NetlinkError,
     NlEthtool,
-    Plan9ClientSocket,
-    Plan9ServerSocket,
-    ProcEventSocket,
     RawIPRoute,
     TaskStats,
     ThermalEventSocket,
