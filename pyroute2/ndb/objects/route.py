@@ -94,12 +94,13 @@ reflects route metrics like hop limit, mtu etc:
 
     # set up all metrics from a dictionary
     with ndb.routes['10.0.0.0/24'] as route:
-        route.set('metrics', {'mtu': 1500, 'hoplimit': 20})
+        route.set('metrics', {'mtu': 1500, 'hoplimit': 20, 'cc_algo': 'cubic'})
 
     # fix individual metrics
     with ndb.routes['10.0.0.0/24']['metrics'] as metrics:
         metrics.set('mtu', 1500)
         metrics.set('hoplimit', 20)
+        metrics.set('cc_algo', 'cubic')
 
 MPLS routes
 ===========

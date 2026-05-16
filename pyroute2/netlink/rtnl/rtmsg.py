@@ -703,6 +703,7 @@ class rtmsg_base(nlflags):
             ('RTAX_RTO_MIN', 'uint32'),
             ('RTAX_INITRWND', 'uint32'),
             ('RTAX_QUICKACK', 'uint32'),
+            ('RTAX_CC_ALGO', 'asciiz'),
         )
 
     @staticmethod

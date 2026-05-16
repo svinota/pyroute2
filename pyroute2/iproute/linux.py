@@ -2213,6 +2213,7 @@ class RTNL_API:
                 metrics={
                     "mtu": 1400,
                     "hoplimit": 16,
+                    "cc_algo": "cubic",
                 },
             )
 

@@ -89,7 +89,7 @@ MS_REC = 16384
 MS_SHARED = 1 << 20
 NETNS_RUN_DIR = '/var/run/netns'
 
-__saved_ns = []
+__saved_ns: list[int] = []
 __libc = None
 
 

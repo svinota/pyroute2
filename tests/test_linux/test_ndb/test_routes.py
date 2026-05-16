@@ -393,11 +393,11 @@ def test_same_multipath(context):
     assert route_exists(context.netns, match=match_multipath)
 
 
-def match_metrics(target, gateway, msg):
+def match_metrics(metric, target, gateway, msg):
     if msg.get_attr('RTA_GATEWAY') != gateway:
         return False
-    mtu = msg.get_attr('RTA_METRICS', rtmsg()).get_attr('RTAX_MTU', 0)
-    return mtu == target
+    value = msg.get_attr('RTA_METRICS', rtmsg()).get_attr(metric)
+    return value == target
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
@@ -435,7 +435,8 @@ def test_same_metrics(context):
     # but lets double check
     assert address_exists(context.netns, ifname=ifname, address=ifaddr)
     assert route_exists(
-        context.netns, match=partial(match_metrics, target, gateway2)
+        context.netns,
+        match=partial(match_metrics, 'RTAX_MTU', target, gateway2),
     )
 
 
@@ -464,7 +465,32 @@ def test_metrics_set(context):
 
     route.commit()
     assert route_exists(
-        context.netns, match=partial(match_metrics, target, gateway)
+        context.netns,
+        match=partial(match_metrics, 'RTAX_MTU', target, gateway),
+    )
+
+
+@pytest.mark.parametrize('context', test_matrix, indirect=True)
+def test_metrics_cc_algo_set(context):
+    index, ifname = context.default_interface
+    ifaddr = context.new_ipaddr
+    gateway = context.new_ipaddr
+    ipnet = str(context.ipnets[1].network)
+    # use reno for testing as it's availalbe on all kernels.
+    target = 'reno'
+
+    with context.ndb.interfaces[ifname] as dummy:
+        dummy.add_ip(address=ifaddr, prefixlen=24)
+        dummy.set(state='up')
+
+    route = context.ndb.routes.create(
+        dst=ipnet, dst_len=24, gateway=gateway, metrics={'cc_algo': target}
+    )
+    route.commit()
+
+    assert route_exists(
+        context.netns,
+        match=partial(match_metrics, 'RTAX_CC_ALGO', target, gateway),
     )
 
 
