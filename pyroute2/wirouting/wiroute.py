@@ -12,9 +12,10 @@ This module provides:
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.wirouting.exception import exception_factory
 from pyroute2.wirouting.link import WiRouteLink
+from pyroute2.wirouting.route import WiRouteRoute
 
 
-class WiRoute(WiRouteLink, AsyncIPRoute):
+class WiRoute(WiRouteLink, WiRouteRoute, AsyncIPRoute):
 
     def __init__(self, *args, **kwargs):
         for key in ("ext_ack", "strict_check"):
