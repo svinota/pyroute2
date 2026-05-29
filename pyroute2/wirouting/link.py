@@ -4,11 +4,28 @@
 
 import errno
 from collections.abc import AsyncGenerator
+from functools import cached_property
 
 from pyroute2.iproute.linux import AsyncIPRoute
 from pyroute2.wirouting.exception import InterfaceDoesNotExist
 from pyroute2.wirouting.sysfs import InterfaceSysfs
 from pyroute2.wirouting.tools import Cacheable
+
+
+class InterfaceMtu(int):
+    """Mtu of interface, can be used like an int or an object with
+    attributes min, cur, max
+    """
+
+    def __new__(cls, min_mtu, cur_mtu, max_mtu):
+        self = super().__new__(cls, cur_mtu)
+        self.min = min_mtu
+        self.cur = cur_mtu
+        self.max = max_mtu
+        return self
+
+    def __repr__(self):
+        return f"Mtu(min={self.min}, cur={self.cur}, max={self.max})"
 
 
 class WiRouteLinkView(Cacheable, InterfaceSysfs):
@@ -23,6 +40,25 @@ class WiRouteLinkView(Cacheable, InterfaceSysfs):
         self.clear_cache()
         self.nlmsg = (await wiroute.link("get", link=self))[0]
         return self
+
+    @property
+    def index(self) -> int:
+        """Return index of link"""
+        return self.nlmsg["index"]
+
+    @property
+    def name(self) -> str:
+        """Return main name of link"""
+        return self.nlmsg.get_attr("IFLA_IFNAME")
+
+    @cached_property
+    def mtu(self) -> InterfaceMtu:
+        """Return MTU of the link"""
+        return InterfaceMtu(
+            min_mtu=self.nlmsg.get_attr("IFLA_MIN_MTU"),
+            cur_mtu=self.nlmsg.get_attr("IFLA_MTU"),
+            max_mtu=self.nlmsg.get_attr("IFLA_MAX_MTU"),
+        )
 
 
 class WiRouteLink(AsyncIPRoute):
