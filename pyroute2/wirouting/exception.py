@@ -26,6 +26,10 @@ class NotPhyDevice(NetlinkError):
     """Device is not a physical interface"""
 
 
+class InterfaceLevel3(NetlinkError):
+    """Interface is level3 (ip) and not layer 2"""
+
+
 exception_map: Dict[int, Dict[int, Type[Exception]]] = {
     RTM_NEWLINK: {
         errno.EEXIST: InterfaceExists,

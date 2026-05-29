@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from functools import cached_property
 
 from pyroute2.iproute.linux import AsyncIPRoute
-from pyroute2.wirouting.exception import InterfaceDoesNotExist
+from pyroute2.wirouting.exception import InterfaceDoesNotExist, InterfaceLevel3
 from pyroute2.wirouting.sysfs import InterfaceSysfs
 from pyroute2.wirouting.tools import Cacheable
 
@@ -59,6 +59,18 @@ class WiRouteLinkView(Cacheable, InterfaceSysfs):
             cur_mtu=self.nlmsg.get_attr("IFLA_MTU"),
             max_mtu=self.nlmsg.get_attr("IFLA_MAX_MTU"),
         )
+
+    def is_l2(self):
+        return self.nlmsg.get_attr("IFLA_ADDRESS") is not None
+
+    @property
+    def l2_addr(self):
+        l2addr = self.nlmsg.get_attr("IFLA_ADDRESS")
+        if not l2addr:
+            raise InterfaceLevel3(errno.ENODEV, "Not a level2 interface")
+        return l2addr
+
+    mac_address = l2_addr
 
 
 class WiRouteLink(AsyncIPRoute):
