@@ -10,29 +10,15 @@ This module provides:
 """
 
 from pyroute2.iproute.linux import AsyncIPRoute
-from pyroute2.wirouting.exception import (
-    InterfaceDoesNotExist,
-    exception_factory,
-)
+from pyroute2.wirouting.exception import exception_factory
+from pyroute2.wirouting.link import WiRouteLink
 
 
-class WiRoute(AsyncIPRoute):
+class WiRoute(WiRouteLink, AsyncIPRoute):
+
     def __init__(self, *args, **kwargs):
         for key in ("ext_ack", "strict_check"):
             kwargs.setdefault(key, True)
             kwargs[key] = bool(kwargs[key])
         kwargs.setdefault("exception_factory", exception_factory)
         super().__init__(*args, **kwargs)
-
-    async def interface_exists(self, **kwargs) -> bool:
-        """Check that interface exists"""
-        try:
-            await self.link("get", **kwargs)
-            return True
-        except InterfaceDoesNotExist:
-            return False
-
-    async def rename_interface(self, ifname: str, new_ifname: str) -> None:
-        """Rename interface"""
-        ifindex = (await self.link("get", ifname=ifname))[0]["index"]
-        await self.link("set", index=ifindex, ifname=new_ifname)
