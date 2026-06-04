@@ -13,6 +13,8 @@ from ipaddress import (
 from socket import AF_INET
 
 from pyroute2.iproute.linux import AsyncIPRoute
+from pyroute2.netlink.rt_files import RtProtosFile, RtScopesFile, RtTablesFile
+from pyroute2.netlink.rtnl import rt_type
 from pyroute2.wirouting.tools import Cacheable
 
 
@@ -44,9 +46,17 @@ class RouteView(Cacheable):
     def table(self) -> int:
         return self.nlmsg.get_attr('RTA_TABLE')
 
+    @cached_property
+    def table_name(self) -> str:
+        return RtTablesFile().get_rt_name(self.table)
+
     @property
     def rt_type(self) -> int:
         return self.nlmsg['type']
+
+    @cached_property
+    def rt_type_name(self) -> str:
+        return rt_type[self.rt_type]
 
     @cached_property
     def dest(self) -> IPv4Network | IPv6Network | None:
@@ -77,6 +87,10 @@ class RouteView(Cacheable):
     def proto(self):
         return self.nlmsg["proto"]
 
+    @cached_property
+    def proto_name(self):
+        return RtProtosFile().get_rt_name(self.proto)
+
     @property
     def priority(self):
         return self.nlmsg.get_attr("RTA_PRIORITY")
@@ -84,6 +98,10 @@ class RouteView(Cacheable):
     @property
     def scope(self):
         return self.nlmsg["scope"]
+
+    @cached_property
+    def scope_name(self):
+        return RtScopesFile().get_rt_name(self.scope)
 
     @property
     def mtu(self):
