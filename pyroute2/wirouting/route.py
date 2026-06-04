@@ -116,6 +116,32 @@ class RouteView(Cacheable):
     def is_default_route(self):
         return self.dest is None
 
+    def __str__(self):
+        s = ''
+        if self.rt_type:
+            s += f"{self.rt_type_name} "
+        s += "default" if self.is_default_route() else str(self.dest)
+        if self.gateway:
+            s += f" via {self.gateway}"
+        if self.oif:
+            s += f" dev {self.oifname}"
+        if self.proto:
+            s += f" proto {self.proto_name}"
+        if self.source:
+            s += f" src {self.source}"
+        if self.priority:
+            s += f" metric {self.priority}"
+        if self.mtu:
+            s += f" mtu {self.mtu}"
+        if self.scope:
+            s += f" scope {self.scope_name}"
+        if self.table:
+            s += f" table {self.table_name}"
+        return s
+
+    def __repr__(self):
+        return f"Route ({self})"
+
 
 class WiRouteRoute(AsyncIPRoute):
     """ip-route part of WiRoute()."""
