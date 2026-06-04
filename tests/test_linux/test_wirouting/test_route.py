@@ -14,3 +14,8 @@ async def test_get_ipv4_routes_for():
         assert route.oifname == link.name
         assert not route.is_default_route()
         assert route.rt_type_name == "unicast"
+
+
+async def test_dump_routes():
+    async for route in WiRoute().dump_routes(dst="127.0.0.1"):
+        assert route.oifname == "lo"

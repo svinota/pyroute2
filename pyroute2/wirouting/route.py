@@ -65,7 +65,9 @@ class RouteView(Cacheable):
         mask = self.nlmsg["dst_len"]
         return ip_network(f"{ip}/{mask}")
 
-    dst = dest
+    @property
+    def dst(self):
+        return self.dest
 
     @property
     def source(self) -> IPv4Address | IPv6Address | None:
@@ -117,6 +119,15 @@ class RouteView(Cacheable):
 
 class WiRouteRoute(AsyncIPRoute):
     """ip-route part of WiRoute()."""
+
+    async def dump_routes(self, **matches):
+        link_index2nlmsg = {
+            link["index"]: link async for link in await self.link("dump")
+        }
+        async for nlmsg in await self.route("dump", **matches):
+            route = RouteView(nlmsg)
+            route.update_link_nlmsg(link_index2nlmsg[route.oif])
+            yield route
 
     async def get_ipv4_routes_for(self, dst: str):
         for nlmsg in await self.route("get", dst=dst, family=AF_INET):
