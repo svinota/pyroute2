@@ -7,6 +7,8 @@ NTF_SELF = 0x02
 NTF_MASTER = 0x04
 NTF_PROXY = 0x08
 NTF_EXT_LEARNED = 0x10
+NTF_OFFLOADED = 0x20
+NTF_STICKY = 0x40
 NTF_ROUTER = 0x80
 
 # neighbor cache entry states
