@@ -473,8 +473,8 @@ class AsyncIW(AsyncNL80211):
         # Prepare a second netlink socket to get the scan results.
         # The issue is that the kernel can send the results notification
         # before we get answer for the NL80211_CMD_TRIGGER_SCAN
-        nsock = NL80211()
-        nsock.bind()
+        nsock = AsyncNL80211()
+        await nsock.bind()
         nsock.add_membership('scan')
 
         # send scan request
@@ -498,7 +498,7 @@ class AsyncIW(AsyncNL80211):
         # monitor the results notification on the secondary socket
         scanResultNotFound = True
         while scanResultNotFound:
-            listMsg = await nsock.get()
+            listMsg = nsock.get()
             try:
                 async for msg in listMsg:
                     if msg["event"] == "NL80211_CMD_NEW_SCAN_RESULTS":
