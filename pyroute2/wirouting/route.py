@@ -1,0 +1,163 @@
+"""ip-route part of WiRoute()
+"""
+
+from functools import cached_property
+from ipaddress import (
+    IPv4Address,
+    IPv4Network,
+    IPv6Address,
+    IPv6Network,
+    ip_address,
+    ip_network,
+)
+from socket import AF_INET
+
+from pyroute2.iproute.linux import AsyncIPRoute
+from pyroute2.netlink.rt_files import RtProtosFile, RtScopesFile, RtTablesFile
+from pyroute2.netlink.rtnl import rt_type
+from pyroute2.wirouting.tools import Cacheable
+
+
+class RouteView(Cacheable):
+
+    def __init__(self, nlmsg):
+        self.nlmsg = nlmsg
+        self.oifname: str | None = None
+        super().__init__()
+
+    def update_link_nlmsg(self, nlmsg):
+        self.oifname = nlmsg.get_attr("IFLA_IFNAME")
+
+    async def update(self, wiroute) -> "RouteView":
+        """Clear cache and update nlmsg"""
+        self.clear_cache()
+        self.nlmsg = (
+            await wiroute.route("get", dst=str(self.dst), family=self.family)
+        )[0]
+        link_nlmsg = (await wiroute.link("get", index=self.oif))[0]
+        self.update_link_nlmsg(link_nlmsg)
+        return self
+
+    @property
+    def family(self) -> int:
+        return self.nlmsg["family"]
+
+    @property
+    def table(self) -> int:
+        return self.nlmsg.get_attr('RTA_TABLE')
+
+    @cached_property
+    def table_name(self) -> str:
+        return RtTablesFile().get_rt_name(self.table)
+
+    @property
+    def rt_type(self) -> int:
+        return self.nlmsg['type']
+
+    @cached_property
+    def rt_type_name(self) -> str:
+        return rt_type[self.rt_type]
+
+    @cached_property
+    def dest(self) -> IPv4Network | IPv6Network | None:
+        if (ip := self.nlmsg.get_attr("RTA_DST")) is None:
+            return None
+        mask = self.nlmsg["dst_len"]
+        return ip_network(f"{ip}/{mask}")
+
+    @property
+    def dst(self):
+        return self.dest
+
+    @property
+    def source(self) -> IPv4Address | IPv6Address | None:
+        if (source := self.nlmsg.get_attr("RTA_PREFSRC")) is None:
+            return None
+        return ip_address(source)
+
+    @property
+    def gateway(self) -> IPv4Address | IPv6Address | None:
+        if (gateway := self.nlmsg.get_attr("RTA_GATEWAY")) is None:
+            return None
+        return ip_address(gateway)
+
+    @property
+    def oif(self):
+        return self.nlmsg.get_attr("RTA_OIF")
+
+    @property
+    def proto(self):
+        return self.nlmsg["proto"]
+
+    @cached_property
+    def proto_name(self):
+        return RtProtosFile().get_rt_name(self.proto)
+
+    @property
+    def priority(self):
+        return self.nlmsg.get_attr("RTA_PRIORITY")
+
+    @property
+    def scope(self):
+        return self.nlmsg["scope"]
+
+    @cached_property
+    def scope_name(self):
+        return RtScopesFile().get_rt_name(self.scope)
+
+    @property
+    def mtu(self):
+        return (
+            self.nlmsg.get_attr("RTA_METRICS").get_attr("RTAX_MTU")
+            if self.nlmsg.get_attr("RTA_METRICS")
+            else None
+        )
+
+    def is_default_route(self):
+        return self.dest is None
+
+    def __str__(self):
+        s = ''
+        if self.rt_type:
+            s += f"{self.rt_type_name} "
+        s += "default" if self.is_default_route() else str(self.dest)
+        if self.gateway:
+            s += f" via {self.gateway}"
+        if self.oif:
+            s += f" dev {self.oifname}"
+        if self.proto:
+            s += f" proto {self.proto_name}"
+        if self.source:
+            s += f" src {self.source}"
+        if self.priority:
+            s += f" metric {self.priority}"
+        if self.mtu:
+            s += f" mtu {self.mtu}"
+        if self.scope:
+            s += f" scope {self.scope_name}"
+        if self.table:
+            s += f" table {self.table_name}"
+        return s
+
+    def __repr__(self):
+        return f"Route ({self})"
+
+
+class WiRouteRoute(AsyncIPRoute):
+    """ip-route part of WiRoute()."""
+
+    async def dump_routes(self, **matches):
+        link_index2nlmsg = {
+            link["index"]: link async for link in await self.link("dump")
+        }
+        async for nlmsg in await self.route("dump", **matches):
+            route = RouteView(nlmsg)
+            route.update_link_nlmsg(link_index2nlmsg[route.oif])
+            yield route
+
+    async def get_ipv4_routes_for(self, dst: str):
+        for nlmsg in await self.route("get", dst=dst, family=AF_INET):
+            route = RouteView(nlmsg)
+            link_nlmsg = (await self.link("get", index=route.oif))[0]
+            route.update_link_nlmsg(link_nlmsg)
+            yield route
