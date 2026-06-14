@@ -170,6 +170,8 @@ class View(dict):
         if self.chain:
             spec['ndb_chain'] = self.chain
         spec['create'] = True
+        if kwspec.pop('batch', False):
+            return iclass(self, spec, load=False, batch=True, master=self.chain)
         return self[spec]
 
     def ensure(self, *argspec, **kwspec):
