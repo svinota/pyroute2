@@ -16,6 +16,7 @@ ETHTOOL_GSSET_INFO = 0x37
 ETHTOOL_GWOL = 0x00000005
 
 ETHTOOL_GFLAGS = 0x00000025
+ETHTOOL_SFLAGS = 0x00000026
 ETHTOOL_GFEATURES = 0x0000003A
 ETHTOOL_SFEATURES = 0x0000003B
 ETHTOOL_GCHANNELS = 0x0000003C
@@ -742,6 +743,30 @@ class IoctlEthtool:
             off_flag.long_name: bool(flags & off_flag.value)
             for off_flag in OFF_FLAG_DEF
         }
+
+    def set_offload_flag(self, long_name, data):
+        try:
+            off_flag = OFF_FLAG_DEF[OFF_FLAG_DEF.index(long_name)]
+        except ValueError as e:
+            raise ValueError(f"Unknown offload flag: {long_name}") from e
+
+        cmd = EthtoolValue()
+        self.ifreq.value = ctypes.pointer(cmd)
+        if off_flag.set_cmd:
+            cmd.cmd = off_flag.set_cmd
+            cmd.data = data
+        else:
+            cmd.cmd = ETHTOOL_GFLAGS
+            self.ioctl()
+            flags = cmd.data & ETH_FLAG_EXT_MASK
+            if data:
+                flags |= off_flag.value
+            elif flags & off_flag.value:
+                flags ^= off_flag.value
+            cmd.cmd = ETHTOOL_SFLAGS
+            cmd.data = flags
+
+        self.ioctl()
 
     def get_features(self):
         stringsset = self.get_stringset(set_id=ETH_SS_FEATURES)
