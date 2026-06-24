@@ -712,6 +712,37 @@ class IoctlEthtool:
             strings_found.append(buf)
         return strings_found
 
+    def get_offload_flags(self):
+        """old-style offload flags"""
+        cmd = EthtoolValue()
+        self.ifreq.value = ctypes.pointer(cmd)
+
+        flags = 0
+        for off_flag in OFF_FLAG_DEF:
+            if not off_flag.get_cmd:
+                # Need to call ETHTOOL_GFLAGS to get it
+                continue
+            cmd.cmd = off_flag.get_cmd
+            try:
+                self.ioctl()
+            except NotSupportedError:
+                if off_flag.get_cmd == ETHTOOL_GUFO:
+                    # Mimic the behavior of ethtool,
+                    # see get_features() in ethtool.c
+                    continue
+                raise
+            if cmd.data:
+                flags |= off_flag.value
+
+        cmd.cmd = ETHTOOL_GFLAGS
+        self.ioctl()
+        flags |= cmd.data & ETH_FLAG_EXT_MASK
+
+        return {
+            off_flag.long_name: bool(flags & off_flag.value)
+            for off_flag in OFF_FLAG_DEF
+        }
+
     def get_features(self):
         stringsset = self.get_stringset(set_id=ETH_SS_FEATURES)
         cmd = EthtoolGfeatures()
