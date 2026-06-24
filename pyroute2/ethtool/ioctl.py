@@ -2,8 +2,9 @@ import ctypes
 import errno
 import fcntl
 import socket
+from dataclasses import dataclass
 
-from pyroute2.ethtool.common import LinkModeBits
+from pyroute2.ethtool.common import LinkModeBits, kernel_version_to_int
 
 # ethtool/ethtool-copy.h
 IFNAMSIZ = 16
@@ -67,6 +68,143 @@ ETH_FLAG_EXT_MASK = (
     | ETH_FLAG_NTUPLE
     | ETH_FLAG_RXHASH
 )
+
+
+@dataclass
+class EthtoolOffFlag:
+    """from ethtool.git/common.h"""
+
+    short_name: str
+    long_name: str
+    kernel_name: str
+    get_cmd: int
+    set_cmd: int
+    value: int
+
+    # For features exposed through ETHTOOL_GFLAGS, the oldest
+    # kernel version for which we can trust the result.  Where
+    # the flag was added at the same time the kernel started
+    # supporting the feature, this is 0 (to allow for backports).
+    # Where the feature was supported before the flag was added,
+    # it is the version that introduced the flag.
+    min_kernel_ver: int
+
+    def __eq__(self, long_name: str):
+        return self.long_name == long_name
+
+
+# from ethtool.git/common.c"""
+OFF_FLAG_DEF = [
+    EthtoolOffFlag(
+        short_name="rx",
+        long_name="rx-checksumming",
+        kernel_name="rx-checksum",
+        get_cmd=ETHTOOL_GRXCSUM,
+        set_cmd=ETHTOOL_SRXCSUM,
+        value=ETH_FLAG_RXCSUM,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="tx",
+        long_name="tx-checksumming",
+        kernel_name="tx-checksum-*",
+        get_cmd=ETHTOOL_GTXCSUM,
+        set_cmd=ETHTOOL_STXCSUM,
+        value=ETH_FLAG_TXCSUM,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="sg",
+        long_name="scatter-gather",
+        kernel_name="tx-scatter-gather*",
+        get_cmd=ETHTOOL_GSG,
+        set_cmd=ETHTOOL_SSG,
+        value=ETH_FLAG_SG,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="tso",
+        long_name="tcp-segmentation-offload",
+        kernel_name="tx-tcp*-segmentation",
+        get_cmd=ETHTOOL_GTSO,
+        set_cmd=ETHTOOL_STSO,
+        value=ETH_FLAG_TSO,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="ufo",
+        long_name="udp-fragmentation-offload",
+        kernel_name="tx-udp-fragmentation",
+        get_cmd=ETHTOOL_GUFO,
+        set_cmd=ETHTOOL_SUFO,
+        value=ETH_FLAG_UFO,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="gso",
+        long_name="generic-segmentation-offload",
+        kernel_name="tx-generic-segmentation",
+        get_cmd=ETHTOOL_GGSO,
+        set_cmd=ETHTOOL_SGSO,
+        value=ETH_FLAG_GSO,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="gro",
+        long_name="generic-receive-offload",
+        kernel_name="rx-gro",
+        get_cmd=ETHTOOL_GGRO,
+        set_cmd=ETHTOOL_SGRO,
+        value=ETH_FLAG_GRO,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="lro",
+        long_name="large-receive-offload",
+        kernel_name="rx-lro",
+        get_cmd=0,
+        set_cmd=0,
+        value=ETH_FLAG_LRO,
+        min_kernel_ver=kernel_version_to_int(2, 6, 24),
+    ),
+    EthtoolOffFlag(
+        short_name="rxvlan",
+        long_name="rx-vlan-offload",
+        kernel_name="rx-vlan-hw-parse",
+        get_cmd=0,
+        set_cmd=0,
+        value=ETH_FLAG_RXVLAN,
+        min_kernel_ver=kernel_version_to_int(2, 6, 37),
+    ),
+    EthtoolOffFlag(
+        short_name="txvlan",
+        long_name="tx-vlan-offload",
+        kernel_name="tx-vlan-hw-insert",
+        get_cmd=0,
+        set_cmd=0,
+        value=ETH_FLAG_TXVLAN,
+        min_kernel_ver=kernel_version_to_int(2, 6, 37),
+    ),
+    EthtoolOffFlag(
+        short_name="ntuple",
+        long_name="ntuple-filters",
+        kernel_name="rx-ntuple-filter",
+        get_cmd=0,
+        set_cmd=0,
+        value=ETH_FLAG_NTUPLE,
+        min_kernel_ver=0,
+    ),
+    EthtoolOffFlag(
+        short_name="rxhash",
+        long_name="receive-hashing",
+        kernel_name="rx-hashing",
+        get_cmd=0,
+        set_cmd=0,
+        value=ETH_FLAG_RXHASH,
+        min_kernel_ver=0,
+    ),
+]
+
 
 SCHAR_MAX = 127
 ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32 = SCHAR_MAX
