@@ -523,6 +523,14 @@ class Ethtool:
 
             self._with_ioctl.set_rings(ioctl_rings)
 
+    def get_offload_flags(self, ifname):
+        self._with_ioctl.change_ifname(ifname)
+        return self._with_ioctl.get_offload_flags()
+
+    def set_offload_flag(self, ifname, long_name, data):
+        self._with_ioctl.change_ifname(ifname)
+        return self._with_ioctl.set_offload_flag(long_name, data)
+
     def get_features(self, ifname):
         self._with_ioctl.change_ifname(ifname)
         return EthtoolFeatures.from_ioctl(self._with_ioctl.get_features())
