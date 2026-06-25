@@ -538,6 +538,13 @@ class Ethtool:
         return self._with_ioctl.set_offload_flag(long_name, data)
 
     def get_features(self, ifname):
+        """Return Device features.
+
+        This is the equivalent of the <ethtool -k|--show-features XX> command
+
+        Ethtool().get_features("wlan0").features.keys()
+        Return all features available on the device wlan0
+        """
         self._with_ioctl.change_ifname(ifname)
         return EthtoolFeatures.from_ioctl(
             features=self._with_ioctl.get_features(),
@@ -545,6 +552,24 @@ class Ethtool:
         )
 
     def set_features(self, ifname, features):
+        """Change Device features.
+
+        This is the equivalent of the <ethtool -K|--features> command
+
+        Disable and enable tx-checksum-ipv4 offload:
+        >>> ethtool = Ethtool()
+        >>> features = ethtool.get_features("wlan0")
+        >>> features.features["tx-checksum-ipv4"].enable
+        True
+        >>> features.features["tx-checksum-ipv4"].enable = False
+        >>> ethtool.set_features("wlan0", features)
+        >>> ethtool.get_features("wlan0").features["tx-checksum-ipv4"].enable
+        False
+        >>> features.features["tx-checksum-ipv4"].enable = True
+        >>> ethtool.set_features("wlan0", features)
+        >>> ethtool.get_features("wlan0").features["tx-checksum-ipv4"].enable
+        True
+        """
         self._with_ioctl.change_ifname(ifname)
         ioctl_features = self._with_ioctl.get_features()
         EthtoolFeatures.to_ioctl(ioctl_features, features)
