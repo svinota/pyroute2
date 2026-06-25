@@ -1,6 +1,7 @@
 import logging
 from collections import namedtuple
 from ctypes import c_uint16, c_uint32
+from dataclasses import dataclass
 
 from pyroute2.ethtool.common import (
     LINK_DUPLEX_NAMES,
@@ -57,14 +58,19 @@ class EthtoolFeature(object):
         self.available = available
 
 
-class EthtoolFeatures(namedtuple('EthtoolFeatures', ('features',))):
+@dataclass
+class EthtoolFeatures:
+    features: dict[str, EthtoolFeature]
+    offload_flags: dict[str, bool]
+
     @classmethod
-    def from_ioctl(cls, features):
+    def from_ioctl(cls, features, offload_flags):
         return cls(
-            {
+            features={
                 name: EthtoolFeature(set, index, name, enable, available)
                 for name, enable, available, set, index in features
-            }
+            },
+            offload_flags=offload_flags,
         )
 
     @staticmethod
@@ -533,7 +539,10 @@ class Ethtool:
 
     def get_features(self, ifname):
         self._with_ioctl.change_ifname(ifname)
-        return EthtoolFeatures.from_ioctl(self._with_ioctl.get_features())
+        return EthtoolFeatures.from_ioctl(
+            features=self._with_ioctl.get_features(),
+            offload_flags=self._with_ioctl.get_offload_flags(),
+        )
 
     def set_features(self, ifname, features):
         self._with_ioctl.change_ifname(ifname)
