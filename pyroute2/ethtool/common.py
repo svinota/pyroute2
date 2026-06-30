@@ -195,3 +195,8 @@ LinkModeBits = (
     LinkModeBit(bit_index=120, name='800000baseVR4/Full', type=LMBTypeMode),
 )
 LinkModeBits_by_index = {bit.bit_index: bit for bit in LinkModeBits}
+
+
+def kernel_version_to_int(major: int, minor: int, stable: int):
+    """Used by ethtool.git/common.h"""
+    return ((major) << 16) + ((minor) << 8) + (stable)
