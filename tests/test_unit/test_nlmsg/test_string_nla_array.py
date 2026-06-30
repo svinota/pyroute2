@@ -13,8 +13,6 @@
 
 import struct
 
-import pytest
-
 from pyroute2.netlink import nlmsg_atoms
 
 
@@ -47,7 +45,7 @@ def test_string_nla_array_decode_no_attributeerror():
 
 
 def test_string_nla_array_value_is_list():
-    """After decoding a *string NLA, the value must be a list, not raw bytes."""
+    """After decoding a *string NLA, value must be a list, not raw bytes."""
     buf = _build_string_nla_array('', 'ssid_a')
     instance = nlmsg_atoms.string(data=buf, offset=0)
     instance._nla_array = True
