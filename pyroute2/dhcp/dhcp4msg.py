@@ -76,6 +76,7 @@ class dhcp4msg(dhcpmsg):
         (Option.TCP_KEEPALIVE_INTERVAL, 'be32'),
         (Option.TCP_KEEPALIVE_GARBAGE, 'bool'),
         (Option.NIS_DOMAIN, 'string'),
+        (Option.NIS_SERVERS, 'ip4list'),
         (Option.NDS_SERVERS, 'ip4list'),
         (Option.NTP_SERVERS, 'ip4list'),
         (Option.VENDOR_SPECIFIC_INFORMATION, 'string'),
