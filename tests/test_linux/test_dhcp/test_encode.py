@@ -10,6 +10,10 @@ from pyroute2.dhcp.enums import dhcp
     ('option_name', 'option_value'),
     (
         ('name_server', ['1.1.1.2', '2.2.2.2']),
+        # rfc 2132 8.2, code 41
+        ('nis_servers', ['1.1.1.2', '2.2.2.2']),
+        # rfc 2241 3, code 85; same wire format, different option
+        ('nds_servers', ['3.3.3.3']),
         ('lease_time', -1),
         ('host_name', 'some computer'),
         ('max_msg_size', 1500),
