@@ -327,3 +327,14 @@ def test_module_info_sff8079_copper():
         ("Vendor SN", "KAHZ4263"),
         ("Date code", "241129"),
     ]
+
+
+def test_features_offload_flags():
+    flag_name = "tcp-segmentation-offload"
+    ethtool = Ethtool()
+
+    ethtool.set_offload_flag("lo", flag_name, False)
+    assert ethtool.get_features("lo").offload_flags[flag_name] is False
+
+    ethtool.set_offload_flag("lo", flag_name, True)
+    assert ethtool.get_features("lo").offload_flags[flag_name] is True
