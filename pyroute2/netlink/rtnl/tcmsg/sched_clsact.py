@@ -13,8 +13,8 @@ BPF ingress/egress example using clsact qdisc::
 
     # open_bpf_fd is outside the scope of pyroute2
     #fd = open_bpf_fd()
-    eth0 = ip.get_links(ifname="eth0")[0]
-    ip.tc("add", "clsact", eth0)
+    idx = ip.get_links(ifname="eth0")[0]
+    ip.tc("add", "clsact", idx)
     # add ingress clsact
     ip.tc("add-filter", "bpf", idx, ":1", fd=fd, name="myprog",
           parent="ffff:fff2", classid=1, direct_action=True)
