@@ -2355,10 +2355,11 @@ class nlmsg_atoms(object):
         def decode(self):
             nla_base_string.decode(self)
             self.value = self['value']
-            try:
-                self.value = self.value.decode('utf-8')
-            except UnicodeDecodeError:
-                pass  # Failed to decode, keep undecoded value
+            if isinstance(self.value, bytes):
+                try:
+                    self.value = self.value.decode('utf-8')
+                except UnicodeDecodeError:
+                    pass  # Failed to decode, keep undecoded value
 
     class asciiz(string):
         '''
