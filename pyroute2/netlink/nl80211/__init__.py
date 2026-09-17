@@ -1310,6 +1310,59 @@ class nl80211cmd(genlmsg):
                 ('NL80211_STA_BSS_PARAM_BEACON_INTERVAL', 'uint16'),
             )
 
+        class tid_stats(nla):
+            '''
+            Decode the per-TID statistics
+            See nl80211.h: enum nl80211_tid_stats,
+            NL80211_STA_INFO_TID_STATS
+
+            The attribute is an array, the cell header type being
+            TID + 1; the special TID 16 (i.e. type 17) is used for
+            non-QoS frames. TIDs without statistics are not reported.
+            TID is exported as the `tid` key instead of array index.
+            '''
+
+            class txq_stats(nla):
+                '''
+                Decode the per-TXQ statistics
+                See nl80211.h: enum nl80211_txq_stats,
+                NL80211_TID_STATS_TXQ_STATS
+                '''
+
+                prefix = 'NL80211_TXQ_STATS_'
+                nla_map = (
+                    ('__NL80211_TXQ_STATS_INVALID', 'hex'),
+                    ('NL80211_TXQ_STATS_BACKLOG_BYTES', 'uint32'),
+                    ('NL80211_TXQ_STATS_BACKLOG_PACKETS', 'uint32'),
+                    ('NL80211_TXQ_STATS_FLOWS', 'uint32'),
+                    ('NL80211_TXQ_STATS_DROPS', 'uint32'),
+                    ('NL80211_TXQ_STATS_ECN_MARKS', 'uint32'),
+                    ('NL80211_TXQ_STATS_OVERLIMIT', 'uint32'),
+                    ('NL80211_TXQ_STATS_OVERMEMORY', 'uint32'),
+                    ('NL80211_TXQ_STATS_COLLISIONS', 'uint32'),
+                    ('NL80211_TXQ_STATS_TX_BYTES', 'uint32'),
+                    ('NL80211_TXQ_STATS_TX_PACKETS', 'uint32'),
+                    ('NL80211_TXQ_STATS_MAX_FLOWS', 'uint32'),
+                )
+
+            prefix = 'NL80211_TID_STATS_'
+            nla_map = (
+                ('__NL80211_TID_STATS_INVALID', 'hex'),
+                ('NL80211_TID_STATS_RX_MSDU', 'uint64'),
+                ('NL80211_TID_STATS_TX_MSDU', 'uint64'),
+                ('NL80211_TID_STATS_TX_MSDU_RETRIES', 'uint64'),
+                ('NL80211_TID_STATS_TX_MSDU_FAILED', 'uint64'),
+                ('NL80211_TID_STATS_PAD', 'hex'),
+                ('NL80211_TID_STATS_TXQ_STATS', 'txq_stats'),
+            )
+
+            def decode(self):
+                # nla.decode() drops the header, so the TID has to be
+                # fetched from the cell header before that
+                tid = struct.unpack_from('H', self.data, self.offset + 2)[0]
+                nla.decode(self)
+                self['tid'] = tid - 1
+
         prefix = 'NL80211_STA_INFO_'
         nla_map = (
             ('__NL80211_STA_INFO_INVALID', 'hex'),
@@ -1343,7 +1396,7 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_RX_DROP_MISC', 'uint32'),
             ('NL80211_STA_INFO_BEACON_RX', 'uint64'),
             ('NL80211_STA_INFO_BEACON_SIGNAL_AVG', 'int8'),
-            ('NL80211_STA_INFO_TID_STATS', 'hex'),
+            ('NL80211_STA_INFO_TID_STATS', '*tid_stats'),
             ('NL80211_STA_INFO_RX_DURATION', 'uint64'),
             ('NL80211_STA_INFO_PAD', 'hex'),
             ('NL80211_STA_INFO_ACK_SIGNAL', 'int8'),
