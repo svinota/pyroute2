@@ -9,7 +9,7 @@ import datetime
 import struct
 
 from pyroute2.common import map_namespace
-from pyroute2.netlink import genlmsg, nla, nla_base
+from pyroute2.netlink import genlmsg, nla, nla_base, nlmsg_atoms
 from pyroute2.netlink.generic import (
     AsyncGenericNetlinkSocket,
     GenericNetlinkSocket,
@@ -230,6 +230,15 @@ NL80211_STA_FLAG_TDLS_PEER = 1 << 6
 NL80211_STA_FLAG_ASSOCIATED = 1 << 7
 (STA_FLAG_NAMES, STA_FLAG_VALUES) = map_namespace(
     'NL80211_STA_FLAG_', globals()
+)
+
+# mesh power save mode
+NL80211_MESH_POWER_UNKNOWN = 0
+NL80211_MESH_POWER_ACTIVE = 1
+NL80211_MESH_POWER_LIGHT_SLEEP = 2
+NL80211_MESH_POWER_DEEP_SLEEP = 3
+(MESH_POWER_NAMES, MESH_POWER_VALUES) = map_namespace(
+    'NL80211_MESH_POWER_', globals(), normalize=True
 )
 
 # Cipher suites
@@ -1310,6 +1319,17 @@ class nl80211cmd(genlmsg):
                 ('NL80211_STA_BSS_PARAM_BEACON_INTERVAL', 'uint16'),
             )
 
+        class mesh_power_mode(nlmsg_atoms.uint32):
+            '''
+            Decode the mesh power save mode
+            See nl80211.h: enum nl80211_mesh_power_mode,
+            NL80211_STA_INFO_LOCAL_PM
+            NL80211_STA_INFO_PEER_PM
+            NL80211_STA_INFO_NONPEER_PM
+            '''
+
+            value_map = MESH_POWER_VALUES
+
         class tid_stats(nla):
             '''
             Decode the per-TID statistics
@@ -1385,9 +1405,9 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_STA_FLAGS', 'STAFlags'),
             ('NL80211_STA_INFO_BEACON_LOSS', 'uint32'),
             ('NL80211_STA_INFO_T_OFFSET', 'int64'),
-            ('NL80211_STA_INFO_LOCAL_PM', 'hex'),
-            ('NL80211_STA_INFO_PEER_PM', 'hex'),
-            ('NL80211_STA_INFO_NONPEER_PM', 'hex'),
+            ('NL80211_STA_INFO_LOCAL_PM', 'mesh_power_mode'),
+            ('NL80211_STA_INFO_PEER_PM', 'mesh_power_mode'),
+            ('NL80211_STA_INFO_NONPEER_PM', 'mesh_power_mode'),
             ('NL80211_STA_INFO_RX_BYTES64', 'uint64'),
             ('NL80211_STA_INFO_TX_BYTES64', 'uint64'),
             ('NL80211_STA_INFO_CHAIN_SIGNAL', '*int8'),
