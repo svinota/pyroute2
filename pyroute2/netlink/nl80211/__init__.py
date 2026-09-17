@@ -1346,6 +1346,16 @@ class nl80211cmd(genlmsg):
             ('NL80211_STA_INFO_TID_STATS', 'hex'),
             ('NL80211_STA_INFO_RX_DURATION', 'uint64'),
             ('NL80211_STA_INFO_PAD', 'hex'),
+            ('NL80211_STA_INFO_ACK_SIGNAL', 'int8'),
+            ('NL80211_STA_INFO_ACK_SIGNAL_AVG', 'int8'),
+            ('NL80211_STA_INFO_RX_MPDUS', 'uint32'),
+            ('NL80211_STA_INFO_FCS_ERROR_COUNT', 'uint32'),
+            ('NL80211_STA_INFO_CONNECTED_TO_GATE', 'uint8'),
+            ('NL80211_STA_INFO_TX_DURATION', 'uint64'),
+            ('NL80211_STA_INFO_AIRTIME_WEIGHT', 'uint16'),
+            ('NL80211_STA_INFO_AIRTIME_LINK_METRIC', 'uint32'),
+            ('NL80211_STA_INFO_ASSOC_AT_BOOTTIME', 'uint64'),
+            ('NL80211_STA_INFO_CONNECTED_TO_AS', 'uint8'),
             ('NL80211_STA_INFO_MAX', 'hex'),
         )
 
