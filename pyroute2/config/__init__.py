@@ -5,11 +5,10 @@ import signal
 import socket
 from typing import Literal, Union
 
-metric_type = Literal['c', 'g', 'ms']
+metric_type = Literal["c", "g", "ms"]
 
 
 class LocalMock:
-
     def __init__(self):
         self.call_args_list = []
 
@@ -35,9 +34,7 @@ class LocalMock:
     def __int__(self) -> int:
         return -1
 
-    def put(
-        self, name: str, value: Union[int, str], kind: metric_type
-    ) -> None:
+    def put(self, name: str, value: Union[int, str], kind: metric_type) -> None:
         pass
 
     def commit(self) -> None:
@@ -64,14 +61,14 @@ def mock_if(name):
     return decorator
 
 
-kernel_version_re = re.compile('^[0-9.]+')
+kernel_version_re = re.compile("^[0-9.]+")
 
 
 def parse_kernel_version(kernel_name):
     match_obj = kernel_version_re.match(kernel_name)
     if match_obj is None:
         return []
-    return [int(x) for x in kernel_name[0 : match_obj.end()].split('.') if x]
+    return [int(x) for x in kernel_name[0 : match_obj.end()].split(".") if x]
 
 
 SocketBase = socket.socket
@@ -87,12 +84,12 @@ gc_timeout = 60
 db_transaction_limit = 1
 cache_expire = 60
 telemetry = None
-child_process_mode = 'fork'
+child_process_mode = "fork"
 # Disable signal in 'mp' mode of child_process_mode
 disable_mp_signal = False
 force_gc = False
 signal_stop_remote = None
-if hasattr(signal, 'SIGUSR1'):
+if hasattr(signal, "SIGUSR1"):
     signal_stop_remote = signal.SIGUSR1
 
 mock_netlink = False
@@ -103,22 +100,33 @@ nlsocket_thread_safe = True
 # highly possible that the kernel will be
 # changed in runtime, while calling uname()
 # every time is a bit expensive
-uname = tuple(platform.uname())
+#
+# Read the fields by name: indexing or iterating platform.uname()
+# resolves its lazy `processor` field, which runs `uname -p` in a
+# subprocess, and architecture() runs `file` on the interpreter
+# unless given no executable.
+_uname = platform.uname()
+uname = (
+    _uname.system,
+    _uname.node,
+    _uname.release,
+    _uname.version,
+    _uname.machine,
+    "",
+)
 machine = platform.machine()
-arch = platform.architecture()[0]
+arch = platform.architecture(executable="")[0]
 kernel = parse_kernel_version(uname[2])
 
 default_create_socket_timeout = 10
 default_communicate_timeout = 2
 
-AF_BRIDGE = getattr(socket, 'AF_BRIDGE', 7)
-AF_NETLINK = getattr(socket, 'AF_NETLINK', 16)
+AF_BRIDGE = getattr(socket, "AF_BRIDGE", 7)
+AF_NETLINK = getattr(socket, "AF_NETLINK", 16)
 
 data_plugins_pkgs = []
 data_plugins_path = []
 
-netns_path = ['/var/run/netns', '/var/run/docker/netns']
+netns_path = ["/var/run/netns", "/var/run/docker/netns"]
 
-entry_points_aliases = {
-    'pyroute2.netlink.exceptions': 'pyroute2.netlink.exceptions'
-}
+entry_points_aliases = {"pyroute2.netlink.exceptions": "pyroute2.netlink.exceptions"}
