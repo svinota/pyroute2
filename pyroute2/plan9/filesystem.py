@@ -176,9 +176,8 @@ class Inode:
 
 class Filesystem:
 
-    inodes = {}
-
     def __init__(self):
+        self.inodes = {}
         self.__path = 255
         # create the root inode
         path = 0
@@ -217,10 +216,11 @@ class Filesystem:
 
 class Session:
 
-    fid_table = {}
-
     def __init__(self, filesystem):
         self.filesystem = filesystem
+        # fids are scoped to one connection in 9P, so each session
+        # needs its own table
+        self.fid_table = {}
 
     @property
     def root(self):
