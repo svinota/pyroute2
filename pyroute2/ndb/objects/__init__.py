@@ -146,6 +146,7 @@ class AsyncObject(dict):
     _apply_script = None
     _apply_script_snapshots = []
     _key = None
+    _initial_selector = None
     _replace = None
     _replace_on_key_change = ReplacementPolicy.FAIL
     _init_complete = False
@@ -206,6 +207,10 @@ class AsyncObject(dict):
                 kname = self.iclass.nla2name(name)
                 if self.get(kname):
                     ret[name] = self[kname]
+            for name in self._initial_selector:
+                kname = self.iclass.name2nla(name)
+                if kname in self.ndb.schema.compiled[self.table]['names']:
+                    ret[kname] = self._initial_selector[name]
         return ret
 
     @key.setter
@@ -273,6 +278,7 @@ class AsyncObject(dict):
         load=True,
         master=None,
         check=True,
+        monitor=False,
         flags=ObjectFlags.UNSPEC,
     ):
         self.view = view
@@ -312,6 +318,7 @@ class AsyncObject(dict):
         if self.event_map is None:
             self.event_map = {}
         self._apply_script = []
+        self._initial_selector = {}
         self.fallback_for = {
             'add': {errno.EEXIST: fallback_add, errno.EAGAIN: None},
             'set': {errno.ENODEV: None},
@@ -330,8 +337,10 @@ class AsyncObject(dict):
             create = False
         exists = self.exists(key)
         ckey = self.complete_key(key)
-        if create:
-            if check & exists:
+        if monitor:
+            self._initial_selector = dict(key)
+        elif create:
+            if check and exists:
                 raise KeyError('object exists')
             for name in key:
                 self[self.iclass.nla2name(name)] = key[name]
@@ -1127,28 +1136,46 @@ class AsyncObject(dict):
             self.state.set('system')
         return spec
 
+    @staticmethod
+    async def hook_preload(obj, target, event):
+        pass
+
     async def load_rtnlmsg(self, sources, target, event):
         '''
         Check if the RTNL event matches the object and load the
         data from the database if it does.
         '''
+        #
+        # Pre-loading hook
+        await self.hook_preload(self, target, event)
+
         # TODO: partial match (object rename / restore)
         # ...
         if ObjectFlags.SNAPSHOT in self.flags:
             return
 
-        # full match
-        for norm, name in zip(self.knorm, self.kspec):
-            value = self.get(norm)
-            if value is None:
-                continue
-            if name == 'target':
-                if value != target:
+        if self._initial_selector:
+            # partial match for template objects
+            for key, value in self._initial_selector.items():
+                if key == 'target':
+                    if target != value:
+                        return
+                    continue
+                if event.get(key) != value:
                     return
-            elif name == 'tflags':
-                continue
-            elif value not in (event.get_attr(name), event.get(norm)):
-                return
+        else:
+            # full match
+            for norm, name in zip(self.knorm, self.kspec):
+                value = self.get(norm)
+                if value is None:
+                    continue
+                if name == 'target':
+                    if value != target:
+                        return
+                elif name == 'tflags':
+                    continue
+                elif value not in (event.get_attr(name), event.get(norm)):
+                    return
 
         self.log.debug('load_rtnl: %s' % str(event.get('header')))
         if event['header'].get('type', 0) % 2:
