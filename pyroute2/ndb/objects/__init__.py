@@ -966,7 +966,7 @@ class AsyncObject(dict):
         if rollback:
             #
             # Iterate all the snapshot tables and collect the diff
-            for cls in self.view.classes.values():
+            for cname, cls in self.view.classes.items():
                 if issubclass(type(self), cls) or issubclass(cls, type(self)):
                     continue
                 table = cls.table
@@ -992,7 +992,9 @@ class AsyncObject(dict):
                     )
                     key['create'] = True
                     try:
-                        obj = self.view.template(key, table)
+                        obj = self.ndb.views[cname].asyncore.template(
+                            key, table
+                        )
                     except KeyError:
                         continue
                     obj.load_sql(ctxid=self.ctxid)
