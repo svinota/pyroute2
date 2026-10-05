@@ -191,7 +191,7 @@ class DBSchema:
     indices = {}
     foreign_keys = {}
 
-    def __init__(self, config, event_map, log_channel):
+    def __init__(self, config, log_channel):
         global plugins
         self.config = DBDict(self, 'config')
         self.stats = {}
@@ -485,7 +485,7 @@ class DBSchema:
         self.connection.backup(backup_connection)
         backup_connection.close()
 
-    def export(self, f='stdout'):
+    def export(self, ctxid=None, f='stdout'):
         close = False
         if f in ('stdout', 'stderr'):
             f = getattr(sys, f)
@@ -494,11 +494,13 @@ class DBSchema:
             close = True
         try:
             for table in self.spec.keys():
+                if ctxid is not None:
+                    table = f'{table}_{ctxid}'
                 f.write(f'\ntable {table}\n')
                 for record in self.execute(f'SELECT * FROM {table}'):
                     f.write(' '.join([str(x) for x in record]))
                     f.write('\n')
-                if self.rtnl_log:
+                if self.rtnl_log and ctxid is None:
                     f.write(f'\ntable {table}_log\n')
                     for record in self.execute(f'SELECT * FROM {table}_log'):
                         f.write(' '.join([str(x) for x in record]))

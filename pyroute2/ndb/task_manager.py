@@ -57,21 +57,32 @@ class TaskManager:
     def __init__(self, ndb):
         self.ndb = ndb
         self.log = ndb.log
-        self.event_map = {}
+        self.schema_event_map = {}
+        self.object_event_map = {}
         self.task_map = {}
         self.event_queue = asyncio.Queue()
         self.stop_event = asyncio.Event()
         self.reload_event = asyncio.Event()
+        self.run_event = asyncio.Event()
+        self.run_event.set()
         self.thread = None
         self.ctime = self.gctime = time.time()
 
+    def register_schema_handler(self, event, handler):
+        if event not in self.schema_event_map:
+            self.schema_event_map[event] = []
+        self.schema_event_map[event].append(handler)
+
+    def unregister_schema_handler(self, event, handler):
+        self.schema_event_map[event].remove(handler)
+
     def register_handler(self, event, handler):
-        if event not in self.event_map:
-            self.event_map[event] = []
-        self.event_map[event].append(handler)
+        if event not in self.object_event_map:
+            self.object_event_map[event] = []
+        self.object_event_map[event].append(handler)
 
     def unregister_handler(self, event, handler):
-        self.event_map[event].remove(handler)
+        self.object_event_map[event].remove(handler)
 
     async def handler_default(self, sources, target, event):
         if isinstance(getattr(event, 'payload', None), Exception):
@@ -120,13 +131,21 @@ class TaskManager:
 
     async def receiver(self):
         while True:
+            await self.run_event.wait()
             event = await self.event_queue.get()
             reschedule = []
-            handlers = self.event_map.get(
-                event.__class__, [self.handler_default]
+            schema_handlers = tuple(
+                self.schema_event_map.get(
+                    event.__class__, [self.handler_default]
+                )
+            )
+            object_handlers = tuple(
+                self.object_event_map.get(
+                    event.__class__, [self.handler_default]
+                )
             )
 
-            for handler in tuple(handlers):
+            for handler in tuple(object_handlers + schema_handlers):
                 try:
                     target = event['header']['target']
                     # self.log.debug(f'await {handler} for {event}')
@@ -142,7 +161,7 @@ class TaskManager:
                         self.log.error('drop %s' % (event,))
                 except InvalidateHandlerException:
                     try:
-                        handlers.remove(handler)
+                        self.unregister_handler(handler)
                     except Exception:
                         self.log.error(
                             'could not invalidate '
@@ -162,17 +181,14 @@ class TaskManager:
 
     def setup(self):
         self.thread = id(threading.current_thread())
-        event_map = {
-            cmsg_event: [self.handler_event],
-            cmsg_failed: [self.handler_failed],
-        }
-        self.event_map = event_map
+        self.register_schema_handler(cmsg_event, self.handler_event)
+        self.register_schema_handler(cmsg_failed, self.handler_failed)
         self.ndb.schema = schema.DBSchema(
-            self.ndb.config, self.event_map, self.log.channel('schema')
+            self.ndb.config, self.log.channel('schema')
         )
         for event, handlers in self.ndb.schema.event_map.items():
             for handler in handlers:
-                self.register_handler(event, handler)
+                self.register_schema_handler(event, handler)
 
     async def run(self):
         self.event_loop = asyncio.get_event_loop()

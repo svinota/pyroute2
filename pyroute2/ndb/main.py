@@ -462,6 +462,7 @@ class NDB:
         self._dbm_thread = None
         self._dbm_ready = threading.Event()
         self._dbm_shutdown = threading.Event()
+        self.views = {}
         #
         if log:
             if isinstance(log, basestring):
@@ -504,6 +505,7 @@ class NDB:
         self._dbm_ready.wait()
         for vname, view in self._create_views():
             setattr(self, vname, view)
+            self.views[vname] = view
         self.db = SyncDB(self.task_manager.event_loop, self)
         self.localns = -1
         for spec in self._nl:
