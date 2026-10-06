@@ -86,6 +86,6 @@ class Rule(AsyncObject):
             if name_raw in self.kspec:
                 nkey[name_raw] = value
             if name_norm not in self._fields and value in (0, ''):
-                dict.__setitem__(self, name_norm, None)
+                self.data[name_norm] = None
         self._key = nkey
         return spec
