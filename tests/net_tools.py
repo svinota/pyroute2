@@ -272,3 +272,22 @@ def vlandb_exists(ifname, vlan, state, netns=None, timeout=1, retry=0.2):
     return wait_for_ip_object2(
         ns + ['bridge', '-j', '-d', 'vlan'], pipeline, timeout, retry
     )
+
+
+def vlan_tunnel_exists(ifname, tunnel, netns=None, timeout=1, retry=0.2):
+    # tunnel: the expected `bridge -j vlan tunnelshow` entry, such as
+    # {'vlan': 10, 'tunid': 1000}, or for a range also 'vlanEnd' and
+    # 'tunidEnd'.
+    ns = [] if netns is None else ['ip', 'netns', 'exec', netns]
+    pipeline = [
+        {'select': [{'field': 'ifname', 'value': ifname}]},
+        {
+            'path': 'tunnels',
+            'select': [
+                {'field': key, 'value': value} for key, value in tunnel.items()
+            ],
+        },
+    ]
+    return wait_for_ip_object2(
+        ns + ['bridge', '-j', 'vlan', 'tunnelshow'], pipeline, timeout, retry
+    )
