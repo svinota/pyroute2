@@ -107,6 +107,8 @@ async def fallback_add(self, idx_req, req):
 class ObjectFlags(IntFlag):
     UNSPEC = 0x0
     SNAPSHOT = 0x1
+    INCOMPLETE = 0x2
+    MONITOR = 0x4
 
 
 class ReplacementPolicy(IntFlag):
@@ -178,7 +180,7 @@ class AsyncObject(dict):
 
         Read-only property.
         '''
-        if self.ctxid:
+        if self.ctxid and not self.flags & ObjectFlags.INCOMPLETE:
             return '%s_%s' % (self.table, self.ctxid)
         else:
             return self.table
@@ -339,6 +341,7 @@ class AsyncObject(dict):
         ckey = self.complete_key(key)
         if monitor:
             self._initial_selector = dict(key)
+            self.flags |= ObjectFlags.MONITOR
         elif create:
             if check and exists:
                 raise KeyError('object exists')
@@ -357,6 +360,7 @@ class AsyncObject(dict):
                 else:
                     self.load_sql(table=self.table)
         self._init_complete = True
+        self.flags &= ~ObjectFlags.INCOMPLETE
 
     @classmethod
     def new_spec(cls, spec, context=None, localhost=None):
@@ -573,7 +577,7 @@ class AsyncObject(dict):
                 )
             )
 
-    async def snapshot(self, ctxid=None):
+    async def snapshot(self, ctxid=None, flags=0):
         '''
         Create and return a snapshot of the object. The method creates
         corresponding SQL tables for the object itself and for detected
@@ -588,7 +592,7 @@ class AsyncObject(dict):
         else:
             key = self._replace.key
         snp = type(self)(
-            self.view, key, ctxid=ctxid, flags=ObjectFlags.SNAPSHOT
+            self.view, key, ctxid=ctxid, flags=(ObjectFlags.SNAPSHOT | flags)
         )
         snp.register()
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
@@ -1154,7 +1158,7 @@ class AsyncObject(dict):
         if ObjectFlags.SNAPSHOT in self.flags:
             return
 
-        if self._initial_selector:
+        if ObjectFlags.MONITOR in self.flags:
             # partial match for template objects
             for key, value in self._initial_selector.items():
                 if key == 'target':
