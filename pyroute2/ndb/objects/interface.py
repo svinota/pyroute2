@@ -911,9 +911,9 @@ class Interface(AsyncObject):
             'link', 'set', index=self['index'], xdp_fd=fd
         )
 
-    async def snapshot(self, ctxid=None):
+    async def snapshot(self, ctxid=None, flags=0):
         # 1. make own snapshot
-        snp = await super().snapshot(ctxid=ctxid)
+        snp = await super().snapshot(ctxid=ctxid, flags=flags)
         # 2. collect dependencies and store in self.snapshot_deps
         for spec in self.ndb.interfaces.asyncore.getmany(
             {'IFLA_MASTER': snp['index']}
