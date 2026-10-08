@@ -180,7 +180,7 @@ class AsyncObject(dict):
 
         Read-only property.
         '''
-        if self.ctxid and not self.flags & ObjectFlags.INCOMPLETE:
+        if self.ctxid and ObjectFlags.INCOMPLETE not in self.flags:
             return '%s_%s' % (self.table, self.ctxid)
         else:
             return self.table
@@ -222,6 +222,13 @@ class AsyncObject(dict):
         for key, value in k.items():
             if value is not None:
                 dict.__setitem__(self, self.iclass.nla2name(key), value)
+
+    @property
+    def key_lower(self):
+        ret = collections.OrderedDict()
+        for key, value in self.key.items():
+            ret[self.iclass.nla2name(key)] = value
+        return ret
 
     #
     # 8<------------------------------------------------------------
@@ -571,11 +578,11 @@ class AsyncObject(dict):
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
-            (
-                self.ndb.task_manager.register_handler(
-                    event, partial(wr_handler, wr, fname)
-                )
-            )
+            if ObjectFlags.MONITOR in self.flags:
+                register = self.ndb.task_manager.register_preload_handler
+            else:
+                register = self.ndb.task_manager.register_handler
+            register(event, partial(wr_handler, wr, fname))
 
     async def snapshot(self, ctxid=None, flags=0):
         '''
@@ -588,7 +595,10 @@ class AsyncObject(dict):
         '''
         ctxid = ctxid or self.ctxid or id(self)
         if self._replace is None:
-            key = self.key
+            if ObjectFlags.MONITOR in self.flags:
+                key = self.key_lower
+            else:
+                key = self.key
         else:
             key = self._replace.key
         snp = type(self)(
@@ -780,7 +790,7 @@ class AsyncObject(dict):
             ('change', 'system'),
         )
 
-        self.load_sql()
+        self.load_sql(table=self.table)
         self.log.debug('check: %s' % str(self.state.events))
 
         if self.state.transition() not in state_map:
@@ -1223,6 +1233,12 @@ class RTNL_Object(SyncBase):
     @property
     def key(self):
         return self.asyncore.key
+
+    def set_hook_preload(self, hook):
+        self.asyncore.hook_preload = hook
+
+    def register(self):
+        return self._main_sync_call(self.asyncore.register)
 
     def complete_key(self, key):
         return self._main_sync_call(self.asyncore.complete_key, key)
