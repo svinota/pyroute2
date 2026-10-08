@@ -103,9 +103,22 @@ nlsocket_thread_safe = True
 # highly possible that the kernel will be
 # changed in runtime, while calling uname()
 # every time is a bit expensive
-uname = tuple(platform.uname())
+#
+# Read the fields by name: indexing or iterating platform.uname()
+# resolves its lazy `processor` field, which runs `uname -p` in a
+# subprocess, and architecture() runs `file` on the interpreter
+# unless given no executable.
+_uname = platform.uname()
+uname = (
+    _uname.system,
+    _uname.node,
+    _uname.release,
+    _uname.version,
+    _uname.machine,
+    '',
+)
 machine = platform.machine()
-arch = platform.architecture()[0]
+arch = platform.architecture(executable='')[0]
 kernel = parse_kernel_version(uname[2])
 
 default_create_socket_timeout = 10
