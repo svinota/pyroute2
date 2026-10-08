@@ -916,13 +916,13 @@ class Interface(AsyncObject):
         snp = await super().snapshot(ctxid=ctxid)
         # 2. collect dependencies and store in self.snapshot_deps
         for spec in self.ndb.interfaces.asyncore.getmany(
-            {'IFLA_MASTER': self['index']}
+            {'IFLA_MASTER': snp['index']}
         ):
             # bridge ports
             link = type(self)(self.view, spec)
             snp.snapshot_deps.append((link, await link.snapshot()))
         for spec in self.ndb.interfaces.asyncore.getmany(
-            {'IFLA_LINK': self['index']}
+            {'IFLA_LINK': snp['index']}
         ):
             link = type(self)(self.view, spec)
             # vlans & veth
