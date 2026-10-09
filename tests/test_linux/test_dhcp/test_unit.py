@@ -296,6 +296,48 @@ async def test_requesting_timeout(
     )
 
 
+async def test_selecting_timeout(
+    client_config: ClientConfig, caplog: pytest.LogCaptureFixture
+):
+    '''The client resets itself after a timeout in the SELECTING state.
+
+    It has the effect of changing the xid
+    when nobody answers DISCOVERS for a long time.
+    '''
+    # We do have a default timeout for the SELECTING state
+    assert client_config.timeouts.get(State.SELECTING)
+    caplog.set_level('INFO')
+    # force timeout to 1s when nobody answers our DISCOVERs
+    client_config.timeouts[State.SELECTING] = 1
+    async with AsyncDHCPClient(client_config) as cli:
+        await cli.bootstrap()
+        # The client sends a DISCOVER, which is not answered
+        await cli.wait_for_state(State.SELECTING, timeout=0.5)
+        # it hasn't timed out yet and the xid is the first one it generated
+        assert (first_xid := cli.xid)
+        # nobody answers, the SELECTING state times out
+        # and the client goes back to INIT
+        await cli.wait_for_state(State.INIT, timeout=2)
+        # which then goes back to SELECTING
+        await cli.wait_for_state(State.SELECTING, timeout=1)
+        # but with a different xid
+        assert (second_xid := cli.xid)
+        assert not second_xid.matches(first_xid)
+        # give it a little time to send a new DISCOVER
+        await asyncio.sleep(0.5)
+    assert caplog.messages[-7:] == [
+        'INIT -> SELECTING',
+        'Sending DISCOVER to ff:ff:ff:ff:ff:ff/255.255.255.255:67 '
+        f'(xid {first_xid.for_state(State.SELECTING)})',
+        'Resetting after 1.0 seconds',
+        'SELECTING -> INIT',
+        'INIT -> SELECTING',
+        'Sending DISCOVER to ff:ff:ff:ff:ff:ff/255.255.255.255:67 '
+        f'(xid {second_xid.for_state(State.SELECTING)})',
+        'SELECTING -> OFF',
+    ]
+
+
 async def test_wait_for_state_timeout(client_config: ClientConfig):
     '''wait_for_state() can timeout after a given delay'''
     async with AsyncDHCPClient(client_config) as cli:

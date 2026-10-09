@@ -68,6 +68,9 @@ class ClientConfig:
             fsm.State.REBOOTING: 10,
             # When we get an OFFER, how long should we wait for an ACK ?
             fsm.State.REQUESTING: 30,
+            # If we don't get any response to our DISCOVERs after 15mn,
+            # might as well reset the process to start with a new xid.
+            fsm.State.SELECTING: 60 * 15,
         }
     )
     # FIXME: we send too many retries according to the RFC
@@ -262,7 +265,7 @@ class AsyncDHCPClient:
         Only available when the context manager is running.
         '''
         if self._xid is None:
-            raise AttributeError('xid is not defined')
+            raise AttributeError('xid has not been set on this client')
         return self._xid
 
     # Timer callbacks
