@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import resource
 import threading
 import time
 import traceback
@@ -66,7 +67,72 @@ class TaskManager:
         self.run_event = asyncio.Event()
         self.run_event.set()
         self.thread = None
+        self.metrics_server = None
         self.ctime = self.gctime = time.time()
+
+    def _memory_metrics(self):
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        rss = usage.ru_maxrss * 1024
+        return {
+            'pyroute2_ndb_process_rss_bytes': rss,
+            'pyroute2_ndb_process_utime_seconds': usage.ru_utime,
+            'pyroute2_ndb_process_stime_seconds': usage.ru_stime,
+        }
+
+    def _ndb_metrics(self):
+        return {}
+
+    def _format_prometheus(self):
+        metrics = {}
+        metrics.update(self._memory_metrics())
+        metrics.update(self._ndb_metrics())
+        lines = []
+        for name, value in metrics.items():
+            lines.append(f'# TYPE {name} gauge')
+            lines.append(f'{name} {value}')
+        return '\n'.join(lines) + '\n'
+
+    async def _metrics_handler(self, reader, writer):
+        try:
+            request = await reader.readline()
+            if not request.startswith(b'GET /metrics '):
+                body = b'not found\n'
+                writer.write(
+                    b'HTTP/1.1 404 Not Found\r\n'
+                    b'Content-Type: text/plain\r\n'
+                    b'Content-Length: 10\r\n\r\n'
+                    + body
+                )
+                await writer.drain()
+                return
+            while True:
+                line = await reader.readline()
+                if line in (b'\r\n', b'\n', b''):
+                    break
+            body = self._format_prometheus().encode()
+            writer.write(
+                b'HTTP/1.1 200 OK\r\n'
+                b'Content-Type: text/plain; version=0.0.4\r\n'
+                b'Content-Length: ' + str(len(body)).encode() + b'\r\n\r\n' + body
+            )
+            await writer.drain()
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    async def _start_metrics_server(self):
+        spec = self.ndb.config.metrics_config
+        if not spec:
+            return
+        self.metrics_server = await asyncio.start_server(
+            self._metrics_handler, spec.host, spec.port
+        )
+
+    async def _stop_metrics_server(self):
+        if self.metrics_server is None:
+            return
+        self.metrics_server.close()
+        await self.metrics_server.wait_closed()
 
     def register_preload_handler(self, event, handler):
         if event not in self.preload_event_map:
@@ -161,7 +227,7 @@ class TaskManager:
                         self.log.error('drop %s' % (event,))
                 except InvalidateHandlerException:
                     try:
-                        self.unregister_handler(handler)
+                        self.unregister_handler(type(event), handler)
                     except Exception:
                         self.log.error(
                             'could not invalidate '
@@ -193,11 +259,15 @@ class TaskManager:
     async def run(self):
         self.event_loop = asyncio.get_event_loop()
         self.ndb.event_loop = self.event_loop
+        await self._start_metrics_server()
         self.create_task(self.receiver)
         self.create_task(self.stop)
         self.create_task(self.reload)
         self.ndb._dbm_ready.set()
-        await self.task_watch()
+        try:
+            await self.task_watch()
+        finally:
+            await self._stop_metrics_server()
 
     def cleanup(self):
         self.ndb.schema.close()
