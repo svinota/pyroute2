@@ -434,11 +434,18 @@ class Log:
 
 
 @dataclass
+class MetricsHTTPConfig:
+    host: str = '127.0.0.1'
+    port: int = 0
+
+
+@dataclass
 class NDBConfig:
     localhost: str = 'localhost'
     rtnl_debug: bool = False
     show_format: str = 'native'
     db_spec: str = ':memory:'
+    metrics_config: MetricsHTTPConfig = None
 
 
 class NDB:
@@ -451,6 +458,7 @@ class NDB:
         db_spec=':memory:',
         db_cleanup=True,
         rtnl_debug=False,
+        metrics_config=None,
         log=False,
         auto_netns=False,
         libc=None,
@@ -492,7 +500,10 @@ class NDB:
         self._dbm_ready.clear()
         self._dbm_error = None
         self.config = NDBConfig(
-            localhost=localhost, db_spec=db_spec, rtnl_debug=rtnl_debug
+            localhost=localhost,
+            db_spec=db_spec,
+            rtnl_debug=rtnl_debug,
+            metrics_config=metrics_config,
         )
         #
         self.task_manager = TaskManager(self)
