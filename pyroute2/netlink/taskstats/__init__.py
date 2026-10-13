@@ -282,5 +282,5 @@ class TaskStats(GenericNetlinkSocket):
     def register_mask(self, mask):
         return self._run_with_cleanup(self.asyncore.register_mask, mask)
 
-    def unregister_mask(self, mask):
-        return self._run_with_cleanup(self.asyncore.unregister_mask, mask)
+    def deregister_mask(self, mask):
+        return self._run_with_cleanup(self.asyncore.deregister_mask, mask)

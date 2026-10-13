@@ -107,6 +107,8 @@ async def fallback_add(self, idx_req, req):
 class ObjectFlags(IntFlag):
     UNSPEC = 0x0
     SNAPSHOT = 0x1
+    INCOMPLETE = 0x2
+    MONITOR = 0x4
 
 
 class ReplacementPolicy(IntFlag):
@@ -146,6 +148,7 @@ class AsyncObject(dict):
     _apply_script = None
     _apply_script_snapshots = []
     _key = None
+    _initial_selector = None
     _replace = None
     _replace_on_key_change = ReplacementPolicy.FAIL
     _init_complete = False
@@ -177,7 +180,7 @@ class AsyncObject(dict):
 
         Read-only property.
         '''
-        if self.ctxid:
+        if self.ctxid and ObjectFlags.INCOMPLETE not in self.flags:
             return '%s_%s' % (self.table, self.ctxid)
         else:
             return self.table
@@ -206,6 +209,10 @@ class AsyncObject(dict):
                 kname = self.iclass.nla2name(name)
                 if self.get(kname):
                     ret[name] = self[kname]
+            for name in self._initial_selector:
+                kname = self.iclass.name2nla(name)
+                if kname in self.ndb.schema.compiled[self.table]['names']:
+                    ret[kname] = self._initial_selector[name]
         return ret
 
     @key.setter
@@ -215,6 +222,13 @@ class AsyncObject(dict):
         for key, value in k.items():
             if value is not None:
                 dict.__setitem__(self, self.iclass.nla2name(key), value)
+
+    @property
+    def key_lower(self):
+        ret = collections.OrderedDict()
+        for key, value in self.key.items():
+            ret[self.iclass.nla2name(key)] = value
+        return ret
 
     #
     # 8<------------------------------------------------------------
@@ -273,6 +287,7 @@ class AsyncObject(dict):
         load=True,
         master=None,
         check=True,
+        monitor=False,
         flags=ObjectFlags.UNSPEC,
     ):
         self.view = view
@@ -312,6 +327,7 @@ class AsyncObject(dict):
         if self.event_map is None:
             self.event_map = {}
         self._apply_script = []
+        self._initial_selector = {}
         self.fallback_for = {
             'add': {errno.EEXIST: fallback_add, errno.EAGAIN: None},
             'set': {errno.ENODEV: None},
@@ -330,8 +346,11 @@ class AsyncObject(dict):
             create = False
         exists = self.exists(key)
         ckey = self.complete_key(key)
-        if create:
-            if check & exists:
+        if monitor:
+            self._initial_selector = dict(key)
+            self.flags |= ObjectFlags.MONITOR
+        elif create:
+            if check and exists:
                 raise KeyError('object exists')
             for name in key:
                 self[self.iclass.nla2name(name)] = key[name]
@@ -348,6 +367,7 @@ class AsyncObject(dict):
                 else:
                     self.load_sql(table=self.table)
         self._init_complete = True
+        self.flags &= ~ObjectFlags.INCOMPLETE
 
     @classmethod
     def new_spec(cls, spec, context=None, localhost=None):
@@ -558,13 +578,13 @@ class AsyncObject(dict):
             # Do not trust the implicit scope and pass the
             # weakref explicitly via partial
             #
-            (
-                self.ndb.task_manager.register_handler(
-                    event, partial(wr_handler, wr, fname)
-                )
-            )
+            if ObjectFlags.MONITOR in self.flags:
+                register = self.ndb.task_manager.register_preload_handler
+            else:
+                register = self.ndb.task_manager.register_handler
+            register(event, partial(wr_handler, wr, fname))
 
-    async def snapshot(self, ctxid=None):
+    async def snapshot(self, ctxid=None, flags=0):
         '''
         Create and return a snapshot of the object. The method creates
         corresponding SQL tables for the object itself and for detected
@@ -575,11 +595,14 @@ class AsyncObject(dict):
         '''
         ctxid = ctxid or self.ctxid or id(self)
         if self._replace is None:
-            key = self.key
+            if ObjectFlags.MONITOR in self.flags:
+                key = self.key_lower
+            else:
+                key = self.key
         else:
             key = self._replace.key
         snp = type(self)(
-            self.view, key, ctxid=ctxid, flags=ObjectFlags.SNAPSHOT
+            self.view, key, ctxid=ctxid, flags=(ObjectFlags.SNAPSHOT | flags)
         )
         snp.register()
         self.ndb.schema.save_deps(ctxid, weakref.ref(snp), self.iclass)
@@ -767,7 +790,7 @@ class AsyncObject(dict):
             ('change', 'system'),
         )
 
-        self.load_sql()
+        self.load_sql(table=self.table)
         self.log.debug('check: %s' % str(self.state.events))
 
         if self.state.transition() not in state_map:
@@ -966,7 +989,7 @@ class AsyncObject(dict):
         if rollback:
             #
             # Iterate all the snapshot tables and collect the diff
-            for cls in self.view.classes.values():
+            for cname, cls in self.view.classes.items():
                 if issubclass(type(self), cls) or issubclass(cls, type(self)):
                     continue
                 table = cls.table
@@ -992,7 +1015,9 @@ class AsyncObject(dict):
                     )
                     key['create'] = True
                     try:
-                        obj = self.view.template(key, table)
+                        obj = self.ndb.views[cname].asyncore.template(
+                            key, table
+                        )
                     except KeyError:
                         continue
                     obj.load_sql(ctxid=self.ctxid)
@@ -1125,28 +1150,46 @@ class AsyncObject(dict):
             self.state.set('system')
         return spec
 
+    @staticmethod
+    async def hook_preload(obj, target, event):
+        pass
+
     async def load_rtnlmsg(self, sources, target, event):
         '''
         Check if the RTNL event matches the object and load the
         data from the database if it does.
         '''
+        #
+        # Pre-loading hook
+        await self.hook_preload(self, target, event)
+
         # TODO: partial match (object rename / restore)
         # ...
         if ObjectFlags.SNAPSHOT in self.flags:
             return
 
-        # full match
-        for norm, name in zip(self.knorm, self.kspec):
-            value = self.get(norm)
-            if value is None:
-                continue
-            if name == 'target':
-                if value != target:
+        if ObjectFlags.MONITOR in self.flags:
+            # partial match for template objects
+            for key, value in self._initial_selector.items():
+                if key == 'target':
+                    if target != value:
+                        return
+                    continue
+                if event.get(key) != value:
                     return
-            elif name == 'tflags':
-                continue
-            elif value not in (event.get_attr(name), event.get(norm)):
-                return
+        else:
+            # full match
+            for norm, name in zip(self.knorm, self.kspec):
+                value = self.get(norm)
+                if value is None:
+                    continue
+                if name == 'target':
+                    if value != target:
+                        return
+                elif name == 'tflags':
+                    continue
+                elif value not in (event.get_attr(name), event.get(norm)):
+                    return
 
         self.log.debug('load_rtnl: %s' % str(event.get('header')))
         if event['header'].get('type', 0) % 2:
@@ -1190,6 +1233,12 @@ class RTNL_Object(SyncBase):
     @property
     def key(self):
         return self.asyncore.key
+
+    def set_hook_preload(self, hook):
+        self.asyncore.hook_preload = hook
+
+    def register(self):
+        return self._main_sync_call(self.asyncore.register)
 
     def complete_key(self, key):
         return self._main_sync_call(self.asyncore.complete_key, key)
