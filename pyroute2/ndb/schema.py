@@ -459,7 +459,7 @@ class DBSchema:
                     #
                     pass
             else:
-                raise Exception('DB execute error: {argv} {kwarg}')
+                raise Exception(f'DB execute error: {argv} {kwarg}')
         except Exception:
             raise
         finally:
