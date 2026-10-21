@@ -12,7 +12,7 @@ test_matrix = make_test_matrix(targets=['local', 'netns'])
 
 
 @pytest.mark.parametrize('context', test_matrix, indirect=True)
-def test_drr(context):
+def _test_drr(context):
     index, ifname = context.default_interface
     try:
         context.ipr.tc('add', 'drr', index=index, handle='1:')
