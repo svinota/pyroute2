@@ -6,6 +6,8 @@ from pyroute2.netlink.rtnl.ifinfmsg import ifinfmsg, protinfo_bridge
 from .common import Index, IPRouteFilter, NLAKeyTransform
 
 PREFIXLEN = len(protinfo_bridge.prefix)
+# Tunnel ids are VXLAN VNIs, 24 bit.
+TUNNEL_ID_MAX = 0xFFFFFF
 
 
 class BridgeFieldFilter(Index, NLAKeyTransform):
@@ -51,7 +53,7 @@ class BridgeIPRouteFilter(IPRouteFilter):
         vlan_info_spec = self.build_vlan_info_spec(orig_spec)
         range_ids = [int(i) for i in str(orig_spec['id']).split('-')]
         if len(range_ids) == 2 and len(vlan_info_spec) == 2:
-            if 0 < range_ids[0] < range_ids[1] < 16777215:
+            if 0 < range_ids[0] < range_ids[1] <= TUNNEL_ID_MAX:
                 # vid to id mapping range must be the same length
                 if (
                     vlan_info_spec[1]['vid'] - vlan_info_spec[0]['vid']
@@ -64,7 +66,7 @@ class BridgeIPRouteFilter(IPRouteFilter):
                         self.create_nla_spec(vlan_info_spec[1]),
                     ]
         elif len(range_ids) == 1 and len(vlan_info_spec) == 1:
-            if 0 < range_ids[0] < 4095:
+            if 0 < range_ids[0] <= TUNNEL_ID_MAX:
                 vlan_info_spec[0]['id'] = range_ids[0]
                 # Delete flags because vlan_tunnel_info doesn't seem
                 #  to use them, except for the RANGE.
