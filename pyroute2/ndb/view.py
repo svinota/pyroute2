@@ -149,14 +149,16 @@ class View(dict):
         except KeyError:
             return None
 
-    def template(self, key, table=None):
+    def template(self, key, table=None, monitor=False):
         if self.chain:
             context = self.chain.context
         else:
             context = {}
         iclass = self.classes[table or self.table]
         spec = iclass.new_spec(key, context, self.default_target)
-        return iclass(self, spec, load=False, master=self.chain)
+        return iclass(
+            self, spec, load=False, master=self.chain, monitor=monitor
+        )
 
     def create(self, *argspec, **kwspec):
         iclass = self.classes[self.table]
@@ -269,8 +271,8 @@ class View(dict):
             raise KeyError('got an empty key')
         return self[request]
 
-    def __getitem__(self, key, table=None):
-        template = self.template(key, table)
+    def __getitem__(self, key, table=None, monitor=False):
+        template = self.template(key, table, monitor)
 
         # rtnl_object.key() returns a dictionary that can not
         # be used as a cache key. Create here a tuple from it.

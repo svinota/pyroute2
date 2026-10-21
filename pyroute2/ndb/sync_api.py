@@ -93,8 +93,8 @@ class SyncBase:
 
 class SyncDB(SyncBase):
 
-    def export(self, f='stdout'):
-        return self._main_sync_call(self.asyncore.schema.export)
+    def export(self, ctxid=None, f='stdout'):
+        return self._main_sync_call(self.asyncore.schema.export, ctxid, f)
 
     def backup(self, spec):
         return self._main_sync_call(self.asyncore.schema.backup, spec)
@@ -132,6 +132,12 @@ class SyncView(SyncBase):
     @property
     def cache(self):
         return self.asyncore.cache
+
+    def template(self, key, table=None, monitor=False):
+        item = self._main_sync_call(
+            self.asyncore.template, key, table, monitor
+        )
+        return self._get_sync_class(item)
 
     def get(self, spec=None, table=None, **kwarg):
         item = self._main_sync_call(self.asyncore.get, spec, table, **kwarg)
