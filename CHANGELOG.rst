@@ -1,6 +1,16 @@
 Changelog
 =========
 
+* 0.9.7
+    * ndb: basic support for object preload hooks <https://github.com/svinota/pyroute2/pull/1496>
+    * ndb: basic support for prometheus metrics
+    * taskstats: fix name unregister_mask() -> deregister_mask()
+    * plan9: fids per session & inodes per FS <https://github.com/svinota/pyroute2/pull/1492>
+    * ethtool: fix the off flags <https://github.com/svinota/pyroute2/pull/1483>
+    * dhcp: support option 41 NIS servers <https://github.com/svinota/pyroute2/pull/1488>
+    * wirouting: link features <https://github.com/svinota/pyroute2/pull/1476>
+    * rtnl: support RTAX_CC_ALGO on route metrics <https://github.com/svinota/pyroute2/pull/1474>
+    * rtnl: add missing NFT flags <https://github.com/svinota/pyroute2/pull/1475>
 * 0.9.6
     * dhcp: call UNBOUND hook upon NAK <https://github.com/svinota/pyroute2/pull/1436>
     * ndb: support replacement policies for routes <https://github.com/svinota/pyroute2/pull/1441>
