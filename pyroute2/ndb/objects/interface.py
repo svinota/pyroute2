@@ -380,6 +380,7 @@ ifinfo_names = (
     'vrf',
     'vti',
     'vti6',
+    'xfrm',
 )
 supported_ifinfo = {x: ifinfmsg.ifinfo.data_map[x] for x in ifinfo_names}
 #
