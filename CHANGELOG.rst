@@ -2,6 +2,7 @@ Changelog
 =========
 
 * 0.9.7
+    * ndb: basic support for XFRM interfaces <https://github.com/svinota/pyroute2/pull/1498>
     * ndb: basic support for object preload hooks <https://github.com/svinota/pyroute2/pull/1496>
     * ndb: basic support for prometheus metrics
     * taskstats: fix name unregister_mask() -> deregister_mask()
