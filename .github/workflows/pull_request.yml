@@ -48,7 +48,7 @@ jobs:
     runs-on: Fedora
     strategy:
       matrix:
-        python: [python3.10, python3.13]
+        python: [python3.10, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v7
@@ -108,7 +108,7 @@ jobs:
     runs-on: Ubuntu
     strategy:
       matrix:
-        python: [python3.10, python3.12]
+        python: [python3.10, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v7
@@ -126,7 +126,7 @@ jobs:
     runs-on: Ubuntu
     strategy:
       matrix:
-        python: [python3.10, python3.12]
+        python: [python3.10, python3.14]
     steps:
       - run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
       - uses: actions/checkout@v7
