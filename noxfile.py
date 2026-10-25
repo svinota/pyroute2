@@ -10,9 +10,9 @@ import nox
 nox.options.envdir = f'./.nox-{getpass.getuser()}'
 nox.options.reuse_existing_virtualenvs = False
 nox.options.sessions = [
-    'linter-python3.9',
+    'linter-python3.10',
     'linter-python3.14',
-    'ci-self-python3.9',
+    'ci-self-python3.10',
     'ci-self-python3.14',
     'repo',
     'unit',
@@ -21,11 +21,11 @@ nox.options.sessions = [
     'process',
     'integration',
     'uvloop',
-    'core-python3.9',
+    'core-python3.10',
     'core-python3.14',
-    'linux-python3.9',
+    'linux-python3.10',
     'linux-python3.14',
-    'minimal-python3.9',
+    'minimal-python3.10',
     'minimal-python3.14',
 ]
 
@@ -257,7 +257,6 @@ def docs(session, config):
 
 @nox.session(
     python=[
-        'python3.9',
         'python3.10',
         'python3.11',
         'python3.12',
@@ -332,7 +331,6 @@ def test_common(session, config, module, workspace=None):
 @nox.session(
     name='ci-self',
     python=[
-        'python3.9',
         'python3.10',
         'python3.11',
         'python3.12',
@@ -350,7 +348,6 @@ def ci(session, config):
 
 @nox.session(
     python=[
-        'python3.9',
         'python3.10',
         'python3.11',
         'python3.12',
@@ -366,7 +363,6 @@ def linux(session, config):
 
 @nox.session(
     python=[
-        'python3.9',
         'python3.10',
         'python3.11',
         'python3.12',
@@ -397,7 +393,6 @@ def process(session, config):
 
 @nox.session(
     python=[
-        'python3.9',
         'python3.10',
         'python3.11',
         'python3.12',
