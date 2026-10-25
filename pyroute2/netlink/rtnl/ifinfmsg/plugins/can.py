@@ -41,7 +41,7 @@ class can(nla):
         ('IFLA_CAN_STATE', 'can_state'),
         ('IFLA_CAN_CTRLMODE', 'can_ctrlmode'),
         ('IFLA_CAN_RESTART_MS', 'uint32'),
-        ('IFLA_CAN_RESTART', 'flag'),
+        ('IFLA_CAN_RESTART', 'uint32'),
         ('IFLA_CAN_BERR_COUNTER', 'can_berr_counter'),
         ('IFLA_CAN_DATA_BITTIMING', 'can_bittiming'),
         ('IFLA_CAN_DATA_BITTIMING_CONST', 'can_bittiming_const'),
