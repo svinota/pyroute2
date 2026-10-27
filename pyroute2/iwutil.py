@@ -532,7 +532,7 @@ class AsyncIW(AsyncNL80211):
         msg['cmd'] = NL80211_NAMES['NL80211_CMD_GET_SCAN']
         msg['attrs'] = [['NL80211_ATTR_IFINDEX', ifindex]]
 
-        coro = self._do_dump(msg)
+        coro = await self._do_dump(msg)
         try:
             async for x in coro:
                 attr_bss = x.get_attr('NL80211_ATTR_BSS')
