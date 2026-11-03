@@ -105,6 +105,7 @@ from pyroute2.netlink import (
     NLM_F_ATOMIC,
     NLM_F_CREATE,
     NLM_F_DUMP,
+    NLM_F_DUMP_INTR,
     NLM_F_ECHO,
     NLM_F_EXCL,
     NLM_F_REPLACE,
@@ -119,7 +120,11 @@ from pyroute2.netlink.core import (
     CoreSocketSpec,
     SyncAPI,
 )
-from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
+from pyroute2.netlink.exceptions import (
+    ChaoticException,
+    NetlinkDumpInterrupted,
+    NetlinkError,
+)
 from pyroute2.netlink.marshal import Marshal
 from pyroute2.netlink.rt_files import NlProtosFile
 from pyroute2.requests.main import RequestFilter
@@ -667,6 +672,8 @@ class NetlinkRequest:
                     and not self.match_one_message(self.dump_filter, msg)
                 ):
                     continue
+                if msg['header']['flags'] & NLM_F_DUMP_INTR:
+                    raise NetlinkDumpInterrupted()
                 for cr in self.sock.callbacks:
                     try:
                         if cr[0](msg):
