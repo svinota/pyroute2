@@ -1,4 +1,8 @@
-from pyroute2.netlink import nlmsg_base, nlmsg_encoder_generic
+from pyroute2.netlink import (
+    nlmsg_base,
+    nlmsg_decoder_generic,
+    nlmsg_encoder_generic,
+)
 
 # see em_ipset.c
 IPSET_DIM = {
@@ -30,7 +34,7 @@ def get_parameters(kwarg):
     return ret
 
 
-class data(nlmsg_base, nlmsg_encoder_generic):
+class data(nlmsg_base, nlmsg_encoder_generic, nlmsg_decoder_generic):
     fields = (
         ('ip_set_index', 'H'),
         ('ip_set_dim', 'B'),

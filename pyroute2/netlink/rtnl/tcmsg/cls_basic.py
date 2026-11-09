@@ -214,6 +214,8 @@ class options(nla):
 
             def decode(self):
                 nla.decode(self)
+                if self._nla_array:
+                    return
                 size = 0
                 for field in self.fields + self.header:
                     if 'opt' in field:
